@@ -77,8 +77,37 @@ lib/
 │   │   └── matches_screen.dart    (placeholder)
 │   └── live/
 │       └── scout_screen.dart      (placeholder, si aprirà DA gestione partite)
+├── theme/
+│   ├── app_colors.dart            (palette brand + colori semantici + superfici)
+│   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
+│   ├── app_typography.dart        (AppTypography.textTheme — scale tipografica)
+│   ├── app_theme.dart             (AppTheme.light — ThemeData principale, usa i file sopra)
+│   └── court_style.dart           (CourtStyle — costanti grafiche campo: colori linee,
+│                                   rete, token giocatore, traiettoria, votoColor(Voto))
 └── widgets/                       (vuota per ora)
 ```
+
+---
+
+## Tema e stili
+
+Il tema è centralizzato in `lib/theme/`. Usare sempre queste costanti invece di
+valori hardcoded in widget.
+
+| File | Classe | Uso principale |
+|---|---|---|
+| `app_colors.dart` | `AppColors` | `brandPrimary` (blu 1E3A8A), `brandAccent` (ambra F59E0B), `success/warning/danger`, `surface/surfaceDim` |
+| `app_spacing.dart` | `AppSpacing` | padding/gap: `xs`=4, `sm`=8, `md`=16, `lg`=24, `xl`=32, `xxl`=48 |
+| `app_spacing.dart` | `AppRadius` | border radius: `sm`=8, `md`=12, `lg`=16, `pill`=999 |
+| `app_typography.dart` | `AppTypography` | `textTheme` con headlineMedium, titleLarge/Medium, bodyLarge/Medium/Small, labelLarge |
+| `app_theme.dart` | `AppTheme` | `AppTheme.light` — usato in `main.dart` come `theme:` di `MaterialApp` |
+| `court_style.dart` | `CourtStyle` | costanti di disegno campo (linee, rete, token, traiettoria) + `votoColor(Voto)` |
+
+`AppTheme.light` definisce già: `filledButtonTheme` (bordi arrotondati `AppRadius.md`),
+`inputDecorationTheme` (stessa curvatura), `cardTheme`.
+
+`AppTypography` non è ancora agganciato ad `AppTheme.light` — da fare quando serve
+uniformità tipografica globale (aggiungere `textTheme: AppTypography.textTheme`).
 
 ---
 
@@ -117,6 +146,7 @@ ordine, timestamp, puntiCasaAlMomento, puntiOspitiAlMomento.
 - Battuta e attacco richiedono la traiettoria (getter `richiedeTraiettoria`).
 
 **Enum Voto**: perfetto (#), positivo (+), mezzoPunto (!), negativo (-), errore (=).
+Già definito in `enums.dart` (campo `simbolo`); usato da `CourtStyle.votoColor()`.
 
 **Trajectory**: partenza e arrivo come **coordinate normalizzate 0.0-1.0**
 (CourtPoint x,y) rispetto al campo intero, rete a x=0.5. Non salvare pixel.

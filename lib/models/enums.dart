@@ -32,3 +32,14 @@ enum Ruolo {
   final String label;
   const Ruolo(this.label);
 }
+
+enum Voto {
+  perfetto('#'),
+  positivo('+'),
+  mezzoPunto('!'),
+  negativo('-'),
+  errore('=');
+
+  final String simbolo;
+  const Voto(this.simbolo);
+}
