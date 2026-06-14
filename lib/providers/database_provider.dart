@@ -65,3 +65,37 @@ final playersStreamProvider =
     StreamProvider.family<List<Player>, int>((ref, teamId) {
   return ref.watch(teamRepositoryProvider).watchPlayersForTeam(teamId);
 });
+
+// --- Partite ---
+
+class MatchRepository {
+  MatchRepository(this._db);
+  final AppDatabase _db;
+
+  Stream<List<VolleyMatch>> watchMatches() {
+    return (_db.select(_db.volleyMatches)
+          ..orderBy([(m) => OrderingTerm.desc(m.dataOra)]))
+        .watch();
+  }
+
+  Future<int> addMatch(VolleyMatchesCompanion match) {
+    return _db.into(_db.volleyMatches).insert(match);
+  }
+
+  Future<bool> updateMatch(VolleyMatch match) {
+    return _db.update(_db.volleyMatches).replace(match);
+  }
+
+  Future<int> deleteMatch(int matchId) {
+    return (_db.delete(_db.volleyMatches)..where((m) => m.id.equals(matchId)))
+        .go();
+  }
+}
+
+final matchRepositoryProvider = Provider<MatchRepository>((ref) {
+  return MatchRepository(ref.watch(appDatabaseProvider));
+});
+
+final matchesStreamProvider = StreamProvider<List<VolleyMatch>>((ref) {
+  return ref.watch(matchRepositoryProvider).watchMatches();
+});

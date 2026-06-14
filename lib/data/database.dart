@@ -42,18 +42,32 @@ class Players extends Table {
   TextColumn get ruolo => text().map(const RuoloConverter())();
 }
 
+@DataClassName('VolleyMatch')
+class VolleyMatches extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nome => text().withLength(min: 1, max: 100)();
+  DateTimeColumn get dataOra => dateTime()();
+  BoolColumn get inCasa => boolean()();
+  TextColumn get palestra => text().nullable()();
+  IntColumn get teamId => integer()
+      .nullable()
+      .references(Teams, #id, onDelete: KeyAction.setNull)();
+}
+
 // --- Database ---
-@DriftDatabase(tables: [Teams, Players])
+@DriftDatabase(tables: [Teams, Players, VolleyMatches])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(volleyMatches);
+        },
         beforeOpen: (details) async {
-          // Abilita le foreign key (necessario per il cascade delete)
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
