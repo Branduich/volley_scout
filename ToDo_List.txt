@@ -1,0 +1,20 @@
+# TODO — Volley Scout
+
+## In corso (fase attuale)
+- [ ] Fase 2: gestione partite
+
+
+## Prossime fasi (pianificate)
+- [ ] Fase 3: scout
+- [ ] Fase 4: statistiche + export PDF
+
+## Idee da valutare (backlog)
+- [ ] Integrazione Google Places oppure Open Street Map o Nominatim per il campo/struttura
+- [ ] Campi lat/lng e struttura anche nel setup squadre
+- [ ] Design system: court_style.dart in Fase 3
+
+## Migliorie tecniche / debito
+- [ ] (es. refactoring, responsive layout tablet vs telefono)
+
+## Scartate / rimandate a data da definirsi
+- [ ] (idee accantonate, con una riga sul perché)
