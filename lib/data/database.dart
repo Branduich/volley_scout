@@ -52,6 +52,8 @@ class VolleyMatches extends Table {
   IntColumn get teamId => integer()
       .nullable()
       .references(Teams, #id, onDelete: KeyAction.setNull)();
+  RealColumn get lat => real().nullable()();
+  RealColumn get lon => real().nullable()();
 }
 
 // --- Database ---
@@ -60,12 +62,18 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
           if (from < 2) await m.createTable(volleyMatches);
+          if (from < 3) {
+            await customStatement(
+                'ALTER TABLE volley_matches ADD COLUMN lat REAL');
+            await customStatement(
+                'ALTER TABLE volley_matches ADD COLUMN lon REAL');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

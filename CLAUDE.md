@@ -52,29 +52,36 @@ dev: `drift_dev build_runner`
 
 6. Lingua dell'interfaccia e dei label: **italiano**.
 
+7. **`@DataClassName`**: usare sempre l'annotazione sulle tabelle drift il cui
+   plurale darebbe una data class storpiata (es. `VolleyMatches` → drift genera
+   `VolleyMatche`). Soluzione: `@DataClassName('VolleyMatch')` sopra la classe
+   tabella. Il Companion mantiene sempre il nome della tabella: `VolleyMatchesCompanion`.
+
 ---
 
 ## Struttura cartelle
 
 ```
 lib/
-├── main.dart                     (app + HomeScreen con menu)
+├── main.dart                     (app + HomeScreen con menu; usa AppTheme.light)
 ├── models/
-│   └── enums.dart                (Ruolo, Categoria, JerseyColor + palette)
+│   └── enums.dart                (Ruolo, Categoria, Voto + jerseyPalette)
 ├── data/
-│   ├── database.dart             (tabelle Teams, Players + AppDatabase)
-│   ├── database.g.dart           (generato, non editare a mano)
-│   └── repositories/
-│       └── team_repository.dart  (CRUD squadre + giocatori)
+│   ├── database.dart             (tabelle Teams, Players, VolleyMatches + AppDatabase)
+│   └── database.g.dart           (generato, non editare a mano)
 ├── providers/
-│   └── database_provider.dart    (databaseProvider, teamRepositoryProvider,
-│                                   teamsStreamProvider, playersStreamProvider)
+│   └── database_provider.dart    (TeamRepository + MatchRepository,
+│                                   tutti i provider: teamsStream, playersStream,
+│                                   matchesStream)
 ├── screens/
 │   ├── teams/
 │   │   ├── teams_screen.dart      (lista squadre + FAB nuova squadra)
-│   │   └── team_form_screen.dart  (crea/modifica/elimina squadra)
+│   │   ├── team_form_screen.dart  (crea/modifica/elimina squadra;
+│   │   │                           layout 2 colonne: form | lista giocatori)
+│   │   └── player_form_screen.dart (crea/modifica/elimina giocatore)
 │   ├── matches/
-│   │   └── matches_screen.dart    (placeholder)
+│   │   ├── matches_screen.dart    (lista partite + FAB nuova partita)
+│   │   └── match_form_screen.dart (crea/modifica/elimina partita)
 │   └── live/
 │       └── scout_screen.dart      (placeholder, si aprirà DA gestione partite)
 ├── theme/
@@ -129,9 +136,17 @@ primaDivisione, serieD, serieC, serieB, serieB1, serieB2, serieA1, serieA2, seri
 **jerseyPalette**: lista fissa di JerseyColor (nome + Color): Rosso, Blu, Verde,
 Giallo, Arancione, Viola, Nero.
 
-### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
+### Implementato (Fase 2 — parziale)
 
-**VolleyMatch**: id, data, campo, squadraCasaId, squadraOspiteId.
+**VolleyMatch** (`@DataClassName('VolleyMatch')` su tabella `VolleyMatches`):
+id, nome, dataOra (DateTime, salvato come int64 ms epoch da drift), inCasa (bool),
+palestra (text nullable), teamId (FK -> Teams nullable, setNull on delete),
+lat (real nullable), lon (real nullable).
+- `lat`/`lon` riservati a futura integrazione Maps/OpenStreetMap, non visibili in UI.
+- `teamId` sarà selezionabile nella schermata di dettaglio partita (prossimo passo).
+- Schema DB attuale: **v3**.
+
+### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
 
 **MatchSet**: id, matchId, numero, puntiCasa, puntiOspiti.
 
@@ -185,18 +200,22 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 ## Fasi di sviluppo
 
-- **Fase 1 — Squadre e giocatori** (IN CORSO)
+- **Fase 1 — Squadre e giocatori** (COMPLETATA)
   - [x] Enum, database (Teams, Players), repository, provider
   - [x] HomeScreen con menu
   - [x] Lista squadre + form crea/modifica/elimina squadra
-  - [ ] **PROSSIMO PASSO: gestione giocatori** dentro la schermata di modifica
-    squadra (lista giocatori + aggiungi/modifica/elimina, con nome, cognome,
-    numero, ruolo). La sezione giocatori compare solo in modalità modifica
-    (squadra già salvata, serve il teamId).
+  - [x] Gestione giocatori nella schermata di modifica squadra (layout 2 colonne,
+        PlayerFormScreen con nome/cognome/numero/ruolo)
+  - [x] Tema centralizzato (AppTheme.light agganciato a main.dart)
+  - [x] Enum Voto definito in enums.dart
 
-- **Fase 2 — Gestione partite**: modelli VolleyMatch/MatchSet, tabella matches,
-  schermata creazione partita (data, campo, scelta delle due squadre), lista
-  partite, dettaglio partita da cui parte lo scout.
+- **Fase 2 — Gestione partite** (IN CORSO)
+  - [x] Tabella VolleyMatches (schema v3), MatchRepository, provider
+  - [x] MatchesScreen: lista partite con badge Casa/Trasferta + FAB
+  - [x] MatchFormScreen: nome, date/time picker, switch casa/trasferta, palestra
+  - [ ] **PROSSIMO PASSO**: selezione squadra (`teamId`) nella schermata di
+        dettaglio partita — scegliere tra le squadre già create.
+  - [ ] Schermata dettaglio partita → punto di ingresso per lo scout.
 
 - **Fase 3 — Scout**: CustomPainter del campo, Rotation, ScoutAction,
   traiettorie via drag, logica rotazioni/sideout.
@@ -207,9 +226,14 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 ## Stato attuale
 
-Fase 1 quasi completa. Il prossimo task è la **gestione giocatori** nella
-schermata di modifica squadra. Tutto il resto della Fase 1 (squadre) funziona ed
-è testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
+**Fase 1 completata.** **Fase 2 in corso.**
+
+La schermata partite mostra la lista live e permette di creare/modificare/eliminare
+una partita (nome, data/ora, casa/trasferta, palestra). Il prossimo passo è la
+selezione della squadra (`teamId`) e la schermata di dettaglio partita da cui
+partirà lo scout.
+
+Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout
 
 ---
