@@ -207,25 +207,39 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 
   Widget _buildLiberoRow() {
+    // Card libero stessa dimensione visiva delle P (112×112) con margine uniforme
+    const slotSize = 136.0;
+    const liberoMargin = EdgeInsets.all(12);
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(width: 108, height: 108, child: _buildSlot('L1')),
+        SizedBox(
+          width: slotSize,
+          height: slotSize,
+          child: _buildSlot('L1', margin: liberoMargin),
+        ),
         if (_doppiLibero) ...[
           const SizedBox(width: 12),
-          SizedBox(width: 108, height: 108, child: _buildSlot('L2')),
+          SizedBox(
+            width: slotSize,
+            height: slotSize,
+            child: _buildSlot('L2', margin: liberoMargin),
+          ),
         ],
       ],
     );
   }
 
-  Widget _buildSlot(String slot) {
+  Widget _buildSlot(String slot,
+      {EdgeInsetsGeometry margin =
+          const EdgeInsets.fromLTRB(20, 12, 20, 104)}) {
     final player = _assignments[slot];
     final isSelected = _selectedSlot == slot;
 
     return GestureDetector(
       onTap: () => _onSlotTap(slot),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 58),
+        margin: margin,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
