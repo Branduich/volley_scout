@@ -80,10 +80,12 @@ lib/
 │   │   │                           layout 2 colonne: form | lista giocatori)
 │   │   └── player_form_screen.dart (crea/modifica/elimina giocatore)
 │   ├── matches/
-│   │   ├── matches_screen.dart    (lista partite + FAB nuova partita)
-│   │   └── match_form_screen.dart (crea/modifica/elimina partita)
+│   │   ├── matches_screen.dart        (lista partite + FAB + bottone "Inizia" per card)
+│   │   ├── match_form_screen.dart     (crea/modifica/elimina partita)
+│   │   └── team_selection_screen.dart (scelta squadra prima dello scout;
+│   │                                   label dinamica casa/trasferta, crea al volo)
 │   └── live/
-│       └── scout_screen.dart      (placeholder, si aprirà DA gestione partite)
+│       └── scout_screen.dart          (placeholder con match + team, da implementare Fase 3)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -173,9 +175,12 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 - **HomeScreen**: layout landscape con area principale a sinistra (vuota per ora)
   e colonna di bottoni a destra: "Setup squadre" e "Gestione partite".
-- Lo **scout NON si apre dalla home**: si aprirà da dentro una partita specifica
-  (dentro Gestione partite -> dettaglio partita -> Scout), perché lo scout ha
-  bisogno del contesto della partita (squadre, set).
+- **Flusso scout** (implementato fino a TeamSelectionScreen):
+  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `ScoutScreen`
+  - Il `teamId` viene salvato sulla partita nel DB al momento della selezione.
+  - Da `TeamSelectionScreen` si può creare una squadra al volo (naviga a `TeamFormScreen`
+    e al ritorno il nuovo team compare automaticamente nella lista via stream).
+- Lo **scout NON si apre dalla home**: ha bisogno del contesto partita + squadra.
 
 ---
 
@@ -209,15 +214,15 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
   - [x] Tema centralizzato (AppTheme.light agganciato a main.dart)
   - [x] Enum Voto definito in enums.dart
 
-- **Fase 2 — Gestione partite** (IN CORSO)
+- **Fase 2 — Gestione partite** (COMPLETATA)
   - [x] Tabella VolleyMatches (schema v3), MatchRepository, provider
-  - [x] MatchesScreen: lista partite con badge Casa/Trasferta + FAB
+  - [x] MatchesScreen: lista partite con badge Casa/Trasferta + FAB + bottone "Inizia"
   - [x] MatchFormScreen: nome, date/time picker, switch casa/trasferta, palestra
-  - [ ] **PROSSIMO PASSO**: selezione squadra (`teamId`) nella schermata di
-        dettaglio partita — scegliere tra le squadre già create.
-  - [ ] Schermata dettaglio partita → punto di ingresso per lo scout.
+  - [x] TeamSelectionScreen: label dinamica, lista squadre, selezione salva teamId,
+        crea squadra al volo, naviga a ScoutScreen con match + team
+  - [x] ScoutScreen: placeholder con contesto match + team pronto per Fase 3
 
-- **Fase 3 — Scout**: CustomPainter del campo, Rotation, ScoutAction,
+- **Fase 3 — Scout** (PROSSIMA): CustomPainter del campo, Rotation, ScoutAction,
   traiettorie via drag, logica rotazioni/sideout.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
@@ -226,12 +231,12 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 ## Stato attuale
 
-**Fase 1 completata.** **Fase 2 in corso.**
+**Fase 1 completata. Fase 2 completata.**
 
-La schermata partite mostra la lista live e permette di creare/modificare/eliminare
-una partita (nome, data/ora, casa/trasferta, palestra). Il prossimo passo è la
-selezione della squadra (`teamId`) e la schermata di dettaglio partita da cui
-partirà lo scout.
+Il flusso fino allo scout è navigabile end-to-end: lista partite → "Inizia" →
+selezione squadra (con creazione al volo) → ScoutScreen placeholder.
+Il prossimo passo è la **Fase 3**: disegno del campo con CustomPainter e
+registrazione delle azioni di scout.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout

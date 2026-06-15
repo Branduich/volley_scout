@@ -4,6 +4,7 @@ import '../../data/database.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import 'match_form_screen.dart';
+import 'team_selection_screen.dart';
 
 class MatchesScreen extends ConsumerWidget {
   const MatchesScreen({super.key});
@@ -46,6 +47,12 @@ class MatchesScreen extends ConsumerWidget {
                   builder: (_) => MatchFormScreen(match: matches[i]),
                 ),
               ),
+              onStart: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TeamSelectionScreen(match: matches[i]),
+                ),
+              ),
             ),
           );
         },
@@ -57,8 +64,9 @@ class MatchesScreen extends ConsumerWidget {
 class _MatchCard extends StatelessWidget {
   final VolleyMatch match;
   final VoidCallback onTap;
+  final VoidCallback onStart;
 
-  const _MatchCard({required this.match, required this.onTap});
+  const _MatchCard({required this.match, required this.onTap, required this.onStart});
 
   String _pad(int n) => n.toString().padLeft(2, '0');
 
@@ -78,7 +86,18 @@ class _MatchCard extends StatelessWidget {
         subtitle: Text(
           match.palestra != null ? '$dateStr  •  ${match.palestra}' : dateStr,
         ),
-        trailing: _CasaBadge(inCasa: match.inCasa),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CasaBadge(inCasa: match.inCasa),
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              onPressed: onStart,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Inizia'),
+            ),
+          ],
+        ),
         onTap: onTap,
       ),
     );
