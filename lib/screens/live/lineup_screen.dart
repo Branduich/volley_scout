@@ -7,7 +7,7 @@ import '../teams/player_form_screen.dart';
 import 'scout_screen.dart';
 
 const _kBg = Color(0xFF0F172A); // dark navy background
-const _kField = Color(0xFF1D4ED8); // blue field interior
+const _kCourtImage = 'assets/images/court_bg.png';
 
 // Counter-clockwise selection order
 const _kCourtOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
@@ -120,14 +120,14 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   // ── Left panel ──────────────────────────────────────────────────────────────
 
   Widget _buildCourtSection() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _buildDoppiLiberoCheckbox(),
           const SizedBox(height: 8),
-          Expanded(child: _buildCourtGrid()),
+          SizedBox(width: 460, height: 460, child: _buildCourtGrid()),
           const SizedBox(height: 14),
           _buildLiberoRow(),
           const SizedBox(height: 4),
@@ -169,9 +169,12 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   Widget _buildCourtGrid() {
     return Container(
       decoration: BoxDecoration(
-        color: _kField,
         border: Border.all(color: Colors.white, width: 2),
         borderRadius: BorderRadius.circular(8),
+        image: const DecorationImage(
+          image: AssetImage(_kCourtImage),
+          fit: BoxFit.fill,
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
@@ -182,22 +185,17 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
               child: Row(
                 children: [
                   Expanded(child: _buildSlot('P4')),
-                  const _DashedVDivider(),
                   Expanded(child: _buildSlot('P3')),
-                  const _DashedVDivider(),
                   Expanded(child: _buildSlot('P2')),
                 ],
               ),
             ),
-            Container(height: 2, color: Colors.white),
             // Back row: P5 | P6 | P1
             Expanded(
               child: Row(
                 children: [
                   Expanded(child: _buildSlot('P5')),
-                  const _DashedVDivider(),
                   Expanded(child: _buildSlot('P6')),
-                  const _DashedVDivider(),
                   Expanded(child: _buildSlot('P1')),
                 ],
               ),
@@ -227,7 +225,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     return GestureDetector(
       onTap: () => _onSlotTap(slot),
       child: Container(
-        margin: const EdgeInsets.all(8),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 58),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -386,35 +384,3 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-class _DashedVDivider extends StatelessWidget {
-  const _DashedVDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 2,
-      child: CustomPaint(painter: _DashedLinePainter()),
-    );
-  }
-}
-
-class _DashedLinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xAAFFFFFF)
-      ..strokeWidth = 1.5;
-    const dash = 8.0;
-    const gap = 6.0;
-    var y = 0.0;
-    while (y < size.height) {
-      canvas.drawLine(Offset(0.5, y), Offset(0.5, y + dash), paint);
-      y += dash + gap;
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedLinePainter old) => false;
-}
