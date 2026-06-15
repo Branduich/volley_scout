@@ -85,6 +85,8 @@ lib/
 │   │   └── team_selection_screen.dart (scelta squadra prima dello scout;
 │   │                                   label dinamica casa/trasferta, crea al volo)
 │   └── live/
+│       ├── lineup_screen.dart         (selezione formazione di partenza: griglia 3×2 +
+│       │                               libero, assegnazione giocatori, conferma)
 │       └── scout_screen.dart          (placeholder con match + team, da implementare Fase 3)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
@@ -175,12 +177,20 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 - **HomeScreen**: layout landscape con area principale a sinistra (vuota per ora)
   e colonna di bottoni a destra: "Setup squadre" e "Gestione partite".
-- **Flusso scout** (implementato fino a TeamSelectionScreen):
-  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `ScoutScreen`
-  - Il `teamId` viene salvato sulla partita nel DB al momento della selezione.
-  - Da `TeamSelectionScreen` si può creare una squadra al volo (naviga a `TeamFormScreen`
-    e al ritorno il nuovo team compare automaticamente nella lista via stream).
-- Lo **scout NON si apre dalla home**: ha bisogno del contesto partita + squadra.
+- **Flusso scout** (navigabile end-to-end fino al placeholder):
+  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `ScoutScreen`
+  - Il `teamId` viene salvato sulla partita nel DB al momento della selezione squadra.
+  - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
+    automaticamente via stream al ritorno.
+  - `LineupScreen`: layout landscape con sfondo blu scuro; sinistra = griglia campo 3×2
+    (P1–P6 in senso antiorario, con linee tratteggiate verticali e linea piena orizzontale)
+    + slot libero sotto (L1, opzionalmente L2 con checkbox "Doppio libero"); destra = lista
+    giocatori della squadra (grayed out + ✓ quando assegnati, "Aggiungi" per crearne uno
+    al volo). Slot selezionato = bordo rosso. Tap giocatore → assegna al posto selezionato
+    e avanza automaticamente al prossimo vuoto in senso antiorario. Tap su giocatore già
+    assegnato → deassegna. "Conferma formazione" abilitato solo quando P1–P6 sono tutti
+    riempiti. La formazione è in memoria (non ancora persistita a DB).
+- Lo **scout NON si apre dalla home**: ha bisogno del contesto partita + squadra + formazione.
 
 ---
 
@@ -219,11 +229,17 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
   - [x] MatchesScreen: lista partite con badge Casa/Trasferta + FAB + bottone "Inizia"
   - [x] MatchFormScreen: nome, date/time picker, switch casa/trasferta, palestra
   - [x] TeamSelectionScreen: label dinamica, lista squadre, selezione salva teamId,
-        crea squadra al volo, naviga a ScoutScreen con match + team
+        crea squadra al volo
+  - [x] LineupScreen: selezione formazione (griglia campo, assegnazione giocatori,
+        doppio libero, avanzamento automatico CCW, conferma)
   - [x] ScoutScreen: placeholder con contesto match + team pronto per Fase 3
 
-- **Fase 3 — Scout** (PROSSIMA): CustomPainter del campo, Rotation, ScoutAction,
-  traiettorie via drag, logica rotazioni/sideout.
+- **Fase 3 — Scout** (IN CORSO)
+  - [ ] **PROSSIMO**: schermata scout vera e propria — CustomPainter campo intero,
+        token giocatori toccabili, flusso 3 tocchi (giocatore → fondamentale → voto),
+        registrazione ScoutAction a DB, traiettorie via drag.
+  - [ ] Modello DB: tabelle MatchSet, Rotation, ScoutAction.
+  - [ ] Logica rotazioni / sideout.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
 
@@ -231,12 +247,12 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 ## Stato attuale
 
-**Fase 1 completata. Fase 2 completata.**
+**Fase 1 completata. Fase 2 completata. Fase 3 in corso.**
 
-Il flusso fino allo scout è navigabile end-to-end: lista partite → "Inizia" →
-selezione squadra (con creazione al volo) → ScoutScreen placeholder.
-Il prossimo passo è la **Fase 3**: disegno del campo con CustomPainter e
-registrazione delle azioni di scout.
+Il flusso è navigabile end-to-end: lista partite → "Inizia" → selezione squadra →
+selezione formazione (`LineupScreen`) → `ScoutScreen` placeholder.
+Il prossimo passo è implementare la schermata scout vera: CustomPainter del campo,
+token giocatori, flusso 3 tocchi e registrazione azioni a DB.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
 import '../teams/team_form_screen.dart';
-import '../live/scout_screen.dart';
+import '../live/lineup_screen.dart';
 
 class TeamSelectionScreen extends ConsumerWidget {
   final VolleyMatch match;
@@ -19,7 +19,7 @@ class TeamSelectionScreen extends ConsumerWidget {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ScoutScreen(match: match, team: team),
+          builder: (_) => LineupScreen(match: match, team: team),
         ),
       );
     }
