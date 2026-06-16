@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,7 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
   late TextEditingController _cognomeController;
   late TextEditingController _numeroController;
   late Ruolo _ruolo;
+  DateTime? _scadenzaCertificato;
 
   bool get isEditing => widget.player != null;
 
@@ -32,6 +34,7 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
     _numeroController = TextEditingController(
         text: widget.player != null ? '${widget.player!.numero}' : '');
     _ruolo = widget.player?.ruolo ?? Ruolo.undefined;
+    _scadenzaCertificato = widget.player?.scadenzaCertificato;
   }
 
   @override
@@ -42,10 +45,26 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
     super.dispose();
   }
 
+  Future<void> _pickScadenzaCertificato() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _scadenzaCertificato ?? DateTime.now(),
+      firstDate: DateTime(2015),
+      lastDate: DateTime(2050),
+    );
+    if (picked != null) setState(() => _scadenzaCertificato = picked);
+  }
+
+  String _formatDate(DateTime dt) {
+    String pad(int n) => n.toString().padLeft(2, '0');
+    return '${pad(dt.day)}/${pad(dt.month)}/${dt.year}';
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final repo = ref.read(teamRepositoryProvider);
     final numero = int.parse(_numeroController.text.trim());
+    final scadenzaValue = Value(_scadenzaCertificato);
 
     if (isEditing) {
       await repo.updatePlayer(widget.player!.copyWith(
@@ -53,6 +72,7 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
         cognome: _cognomeController.text.trim(),
         numero: numero,
         ruolo: _ruolo,
+        scadenzaCertificato: scadenzaValue,
       ));
     } else {
       await repo.addPlayer(PlayersCompanion.insert(
@@ -61,6 +81,7 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
         cognome: _cognomeController.text.trim(),
         numero: numero,
         ruolo: _ruolo,
+        scadenzaCertificato: scadenzaValue,
       ));
     }
     if (mounted) Navigator.pop(context);
@@ -179,6 +200,30 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
                           DropdownMenuItem(value: r, child: Text(r.label)))
                       .toList(),
                   onChanged: (v) => setState(() => _ruolo = v!),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickScadenzaCertificato,
+                        icon: const Icon(Icons.event_busy),
+                        label: Text(
+                          _scadenzaCertificato == null
+                              ? 'Scadenza certificato medico'
+                              : 'Certificato valido fino al '
+                                  '${_formatDate(_scadenzaCertificato!)}',
+                        ),
+                      ),
+                    ),
+                    if (_scadenzaCertificato != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        tooltip: 'Rimuovi scadenza',
+                        onPressed: () =>
+                            setState(() => _scadenzaCertificato = null),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 32),
                 FilledButton.icon(

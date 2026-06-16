@@ -40,6 +40,7 @@ class Players extends Table {
   TextColumn get cognome => text().withLength(min: 1, max: 50)();
   IntColumn get numero => integer()();
   TextColumn get ruolo => text().map(const RuoloConverter())();
+  DateTimeColumn get scadenzaCertificato => dateTime().nullable()();
 }
 
 @DataClassName('VolleyMatch')
@@ -62,7 +63,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,6 +74,10 @@ class AppDatabase extends _$AppDatabase {
                 'ALTER TABLE volley_matches ADD COLUMN lat REAL');
             await customStatement(
                 'ALTER TABLE volley_matches ADD COLUMN lon REAL');
+          }
+          if (from < 4) {
+            await customStatement(
+                'ALTER TABLE players ADD COLUMN scadenza_certificato INTEGER');
           }
         },
         beforeOpen: (details) async {

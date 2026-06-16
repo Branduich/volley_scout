@@ -386,6 +386,17 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       ).withConverter<Ruolo>($PlayersTable.$converterruolo);
+  static const VerificationMeta _scadenzaCertificatoMeta =
+      const VerificationMeta('scadenzaCertificato');
+  @override
+  late final GeneratedColumn<DateTime> scadenzaCertificato =
+      GeneratedColumn<DateTime>(
+        'scadenza_certificato',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -394,6 +405,7 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     cognome,
     numero,
     ruolo,
+    scadenzaCertificato,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -442,6 +454,15 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     } else if (isInserting) {
       context.missing(_numeroMeta);
     }
+    if (data.containsKey('scadenza_certificato')) {
+      context.handle(
+        _scadenzaCertificatoMeta,
+        scadenzaCertificato.isAcceptableOrUnknown(
+          data['scadenza_certificato']!,
+          _scadenzaCertificatoMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -477,6 +498,10 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
           data['${effectivePrefix}ruolo'],
         )!,
       ),
+      scadenzaCertificato: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}scadenza_certificato'],
+      ),
     );
   }
 
@@ -495,6 +520,7 @@ class Player extends DataClass implements Insertable<Player> {
   final String cognome;
   final int numero;
   final Ruolo ruolo;
+  final DateTime? scadenzaCertificato;
   const Player({
     required this.id,
     required this.teamId,
@@ -502,6 +528,7 @@ class Player extends DataClass implements Insertable<Player> {
     required this.cognome,
     required this.numero,
     required this.ruolo,
+    this.scadenzaCertificato,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -516,6 +543,9 @@ class Player extends DataClass implements Insertable<Player> {
         $PlayersTable.$converterruolo.toSql(ruolo),
       );
     }
+    if (!nullToAbsent || scadenzaCertificato != null) {
+      map['scadenza_certificato'] = Variable<DateTime>(scadenzaCertificato);
+    }
     return map;
   }
 
@@ -527,6 +557,9 @@ class Player extends DataClass implements Insertable<Player> {
       cognome: Value(cognome),
       numero: Value(numero),
       ruolo: Value(ruolo),
+      scadenzaCertificato: scadenzaCertificato == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scadenzaCertificato),
     );
   }
 
@@ -542,6 +575,9 @@ class Player extends DataClass implements Insertable<Player> {
       cognome: serializer.fromJson<String>(json['cognome']),
       numero: serializer.fromJson<int>(json['numero']),
       ruolo: serializer.fromJson<Ruolo>(json['ruolo']),
+      scadenzaCertificato: serializer.fromJson<DateTime?>(
+        json['scadenzaCertificato'],
+      ),
     );
   }
   @override
@@ -554,6 +590,7 @@ class Player extends DataClass implements Insertable<Player> {
       'cognome': serializer.toJson<String>(cognome),
       'numero': serializer.toJson<int>(numero),
       'ruolo': serializer.toJson<Ruolo>(ruolo),
+      'scadenzaCertificato': serializer.toJson<DateTime?>(scadenzaCertificato),
     };
   }
 
@@ -564,6 +601,7 @@ class Player extends DataClass implements Insertable<Player> {
     String? cognome,
     int? numero,
     Ruolo? ruolo,
+    Value<DateTime?> scadenzaCertificato = const Value.absent(),
   }) => Player(
     id: id ?? this.id,
     teamId: teamId ?? this.teamId,
@@ -571,6 +609,9 @@ class Player extends DataClass implements Insertable<Player> {
     cognome: cognome ?? this.cognome,
     numero: numero ?? this.numero,
     ruolo: ruolo ?? this.ruolo,
+    scadenzaCertificato: scadenzaCertificato.present
+        ? scadenzaCertificato.value
+        : this.scadenzaCertificato,
   );
   Player copyWithCompanion(PlayersCompanion data) {
     return Player(
@@ -580,6 +621,9 @@ class Player extends DataClass implements Insertable<Player> {
       cognome: data.cognome.present ? data.cognome.value : this.cognome,
       numero: data.numero.present ? data.numero.value : this.numero,
       ruolo: data.ruolo.present ? data.ruolo.value : this.ruolo,
+      scadenzaCertificato: data.scadenzaCertificato.present
+          ? data.scadenzaCertificato.value
+          : this.scadenzaCertificato,
     );
   }
 
@@ -591,13 +635,22 @@ class Player extends DataClass implements Insertable<Player> {
           ..write('nome: $nome, ')
           ..write('cognome: $cognome, ')
           ..write('numero: $numero, ')
-          ..write('ruolo: $ruolo')
+          ..write('ruolo: $ruolo, ')
+          ..write('scadenzaCertificato: $scadenzaCertificato')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, teamId, nome, cognome, numero, ruolo);
+  int get hashCode => Object.hash(
+    id,
+    teamId,
+    nome,
+    cognome,
+    numero,
+    ruolo,
+    scadenzaCertificato,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -607,7 +660,8 @@ class Player extends DataClass implements Insertable<Player> {
           other.nome == this.nome &&
           other.cognome == this.cognome &&
           other.numero == this.numero &&
-          other.ruolo == this.ruolo);
+          other.ruolo == this.ruolo &&
+          other.scadenzaCertificato == this.scadenzaCertificato);
 }
 
 class PlayersCompanion extends UpdateCompanion<Player> {
@@ -617,6 +671,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   final Value<String> cognome;
   final Value<int> numero;
   final Value<Ruolo> ruolo;
+  final Value<DateTime?> scadenzaCertificato;
   const PlayersCompanion({
     this.id = const Value.absent(),
     this.teamId = const Value.absent(),
@@ -624,6 +679,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     this.cognome = const Value.absent(),
     this.numero = const Value.absent(),
     this.ruolo = const Value.absent(),
+    this.scadenzaCertificato = const Value.absent(),
   });
   PlayersCompanion.insert({
     this.id = const Value.absent(),
@@ -632,6 +688,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     required String cognome,
     required int numero,
     required Ruolo ruolo,
+    this.scadenzaCertificato = const Value.absent(),
   }) : teamId = Value(teamId),
        nome = Value(nome),
        cognome = Value(cognome),
@@ -644,6 +701,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     Expression<String>? cognome,
     Expression<int>? numero,
     Expression<String>? ruolo,
+    Expression<DateTime>? scadenzaCertificato,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -652,6 +710,8 @@ class PlayersCompanion extends UpdateCompanion<Player> {
       if (cognome != null) 'cognome': cognome,
       if (numero != null) 'numero': numero,
       if (ruolo != null) 'ruolo': ruolo,
+      if (scadenzaCertificato != null)
+        'scadenza_certificato': scadenzaCertificato,
     });
   }
 
@@ -662,6 +722,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     Value<String>? cognome,
     Value<int>? numero,
     Value<Ruolo>? ruolo,
+    Value<DateTime?>? scadenzaCertificato,
   }) {
     return PlayersCompanion(
       id: id ?? this.id,
@@ -670,6 +731,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
       cognome: cognome ?? this.cognome,
       numero: numero ?? this.numero,
       ruolo: ruolo ?? this.ruolo,
+      scadenzaCertificato: scadenzaCertificato ?? this.scadenzaCertificato,
     );
   }
 
@@ -696,6 +758,11 @@ class PlayersCompanion extends UpdateCompanion<Player> {
         $PlayersTable.$converterruolo.toSql(ruolo.value),
       );
     }
+    if (scadenzaCertificato.present) {
+      map['scadenza_certificato'] = Variable<DateTime>(
+        scadenzaCertificato.value,
+      );
+    }
     return map;
   }
 
@@ -707,7 +774,8 @@ class PlayersCompanion extends UpdateCompanion<Player> {
           ..write('nome: $nome, ')
           ..write('cognome: $cognome, ')
           ..write('numero: $numero, ')
-          ..write('ruolo: $ruolo')
+          ..write('ruolo: $ruolo, ')
+          ..write('scadenzaCertificato: $scadenzaCertificato')
           ..write(')'))
         .toString();
   }
@@ -1613,6 +1681,7 @@ typedef $$PlayersTableCreateCompanionBuilder =
       required String cognome,
       required int numero,
       required Ruolo ruolo,
+      Value<DateTime?> scadenzaCertificato,
     });
 typedef $$PlayersTableUpdateCompanionBuilder =
     PlayersCompanion Function({
@@ -1622,6 +1691,7 @@ typedef $$PlayersTableUpdateCompanionBuilder =
       Value<String> cognome,
       Value<int> numero,
       Value<Ruolo> ruolo,
+      Value<DateTime?> scadenzaCertificato,
     });
 
 final class $$PlayersTableReferences
@@ -1681,6 +1751,11 @@ class $$PlayersTableFilterComposer
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
 
+  ColumnFilters<DateTime> get scadenzaCertificato => $composableBuilder(
+    column: $table.scadenzaCertificato,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$TeamsTableFilterComposer get teamId {
     final $$TeamsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -1739,6 +1814,11 @@ class $$PlayersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get scadenzaCertificato => $composableBuilder(
+    column: $table.scadenzaCertificato,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$TeamsTableOrderingComposer get teamId {
     final $$TeamsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -1786,6 +1866,11 @@ class $$PlayersTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<Ruolo, String> get ruolo =>
       $composableBuilder(column: $table.ruolo, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get scadenzaCertificato => $composableBuilder(
+    column: $table.scadenzaCertificato,
+    builder: (column) => column,
+  );
 
   $$TeamsTableAnnotationComposer get teamId {
     final $$TeamsTableAnnotationComposer composer = $composerBuilder(
@@ -1845,6 +1930,7 @@ class $$PlayersTableTableManager
                 Value<String> cognome = const Value.absent(),
                 Value<int> numero = const Value.absent(),
                 Value<Ruolo> ruolo = const Value.absent(),
+                Value<DateTime?> scadenzaCertificato = const Value.absent(),
               }) => PlayersCompanion(
                 id: id,
                 teamId: teamId,
@@ -1852,6 +1938,7 @@ class $$PlayersTableTableManager
                 cognome: cognome,
                 numero: numero,
                 ruolo: ruolo,
+                scadenzaCertificato: scadenzaCertificato,
               ),
           createCompanionCallback:
               ({
@@ -1861,6 +1948,7 @@ class $$PlayersTableTableManager
                 required String cognome,
                 required int numero,
                 required Ruolo ruolo,
+                Value<DateTime?> scadenzaCertificato = const Value.absent(),
               }) => PlayersCompanion.insert(
                 id: id,
                 teamId: teamId,
@@ -1868,6 +1956,7 @@ class $$PlayersTableTableManager
                 cognome: cognome,
                 numero: numero,
                 ruolo: ruolo,
+                scadenzaCertificato: scadenzaCertificato,
               ),
           withReferenceMapper: (p0) => p0
               .map(
