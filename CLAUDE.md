@@ -130,7 +130,9 @@ uniformità tipografica globale (aggiungere `textTheme: AppTypography.textTheme`
 (int ARGB).
 
 **Players**: id (autoincrement), teamId (FK -> Teams, cascade delete), nome,
-cognome, numero (int), ruolo (enum Ruolo).
+cognome, numero (int), ruolo (enum Ruolo), scadenzaCertificato (DateTime nullable —
+riservato a futura segnalazione visiva di scadenza imminente, impostabile via
+date picker in `PlayerFormScreen`).
 
 **Enum Ruolo**: palleggiatore, schiacciatore, centrale, opposto, libero, undefined.
 
@@ -147,8 +149,8 @@ id, nome, dataOra (DateTime, salvato come int64 ms epoch da drift), inCasa (bool
 palestra (text nullable), teamId (FK -> Teams nullable, setNull on delete),
 lat (real nullable), lon (real nullable).
 - `lat`/`lon` riservati a futura integrazione Maps/OpenStreetMap, non visibili in UI.
-- `teamId` sarà selezionabile nella schermata di dettaglio partita (prossimo passo).
-- Schema DB attuale: **v3**.
+- `teamId` selezionabile da `TeamSelectionScreen` (vedi flusso navigazione).
+- Schema DB attuale: **v4** (v4 ha aggiunto `Players.scadenzaCertificato`).
 
 ### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
 
@@ -182,14 +184,20 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
   - Il `teamId` viene salvato sulla partita nel DB al momento della selezione squadra.
   - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
     automaticamente via stream al ritorno.
-  - `LineupScreen`: layout landscape con sfondo blu scuro; sinistra = griglia campo 3×2
-    (P1–P6 in senso antiorario, con linee tratteggiate verticali e linea piena orizzontale)
-    + slot libero sotto (L1, opzionalmente L2 con checkbox "Doppio libero"); destra = lista
-    giocatori della squadra (grayed out + ✓ quando assegnati, "Aggiungi" per crearne uno
-    al volo). Slot selezionato = bordo rosso. Tap giocatore → assegna al posto selezionato
-    e avanza automaticamente al prossimo vuoto in senso antiorario. Tap su giocatore già
-    assegnato → deassegna. "Conferma formazione" abilitato solo quando P1–P6 sono tutti
-    riempiti. La formazione è in memoria (non ancora persistita a DB).
+  - `LineupScreen`: layout landscape con sfondo blu scuro; sinistra = campo fisso
+    460×460dp con sfondo da PNG asset (`assets/images/court_bg.png`, dichiarato in
+    `pubspec.yaml`) — le linee del campo sono nell'immagine, non più disegnate a
+    codice. Griglia 3×2 sovrapposta (P1–P6 in senso antiorario), card ~112×112
+    con margini asimmetrici (vicine al top della cella) + slot libero sotto
+    (L1, opzionalmente L2 con checkbox "Doppio libero", stessa dimensione delle P).
+    Colonna sinistra centrata e scrollabile (`SingleChildScrollView`) per evitare
+    overflow su schermi piccoli. Destra = lista giocatori della squadra (grayed
+    out + ✓ quando assegnati, "Aggiungi" per crearne uno al volo). Slot
+    selezionato = bordo rosso. Tap giocatore → assegna al posto selezionato e
+    avanza automaticamente al prossimo vuoto in senso antiorario. Tap su
+    giocatore già assegnato → deassegna. "Conferma formazione" abilitato solo
+    quando P1–P6 sono tutti riempiti. La formazione è in memoria (non ancora
+    persistita a DB).
 - Lo **scout NON si apre dalla home**: ha bisogno del contesto partita + squadra + formazione.
 
 ---
