@@ -60,6 +60,13 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     });
   }
 
+  void _removeFromSlot(String slot) {
+    setState(() {
+      _assignments.remove(slot);
+      _selectedSlot = slot;
+    });
+  }
+
   void _advanceToNextEmpty() {
     final slots = _allSlots;
     final idx = slots.indexOf(_selectedSlot);
@@ -183,6 +190,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
             // Front row (net side): P4 | P3 | P2
             Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(child: _buildSlot('P4')),
                   Expanded(child: _buildSlot('P3')),
@@ -193,6 +201,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
             // Back row: P5 | P6 | P1
             Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(child: _buildSlot('P5')),
                   Expanded(child: _buildSlot('P6')),
@@ -231,34 +240,62 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 
   Widget _buildSlot(String slot,
-      {EdgeInsetsGeometry margin =
-          const EdgeInsets.fromLTRB(20, 12, 20, 104)}) {
+      {EdgeInsets margin = const EdgeInsets.fromLTRB(20, 12, 20, 104)}) {
     final player = _assignments[slot];
     final isSelected = _selectedSlot == slot;
 
-    return GestureDetector(
-      onTap: () => _onSlotTap(slot),
-      child: Container(
-        margin: margin,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.red : Colors.transparent,
-            width: 3,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () => _onSlotTap(slot),
+            child: Container(
+              margin: margin,
+              decoration: BoxDecoration(
+                color:
+                    player == null ? Colors.lightBlueAccent : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? Colors.red : Colors.transparent,
+                  width: 3,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.red.withAlpha(80),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    : null,
+              ),
+              child: player == null ? _slotLabel(slot) : _slotPlayer(player),
+            ),
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.red.withAlpha(80),
-                    blurRadius: 6,
-                    spreadRadius: 1,
-                  )
-                ]
-              : null,
         ),
-        child: player == null ? _slotLabel(slot) : _slotPlayer(player),
-      ),
+        if (player != null)
+          Positioned(
+            top: margin.top - 10,
+            right: margin.right - 10,
+            child: GestureDetector(
+              onTap: () => _removeFromSlot(slot),
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -276,30 +313,54 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 
   Widget _slotPlayer(Player player) {
+    const nameRoleStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: Colors.black54,
+    );
+    const nameStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: Colors.black54,
+      height: 1.1,
+    );
+
     return Padding(
       padding: const EdgeInsets.all(4),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
           Text(
             '${player.numero}',
             style: const TextStyle(
-              fontSize: 26,
+              fontSize: 31,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            '${player.cognome} ${player.nome}',
-            style: const TextStyle(fontSize: 10, color: Colors.black54),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Text(
+              '${player.cognome} ${player.nome}',
+              style: nameStyle,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          Text(
-            player.ruolo.label,
-            style: const TextStyle(fontSize: 9, color: Colors.black38),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Text(
+              player.ruolo.label,
+              style: nameRoleStyle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

@@ -57,6 +57,15 @@ dev: `drift_dev build_runner`
    `VolleyMatche`). Soluzione: `@DataClassName('VolleyMatch')` sopra la classe
    tabella. Il Companion mantiene sempre il nome della tabella: `VolleyMatchesCompanion`.
 
+8. **`Stack` e vincoli "loose"**: se un widget a dimensione fissa (es. una card
+   che deve riempire una cella) viene messo come figlio NON-positioned di uno
+   `Stack`, lo `Stack` gli passa vincoli "loose" (max = spazio disponibile, ma
+   min = 0) e il widget si rimpicciolisce per adattarsi al contenuto invece di
+   riempire lo spazio — anche se il `Stack` stesso riceve vincoli rigidi dal suo
+   parent. Capitato più volte in `lineup_screen.dart`. Soluzione: avvolgere quel
+   figlio in `Positioned.fill(child: ...)` (così riceve vincoli rigidi a piena
+   dimensione) e usare `Positioned` per gli elementi overlay (badge, icone).
+
 ---
 
 ## Struttura cartelle
@@ -193,11 +202,21 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     Colonna sinistra centrata e scrollabile (`SingleChildScrollView`) per evitare
     overflow su schermi piccoli. Destra = lista giocatori della squadra (grayed
     out + ✓ quando assegnati, "Aggiungi" per crearne uno al volo). Slot
-    selezionato = bordo rosso. Tap giocatore → assegna al posto selezionato e
-    avanza automaticamente al prossimo vuoto in senso antiorario. Tap su
-    giocatore già assegnato → deassegna. "Conferma formazione" abilitato solo
-    quando P1–P6 sono tutti riempiti. La formazione è in memoria (non ancora
-    persistita a DB).
+    selezionato = bordo rosso; slot vuoto = sfondo `Colors.lightBlueAccent` per
+    distinguerlo a colpo d'occhio dallo slot occupato (bianco pieno). Card
+    giocatore: numero centrato (font 31, +20%
+    rispetto all'originale) con nome/cognome ancorati in alto e ruolo ancorato
+    in basso (stesso font, 13px, `height: 1.0` per interlinea compatta) — layout
+    realizzato con `Stack` interno e `Positioned top/bottom` per garantire che il
+    numero resti sempre centrato. Badge "✕" nero circolare a cavallo dell'angolo
+    in alto a destra di ogni slot occupato (tap → rimuove il giocatore e
+    riseleziona quello slot); vedi convenzione n.8 sul perché va in
+    `Positioned.fill` insieme alla card e non come `Stack` annidato semplice.
+    Tap giocatore (lista a destra) → assegna al posto selezionato e avanza
+    automaticamente al prossimo vuoto in senso antiorario. Tap su giocatore già
+    assegnato (lista o badge ✕) → deassegna. "Conferma formazione" abilitato
+    solo quando P1–P6 sono tutti riempiti. La formazione è in memoria (non
+    ancora persistita a DB).
 - Lo **scout NON si apre dalla home**: ha bisogno del contesto partita + squadra + formazione.
 
 ---
