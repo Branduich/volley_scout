@@ -24,6 +24,50 @@ class FormationConfigScreen extends StatefulWidget {
 
 class _FormationConfigScreenState extends State<FormationConfigScreen> {
   SistemaGioco _sistema = SistemaGioco.palleggiatoreUnico;
+  String? _palleggiatoreSlot;
+  final Set<String> _centraliSlots = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-seleziona il palleggiatore e i centrali in base al ruolo assegnato
+    for (final entry in widget.assignments.entries) {
+      if (entry.value.ruolo == Ruolo.palleggiatore &&
+          _palleggiatoreSlot == null) {
+        _palleggiatoreSlot = entry.key;
+      }
+    }
+    for (final entry in widget.assignments.entries) {
+      if (entry.value.ruolo == Ruolo.centrale && _centraliSlots.length < 2) {
+        _centraliSlots.add(entry.key);
+      }
+    }
+  }
+
+  bool get _canConfirm =>
+      _palleggiatoreSlot != null && _centraliSlots.length == 2;
+
+  void _onPalleggiatoreSlotTap(String slot) {
+    setState(() {
+      if (_palleggiatoreSlot == slot) {
+        _palleggiatoreSlot = null;
+      } else {
+        _palleggiatoreSlot = slot;
+        _centraliSlots.remove(slot); // un giocatore non può essere anche centrale
+      }
+    });
+  }
+
+  void _onCentraleSlotTap(String slot) {
+    if (slot == _palleggiatoreSlot) return; // già palleggiatore
+    setState(() {
+      if (_centraliSlots.contains(slot)) {
+        _centraliSlots.remove(slot);
+      } else if (_centraliSlots.length < 2) {
+        _centraliSlots.add(slot);
+      }
+    });
+  }
 
   void _onAvanti() {
     Navigator.push(
@@ -46,7 +90,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton(
-              onPressed: _onAvanti,
+              onPressed: _canConfirm ? _onAvanti : null,
               child: const Text('Inizia scout'),
             ),
           ),
@@ -87,8 +131,6 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
             ),
             const SizedBox(height: 12),
             // Due campi affiancati a dimensioni fisse (460×460 come LineupScreen).
-            // ConstrainedBox con minWidth = larghezza disponibile: Center centra
-            // quando c'è spazio, lo scroll orizzontale gestisce l'overflow.
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
@@ -98,17 +140,38 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                 child: Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 460,
-                        height: 460,
-                        child: _CourtView(assignments: widget.assignments),
+                      _LabeledCourt(
+                        title: 'Palleggiatore',
+                        subtitle: 'Conferma il palleggiatore',
+                        subtitleColor: Colors.white54,
+                        child: _CourtView(
+                          assignments: widget.assignments,
+                          selectedSlots: _palleggiatoreSlot != null
+                              ? {_palleggiatoreSlot!}
+                              : {},
+                          selectionColor: Colors.red,
+                          onSlotTap: _onPalleggiatoreSlotTap,
+                        ),
                       ),
                       const SizedBox(width: 24),
-                      SizedBox(
-                        width: 460,
-                        height: 460,
-                        child: _CourtView(assignments: widget.assignments),
+                      _LabeledCourt(
+                        title: 'Cambi del libero',
+                        subtitle:
+                            'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
+                        subtitleColor: _centraliSlots.length == 2
+                            ? Colors.green
+                            : Colors.white54,
+                        child: _CourtView(
+                          assignments: widget.assignments,
+                          selectedSlots: _centraliSlots,
+                          selectionColor: Colors.green,
+                          disabledSlots: _palleggiatoreSlot != null
+                              ? {_palleggiatoreSlot!}
+                              : {},
+                          onSlotTap: _onCentraleSlotTap,
+                        ),
                       ),
                     ],
                   ),
@@ -122,12 +185,62 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   }
 }
 
-// ── Visualizzazione campo read-only ─────────────────────────────────────────
+// ── Widget etichetta + campo ─────────────────────────────────────────────────
+
+class _LabeledCourt extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Color subtitleColor;
+  final Widget child;
+
+  const _LabeledCourt({
+    required this.title,
+    required this.subtitle,
+    required this.subtitleColor,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: TextStyle(fontSize: 12, color: subtitleColor),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(width: 460, height: 460, child: child),
+      ],
+    );
+  }
+}
+
+// ── Visualizzazione campo (read-only o interattivo) ──────────────────────────
 
 class _CourtView extends StatelessWidget {
   final Map<String, Player> assignments;
+  final Set<String> selectedSlots;
+  final Set<String> disabledSlots;
+  final Color selectionColor;
+  final void Function(String slot)? onSlotTap;
 
-  const _CourtView({required this.assignments});
+  const _CourtView({
+    required this.assignments,
+    this.selectedSlots = const {},
+    this.disabledSlots = const {},
+    this.selectionColor = Colors.amber,
+    this.onSlotTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -172,17 +285,43 @@ class _CourtView extends StatelessWidget {
     );
   }
 
-  // Stessi margini di LineupScreen per card identiche
   Widget _buildSlot(String slot) {
     final player = assignments[slot];
-    return Container(
+    final isSelected = selectedSlots.contains(slot);
+    final isDisabled = disabledSlots.contains(slot);
+    final canTap = onSlotTap != null && player != null && !isDisabled;
+
+    final card = Container(
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 104),
       decoration: BoxDecoration(
-        color: player == null ? Colors.lightBlueAccent : Colors.white,
+        color: isDisabled
+            ? Colors.grey.shade300
+            : (player == null ? Colors.lightBlueAccent : Colors.white),
         borderRadius: BorderRadius.circular(12),
+        border: isSelected
+            ? Border.all(color: selectionColor, width: 3)
+            : null,
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: selectionColor.withAlpha(100),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                )
+              ]
+            : null,
       ),
-      child: player == null ? _slotLabel(slot) : _slotPlayer(player),
+      child: player == null ? _slotLabel(slot) : _slotPlayer(player, isDisabled),
     );
+
+    if (canTap) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onSlotTap!(slot),
+        child: card,
+      );
+    }
+    return card;
   }
 
   Widget _slotLabel(String slot) {
@@ -198,11 +337,12 @@ class _CourtView extends StatelessWidget {
     );
   }
 
-  Widget _slotPlayer(Player player) {
+  Widget _slotPlayer(Player player, bool dimmed) {
+    final color = dimmed ? Colors.black38 : Colors.black87;
+    final subColor = dimmed ? Colors.black26 : Colors.black54;
     const nameStyle = TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
-      color: Colors.black54,
       height: 1.0,
     );
     return Padding(
@@ -212,10 +352,10 @@ class _CourtView extends StatelessWidget {
         children: [
           Text(
             '${player.numero}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 31,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: color,
             ),
           ),
           Positioned(
@@ -224,7 +364,7 @@ class _CourtView extends StatelessWidget {
             right: 0,
             child: Text(
               '${player.cognome} ${player.nome}',
-              style: nameStyle,
+              style: nameStyle.copyWith(color: subColor),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -236,7 +376,8 @@ class _CourtView extends StatelessWidget {
             right: 0,
             child: Text(
               player.ruolo.label,
-              style: nameStyle,
+              style: nameStyle.copyWith(
+                  color: subColor, fontWeight: FontWeight.normal),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
