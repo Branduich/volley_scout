@@ -59,12 +59,23 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   }
 
   void _onCentraleSlotTap(String slot) {
-    if (slot == _palleggiatoreSlot) return; // già palleggiatore
+    final player = widget.assignments[slot];
+    if (player == null || slot == _palleggiatoreSlot) return;
+    final ruolo = player.ruolo;
+    if (ruolo != Ruolo.centrale && ruolo != Ruolo.schiacciatore) return;
+
     setState(() {
       if (_centraliSlots.contains(slot)) {
-        _centraliSlots.remove(slot);
-      } else if (_centraliSlots.length < 2) {
-        _centraliSlots.add(slot);
+        // Tap sulla coppia già selezionata → deseleziona tutta la coppia
+        _centraliSlots.clear();
+      } else {
+        // Tap su ruolo diverso → seleziona tutta la coppia di quel ruolo
+        _centraliSlots.clear();
+        for (final e in widget.assignments.entries) {
+          if (e.value.ruolo == ruolo && e.key != _palleggiatoreSlot) {
+            _centraliSlots.add(e.key);
+          }
+        }
       }
     });
   }
@@ -161,15 +172,19 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                         subtitle:
                             'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
                         subtitleColor: _centraliSlots.length == 2
-                            ? Colors.green
+                            ? Colors.lightBlue
                             : Colors.white54,
                         child: _CourtView(
                           assignments: widget.assignments,
                           selectedSlots: _centraliSlots,
-                          selectionColor: Colors.green,
-                          disabledSlots: _palleggiatoreSlot != null
-                              ? {_palleggiatoreSlot!}
-                              : {},
+                          selectionColor: const Color(0xFF00008A),
+                          disabledSlots: {
+                            ?_palleggiatoreSlot,
+                            for (final e in widget.assignments.entries)
+                              if (e.value.ruolo != Ruolo.centrale &&
+                                  e.value.ruolo != Ruolo.schiacciatore)
+                                e.key,
+                          },
                           onSlotTap: _onCentraleSlotTap,
                         ),
                       ),
