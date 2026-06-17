@@ -43,3 +43,11 @@ enum Voto {
   final String simbolo;
   const Voto(this.simbolo);
 }
+
+enum SistemaGioco {
+  palleggiatoreUnico('Palleggiatore unico (5-1)'),
+  doppioPalleggiatore('Doppio palleggiatore (6-2)');
+
+  final String label;
+  const SistemaGioco(this.label);
+}

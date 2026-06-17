@@ -4,7 +4,7 @@ import '../../data/database.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../teams/player_form_screen.dart';
-import 'scout_screen.dart';
+import 'formation_config_screen.dart';
 
 const _kBg = Color(0xFF0F172A); // dark navy background
 const _kCourtImage = 'assets/images/court_bg.png';
@@ -85,7 +85,11 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ScoutScreen(match: widget.match, team: widget.team),
+        builder: (_) => FormationConfigScreen(
+          match: widget.match,
+          team: widget.team,
+          assignments: Map.from(_assignments),
+        ),
       ),
     );
   }
