@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
@@ -79,6 +81,63 @@ Map<String, String> _roleLabelsFor(
   if (centrali.isNotEmpty) labels[centrali[0]] = 'C1';
   if (centrali.length > 1) labels[centrali[1]] = 'C2';
   return labels;
+}
+
+// Esagono con angoli arrotondati, inscritto nel quadrato `size` (stesso
+// raggio centro-vertice dei token circolari, per coerenza di ingombro).
+// Usato per distinguere il palleggiatore, ruolo chiave della formazione.
+Path _roundedHexagonPath(Size size, double cornerRadius) {
+  final center = Offset(size.width / 2, size.height / 2);
+  final radius = size.shortestSide / 2 - 1;
+  const sides = 6;
+  final points = List.generate(sides, (i) {
+    final angle = -math.pi / 2 + i * (2 * math.pi / sides);
+    return center + Offset(math.cos(angle), math.sin(angle)) * radius;
+  });
+
+  final path = Path();
+  for (var i = 0; i < sides; i++) {
+    final prev = points[(i - 1 + sides) % sides];
+    final curr = points[i];
+    final next = points[(i + 1) % sides];
+
+    final toPrev = prev - curr;
+    final toNext = next - curr;
+    final start = curr + toPrev / toPrev.distance * cornerRadius;
+    final end = curr + toNext / toNext.distance * cornerRadius;
+
+    if (i == 0) {
+      path.moveTo(start.dx, start.dy);
+    } else {
+      path.lineTo(start.dx, start.dy);
+    }
+    path.quadraticBezierTo(curr.dx, curr.dy, end.dx, end.dy);
+  }
+  path.close();
+  return path;
+}
+
+class _RoundedHexagonPainter extends CustomPainter {
+  final Color color;
+  const _RoundedHexagonPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _roundedHexagonPath(size, size.shortestSide * 0.08);
+    canvas.drawShadow(path, Colors.black, 3, false);
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoundedHexagonPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class ScoutScreen extends StatelessWidget {
@@ -223,34 +282,46 @@ class ScoutScreen extends StatelessWidget {
     final radius = ch / 20;
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
-    return Positioned(
-      left: cx - radius,
-      top: cy - radius,
-      width: radius * 2,
-      height: radius * 2,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.darken(Color(team.coloreDivisa)),
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(120),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: radius * 0.7,
-          ),
-        ),
+    final fillColor = AppColors.darken(Color(team.coloreDivisa));
+    final isPalleggiatore = label == 'P';
+    // L'esagono del palleggiatore è il 10% più grande dei token circolari.
+    final tokenRadius = isPalleggiatore ? radius * 1.1 : radius;
+
+    final text = Text(
+      label,
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: radius * 0.7,
       ),
+    );
+
+    return Positioned(
+      left: cx - tokenRadius,
+      top: cy - tokenRadius,
+      width: tokenRadius * 2,
+      height: tokenRadius * 2,
+      child: isPalleggiatore
+          ? CustomPaint(
+              painter: _RoundedHexagonPainter(fillColor),
+              child: Center(child: text),
+            )
+          : Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: fillColor,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(120),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: text,
+            ),
     );
   }
 }

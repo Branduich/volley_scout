@@ -330,6 +330,17 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     3 posizioni) è "S2" — stessa logica per i centrali → "C1"/"C2". Gestisce
     correttamente anche formazioni dove un centrale (non uno schiacciatore) si
     trova subito dopo il palleggiatore.
+  - **Token del palleggiatore (`label == 'P'`)**: forma distinta rispetto agli
+    altri — esagono con angoli arrotondati invece di un cerchio, stesso
+    colore/bordo/ombra, **10% più grande** (`tokenRadius = radius * 1.1`,
+    centrato sullo stesso punto `(cx, cy)` così cresce simmetricamente senza
+    spostarsi). Disegnato con `CustomPaint` + `_RoundedHexagonPainter`:
+    `_roundedHexagonPath()` genera i 6 vertici e arrotonda ogni angolo con
+    `quadraticBezierTo` (raggio di arrotondamento = `size.shortestSide * 0.08`,
+    costante in cima al metodo `paint()`); l'ombra è disegnata con
+    `canvas.drawShadow(path, Colors.black, 3, false)` (equivalente alla
+    `BoxShadow` dei cerchi). Il testo resta centrato con `Center(child: text)`
+    indipendentemente dalla dimensione del token.
 - Nessuna logica di scouting ancora presente: il resto di questa sezione
   descrive il design deciso ma non ancora implementato.
 
