@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
+import '../../theme/app_colors.dart';
 import '../teams/team_form_screen.dart';
 import '../live/lineup_screen.dart';
 
@@ -99,7 +100,7 @@ class _TeamSelectCard extends StatelessWidget {
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Color(team.coloreDivisa),
+          backgroundColor: AppColors.darken(Color(team.coloreDivisa)),
           radius: 20,
         ),
         title: Text(team.nome, style: Theme.of(context).textTheme.titleMedium),

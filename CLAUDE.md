@@ -123,7 +123,7 @@ valori hardcoded in widget.
 
 | File | Classe | Uso principale |
 |---|---|---|
-| `app_colors.dart` | `AppColors` | `brandPrimary` (blu 1E3A8A), `brandAccent` (ambra F59E0B), `success/warning/danger`, `surface/surfaceDim` |
+| `app_colors.dart` | `AppColors` | `brandPrimary` (blu 1E3A8A), `brandAccent` (ambra F59E0B), `success/warning/danger`, `surface/surfaceDim`, `darken(Color, [amount=0.25])` (scurisce un colore via HSL — usato ovunque si mostri il colore maglia di una squadra come avatar/badge: `teams_screen`, `team_selection_screen`, `team_form_screen` incluso il color picker, `scout_screen`) |
 | `app_spacing.dart` | `AppSpacing` | padding/gap: `xs`=4, `sm`=8, `md`=16, `lg`=24, `xl`=32, `xxl`=48 |
 | `app_spacing.dart` | `AppRadius` | border radius: `sm`=8, `md`=12, `lg`=16, `pill`=999 |
 | `app_typography.dart` | `AppTypography` | `textTheme` con headlineMedium, titleLarge/Medium, bodyLarge/Medium/Small, labelLarge |
@@ -265,11 +265,12 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     - "Inizia scout" abilitato quando: palleggiatore selezionato **e** (nessun
       libero in formazione **oppure** 2 cambi del libero selezionati). Al tap
       naviga a `ScoutScreen` passando anche `palleggiatoreSlot: _palleggiatoreSlot!`
-      (lo slot P1–P6 dove si trova il palleggiatore, usato per il badge di
-      rotazione — vedi sezione "Interfaccia di scout").
+      e `assignments: widget.assignments` (usati per il badge di rotazione e
+      le etichette di ruolo dei token giocatore — vedi sezione "Interfaccia
+      di scout").
 - **`ScoutScreen`**: setup **solo grafico** per ora (Fase 3, vedi sezione
-  dedicata sotto) — riceve `match` + `team` + `palleggiatoreSlot`, nessuna
-  logica di scouting ancora implementata.
+  dedicata sotto) — riceve `match` + `team` + `palleggiatoreSlot` +
+  `assignments`, nessuna logica di scouting ancora implementata.
 
 ---
 
@@ -282,27 +283,53 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
   bottone "indietro" (`Icons.arrow_back`, `Navigator.pop`) allineato a
   **destra** (non a sinistra come una AppBar standard — scelta deliberata per
   ergonomia in landscape).
+- `ScoutScreen` riceve da `FormationConfigScreen`: `match`, `team`,
+  `palleggiatoreSlot` (slot P1–P6 dove si trova il palleggiatore) e
+  `assignments` (`Map<String, Player>` — la formazione completa, usata per
+  leggere il ruolo reale di ciascun giocatore).
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
     orizzontalmente con margine sinistro/destro pari al **15%** della
     larghezza disponibile (occupa il 70% restante), dimensionato con
     `AspectRatio` — si scala con lo schermo, nessuna dimensione fissa in px.
+    Avvolto in un `LayoutBuilder` interno che espone la dimensione renderizzata
+    reale (`cw`/`ch`), usata per scalare le posizioni dei token giocatore.
   - `small_court.png` (campo singolo piccolo, overlay in alto a sinistra):
     `Positioned` con margine **5% top**, **3% left**, lato quadrato pari al
     **7%** della larghezza disponibile (proporzionato al campo grande).
+    Avvolto in un `Container` con bordo bianco (2px, raggio 6) + `ClipRRect`
+    interno — la "card" della mini-map.
 - **Badge di rotazione** sul campo piccolo: card rettangolare (50% larghezza ×
-  1/3 altezza del campo piccolo, angoli smussati) con il numero di posizione
-  del palleggiatore (`palleggiatoreSlot`, es. "P1"), testo bianco bold, sfondo
-  = colore maglia della squadra (`Color(team.coloreDivisa)`). Ancorata con
-  `Align` (non `Positioned` con offset) così resta **sempre dentro i confini**
-  del campo piccolo, flush contro l'angolo/lato corretto — niente di sporgente
-  a cavallo del bordo.
+  1/3 altezza del campo piccolo, angoli smussati, bordo bianco 2px) con il
+  numero di posizione del palleggiatore (`palleggiatoreSlot`, es. "P1"), testo
+  bianco bold, sfondo = colore maglia squadra scurito (`AppColors.darken(...)`).
+  Ancorata con `Align` (non `Positioned` con offset) così resta **sempre
+  dentro i confini** del campo piccolo, flush contro l'angolo/lato corretto —
+  niente di sporgente a cavallo del bordo.
   - Mappa `_kRotationBadgeAnchor` in `scout_screen.dart`: il campo piccolo è
     ruotato di 90° in senso orario rispetto a `LineupScreen`, quindi P1→
     `Alignment.bottomLeft`, P2→`bottomRight`, P3→`centerRight` (lato rete),
     P4→`topRight`, P5→`topLeft`, P6→`centerLeft` (girando in senso
     antiorario a partire da P1).
+- **Token giocatore (posizioni di attacco)** sul campo grande: 6 cerchi con
+  raggio **1/20** del campo (un singolo campo è un quadrato 600×600 nello
+  spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = colore
+  maglia squadra scurito, bordo bianco 2px, ombra (`BoxShadow` nero 47%
+  opacità, blur 4, offset verticale 2).
+  - Posizioni fisse `_kAttackPositions` (coordinate di riferimento 1200×600):
+    P1(200,470) P2(530,470) P3(530,300) P4(530,130) P5(200,130) P6(200,300).
+    Scalate a runtime con `cw/1200` e `ch/600`. Da estendere in futuro con le
+    posizioni di ricezione.
+  - **Etichette di ruolo** (`_roleLabelsFor`): NON un pattern fisso per
+    posizione — leggono il `Ruolo` reale del giocatore assegnato a ciascuno
+    slot. Il palleggiatore è sempre "P"; l'opposto è sempre "O" (trovato
+    cercando `Ruolo.opposto` negli `assignments`, non per offset fisso). Tra i
+    due schiacciatori, quello con distanza minore dal palleggiatore (in senso
+    antiorario lungo `_kSlotOrder`) è "S1", l'altro (diametralmente opposto, a
+    3 posizioni) è "S2" — stessa logica per i centrali → "C1"/"C2". Gestisce
+    correttamente anche formazioni dove un centrale (non uno schiacciatore) si
+    trova subito dopo il palleggiatore.
 - Nessuna logica di scouting ancora presente: il resto di questa sezione
   descrive il design deciso ma non ancora implementato.
 

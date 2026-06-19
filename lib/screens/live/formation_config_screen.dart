@@ -93,6 +93,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
           match: widget.match,
           team: widget.team,
           palleggiatoreSlot: _palleggiatoreSlot!,
+          assignments: widget.assignments,
         ),
       ),
     );

@@ -4,6 +4,7 @@ import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
+import '../../theme/app_colors.dart';
 import 'player_form_screen.dart';
 
 class TeamFormScreen extends ConsumerStatefulWidget {
@@ -127,7 +128,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
                         width: 24,
                         height: 24,
                         decoration: BoxDecoration(
-                          color: j.color,
+                          color: AppColors.darken(j.color),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.black26),
                         ),
@@ -193,7 +194,7 @@ class _PlayersSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playersAsync = ref.watch(playersStreamProvider(team.id));
-    final jerseyColor = Color(team.coloreDivisa);
+    final jerseyColor = AppColors.darken(Color(team.coloreDivisa));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
