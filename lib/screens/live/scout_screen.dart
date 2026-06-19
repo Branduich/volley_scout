@@ -40,6 +40,10 @@ const Map<String, Offset> _kAttackPositions = {
 // di _kAttackPositions), usato per calcolare la distanza dal palleggiatore.
 const List<String> _kSlotOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 
+// Modulo che gestisce correttamente anche valori negativi (a differenza di
+// `%` in Dart, che mantiene il segno dell'operando).
+int _mod(int a, int n) => ((a % n) + n) % n;
+
 // Etichette di ruolo per ogni slot, basate sul ruolo REALE del giocatore
 // assegnato (non su un pattern fisso): il palleggiatore è sempre "P",
 // l'opposto è sempre "O". Tra i due schiacciatori, quello più vicino al
@@ -140,7 +144,7 @@ class _RoundedHexagonPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class ScoutScreen extends StatelessWidget {
+class ScoutScreen extends StatefulWidget {
   final VolleyMatch match;
   final Team team;
   final String palleggiatoreSlot;
@@ -153,6 +157,37 @@ class ScoutScreen extends StatelessWidget {
     required this.palleggiatoreSlot,
     required this.assignments,
   });
+
+  @override
+  State<ScoutScreen> createState() => _ScoutScreenState();
+}
+
+class _ScoutScreenState extends State<ScoutScreen> {
+  // Numero di rotazioni applicate da inizio set (positivo = avanti, P1→P2;
+  // negativo = indietro, P1→P6). Tutti i giocatori ruotano insieme: chi era
+  // nello slot di indice i si trova ora nello slot di indice i+_rotationSteps.
+  int _rotationSteps = 0;
+
+  String get _currentSlot {
+    final originalIndex = _kSlotOrder.indexOf(widget.palleggiatoreSlot);
+    return _kSlotOrder[_mod(originalIndex + _rotationSteps, _kSlotOrder.length)];
+  }
+
+  // Mappa slot -> giocatore aggiornata in base alla rotazione corrente.
+  Map<String, Player> get _currentAssignments {
+    final n = _kSlotOrder.length;
+    final result = <String, Player>{};
+    for (var j = 0; j < n; j++) {
+      final originalSlot = _kSlotOrder[_mod(j - _rotationSteps, n)];
+      final player = widget.assignments[originalSlot];
+      if (player != null) result[_kSlotOrder[j]] = player;
+    }
+    return result;
+  }
+
+  void _rotateBackward() => setState(() => _rotationSteps--);
+
+  void _rotateForward() => setState(() => _rotationSteps++);
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +229,7 @@ class ScoutScreen extends StatelessWidget {
                               final cw = courtConstraints.maxWidth;
                               final ch = courtConstraints.maxHeight;
                               final roleLabels = _roleLabelsFor(
-                                  palleggiatoreSlot, assignments);
+                                  _currentSlot, _currentAssignments);
                               return Stack(
                                 children: [
                                   Image.asset(_kCourtImage,
@@ -235,6 +270,20 @@ class ScoutScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    Positioned(
+                      top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
+                      left: constraints.maxWidth * 0.03,
+                      width: smallCourtSize,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildRotationButton(
+                              Icons.rotate_right, _rotateBackward, smallCourtSize),
+                          _buildRotationButton(
+                              Icons.rotate_left, _rotateForward, smallCourtSize),
+                        ],
+                      ),
+                    ),
                   ],
                 );
               },
@@ -246,8 +295,7 @@ class ScoutScreen extends StatelessWidget {
   }
 
   Widget _buildRotationBadge(double courtSize) {
-    final anchor =
-        _kRotationBadgeAnchor[palleggiatoreSlot] ?? Alignment.bottomLeft;
+    final anchor = _kRotationBadgeAnchor[_currentSlot] ?? Alignment.bottomLeft;
     final badgeWidth = courtSize * 0.5;
     final badgeHeight = courtSize / 3;
     return Align(
@@ -258,12 +306,12 @@ class ScoutScreen extends StatelessWidget {
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppColors.darken(Color(team.coloreDivisa)),
+            color: AppColors.darken(Color(widget.team.coloreDivisa)),
             borderRadius: BorderRadius.circular(badgeHeight * 0.1),
             border: Border.all(color: Colors.white, width: 2),
           ),
           child: Text(
-            palleggiatoreSlot,
+            _currentSlot,
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -275,6 +323,30 @@ class ScoutScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildRotationButton(
+      IconData icon, VoidCallback onTap, double smallCourtSize) {
+    final buttonSize = smallCourtSize * 0.45;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: buttonSize,
+        height: buttonSize,
+        decoration: BoxDecoration(
+          color: const Color(0xFF00008A),
+          borderRadius: BorderRadius.circular(buttonSize * 0.25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(120),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: buttonSize * 0.55),
+      ),
+    );
+  }
+
   Widget _buildPlayerToken(
       String label, Offset refPos, double cw, double ch) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
@@ -282,7 +354,7 @@ class ScoutScreen extends StatelessWidget {
     final radius = ch / 20;
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
-    final fillColor = AppColors.darken(Color(team.coloreDivisa));
+    final fillColor = AppColors.darken(Color(widget.team.coloreDivisa));
     final isPalleggiatore = label == 'P';
     // L'esagono del palleggiatore è il 10% più grande dei token circolari.
     final tokenRadius = isPalleggiatore ? radius * 1.1 : radius;

@@ -312,6 +312,25 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     `Alignment.bottomLeft`, P2→`bottomRight`, P3→`centerRight` (lato rete),
     P4→`topRight`, P5→`topLeft`, P6→`centerLeft` (girando in senso
     antiorario a partire da P1).
+- **Bottoni di rotazione** appena sotto la mini-map (`top: 5%+smallCourtSize+8`),
+  affiancati con `Row(spaceBetween)`: quadrati arrotondati blu scuro
+  (`0xFF00008A`), icona bianca, stessa ombra dei token giocatore. Sinistro
+  (`Icons.rotate_right`) → `_rotateBackward` (palleggiatore P1→P6); destro
+  (`Icons.rotate_left`) → `_rotateForward` (palleggiatore P1→P2) — icone
+  scambiate rispetto al verso intuitivo per scelta visiva.
+  - **`ScoutScreen` è uno `StatefulWidget`** (`_ScoutScreenState`) proprio per
+    questo: lo stato `_rotationSteps` (int, positivo = avanti, negativo =
+    indietro, nessun wraparound esplicito perché `_mod()` lo gestisce ad ogni
+    lettura) tiene il numero di rotazioni applicate da inizio set.
+  - `_currentSlot` e `_currentAssignments` sono **getter derivati** da
+    `_rotationSteps` (non stato salvato a parte): `_currentSlot` sposta
+    l'indice di `widget.palleggiatoreSlot` in `_kSlotOrder`;
+    `_currentAssignments` ricostruisce la mappa slot→giocatore intera
+    facendo scorrere **tutti** i 6 giocatori insieme (chi era allo slot di
+    indice `j` si trova ora a `j + _rotationSteps`) — non solo l'indicatore
+    del palleggiatore. `_roleLabelsFor` viene chiamata con
+    `_currentAssignments`, quindi le etichette di ruolo seguono
+    automaticamente ogni giocatore mentre la squadra ruota.
 - **Token giocatore (posizioni di attacco)** sul campo grande: 6 cerchi con
   raggio **1/20** del campo (un singolo campo è un quadrato 600×600 nello
   spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = colore
