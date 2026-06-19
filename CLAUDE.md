@@ -94,17 +94,24 @@ lib/
 │   │   └── team_selection_screen.dart (scelta squadra prima dello scout;
 │   │                                   label dinamica casa/trasferta, crea al volo)
 │   └── live/
-│       ├── lineup_screen.dart         (selezione formazione di partenza: griglia 3×2 +
-│       │                               libero, assegnazione giocatori, conferma)
-│       └── scout_screen.dart          (placeholder con match + team, da implementare Fase 3)
+│       ├── lineup_screen.dart            (selezione formazione di partenza: griglia 3×2 +
+│       │                                  libero, assegnazione giocatori, conferma)
+│       ├── formation_config_screen.dart  (sistema di gioco + conferma palleggiatore/
+│       │                                  cambi del libero, vedi sezione navigazione)
+│       └── scout_screen.dart             (setup grafico Fase 3 in corso: sfondo, barra
+│                                          top, campo doppio + campo piccolo)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
-│   ├── app_typography.dart        (AppTypography.textTheme — scale tipografica)
+│   ├── app_typography.dart        (AppTypography.textTheme — scale tipografica, font Barlow)
 │   ├── app_theme.dart             (AppTheme.light — ThemeData principale, usa i file sopra)
 │   └── court_style.dart           (CourtStyle — costanti grafiche campo: colori linee,
 │                                   rete, token giocatore, traiettoria, votoColor(Voto))
 └── widgets/                       (vuota per ora)
+
+assets/
+├── images/         (court_bg.png, double_court_bg.png, small_court.png)
+└── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 ```
 
 ---
@@ -124,10 +131,14 @@ valori hardcoded in widget.
 | `court_style.dart` | `CourtStyle` | costanti di disegno campo (linee, rete, token, traiettoria) + `votoColor(Voto)` |
 
 `AppTheme.light` definisce già: `filledButtonTheme` (bordi arrotondati `AppRadius.md`),
-`inputDecorationTheme` (stessa curvatura), `cardTheme`.
+`inputDecorationTheme` (stessa curvatura), `cardTheme`, `textTheme: AppTypography.textTheme`.
 
-`AppTypography` non è ancora agganciato ad `AppTheme.light` — da fare quando serve
-uniformità tipografica globale (aggiungere `textTheme: AppTypography.textTheme`).
+**Font Barlow**: bundlato come asset locale in `assets/fonts/Barlow/` (4 pesi:
+400/500/600/700), dichiarato in `pubspec.yaml` sotto `flutter: fonts:`. Scelta
+deliberata rispetto al package `google_fonts`: quest'ultimo scarica i file a
+runtime al primo utilizzo (richiede rete), mentre l'app deve funzionare offline
+in palestra. `AppTypography.textTheme` applica `fontFamily: 'Barlow'` sopra le
+dimensioni/pesi già definiti tramite `TextTheme.apply()`.
 
 ---
 
@@ -150,6 +161,11 @@ primaDivisione, serieD, serieC, serieB, serieB1, serieB2, serieA1, serieA2, seri
 
 **jerseyPalette**: lista fissa di JerseyColor (nome + Color): Rosso, Blu, Verde,
 Giallo, Arancione, Viola, Nero.
+
+**Enum SistemaGioco** (in `enums.dart`, usato in `FormationConfigScreen`):
+palleggiatoreUnico ("Palleggiatore unico (5-1)"), doppioPalleggiatore
+("Doppio palleggiatore (6-2)"). Per ora solo `palleggiatoreUnico` ha logica
+implementata.
 
 ### Implementato (Fase 2 — parziale)
 
@@ -188,8 +204,8 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 - **HomeScreen**: layout landscape con area principale a sinistra (vuota per ora)
   e colonna di bottoni a destra: "Setup squadre" e "Gestione partite".
-- **Flusso scout** (navigabile end-to-end fino al placeholder):
-  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `ScoutScreen`
+- **Flusso scout** (navigabile end-to-end fino al setup grafico di `ScoutScreen`):
+  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `FormationConfigScreen` → [Inizia scout] → `ScoutScreen`
   - Il `teamId` viene salvato sulla partita nel DB al momento della selezione squadra.
   - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
     automaticamente via stream al ritorno.
@@ -217,11 +233,65 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     assegnato (lista o badge ✕) → deassegna. "Conferma formazione" abilitato
     solo quando P1–P6 sono tutti riempiti. La formazione è in memoria (non
     ancora persistita a DB).
-- Lo **scout NON si apre dalla home**: ha bisogno del contesto partita + squadra + formazione.
+  - `FormationConfigScreen` (riceve `match`, `team`, `assignments` da
+    `LineupScreen`): sfondo blu scuro (`0xFF0F172A`, stesso di `LineupScreen`).
+    AppBar: titolo "Configurazione formazione – [nome squadra]" + bottone
+    "Inizia scout" (abilitato solo a selezione completa) nelle `actions`.
+    Sotto l'AppBar, riga "Sistema di gioco:" con `DropdownButton<SistemaGioco>`
+    (per ora solo `palleggiatoreUnico` ha logica). Corpo: uno o due campi
+    affiancati a **dimensione fissa 460×460dp** (stesso PNG/stile di
+    `LineupScreen`), centrati con il pattern `ConstrainedBox(minWidth: ...) +
+    Center` dentro `SingleChildScrollView(Axis.horizontal)` (centra quando
+    c'è spazio, scrolla altrimenti).
+    - **Campo sinistro — Palleggiatore**: pre-selezionato in `initState`
+      cercando il giocatore con `Ruolo.palleggiatore` negli `assignments`.
+      Tap su uno slot occupato lo seleziona/deseleziona; bordo rosso
+      (`Colors.red`) quando selezionato. Subtitle statico "Conferma il
+      palleggiatore".
+    - **Campo destro — Cambi del libero**: visibile **solo se la formazione
+      ha un libero** (`assignments` contiene `L1` o `L2` — getter
+      `_hasLibero`); se non c'è libero la pagina mostra solo il campo
+      sinistro. Pre-selezionati in `initState` i giocatori con
+      `Ruolo.centrale` (max 2). Regola pallavolistica implementata: il libero
+      sostituisce **o i due centrali o i due schiacciatori**, mai una
+      combinazione — tap su un giocatore seleziona automaticamente l'intera
+      coppia del suo ruolo (`Ruolo.centrale` o `Ruolo.schiacciatore`),
+      deselezionando l'altra coppia; tap sulla coppia già selezionata la
+      deseleziona. Slot non centrale/schiacciatore (es. opposto) e lo slot
+      già usato come palleggiatore sono disabilitati (`disabledSlots`,
+      sfondo grigio, non tappabili). Bordo blu scuro (`0xFF00008A`) quando
+      selezionato; subtitle "Conferma i due cambi del libero – X/2
+      selezionati" (colore `Colors.lightBlue` a selezione completa).
+    - "Inizia scout" abilitato quando: palleggiatore selezionato **e** (nessun
+      libero in formazione **oppure** 2 cambi del libero selezionati).
+- **`ScoutScreen`**: setup **solo grafico** per ora (Fase 3, vedi sezione
+  dedicata sotto) — riceve `match` + `team`, nessuna logica di scouting
+  ancora implementata.
 
 ---
 
-## Interfaccia di scout (design deciso, da implementare in Fase 3)
+## Interfaccia di scout (Fase 3)
+
+### Setup grafico `ScoutScreen` (IMPLEMENTATO)
+
+- Sfondo schermo: `Color(0xFF143E59)`.
+- Barra superiore fissa: `Container` alto 60dp, colore `Color(0xFF0D2738)`,
+  bottone "indietro" (`Icons.arrow_back`, `Navigator.pop`) allineato a
+  **destra** (non a sinistra come una AppBar standard — scelta deliberata per
+  ergonomia in landscape).
+- Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
+  (`assets/images/`):
+  - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
+    orizzontalmente con margine sinistro/destro pari al **15%** della
+    larghezza disponibile (occupa il 70% restante), dimensionato con
+    `AspectRatio` — si scala con lo schermo, nessuna dimensione fissa in px.
+  - `small_court.png` (campo singolo piccolo, overlay in alto a sinistra):
+    `Positioned` con margine **5% top**, **3% left**, lato quadrato pari al
+    **7%** della larghezza disponibile (proporzionato al campo grande).
+- Nessuna logica di scouting ancora presente: il resto di questa sezione
+  descrive il design deciso ma non ancora implementato.
+
+### Design deciso, da implementare
 
 - Campo intero disegnato (entrambe le metà, rete al centro), i 6 giocatori della
   propria squadra come token toccabili.
@@ -259,10 +329,15 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
         crea squadra al volo
   - [x] LineupScreen: selezione formazione (griglia campo, assegnazione giocatori,
         doppio libero, avanzamento automatico CCW, conferma)
+  - [x] FormationConfigScreen: sistema di gioco (palleggiatore unico), conferma
+        palleggiatore + cambi del libero (centrali/schiacciatori in coppia),
+        campo cambi nascosto se la formazione non ha libero
   - [x] ScoutScreen: placeholder con contesto match + team pronto per Fase 3
 
 - **Fase 3 — Scout** (IN CORSO)
-  - [ ] **PROSSIMO**: schermata scout vera e propria — CustomPainter campo intero,
+  - [x] Setup grafico ScoutScreen: sfondo, barra top, campo doppio + campo
+        piccolo proporzionati allo schermo (vedi sezione "Interfaccia di scout")
+  - [ ] **PROSSIMO**: logica vera e propria — CustomPainter campo intero,
         token giocatori toccabili, flusso 3 tocchi (giocatore → fondamentale → voto),
         registrazione ScoutAction a DB, traiettorie via drag.
   - [ ] Modello DB: tabelle MatchSet, Rotation, ScoutAction.
@@ -277,9 +352,13 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 **Fase 1 completata. Fase 2 completata. Fase 3 in corso.**
 
 Il flusso è navigabile end-to-end: lista partite → "Inizia" → selezione squadra →
-selezione formazione (`LineupScreen`) → `ScoutScreen` placeholder.
-Il prossimo passo è implementare la schermata scout vera: CustomPainter del campo,
-token giocatori, flusso 3 tocchi e registrazione azioni a DB.
+selezione formazione (`LineupScreen`) → configurazione formazione
+(`FormationConfigScreen`: sistema di gioco, conferma palleggiatore e cambi del
+libero) → `ScoutScreen` (setup grafico completo: sfondo, barra top, campo
+doppio + campo piccolo).
+Il prossimo passo è implementare la logica vera della schermata scout:
+CustomPainter del campo, token giocatori, flusso 3 tocchi e registrazione
+azioni a DB.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout
