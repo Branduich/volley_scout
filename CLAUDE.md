@@ -331,15 +331,26 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     del palleggiatore. `_roleLabelsFor` viene chiamata con
     `_currentAssignments`, quindi le etichette di ruolo seguono
     automaticamente ogni giocatore mentre la squadra ruota.
+- **Bottone "cambia campo"**: riga alta 48dp centrata tra la barra superiore e
+  il campo grande, quadrato blu scuro (`0xFF00008A`) con icona
+  `Icons.swap_horiz`, stesso stile dei bottoni di rotazione. Stato `_isRightSide`
+  (bool) + `_toggleSide()`. Quando attivo, le posizioni dei token vengono
+  riflesse tramite `_displayPosition()`: **rotazione di 180°** rispetto al
+  centro dell'immagine doppia (non un mirror orizzontale semplice) —
+  `x' = 1200 - x`, `y' = 600 - y`. Es. P1 (200,470, basso-sx) →
+  (1000,130, alto-dx). Verificato che la trasformazione mantiene la rete
+  sempre adiacente al centro (x≈600) e il fondo campo sempre vicino al bordo
+  esterno, per entrambi i lati.
 - **Token giocatore (posizioni di attacco)** sul campo grande: 6 cerchi con
   raggio **1/20** del campo (un singolo campo è un quadrato 600×600 nello
   spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = colore
   maglia squadra scurito, bordo bianco 2px, ombra (`BoxShadow` nero 47%
   opacità, blur 4, offset verticale 2).
-  - Posizioni fisse `_kAttackPositions` (coordinate di riferimento 1200×600):
-    P1(200,470) P2(530,470) P3(530,300) P4(530,130) P5(200,130) P6(200,300).
-    Scalate a runtime con `cw/1200` e `ch/600`. Da estendere in futuro con le
-    posizioni di ricezione.
+  - Posizioni fisse `_kAttackPositions` (coordinate di riferimento 1200×600,
+    lato sinistro — riflesse a destra da `_displayPosition()` se
+    `_isRightSide`): P1(200,470) P2(530,470) P3(530,300) P4(530,130)
+    P5(200,130) P6(200,300). Scalate a runtime con `cw/1200` e `ch/600`. Da
+    estendere in futuro con le posizioni di ricezione.
   - **Etichette di ruolo** (`_roleLabelsFor`): NON un pattern fisso per
     posizione — leggono il `Ruolo` reale del giocatore assegnato a ciascuno
     slot. Il palleggiatore è sempre "P"; l'opposto è sempre "O" (trovato

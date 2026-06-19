@@ -189,6 +189,18 @@ class _ScoutScreenState extends State<ScoutScreen> {
 
   void _rotateForward() => setState(() => _rotationSteps++);
 
+  // Quando la squadra ataca dal campo di destra, le posizioni vanno
+  // riflesse rispetto al centro dell'immagine doppia (rotazione di 180°,
+  // non un semplice mirror orizzontale): chi era in basso a sinistra finisce
+  // in alto a destra. Coordinate di riferimento 1200×600.
+  bool _isRightSide = false;
+
+  void _toggleSide() => setState(() => _isRightSide = !_isRightSide);
+
+  Offset _displayPosition(Offset refPos) => _isRightSide
+      ? Offset(1200 - refPos.dx, 600 - refPos.dy)
+      : refPos;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -206,6 +218,31 @@ class _ScoutScreenState extends State<ScoutScreen> {
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
+            ),
+          ),
+          Container(
+            height: 48,
+            color: _kBg,
+            alignment: Alignment.center,
+            child: GestureDetector(
+              onTap: _toggleSide,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00008A),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(120),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.swap_horiz,
+                    color: Colors.white, size: 22),
+              ),
             ),
           ),
           Expanded(
@@ -238,7 +275,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
                                       in _kAttackPositions.entries)
                                     _buildPlayerToken(
                                         roleLabels[entry.key] ?? entry.key,
-                                        entry.value,
+                                        _displayPosition(entry.value),
                                         cw,
                                         ch),
                                 ],
