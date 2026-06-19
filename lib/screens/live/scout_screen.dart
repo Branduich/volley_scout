@@ -6,11 +6,30 @@ const _kTopBarBg = Color(0xFF0D2738);
 const _kCourtImage = 'assets/images/double_court_bg.png';
 const _kSmallCourtImage = 'assets/images/small_court.png';
 
+// Ancoraggio del badge di rotazione sul campo piccolo, per slot del
+// palleggiatore. Il campo piccolo è ruotato di 90° in senso orario rispetto
+// a LineupScreen: P1 basso-sx, P2 basso-dx, P3 centro-dx (lato rete),
+// P4 alto-dx, P5 alto-sx, P6 centro-sx — in senso antiorario da P1.
+const Map<String, Alignment> _kRotationBadgeAnchor = {
+  'P1': Alignment.bottomLeft,
+  'P2': Alignment.bottomRight,
+  'P3': Alignment.centerRight,
+  'P4': Alignment.topRight,
+  'P5': Alignment.topLeft,
+  'P6': Alignment.centerLeft,
+};
+
 class ScoutScreen extends StatelessWidget {
   final VolleyMatch match;
   final Team team;
+  final String palleggiatoreSlot;
 
-  const ScoutScreen({super.key, required this.match, required this.team});
+  const ScoutScreen({
+    super.key,
+    required this.match,
+    required this.team,
+    required this.palleggiatoreSlot,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +76,12 @@ class ScoutScreen extends StatelessWidget {
                       left: constraints.maxWidth * 0.03,
                       width: smallCourtSize,
                       height: smallCourtSize,
-                      child: Image.asset(_kSmallCourtImage,
-                          fit: BoxFit.contain),
+                      child: Stack(
+                        children: [
+                          Image.asset(_kSmallCourtImage, fit: BoxFit.contain),
+                          _buildRotationBadge(smallCourtSize),
+                        ],
+                      ),
                     ),
                   ],
                 );
@@ -66,6 +89,35 @@ class ScoutScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRotationBadge(double courtSize) {
+    final anchor =
+        _kRotationBadgeAnchor[palleggiatoreSlot] ?? Alignment.bottomLeft;
+    final badgeWidth = courtSize * 0.5;
+    final badgeHeight = courtSize / 3;
+    return Align(
+      alignment: anchor,
+      child: SizedBox(
+        width: badgeWidth,
+        height: badgeHeight,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Color(team.coloreDivisa),
+            borderRadius: BorderRadius.circular(badgeHeight * 0.1),
+          ),
+          child: Text(
+            palleggiatoreSlot,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: badgeHeight * 0.5,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -89,7 +89,11 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ScoutScreen(match: widget.match, team: widget.team),
+        builder: (_) => ScoutScreen(
+          match: widget.match,
+          team: widget.team,
+          palleggiatoreSlot: _palleggiatoreSlot!,
+        ),
       ),
     );
   }

@@ -263,10 +263,13 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
       selezionato; subtitle "Conferma i due cambi del libero – X/2
       selezionati" (colore `Colors.lightBlue` a selezione completa).
     - "Inizia scout" abilitato quando: palleggiatore selezionato **e** (nessun
-      libero in formazione **oppure** 2 cambi del libero selezionati).
+      libero in formazione **oppure** 2 cambi del libero selezionati). Al tap
+      naviga a `ScoutScreen` passando anche `palleggiatoreSlot: _palleggiatoreSlot!`
+      (lo slot P1–P6 dove si trova il palleggiatore, usato per il badge di
+      rotazione — vedi sezione "Interfaccia di scout").
 - **`ScoutScreen`**: setup **solo grafico** per ora (Fase 3, vedi sezione
-  dedicata sotto) — riceve `match` + `team`, nessuna logica di scouting
-  ancora implementata.
+  dedicata sotto) — riceve `match` + `team` + `palleggiatoreSlot`, nessuna
+  logica di scouting ancora implementata.
 
 ---
 
@@ -288,6 +291,18 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
   - `small_court.png` (campo singolo piccolo, overlay in alto a sinistra):
     `Positioned` con margine **5% top**, **3% left**, lato quadrato pari al
     **7%** della larghezza disponibile (proporzionato al campo grande).
+- **Badge di rotazione** sul campo piccolo: card rettangolare (50% larghezza ×
+  1/3 altezza del campo piccolo, angoli smussati) con il numero di posizione
+  del palleggiatore (`palleggiatoreSlot`, es. "P1"), testo bianco bold, sfondo
+  = colore maglia della squadra (`Color(team.coloreDivisa)`). Ancorata con
+  `Align` (non `Positioned` con offset) così resta **sempre dentro i confini**
+  del campo piccolo, flush contro l'angolo/lato corretto — niente di sporgente
+  a cavallo del bordo.
+  - Mappa `_kRotationBadgeAnchor` in `scout_screen.dart`: il campo piccolo è
+    ruotato di 90° in senso orario rispetto a `LineupScreen`, quindi P1→
+    `Alignment.bottomLeft`, P2→`bottomRight`, P3→`centerRight` (lato rete),
+    P4→`topRight`, P5→`topLeft`, P6→`centerLeft` (girando in senso
+    antiorario a partire da P1).
 - Nessuna logica di scouting ancora presente: il resto di questa sezione
   descrive il design deciso ma non ancora implementato.
 
