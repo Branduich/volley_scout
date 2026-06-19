@@ -201,48 +201,36 @@ class _ScoutScreenState extends State<ScoutScreen> {
       ? Offset(1200 - refPos.dx, 600 - refPos.dy)
       : refPos;
 
+  // Di default i token mostrano il numero di maglia; disattivando il toggle
+  // mostrano il ruolo.
+  bool _showJerseyNumbers = true;
+
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: _kBg,
+      drawer: _buildUtilityDrawer(),
       body: Column(
         children: [
           Container(
             height: 60,
             color: _kTopBarBg,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
-            ),
-          ),
-          Container(
-            height: 48,
-            color: _kBg,
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onTap: _toggleSide,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00008A),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(120),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.swap_horiz,
-                    color: Colors.white, size: 22),
-              ),
             ),
           ),
           Expanded(
@@ -272,17 +260,24 @@ class _ScoutScreenState extends State<ScoutScreen> {
                             builder: (context, courtConstraints) {
                               final cw = courtConstraints.maxWidth;
                               final ch = courtConstraints.maxHeight;
+                              final currentAssignments = _currentAssignments;
                               final roleLabels = _roleLabelsFor(
-                                  _currentSlot, _currentAssignments);
+                                  _currentSlot, currentAssignments);
                               return Stack(
                                 children: [
                                   Image.asset(_kCourtImage,
                                       fit: BoxFit.contain),
+                                  // Itera per giocatore (non per slot fisso)
+                                  // così ogni token mantiene la sua identità
+                                  // (key = player.id) mentre ruota, e
+                                  // AnimatedPositioned ne anima lo spostamento.
                                   for (final entry
-                                      in _kAttackPositions.entries)
+                                      in currentAssignments.entries)
                                     _buildPlayerToken(
                                         roleLabels[entry.key] ?? entry.key,
-                                        _displayPosition(entry.value),
+                                        entry.value,
+                                        _displayPosition(
+                                            _kAttackPositions[entry.key]!),
                                         cw,
                                         ch),
                                 ],
@@ -337,6 +332,53 @@ class _ScoutScreenState extends State<ScoutScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Pannello laterale per i bottoni "di utilità" usati raramente (es.
+  // cambio campo), per non affollare l'area sopra il campo grande.
+  Widget _buildUtilityDrawer() {
+    return Drawer(
+      backgroundColor: _kBg,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Utilità',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz, color: Colors.white),
+              title: const Text('Cambia campo',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                _toggleSide();
+                _scaffoldKey.currentState?.closeDrawer();
+              },
+            ),
+            SwitchListTile(
+              value: _showJerseyNumbers,
+              onChanged: (v) => setState(() => _showJerseyNumbers = v),
+              title: Text(
+                  _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
+                  style: const TextStyle(color: Colors.white)),
+              activeThumbColor: Colors.white,
+              activeTrackColor: const Color(0xFF00008A),
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white24,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -402,14 +444,15 @@ class _ScoutScreenState extends State<ScoutScreen> {
   }
 
   Widget _buildPlayerToken(
-      String label, Offset refPos, double cw, double ch) {
+      String roleLabel, Player player, Offset refPos, double cw, double ch) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
     // spazio di riferimento, quindi un ventesimo equivale a ch/20).
     final radius = ch / 20;
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
     final fillColor = AppColors.darken(Color(widget.team.coloreDivisa));
-    final isPalleggiatore = label == 'P';
+    final isPalleggiatore = roleLabel == 'P';
+    final label = _showJerseyNumbers ? '${player.numero}' : roleLabel;
     // L'esagono del palleggiatore è il 10% più grande dei token circolari.
     final tokenRadius = isPalleggiatore ? radius * 1.1 : radius;
 
@@ -422,7 +465,13 @@ class _ScoutScreenState extends State<ScoutScreen> {
       ),
     );
 
-    return Positioned(
+    // Key = identità del giocatore (non lo slot): così, quando la rotazione
+    // sposta tutti i giocatori, AnimatedPositioned anima ciascun token dalla
+    // vecchia alla nuova posizione invece di "teletrasportarlo".
+    return AnimatedPositioned(
+      key: ValueKey(player.id),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
       left: cx - tokenRadius,
       top: cy - tokenRadius,
       width: tokenRadius * 2,

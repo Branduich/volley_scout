@@ -280,9 +280,26 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 - Sfondo schermo: `Color(0xFF143E59)`.
 - Barra superiore fissa: `Container` alto 60dp, colore `Color(0xFF0D2738)`,
-  bottone "indietro" (`Icons.arrow_back`, `Navigator.pop`) allineato a
-  **destra** (non a sinistra come una AppBar standard — scelta deliberata per
-  ergonomia in landscape).
+  `Row` con bottone "menu" (`Icons.menu`, apre il drawer di utilità) a
+  **sinistra** e bottone "indietro" (`Icons.arrow_back`, `Navigator.pop`) a
+  **destra** (non centrato come un'AppBar standard — scelta deliberata per
+  ergonomia in landscape), entrambi ancorati in basso nella barra
+  (`crossAxisAlignment: CrossAxisAlignment.end`).
+- **Drawer di utilità** (`_buildUtilityDrawer`, apribile via
+  `_scaffoldKey.currentState?.openDrawer()` — necessario un
+  `GlobalKey<ScaffoldState>` perché la barra superiore è custom, non
+  un'AppBar reale): contiene i bottoni usati raramente, per non affollare
+  l'area sopra il campo. Sfondo `_kBg` per coerenza col tema scuro.
+  - **"Cambia campo"** (`ListTile`, icona `Icons.swap_horiz`): chiama
+    `_toggleSide()` e chiude il drawer.
+  - **Toggle "Mostra numeri/ruoli"** (`SwitchListTile`): stato
+    `_showJerseyNumbers`, **default `true`** (numeri di maglia visibili
+    appena apri lo scout). Label dinamica che descrive l'azione del tap, non
+    lo stato corrente: "Mostra ruoli" quando attivo (numeri visibili),
+    "Mostra numeri" quando disattivo (ruoli visibili). Quando attivo, i
+    token sul campo grande mostrano `player.numero` invece dell'etichetta di
+    ruolo (la forma esagono/cerchio del palleggiatore resta comunque basata
+    sul ruolo, non sul numero).
 - `ScoutScreen` riceve da `FormationConfigScreen`: `match`, `team`,
   `palleggiatoreSlot` (slot P1–P6 dove si trova il palleggiatore) e
   `assignments` (`Map<String, Player>` — la formazione completa, usata per
@@ -331,16 +348,20 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     del palleggiatore. `_roleLabelsFor` viene chiamata con
     `_currentAssignments`, quindi le etichette di ruolo seguono
     automaticamente ogni giocatore mentre la squadra ruota.
-- **Bottone "cambia campo"**: riga alta 48dp centrata tra la barra superiore e
-  il campo grande, quadrato blu scuro (`0xFF00008A`) con icona
-  `Icons.swap_horiz`, stesso stile dei bottoni di rotazione. Stato `_isRightSide`
-  (bool) + `_toggleSide()`. Quando attivo, le posizioni dei token vengono
-  riflesse tramite `_displayPosition()`: **rotazione di 180°** rispetto al
-  centro dell'immagine doppia (non un mirror orizzontale semplice) —
-  `x' = 1200 - x`, `y' = 600 - y`. Es. P1 (200,470, basso-sx) →
+- **Cambio campo** (voce "Cambia campo" nel drawer di utilità, vedi sopra):
+  stato `_isRightSide` (bool) + `_toggleSide()`. Quando attivo, le posizioni
+  dei token vengono riflesse tramite `_displayPosition()`: **rotazione di
+  180°** rispetto al centro dell'immagine doppia (non un mirror orizzontale
+  semplice) — `x' = 1200 - x`, `y' = 600 - y`. Es. P1 (200,470, basso-sx) →
   (1000,130, alto-dx). Verificato che la trasformazione mantiene la rete
   sempre adiacente al centro (x≈600) e il fondo campo sempre vicino al bordo
   esterno, per entrambi i lati.
+  - **Mini-map e bottoni di rotazione seguono il lato**: `minimapLeft`
+    calcolato con lo stesso margine 3% applicato da destra invece che da
+    sinistra quando `_isRightSide`. La mini-map stessa viene ruotata di 180°
+    (`Transform.rotate(angle: math.pi)`); l'ancoraggio del badge di rotazione
+    segue la stessa rotazione (`Alignment(-x, -y)` quando `_isRightSide`),
+    mentre il testo del badge resta dritto e leggibile (non ruotato).
 - **Token giocatore (posizioni di attacco)** sul campo grande: 6 cerchi con
   raggio **1/20** del campo (un singolo campo è un quadrato 600×600 nello
   spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = colore
@@ -351,6 +372,14 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     `_isRightSide`): P1(200,470) P2(530,470) P3(530,300) P4(530,130)
     P5(200,130) P6(200,300). Scalate a runtime con `cw/1200` e `ch/600`. Da
     estendere in futuro con le posizioni di ricezione.
+  - **Animazione di rotazione**: il rendering itera per **giocatore**
+    (`currentAssignments.entries`, non più per slot fisso), e ogni token è
+    un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —
+    `duration: 500ms`, `curve: Curves.easeInOut`. Poiché ruolo ed etichetta
+    di un giocatore sono stabili nel tempo (la stessa persona resta "S1" per
+    sempre, cambia solo la posizione P che occupa), Flutter riconosce il
+    widget tramite la key e ne anima fluidamente lo spostamento da una
+    posizione all'altra invece di "teletrasportarlo" istantaneamente.
   - **Etichette di ruolo** (`_roleLabelsFor`): NON un pattern fisso per
     posizione — leggono il `Ruolo` reale del giocatore assegnato a ciascuno
     slot. Il palleggiatore è sempre "P"; l'opposto è sempre "O" (trovato
