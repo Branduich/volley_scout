@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_spacing.dart';
+import 'app_typography.dart';
 
 class AppTheme {
   AppTheme._();
@@ -17,6 +18,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.surface,
+      textTheme: AppTypography.textTheme,
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           shape: RoundedRectangleBorder(

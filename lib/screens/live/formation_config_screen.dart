@@ -44,8 +44,13 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     }
   }
 
+  bool get _hasLibero =>
+      widget.assignments.containsKey('L1') ||
+      widget.assignments.containsKey('L2');
+
   bool get _canConfirm =>
-      _palleggiatoreSlot != null && _centraliSlots.length == 2;
+      _palleggiatoreSlot != null &&
+      (!_hasLibero || _centraliSlots.length == 2);
 
   void _onPalleggiatoreSlotTap(String slot) {
     setState(() {
@@ -166,28 +171,30 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                           onSlotTap: _onPalleggiatoreSlotTap,
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      _LabeledCourt(
-                        title: 'Cambi del libero',
-                        subtitle:
-                            'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
-                        subtitleColor: _centraliSlots.length == 2
-                            ? Colors.lightBlue
-                            : Colors.white54,
-                        child: _CourtView(
-                          assignments: widget.assignments,
-                          selectedSlots: _centraliSlots,
-                          selectionColor: const Color(0xFF00008A),
-                          disabledSlots: {
-                            ?_palleggiatoreSlot,
-                            for (final e in widget.assignments.entries)
-                              if (e.value.ruolo != Ruolo.centrale &&
-                                  e.value.ruolo != Ruolo.schiacciatore)
-                                e.key,
-                          },
-                          onSlotTap: _onCentraleSlotTap,
+                      if (_hasLibero) ...[
+                        const SizedBox(width: 24),
+                        _LabeledCourt(
+                          title: 'Cambi del libero',
+                          subtitle:
+                              'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
+                          subtitleColor: _centraliSlots.length == 2
+                              ? Colors.lightBlue
+                              : Colors.white54,
+                          child: _CourtView(
+                            assignments: widget.assignments,
+                            selectedSlots: _centraliSlots,
+                            selectionColor: const Color(0xFF00008A),
+                            disabledSlots: {
+                              ?_palleggiatoreSlot,
+                              for (final e in widget.assignments.entries)
+                                if (e.value.ruolo != Ruolo.centrale &&
+                                    e.value.ruolo != Ruolo.schiacciatore)
+                                  e.key,
+                            },
+                            onSlotTap: _onCentraleSlotTap,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

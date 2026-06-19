@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 class AppTypography {
   AppTypography._();
 
-  // Famiglia base (se in futuro aggiungi un font custom, lo cambi qui)
-  static const String? fontFamily = null; // null = font di sistema
+  // Font Barlow bundlato come asset locale (assets/fonts/Barlow), nessuna
+  // dipendenza da rete a runtime. Pesi disponibili: 400/500/600/700.
+  static const String fontFamily = 'Barlow';
 
-  static const TextTheme textTheme = TextTheme(
+  static final TextTheme textTheme = _baseTextTheme.apply(fontFamily: fontFamily);
+
+  static const TextTheme _baseTextTheme = TextTheme(
     // Titoli grandi (es. nome schermata, intestazioni)
     headlineMedium: TextStyle(
       fontSize: 24,
