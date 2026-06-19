@@ -254,6 +254,13 @@ class _ScoutScreenState extends State<ScoutScreen> {
                 // Campo piccolo: 5% di margine da top e 3% da left
                 // larghezza massima del 7% dello schermo (per mantenere proporzioni con il campo grande)
                 final smallCourtSize = constraints.maxWidth * 0.07;
+                // Mini-map e bottoni di rotazione seguono il lato del campo:
+                // a sinistra di default, speculari a destra quando si cambia
+                // campo (stesso margine del 3%).
+                final horizontalMargin = constraints.maxWidth * 0.03;
+                final minimapLeft = _isRightSide
+                    ? constraints.maxWidth - smallCourtSize - horizontalMargin
+                    : horizontalMargin;
                 return Stack(
                   children: [
                     Center(
@@ -287,7 +294,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
                     ),
                     Positioned(
                       top: constraints.maxHeight * 0.05,
-                      left: constraints.maxWidth * 0.03,
+                      left: minimapLeft,
                       width: smallCourtSize,
                       height: smallCourtSize,
                       child: Container(
@@ -299,8 +306,11 @@ class _ScoutScreenState extends State<ScoutScreen> {
                           borderRadius: BorderRadius.circular(4),
                           child: Stack(
                             children: [
-                              Image.asset(_kSmallCourtImage,
-                                  fit: BoxFit.contain),
+                              Transform.rotate(
+                                angle: _isRightSide ? math.pi : 0,
+                                child: Image.asset(_kSmallCourtImage,
+                                    fit: BoxFit.contain),
+                              ),
                               _buildRotationBadge(smallCourtSize),
                             ],
                           ),
@@ -309,7 +319,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
                     ),
                     Positioned(
                       top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
-                      left: constraints.maxWidth * 0.03,
+                      left: minimapLeft,
                       width: smallCourtSize,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -332,7 +342,14 @@ class _ScoutScreenState extends State<ScoutScreen> {
   }
 
   Widget _buildRotationBadge(double courtSize) {
-    final anchor = _kRotationBadgeAnchor[_currentSlot] ?? Alignment.bottomLeft;
+    final baseAnchor =
+        _kRotationBadgeAnchor[_currentSlot] ?? Alignment.bottomLeft;
+    // La mini-map è ruotata di 180° sul campo destro: l'ancoraggio del badge
+    // segue la stessa rotazione (negare entrambe le componenti), mentre il
+    // testo resta dritto e leggibile.
+    final anchor = _isRightSide
+        ? Alignment(-baseAnchor.x, -baseAnchor.y)
+        : baseAnchor;
     final badgeWidth = courtSize * 0.5;
     final badgeHeight = courtSize / 3;
     return Align(
