@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 
 class MatchFormScreen extends ConsumerStatefulWidget {
@@ -100,6 +101,8 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
         inCasa: _inCasa,
         palestra: palestraValue,
         avversario: avversarioValue,
+        stato: StatoPartita.configurazione,
+        setCorrente: 1,
       ));
     }
     if (mounted) Navigator.pop(context);

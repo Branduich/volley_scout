@@ -51,3 +51,59 @@ enum SistemaGioco {
   final String label;
   const SistemaGioco(this.label);
 }
+
+/// Stato di una partita. Flusso: configurazione → inCorso ↔ sospesa → terminata.
+enum StatoPartita { configurazione, inCorso, sospesa, terminata }
+
+/// Nostra squadra o avversari. La rotazione è tracciata solo per `nostra`
+/// (l'avversario è un nome libero, senza roster in DB — vedi CLAUDE.md).
+enum Squadra { nostra, avversari }
+
+/// Esito di un'azione di scout rispetto al punteggio del set. `nessuno` per
+/// le azioni interne a uno scambio che non chiudono il punto (es. ricezione).
+enum EsitoPunto { nessuno, puntoNostro, puntoAvversario }
+
+enum Fondamentale {
+  battuta('Battuta'),
+  ricezione('Ricezione'),
+  alzata('Alzata'),
+  attacco('Attacco'),
+  muro('Muro'),
+  difesa('Difesa'),
+  errore('Errore');
+
+  final String label;
+  const Fondamentale(this.label);
+
+  /// Solo battuta e attacco hanno una traiettoria da registrare.
+  bool get richiedeTraiettoria =>
+      this == Fondamentale.battuta || this == Fondamentale.attacco;
+}
+
+/// Tipo di un'azione registrata nello scout. `scout` = percorso normale
+/// (giocatore + fondamentale + voto); gli altri due sono i bottoni rapidi.
+enum TipoAzione { scout, puntoManuale, erroreGenerico }
+
+/// Tipo di esecuzione di un attacco — contestuale, opzionale, default
+/// `nonSpecificato` per non bloccare il flusso veloce.
+enum TipoAttacco {
+  nonSpecificato('Non specificato'),
+  forte('Forte'),
+  piazzata('Piazzata'),
+  pallonetto('Pallonetto');
+
+  final String label;
+  const TipoAttacco(this.label);
+}
+
+/// Tipo di esecuzione di una battuta — stessa logica di TipoAttacco.
+/// Terminologia da confermare.
+enum TipoBattuta {
+  nonSpecificato('Non specificato'),
+  floatStaccata('Float staccata'),
+  salto('Salto'),
+  saltoFloat('Salto float');
+
+  final String label;
+  const TipoBattuta(this.label);
+}

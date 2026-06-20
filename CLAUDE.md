@@ -74,7 +74,12 @@ dev: `drift_dev build_runner`
 lib/
 ├── main.dart                     (app + HomeScreen con menu; usa AppTheme.light)
 ├── models/
-│   └── enums.dart                (Ruolo, Categoria, Voto + jerseyPalette)
+│   └── enums.dart                (Ruolo, Categoria, Voto, SistemaGioco, Squadra,
+│                                   EsitoPunto + jerseyPalette)
+├── logic/
+│   └── ricalcola_stato.dart      (funzione pura ricalcolaStato() — punteggio/
+│                                   rotazione derivati dalle azioni di scout,
+│                                   nessuna dipendenza da DB/UI; vedi Modello dati)
 ├── data/
 │   ├── database.dart             (tabelle Teams, Players, VolleyMatches + AppDatabase)
 │   └── database.g.dart           (generato, non editare a mano)
@@ -112,6 +117,11 @@ lib/
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
+
+test/
+├── widget_test.dart       (smoke test HomeScreen)
+└── logic/
+    └── ricalcola_stato_test.dart  (14 test su ricalcolaStato(), `flutter test`)
 ```
 
 ---
@@ -185,7 +195,35 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
 **Principio architetturale chiave: stato derivato dagli eventi.** Punteggio e
 rotazione correnti NON si salvano come stato mutabile: si **ricalcolano**
 rigiocando la sequenza ordinata di `ScoutAction` di un set (event sourcing
-leggero). Conseguenze:
+leggero).
+
+**`ricalcolaStato()` (IMPLEMENTATA, isolata dal resto)**: `lib/logic/ricalcola_stato.dart`,
+testata in `test/logic/ricalcola_stato_test.dart` (14 test, tutti verdi).
+Deliberatamente **disaccoppiata da Drift/DB**: non usa la futura tabella
+`ScoutActions` ma un typedef minimale `AzioneScout = ({int ordine, EsitoPunto
+esitoPunto})` — gli unici due campi che servono a questo calcolo (giocatore,
+fondamentale, voto, traiettoria non influenzano punteggio/rotazione). Quando
+esisterà la tabella reale, il repository estrarrà questi due campi dalle righe
+DB prima di chiamare la funzione.
+- Firma: `StatoSet ricalcolaStato({required List<AzioneScout> azioni,
+  required Squadra servizioIniziale, required Map<int,int> rotazioneIniziale})`.
+  Stato iniziale passato come parametro (non letto da DB): la funzione resta
+  pura e testabile senza mock.
+- Ordina le azioni per `ordine` prima di rigiocarle (resiliente a input non
+  ordinato).
+- Logica: `puntoNostro` mentre il servizio non era nostro → sideout, ruota
+  (`_ruotata`, oraria) e passiamo al servizio; `puntoNostro` mentre servivamo
+  già → solo punteggio, nessuna rotazione. `puntoAvversario` → passano loro al
+  servizio (punteggio + cambio `squadraAlServizio`), ma **nessuna rotazione
+  nostra** (è il loro sideout, e non tracciamo il loro roster). `nessuno` →
+  no-op.
+- `StatoSet` (risultato): punteggio nostro/avversario, `squadraAlServizio`,
+  `rotazione` (Map posizione→giocatoreId). `==`/`hashCode` ridefiniti per
+  confrontare il contenuto della mappa nei test, non l'identità.
+- Enum `Squadra` ed `EsitoPunto` aggiunti a `enums.dart` (servivano comunque
+  alla futura tabella `ScoutActions`, quindi vivono lì e non in `logic/`).
+
+Conseguenze del principio (ancora da implementare oltre alla funzione pura):
 - Ogni azione si scrive a DB nell'istante in cui viene registrata (mai solo in
   memoria) — niente perso se l'app si chiude o il tablet si scarica.
 - **Undo** = elimina l'azione con `ordine` massimo nel set, poi ricalcola.
@@ -580,16 +618,20 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   - [x] Punteggio e rotazione **provvisori** in memoria (`_nostroScore`/
         `_avversarioScore`, `_rotationSteps`) — da sostituire col modello
         event-sourced sotto, non persistiti.
-  - [ ] **PROSSIMO**: modello dati definitivo (vedi "Principio architetturale
+  - [x] Funzione pura `ricalcolaStato()` (punteggio + rotazione derivati) +
+        14 unit test — `lib/logic/ricalcola_stato.dart` /
+        `test/logic/ricalcola_stato_test.dart`. Vedi dettagli nel Modello dati.
+  - [ ] **PROSSIMO**: modello dati a DB (vedi "Principio architetturale
         chiave" nel Modello dati) — tabelle `MatchSet`, `Rotation`,
         `ScoutAction`, campo `StatoPartita`/`setCorrente` su `VolleyMatches`,
-        enum `TipoAzione`/`EsitoPunto`/`TipoAttacco`/`TipoBattuta`.
-  - [ ] Funzione pura `ricalcolaStato(List<ScoutAction>)` (punteggio +
-        rotazione derivati) con unit test — cuore logico della fase.
+        enum `TipoAzione`/`TipoAttacco`/`TipoBattuta` (`Squadra`/`EsitoPunto`
+        già in `enums.dart`). Poi un repository che alimenta
+        `ricalcolaStato()` con le righe reali.
   - [ ] CustomPainter campo intero, token giocatori toccabili, flusso 3 tocchi
         (giocatore → fondamentale → voto) con bottoni contestuali tipo
         esecuzione, bottoni rapidi (+1 Noi/+1 Loro/Errore), traiettorie via drag.
-  - [ ] Sostituire i contatori provvisori con la logica derivata dagli eventi.
+  - [ ] Sostituire i contatori provvisori in `ScoutScreen` con la logica
+        derivata dagli eventi (`ricalcolaStato()` + repository).
   - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.

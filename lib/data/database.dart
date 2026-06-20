@@ -24,6 +24,54 @@ class RuoloConverter extends TypeConverter<Ruolo, String> {
   String toSql(Ruolo value) => value.name;
 }
 
+class StatoPartitaConverter extends TypeConverter<StatoPartita, String> {
+  const StatoPartitaConverter();
+  @override
+  StatoPartita fromSql(String fromDb) => StatoPartita.values.byName(fromDb);
+  @override
+  String toSql(StatoPartita value) => value.name;
+}
+
+class SquadraConverter extends TypeConverter<Squadra, String> {
+  const SquadraConverter();
+  @override
+  Squadra fromSql(String fromDb) => Squadra.values.byName(fromDb);
+  @override
+  String toSql(Squadra value) => value.name;
+}
+
+class TipoAzioneConverter extends TypeConverter<TipoAzione, String> {
+  const TipoAzioneConverter();
+  @override
+  TipoAzione fromSql(String fromDb) => TipoAzione.values.byName(fromDb);
+  @override
+  String toSql(TipoAzione value) => value.name;
+}
+
+class FondamentaleConverter extends TypeConverter<Fondamentale, String> {
+  const FondamentaleConverter();
+  @override
+  Fondamentale fromSql(String fromDb) => Fondamentale.values.byName(fromDb);
+  @override
+  String toSql(Fondamentale value) => value.name;
+}
+
+class VotoConverter extends TypeConverter<Voto, String> {
+  const VotoConverter();
+  @override
+  Voto fromSql(String fromDb) => Voto.values.byName(fromDb);
+  @override
+  String toSql(Voto value) => value.name;
+}
+
+class EsitoPuntoConverter extends TypeConverter<EsitoPunto, String> {
+  const EsitoPuntoConverter();
+  @override
+  EsitoPunto fromSql(String fromDb) => EsitoPunto.values.byName(fromDb);
+  @override
+  String toSql(EsitoPunto value) => value.name;
+}
+
 // --- Tabelle ---
 class Teams extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -56,15 +104,70 @@ class VolleyMatches extends Table {
       .references(Teams, #id, onDelete: KeyAction.setNull)();
   RealColumn get lat => real().nullable()();
   RealColumn get lon => real().nullable()();
+  TextColumn get stato => text().map(const StatoPartitaConverter())();
+  IntColumn get setCorrente => integer()();
+}
+
+class MatchSets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get matchId =>
+      integer().references(VolleyMatches, #id, onDelete: KeyAction.cascade)();
+  IntColumn get numero => integer()();
+  BoolColumn get aperto => boolean().withDefault(const Constant(true))();
+}
+
+class Rotations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get setId =>
+      integer().references(MatchSets, #id, onDelete: KeyAction.cascade)();
+  TextColumn get squadra => text().map(const SquadraConverter())();
+  IntColumn get posizione => integer()(); // 1-6, 1 = battitore
+  IntColumn get giocatoreId =>
+      integer().references(Players, #id, onDelete: KeyAction.cascade)();
+}
+
+class ScoutActions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get setId =>
+      integer().references(MatchSets, #id, onDelete: KeyAction.cascade)();
+  IntColumn get rallyId => integer()(); // raggruppa le azioni di uno scambio
+  IntColumn get ordine => integer()(); // progressivo nel set, per undo
+  DateTimeColumn get timestamp => dateTime()();
+  TextColumn get squadra => text().map(const SquadraConverter())();
+  TextColumn get tipo => text().map(const TipoAzioneConverter())();
+  IntColumn get giocatoreId => integer()
+      .nullable()
+      .references(Players, #id, onDelete: KeyAction.setNull)();
+  TextColumn get fondamentale =>
+      text().nullable().map(const FondamentaleConverter())();
+  TextColumn get voto => text().nullable().map(const VotoConverter())();
+  // Colonna "polimorfica": .name di TipoAttacco o TipoBattuta in base a
+  // fondamentale — coerenza garantita dall'interfaccia, non dallo schema.
+  TextColumn get tipoEsecuzione =>
+      text().withDefault(const Constant('nonSpecificato'))();
+  TextColumn get esitoPunto => text().map(const EsitoPuntoConverter())();
+  RealColumn get traiettoriaX1 => real().nullable()();
+  RealColumn get traiettoriaY1 => real().nullable()();
+  RealColumn get traiettoriaX2 => real().nullable()();
+  RealColumn get traiettoriaY2 => real().nullable()();
+  IntColumn get puntiCasaAlMomento => integer().nullable()();
+  IntColumn get puntiOspitiAlMomento => integer().nullable()();
 }
 
 // --- Database ---
-@DriftDatabase(tables: [Teams, Players, VolleyMatches])
+@DriftDatabase(tables: [
+  Teams,
+  Players,
+  VolleyMatches,
+  MatchSets,
+  Rotations,
+  ScoutActions,
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -83,6 +186,17 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             await customStatement(
                 'ALTER TABLE volley_matches ADD COLUMN avversario TEXT');
+          }
+          if (from < 6) {
+            await customStatement(
+                "ALTER TABLE volley_matches ADD COLUMN stato TEXT NOT NULL "
+                "DEFAULT 'configurazione'");
+            await customStatement(
+                'ALTER TABLE volley_matches ADD COLUMN set_corrente INTEGER '
+                'NOT NULL DEFAULT 1');
+            await m.createTable(matchSets);
+            await m.createTable(rotations);
+            await m.createTable(scoutActions);
           }
         },
         beforeOpen: (details) async {
