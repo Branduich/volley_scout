@@ -1492,7 +1492,22 @@ class $MatchSetsTable extends MatchSets
     defaultValue: const Constant(true),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, matchId, numero, aperto];
+  late final GeneratedColumnWithTypeConverter<Squadra, String>
+  squadraServizioIniziale = GeneratedColumn<String>(
+    'squadra_servizio_iniziale',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<Squadra>($MatchSetsTable.$convertersquadraServizioIniziale);
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    matchId,
+    numero,
+    aperto,
+    squadraServizioIniziale,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1555,6 +1570,13 @@ class $MatchSetsTable extends MatchSets
         DriftSqlType.bool,
         data['${effectivePrefix}aperto'],
       )!,
+      squadraServizioIniziale: $MatchSetsTable.$convertersquadraServizioIniziale
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}squadra_servizio_iniziale'],
+            )!,
+          ),
     );
   }
 
@@ -1562,6 +1584,9 @@ class $MatchSetsTable extends MatchSets
   $MatchSetsTable createAlias(String alias) {
     return $MatchSetsTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<Squadra, String> $convertersquadraServizioIniziale =
+      const SquadraConverter();
 }
 
 class MatchSet extends DataClass implements Insertable<MatchSet> {
@@ -1569,11 +1594,13 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
   final int matchId;
   final int numero;
   final bool aperto;
+  final Squadra squadraServizioIniziale;
   const MatchSet({
     required this.id,
     required this.matchId,
     required this.numero,
     required this.aperto,
+    required this.squadraServizioIniziale,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1582,6 +1609,13 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     map['match_id'] = Variable<int>(matchId);
     map['numero'] = Variable<int>(numero);
     map['aperto'] = Variable<bool>(aperto);
+    {
+      map['squadra_servizio_iniziale'] = Variable<String>(
+        $MatchSetsTable.$convertersquadraServizioIniziale.toSql(
+          squadraServizioIniziale,
+        ),
+      );
+    }
     return map;
   }
 
@@ -1591,6 +1625,7 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       matchId: Value(matchId),
       numero: Value(numero),
       aperto: Value(aperto),
+      squadraServizioIniziale: Value(squadraServizioIniziale),
     );
   }
 
@@ -1604,6 +1639,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       matchId: serializer.fromJson<int>(json['matchId']),
       numero: serializer.fromJson<int>(json['numero']),
       aperto: serializer.fromJson<bool>(json['aperto']),
+      squadraServizioIniziale: serializer.fromJson<Squadra>(
+        json['squadraServizioIniziale'],
+      ),
     );
   }
   @override
@@ -1614,22 +1652,35 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       'matchId': serializer.toJson<int>(matchId),
       'numero': serializer.toJson<int>(numero),
       'aperto': serializer.toJson<bool>(aperto),
+      'squadraServizioIniziale': serializer.toJson<Squadra>(
+        squadraServizioIniziale,
+      ),
     };
   }
 
-  MatchSet copyWith({int? id, int? matchId, int? numero, bool? aperto}) =>
-      MatchSet(
-        id: id ?? this.id,
-        matchId: matchId ?? this.matchId,
-        numero: numero ?? this.numero,
-        aperto: aperto ?? this.aperto,
-      );
+  MatchSet copyWith({
+    int? id,
+    int? matchId,
+    int? numero,
+    bool? aperto,
+    Squadra? squadraServizioIniziale,
+  }) => MatchSet(
+    id: id ?? this.id,
+    matchId: matchId ?? this.matchId,
+    numero: numero ?? this.numero,
+    aperto: aperto ?? this.aperto,
+    squadraServizioIniziale:
+        squadraServizioIniziale ?? this.squadraServizioIniziale,
+  );
   MatchSet copyWithCompanion(MatchSetsCompanion data) {
     return MatchSet(
       id: data.id.present ? data.id.value : this.id,
       matchId: data.matchId.present ? data.matchId.value : this.matchId,
       numero: data.numero.present ? data.numero.value : this.numero,
       aperto: data.aperto.present ? data.aperto.value : this.aperto,
+      squadraServizioIniziale: data.squadraServizioIniziale.present
+          ? data.squadraServizioIniziale.value
+          : this.squadraServizioIniziale,
     );
   }
 
@@ -1639,13 +1690,15 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
           ..write('id: $id, ')
           ..write('matchId: $matchId, ')
           ..write('numero: $numero, ')
-          ..write('aperto: $aperto')
+          ..write('aperto: $aperto, ')
+          ..write('squadraServizioIniziale: $squadraServizioIniziale')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, matchId, numero, aperto);
+  int get hashCode =>
+      Object.hash(id, matchId, numero, aperto, squadraServizioIniziale);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1653,7 +1706,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
           other.id == this.id &&
           other.matchId == this.matchId &&
           other.numero == this.numero &&
-          other.aperto == this.aperto);
+          other.aperto == this.aperto &&
+          other.squadraServizioIniziale == this.squadraServizioIniziale);
 }
 
 class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
@@ -1661,30 +1715,37 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
   final Value<int> matchId;
   final Value<int> numero;
   final Value<bool> aperto;
+  final Value<Squadra> squadraServizioIniziale;
   const MatchSetsCompanion({
     this.id = const Value.absent(),
     this.matchId = const Value.absent(),
     this.numero = const Value.absent(),
     this.aperto = const Value.absent(),
+    this.squadraServizioIniziale = const Value.absent(),
   });
   MatchSetsCompanion.insert({
     this.id = const Value.absent(),
     required int matchId,
     required int numero,
     this.aperto = const Value.absent(),
+    required Squadra squadraServizioIniziale,
   }) : matchId = Value(matchId),
-       numero = Value(numero);
+       numero = Value(numero),
+       squadraServizioIniziale = Value(squadraServizioIniziale);
   static Insertable<MatchSet> custom({
     Expression<int>? id,
     Expression<int>? matchId,
     Expression<int>? numero,
     Expression<bool>? aperto,
+    Expression<String>? squadraServizioIniziale,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (matchId != null) 'match_id': matchId,
       if (numero != null) 'numero': numero,
       if (aperto != null) 'aperto': aperto,
+      if (squadraServizioIniziale != null)
+        'squadra_servizio_iniziale': squadraServizioIniziale,
     });
   }
 
@@ -1693,12 +1754,15 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     Value<int>? matchId,
     Value<int>? numero,
     Value<bool>? aperto,
+    Value<Squadra>? squadraServizioIniziale,
   }) {
     return MatchSetsCompanion(
       id: id ?? this.id,
       matchId: matchId ?? this.matchId,
       numero: numero ?? this.numero,
       aperto: aperto ?? this.aperto,
+      squadraServizioIniziale:
+          squadraServizioIniziale ?? this.squadraServizioIniziale,
     );
   }
 
@@ -1717,6 +1781,13 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     if (aperto.present) {
       map['aperto'] = Variable<bool>(aperto.value);
     }
+    if (squadraServizioIniziale.present) {
+      map['squadra_servizio_iniziale'] = Variable<String>(
+        $MatchSetsTable.$convertersquadraServizioIniziale.toSql(
+          squadraServizioIniziale.value,
+        ),
+      );
+    }
     return map;
   }
 
@@ -1726,7 +1797,8 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
           ..write('id: $id, ')
           ..write('matchId: $matchId, ')
           ..write('numero: $numero, ')
-          ..write('aperto: $aperto')
+          ..write('aperto: $aperto, ')
+          ..write('squadraServizioIniziale: $squadraServizioIniziale')
           ..write(')'))
         .toString();
   }
@@ -4661,6 +4733,7 @@ typedef $$MatchSetsTableCreateCompanionBuilder =
       required int matchId,
       required int numero,
       Value<bool> aperto,
+      required Squadra squadraServizioIniziale,
     });
 typedef $$MatchSetsTableUpdateCompanionBuilder =
     MatchSetsCompanion Function({
@@ -4668,6 +4741,7 @@ typedef $$MatchSetsTableUpdateCompanionBuilder =
       Value<int> matchId,
       Value<int> numero,
       Value<bool> aperto,
+      Value<Squadra> squadraServizioIniziale,
     });
 
 final class $$MatchSetsTableReferences
@@ -4750,6 +4824,12 @@ class $$MatchSetsTableFilterComposer
   ColumnFilters<bool> get aperto => $composableBuilder(
     column: $table.aperto,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<Squadra, Squadra, String>
+  get squadraServizioIniziale => $composableBuilder(
+    column: $table.squadraServizioIniziale,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   $$VolleyMatchesTableFilterComposer get matchId {
@@ -4850,6 +4930,11 @@ class $$MatchSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get squadraServizioIniziale => $composableBuilder(
+    column: $table.squadraServizioIniziale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$VolleyMatchesTableOrderingComposer get matchId {
     final $$VolleyMatchesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4891,6 +4976,12 @@ class $$MatchSetsTableAnnotationComposer
 
   GeneratedColumn<bool> get aperto =>
       $composableBuilder(column: $table.aperto, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<Squadra, String>
+  get squadraServizioIniziale => $composableBuilder(
+    column: $table.squadraServizioIniziale,
+    builder: (column) => column,
+  );
 
   $$VolleyMatchesTableAnnotationComposer get matchId {
     final $$VolleyMatchesTableAnnotationComposer composer = $composerBuilder(
@@ -5002,11 +5093,13 @@ class $$MatchSetsTableTableManager
                 Value<int> matchId = const Value.absent(),
                 Value<int> numero = const Value.absent(),
                 Value<bool> aperto = const Value.absent(),
+                Value<Squadra> squadraServizioIniziale = const Value.absent(),
               }) => MatchSetsCompanion(
                 id: id,
                 matchId: matchId,
                 numero: numero,
                 aperto: aperto,
+                squadraServizioIniziale: squadraServizioIniziale,
               ),
           createCompanionCallback:
               ({
@@ -5014,11 +5107,13 @@ class $$MatchSetsTableTableManager
                 required int matchId,
                 required int numero,
                 Value<bool> aperto = const Value.absent(),
+                required Squadra squadraServizioIniziale,
               }) => MatchSetsCompanion.insert(
                 id: id,
                 matchId: matchId,
                 numero: numero,
                 aperto: aperto,
+                squadraServizioIniziale: squadraServizioIniziale,
               ),
           withReferenceMapper: (p0) => p0
               .map(

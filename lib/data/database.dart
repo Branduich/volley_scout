@@ -114,6 +114,10 @@ class MatchSets extends Table {
       integer().references(VolleyMatches, #id, onDelete: KeyAction.cascade)();
   IntColumn get numero => integer()();
   BoolColumn get aperto => boolean().withDefault(const Constant(true))();
+  // Chi serve per primo in questo set — input necessario a ricalcolaStato(),
+  // non derivabile dagli eventi (scelto fuori dal gioco).
+  TextColumn get squadraServizioIniziale =>
+      text().map(const SquadraConverter())();
 }
 
 class Rotations extends Table {
@@ -167,36 +171,77 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
+
+  // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
+  // a metà migrazione lascia i passi precedenti già committati, ma senza che
+  // schemaVersion salga): ogni passo qui sotto controlla quindi se è già
+  // stato applicato prima di rieseguirlo, così un retry dopo un fallimento
+  // parziale converge sempre, invece di rompersi su "duplicate column".
+  Future<bool> _hasColumn(String table, String column) async {
+    final righe = await customSelect('PRAGMA table_info($table)').get();
+    return righe.any((r) => r.data['name'] == column);
+  }
+
+  Future<bool> _hasTable(String table) async {
+    final righe = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable.withString(table)],
+    ).get();
+    return righe.isNotEmpty;
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
-          if (from < 2) await m.createTable(volleyMatches);
-          if (from < 3) {
-            await customStatement(
-                'ALTER TABLE volley_matches ADD COLUMN lat REAL');
-            await customStatement(
-                'ALTER TABLE volley_matches ADD COLUMN lon REAL');
+          if (from < 2 && !await _hasTable('volley_matches')) {
+            await m.createTable(volleyMatches);
           }
-          if (from < 4) {
+          if (from < 3) {
+            if (!await _hasColumn('volley_matches', 'lat')) {
+              await customStatement(
+                  'ALTER TABLE volley_matches ADD COLUMN lat REAL');
+            }
+            if (!await _hasColumn('volley_matches', 'lon')) {
+              await customStatement(
+                  'ALTER TABLE volley_matches ADD COLUMN lon REAL');
+            }
+          }
+          if (from < 4 &&
+              !await _hasColumn('players', 'scadenza_certificato')) {
             await customStatement(
                 'ALTER TABLE players ADD COLUMN scadenza_certificato INTEGER');
           }
-          if (from < 5) {
+          if (from < 5 && !await _hasColumn('volley_matches', 'avversario')) {
             await customStatement(
                 'ALTER TABLE volley_matches ADD COLUMN avversario TEXT');
           }
           if (from < 6) {
+            if (!await _hasColumn('volley_matches', 'stato')) {
+              await customStatement(
+                  "ALTER TABLE volley_matches ADD COLUMN stato TEXT NOT NULL "
+                  "DEFAULT 'configurazione'");
+            }
+            if (!await _hasColumn('volley_matches', 'set_corrente')) {
+              await customStatement(
+                  'ALTER TABLE volley_matches ADD COLUMN set_corrente '
+                  'INTEGER NOT NULL DEFAULT 1');
+            }
+            if (!await _hasTable('match_sets')) {
+              await m.createTable(matchSets);
+            }
+            if (!await _hasTable('rotations')) {
+              await m.createTable(rotations);
+            }
+            if (!await _hasTable('scout_actions')) {
+              await m.createTable(scoutActions);
+            }
+          }
+          if (from < 7 &&
+              !await _hasColumn('match_sets', 'squadra_servizio_iniziale')) {
             await customStatement(
-                "ALTER TABLE volley_matches ADD COLUMN stato TEXT NOT NULL "
-                "DEFAULT 'configurazione'");
-            await customStatement(
-                'ALTER TABLE volley_matches ADD COLUMN set_corrente INTEGER '
-                'NOT NULL DEFAULT 1');
-            await m.createTable(matchSets);
-            await m.createTable(rotations);
-            await m.createTable(scoutActions);
+                'ALTER TABLE match_sets ADD COLUMN '
+                "squadra_servizio_iniziale TEXT NOT NULL DEFAULT 'nostra'");
           }
         },
         beforeOpen: (details) async {

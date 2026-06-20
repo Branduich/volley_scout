@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
+import '../models/enums.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -98,4 +99,48 @@ final matchRepositoryProvider = Provider<MatchRepository>((ref) {
 
 final matchesStreamProvider = StreamProvider<List<VolleyMatch>>((ref) {
   return ref.watch(matchRepositoryProvider).watchMatches();
+});
+
+// --- Set e rotazioni (avvio dello scout) ---
+
+class MatchSetRepository {
+  MatchSetRepository(this._db);
+  final AppDatabase _db;
+
+  /// Crea il primo set di una partita, registrando chi serve per primo
+  /// (input necessario a ricalcolaStato(), non derivabile dagli eventi).
+  Future<MatchSet> creaPrimoSet(int matchId, Squadra servizioIniziale) async {
+    final id = await _db.into(_db.matchSets).insert(
+          MatchSetsCompanion.insert(
+            matchId: matchId,
+            numero: 1,
+            squadraServizioIniziale: servizioIniziale,
+          ),
+        );
+    return (_db.select(_db.matchSets)..where((s) => s.id.equals(id)))
+        .getSingle();
+  }
+
+  /// Salva la rotazione iniziale del set a partire dalla formazione
+  /// confermata (slot 'P1'..'P6' -> Player). Il libero (L1/L2) non ha una
+  /// posizione di rotazione e viene ignorato.
+  Future<void> salvaRotazioneIniziale(
+      int setId, Map<String, Player> assignments) async {
+    final righe = <RotationsCompanion>[];
+    for (final entry in assignments.entries) {
+      final posizione = int.tryParse(entry.key.replaceFirst('P', ''));
+      if (posizione == null || posizione < 1 || posizione > 6) continue;
+      righe.add(RotationsCompanion.insert(
+        setId: setId,
+        squadra: Squadra.nostra,
+        posizione: posizione,
+        giocatoreId: entry.value.id,
+      ));
+    }
+    await _db.batch((batch) => batch.insertAll(_db.rotations, righe));
+  }
+}
+
+final matchSetRepositoryProvider = Provider<MatchSetRepository>((ref) {
+  return MatchSetRepository(ref.watch(appDatabaseProvider));
 });

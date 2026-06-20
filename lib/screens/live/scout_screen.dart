@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
+import '../../providers/database_provider.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -153,7 +155,7 @@ class _RoundedHexagonPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class ScoutScreen extends StatefulWidget {
+class ScoutScreen extends ConsumerStatefulWidget {
   final VolleyMatch match;
   final Team team;
   final String palleggiatoreSlot;
@@ -168,10 +170,65 @@ class ScoutScreen extends StatefulWidget {
   });
 
   @override
-  State<ScoutScreen> createState() => _ScoutScreenState();
+  ConsumerState<ScoutScreen> createState() => _ScoutScreenState();
 }
 
-class _ScoutScreenState extends State<ScoutScreen> {
+class _ScoutScreenState extends ConsumerState<ScoutScreen> {
+  // Set corrente: creato (con relativa rotazione iniziale) non appena si
+  // risponde al dialog "Chi serve per primo?" — vedi _chiediServizioIniziale.
+  MatchSet? _setCorrente;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.match.stato != StatoPartita.inCorso) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _chiediServizioIniziale());
+    }
+  }
+
+  Future<void> _chiediServizioIniziale() async {
+    final avversario = widget.match.avversario?.trim();
+    final nomeAvversario =
+        (avversario != null && avversario.isNotEmpty) ? avversario : 'Avversari';
+
+    final scelta = await showDialog<Squadra>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Chi serve per primo?'),
+        content: const Text(
+            'Indica quale squadra è al servizio per iniziare il set.'),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context, Squadra.nostra),
+            child: Text(widget.team.nome),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, Squadra.avversari),
+            child: Text(nomeAvversario),
+          ),
+        ],
+      ),
+    );
+    if (scelta == null || !mounted) return;
+    await _iniziaSet(scelta);
+  }
+
+  Future<void> _iniziaSet(Squadra servizioIniziale) async {
+    final matchRepo = ref.read(matchRepositoryProvider);
+    final setRepo = ref.read(matchSetRepositoryProvider);
+
+    await matchRepo.updateMatch(
+      widget.match.copyWith(stato: StatoPartita.inCorso, setCorrente: 1),
+    );
+    final set = await setRepo.creaPrimoSet(widget.match.id, servizioIniziale);
+    await setRepo.salvaRotazioneIniziale(set.id, widget.assignments);
+
+    if (!mounted) return;
+    setState(() => _setCorrente = set);
+  }
+
   // Numero di rotazioni applicate da inizio set (positivo = avanti, P1→P2;
   // negativo = indietro, P1→P6). Tutti i giocatori ruotano insieme: chi era
   // nello slot di indice i si trova ora nello slot di indice i+_rotationSteps.

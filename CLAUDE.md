@@ -188,7 +188,44 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   `MatchFormScreen` tra il blocco data/ora e il toggle "In casa". Se non
   impostato, `ScoutScreen` mostra "AVVERSARI" come placeholder nel titolo.
 - `teamId` selezionabile da `TeamSelectionScreen` (vedi flusso navigazione).
-- Schema DB attuale: **v5** (v5 ha aggiunto `VolleyMatches.avversario`).
+- `stato` (enum StatoPartita) e `setCorrente` (int): aggiunti in v6. Impostati
+  a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
+  porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
+  primo?" (vedi sotto).
+- Schema DB attuale: **v7** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+  `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
+  `MatchSets.squadraServizioIniziale`).
+
+### Implementato (Fase 3 — parziale): avvio dello scout
+
+**`MatchSet`** (tabella `MatchSets`): id, matchId (FK cascade), numero,
+aperto (bool, default true), `squadraServizioIniziale` (enum Squadra — chi
+serve per primo nel set; input necessario a `ricalcolaStato()`, non
+derivabile dagli eventi). Niente `puntiCasa`/`puntiOspiti` salvati (si
+derivano da `ScoutAction`, non ancora implementata).
+
+**`Rotation`** (tabella `Rotations`): id, setId (FK cascade), squadra (enum
+Squadra — solo `nostra` viene scritta), posizione (1-6), giocatoreId (FK
+cascade su Players). Una riga per posizione (6 righe per set, popolate dalla
+formazione confermata).
+
+**`MatchSetRepository`** (`lib/providers/database_provider.dart`):
+- `creaPrimoSet(matchId, servizioIniziale)`: inserisce il `MatchSet` numero 1.
+- `salvaRotazioneIniziale(setId, assignments)`: estrae solo gli slot
+  `P1`..`P6` dalla mappa `assignments` di `LineupScreen`/`FormationConfigScreen`
+  (ignora `L1`/`L2`, il libero non ha una posizione di rotazione) e inserisce
+  le 6 righe `Rotation` con `squadra: Squadra.nostra`.
+
+**Dialog "Chi serve per primo?" in `ScoutScreen`**: `ScoutScreen` è ora
+`ConsumerStatefulWidget` (serve `ref` per i repository). In `initState`, se
+`widget.match.stato != StatoPartita.inCorso`, dopo il primo frame
+(`addPostFrameCallback`) mostra un `AlertDialog` non dismissibile con due
+bottoni (nome nostra squadra / nome avversario o "Avversari"). Alla scelta,
+`_iniziaSet()`: porta `VolleyMatch.stato` a `inCorso`, crea il `MatchSet` e
+la rotazione iniziale, salva il `MatchSet` risultante in `_setCorrente`
+(stato locale — verrà usato dal prossimo pezzo, la registrazione delle
+azioni). Se la partita è già `inCorso` (ripresa, quando esisterà quel
+flusso), il dialog non viene mostrato.
 
 ### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
 
@@ -242,51 +279,34 @@ Conseguenze del principio (ancora da implementare oltre alla funzione pura):
 **Avversario resta solo testo** (`VolleyMatches.avversario`, già implementato),
 **non** diventa una `Team` con roster in DB — scelta deliberata per non
 obbligare a creare/gestire la squadra avversaria. Conseguenze sul modello:
-- `rotations` (sotto) è popolata **solo per `squadra = nostra`**; il valore
+- `Rotations` è popolata **solo per `squadra = nostra`**; il valore
   `avversari` resta nell'enum per un'eventuale estensione futura (roster
   avversario), ma oggi non viene mai scritto.
-- `scout_actions` per i punti avversari (bottone "+1 Loro", errori nostri)
-  hanno `giocatoreId = null` — già previsto dal modello, nessun problema.
+- `ScoutActions` per i punti avversari (bottone "+1 Loro", errori nostri)
+  avranno `giocatoreId = null` — già previsto dallo schema, nessun problema.
 - Limite accettato: nessuna statistica per singolo giocatore avversario.
 
-**StatoPartita** (nuovo campo su `VolleyMatches`, enum):
-```dart
-enum StatoPartita { configurazione, inCorso, sospesa, terminata }
-```
-Flusso: configurazione → inCorso ↔ sospesa → terminata. In `MatchesScreen`,
-le partite `sospesa` mostreranno "Riprendi", le `terminata` mostreranno
-"Statistiche" (oggi tutte le card mostrano solo "Inizia").
-`VolleyMatches` avrà anche `setCorrente` (int) per sapere quale set è attivo.
+**`ScoutAction` (tabella `ScoutActions`, SCHEMA GIÀ A DB da v6, nessuna UI/
+repository la usa ancora)**: id, setId (FK cascade), rallyId (raggruppa le
+azioni di uno scambio), ordine (int, progressivo nel set — per sequenza e
+undo), timestamp, squadra (enum Squadra), tipo (enum TipoAzione), giocatoreId
+(nullable — null per punti manuali/errori generici, FK setNull), fondamentale
+(enum Fondamentale, nullable), voto (enum Voto, nullable), tipoEsecuzione
+(text, default `'nonSpecificato'` — colonna polimorfica, vedi sotto),
+esitoPunto (enum EsitoPunto), traiettoriaX1/Y1/X2/Y2 (double, nullable — solo
+battuta/attacco), puntiCasaAlMomento/puntiOspitiAlMomento (int, nullable —
+snapshot opzionale/debug, non sostituisce il ricalcolo).
 
-**MatchSet** (tabella `MatchSets`): id, matchId (FK, cascade), numero (1,2,3…),
-aperto (bool — true = set in corso). **Niente** `puntiCasa`/`puntiOspiti`
-salvati: si derivano da `ScoutAction` (vedi principio sopra).
-
-**Rotation** (tabella `Rotations`): setId (FK), squadra (enum
-`Squadra { nostra, avversari }` — solo `nostra` popolata, vedi sopra), mappa
-posizione(1-6) -> giocatoreId. La posizione 1 è il battitore. Metodo
-`ruotata()` per il sideout (rotazione oraria). La rotazione INIZIALE del set
-è la formazione di partenza (da `LineupScreen`/`FormationConfigScreen`).
-
-**ScoutAction** (tabella `ScoutActions`): id, setId (FK, cascade), rallyId
-(raggruppa le azioni di uno scambio), ordine (int, progressivo nel set — per
-sequenza e undo), timestamp, squadra (enum Squadra), tipo (enum TipoAzione),
-giocatoreId (nullable — null per punti manuali/errori generici), fondamentale
-(enum, nullable), voto (enum, nullable), tipoEsecuzione (text, default
-`'nonSpecificato'` — solo per attacco/battuta, vedi sotto), esitoPunto (enum
-EsitoPunto), traiettoria_x1/y1/x2/y2 (double, nullable — solo battuta/attacco),
-puntiCasaAlMomento/puntiOspitiAlMomento (int — snapshot opzionale/debug, non
-sostituisce il ricalcolo).
-
-**Enum TipoAzione**: `scout` (giocatore + fondamentale + voto), `puntoManuale`
-(bottoni rapidi "+1 Noi"/"+1 Loro", nessun giocatore), `erroreGenerico` (punto
-all'altra squadra per errore non dettagliato).
+**Enum TipoAzione** (in `enums.dart`): `scout` (giocatore + fondamentale +
+voto), `puntoManuale` (bottoni rapidi "+1 Noi"/"+1 Loro", nessun giocatore),
+`erroreGenerico` (punto all'altra squadra per errore non dettagliato).
 
 **Enum EsitoPunto**: `nessuno` (azione interna allo scambio, non chiude il
-punto), `puntoNostro`, `puntoAvversario`. Calcolato in automatico in base a
+punto), `puntoNostro`, `puntoAvversario`. Da calcolare in automatico in base a
 fondamentale+voto (es. attacco/muro/battuta con voto `#` → puntoNostro;
 qualunque fondamentale con voto `=` → puntoAvversario), ma **sempre
-modificabile** prima di confermare l'azione.
+modificabile** prima di confermare l'azione — logica ancora da implementare
+nell'interfaccia (lo schema/enum esistono già).
 
 **Enum Fondamentale**: battuta, ricezione, alzata, attacco, muro, difesa, errore.
 - Battuta e attacco richiedono la traiettoria (getter `richiedeTraiettoria`).
@@ -566,8 +586,10 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   invasivo applicato indistintamente. L'unica eccezione è il **libero**, che
   usa il colore invertito (non scurito) per richiamare la maglia diversa —
   vedi sopra.
-- Nessuna logica di scouting ancora presente: il resto di questa sezione
-  descrive il design deciso ma non ancora implementato.
+- L'unica logica presente finora è l'**avvio del set** (dialog "Chi serve per
+  primo?", creazione `MatchSet`/`Rotation` iniziale — vedi sezione Modello
+  dati). Nessuna registrazione di azioni di scout vere e proprie: il resto di
+  questa sezione descrive il design deciso ma non ancora implementato.
 
 ### Design deciso, da implementare
 
@@ -621,17 +643,21 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   - [x] Funzione pura `ricalcolaStato()` (punteggio + rotazione derivati) +
         14 unit test — `lib/logic/ricalcola_stato.dart` /
         `test/logic/ricalcola_stato_test.dart`. Vedi dettagli nel Modello dati.
-  - [ ] **PROSSIMO**: modello dati a DB (vedi "Principio architetturale
-        chiave" nel Modello dati) — tabelle `MatchSet`, `Rotation`,
-        `ScoutAction`, campo `StatoPartita`/`setCorrente` su `VolleyMatches`,
-        enum `TipoAzione`/`TipoAttacco`/`TipoBattuta` (`Squadra`/`EsitoPunto`
-        già in `enums.dart`). Poi un repository che alimenta
-        `ricalcolaStato()` con le righe reali.
+  - [x] Modello dati a DB (schema v6/v7): tabelle `MatchSet`, `Rotation`,
+        `ScoutAction` (schema pronto, non ancora usata), campo
+        `StatoPartita`/`setCorrente` su `VolleyMatches`, enum
+        `TipoAzione`/`Fondamentale`/`TipoAttacco`/`TipoBattuta` in `enums.dart`.
+  - [x] Avvio del set: dialog "Chi serve per primo?" in `ScoutScreen`,
+        `MatchSetRepository.creaPrimoSet()` + `salvaRotazioneIniziale()`
+        (vedi Modello dati). `VolleyMatch.stato` passa a `inCorso`.
+  - [ ] **PROSSIMO**: collegare `ricalcolaStato()` ai dati reali — un
+        repository per `ScoutAction` (CRUD + stream) che alimenti la funzione
+        pura con le azioni del set corrente, sostituendo i contatori
+        provvisori in `ScoutScreen` (`_nostroScore`/`_avversarioScore`/
+        `_rotationSteps`).
   - [ ] CustomPainter campo intero, token giocatori toccabili, flusso 3 tocchi
         (giocatore → fondamentale → voto) con bottoni contestuali tipo
         esecuzione, bottoni rapidi (+1 Noi/+1 Loro/Errore), traiettorie via drag.
-  - [ ] Sostituire i contatori provvisori in `ScoutScreen` con la logica
-        derivata dagli eventi (`ricalcolaStato()` + repository).
   - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
