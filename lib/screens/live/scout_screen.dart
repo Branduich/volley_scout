@@ -37,7 +37,7 @@ const Map<String, Alignment> _kRotationBadgeAnchor = {
 // Posizioni di attacco dei 6 giocatori sul campo grande, in coordinate di
 // riferimento rispetto all'immagine double_court_bg.png (1200×600 — ogni
 // singolo campo è quindi un quadrato 600×600). Da estendere in futuro con le
-// posizioni di ricezione.
+// posizioni di ricezione (quando l'avversario è al servizio).
 const Map<String, Offset> _kAttackPositions = {
   'P1': Offset(200, 470),
   'P2': Offset(530, 470),
@@ -45,6 +45,71 @@ const Map<String, Offset> _kAttackPositions = {
   'P4': Offset(530, 130),
   'P5': Offset(200, 130),
   'P6': Offset(200, 300),
+};
+
+// Quando battiamo noi, chi è in P1 esce dal campo per servire: stessa Y
+// dell'posizione di attacco, X spostata di -60 (verso la linea di fondo).
+// Passa comunque per _displayPosition(), quindi si specchia correttamente
+// anche ripartendo da destra.
+const Offset _kBattutaP1Position = Offset(140, 470);
+
+// Posizioni di ricezione (battuta avversaria), per rotazione (chiave = slot
+// del palleggiatore, come _currentSlot) e per RUOLO (non per slot fisso —
+// stessi codici di _roleLabelsFor: P, O, S1, S2, C1, C2). Il libero sostituisce
+// il centrale di seconda linea, che quindi non compare in questa mappa per
+// quella rotazione (solo il centrale a rete, che resta in campo, è presente).
+// P6 è incompleto (manca C1, il centrale a rete in quella rotazione): in
+// attesa del dato, quella rotazione ricade sulle posizioni di attacco — vedi
+// _activeDefenseMap.
+const Map<String, Map<String, Offset>> _kDefensePositions = {
+  'P1': {
+    'S1': Offset(240, 482),
+    'Libero': Offset(166, 300),
+    'P': Offset(206, 560),
+    'S2': Offset(240, 114),
+    'C1': Offset(540, 324),
+    'O': Offset(444, 50),
+  },
+  'P2': {
+    'P': Offset(552, 356),
+    'C1': Offset(498, 50),
+    'Libero': Offset(240, 482),
+    'S1': Offset(240, 114),
+    'S2': Offset(166, 296),
+    'O': Offset(60, 266),
+  },
+  'P3': {
+    'P': Offset(552, 356),
+    'C2': Offset(480, 384),
+    'O': Offset(84, 416),
+    'S1': Offset(240, 114),
+    'S2': Offset(240, 482),
+    'Libero': Offset(166, 296),
+  },
+  'P4': {
+    'P': Offset(552, 50),
+    'C2': Offset(482, 76),
+    'O': Offset(188, 542),
+    'S1': Offset(166, 296),
+    'S2': Offset(240, 114),
+    'Libero': Offset(240, 482),
+  },
+  'P5': {
+    'P': Offset(518, 254),
+    'C2': Offset(552, 50),
+    'S1': Offset(166, 296),
+    'S2': Offset(240, 114),
+    'Libero': Offset(240, 482),
+    'O': Offset(438, 542),
+  },
+  'P6': {
+    'O': Offset(552, 274),
+    'S2': Offset(240, 114),
+    'S1': Offset(240, 482),
+    'Libero': Offset(166, 296),
+    'P': Offset(498, 314),
+    // 'C1': MANCANTE — coordinata da fornire.
+  },
 };
 
 // Ordine antiorario degli slot sul campo grande (verificato sulle coordinate
@@ -177,6 +242,45 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Set corrente: creato (con relativa rotazione iniziale) non appena si
   // risponde al dialog "Chi serve per primo?" — vedi _chiediServizioIniziale.
   MatchSet? _setCorrente;
+
+  // Chi è al servizio ora. Finché non registriamo azioni vere (e quindi non
+  // richiamiamo ricalcolaStato() su eventi reali), coincide sempre con chi
+  // serviva per primo nel set: nessun punto è stato ancora segnato.
+  Squadra? get _squadraAlServizio => _setCorrente?.squadraServizioIniziale;
+
+  // Posizione di riferimento (1200×600) per uno slot: quella di attacco,
+  // tranne per P1 quando battiamo noi (esce dal campo per servire).
+  Offset _refPositionFor(String slot) {
+    if (slot == 'P1' && _squadraAlServizio == Squadra.nostra) {
+      return _kBattutaP1Position;
+    }
+    return _kAttackPositions[slot]!;
+  }
+
+  // Mappa di ricezione attiva per la rotazione corrente, solo se: stiamo
+  // ricevendo (batte l'avversario), c'è un libero in formazione, e i dati di
+  // quella rotazione sono completi (P, O, S1, S2, Libero + uno solo tra
+  // C1/C2 — vedi nota su P6 incompleto). Altrimenti null: si ricade sulle
+  // posizioni di attacco.
+  Map<String, Offset>? get _activeDefenseMap {
+    if (_squadraAlServizio != Squadra.avversari) return null;
+    if (!widget.assignments.containsKey('L1')) return null;
+    final map = _kDefensePositions[_currentSlot];
+    if (map == null) return null;
+    final haUnSoloCentrale = map.containsKey('C1') != map.containsKey('C2');
+    final completa = map.containsKey('P') &&
+        map.containsKey('O') &&
+        map.containsKey('S1') &&
+        map.containsKey('S2') &&
+        map.containsKey('Libero') &&
+        haUnSoloCentrale;
+    return completa ? map : null;
+  }
+
+  // Slot del libero attualmente in campo (semplificazione: sempre L1 — non
+  // modelliamo ancora l'alternanza L1/L2 tra rotazioni), solo quando la
+  // mappa di ricezione è attiva per la rotazione corrente.
+  String? get _liberoInCampoSlot => _activeDefenseMap != null ? 'L1' : null;
 
   @override
   void initState() {
@@ -411,26 +515,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                             builder: (context, courtConstraints) {
                               final cw = courtConstraints.maxWidth;
                               final ch = courtConstraints.maxHeight;
-                              final currentAssignments = _currentAssignments;
-                              final roleLabels = _roleLabelsFor(
-                                  _currentSlot, currentAssignments);
                               return Stack(
                                 children: [
                                   Image.asset(_kCourtImage,
                                       fit: BoxFit.contain),
-                                  // Itera per giocatore (non per slot fisso)
-                                  // così ogni token mantiene la sua identità
-                                  // (key = player.id) mentre ruota, e
-                                  // AnimatedPositioned ne anima lo spostamento.
-                                  for (final entry
-                                      in currentAssignments.entries)
-                                    _buildPlayerToken(
-                                        roleLabels[entry.key] ?? entry.key,
-                                        entry.value,
-                                        _displayPosition(
-                                            _kAttackPositions[entry.key]!),
-                                        cw,
-                                        ch),
+                                  ..._buildCourtTokens(cw, ch),
                                 ],
                               );
                             },
@@ -628,6 +717,50 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Costruisce i token dei 6 giocatori sul campo grande. In attacco/battuta:
+  // itera per giocatore (currentAssignments), posizione da _refPositionFor.
+  // In ricezione (mappa di difesa attiva per la rotazione corrente): itera
+  // per RUOLO sulla mappa di difesa — il centrale di seconda linea non
+  // compare (sostituito dal libero, disegnato con lo stile invertito).
+  List<Widget> _buildCourtTokens(double cw, double ch) {
+    final currentAssignments = _currentAssignments;
+    final roleLabels = _roleLabelsFor(_currentSlot, currentAssignments);
+    final defenseMap = _activeDefenseMap;
+
+    if (defenseMap == null) {
+      return [
+        for (final entry in currentAssignments.entries)
+          _buildPlayerToken(
+              roleLabels[entry.key] ?? entry.key,
+              entry.value,
+              _displayPosition(_refPositionFor(entry.key)),
+              cw,
+              ch),
+      ];
+    }
+
+    final slotPerRuolo = {
+      for (final e in roleLabels.entries) e.value: e.key,
+    };
+    final libero = widget.assignments[_liberoInCampoSlot];
+    final tokens = <Widget>[];
+    for (final entry in defenseMap.entries) {
+      final refPos = _displayPosition(entry.value);
+      if (entry.key == 'Libero') {
+        if (libero != null) {
+          tokens.add(_buildLiberoCourtToken(libero, refPos, cw, ch));
+        }
+        continue;
+      }
+      final slot = slotPerRuolo[entry.key];
+      final player = slot == null ? null : currentAssignments[slot];
+      if (player != null) {
+        tokens.add(_buildPlayerToken(entry.key, player, refPos, cw, ch));
+      }
+    }
+    return tokens;
+  }
+
   Widget _buildPlayerToken(
       String roleLabel, Player player, Offset refPos, double cw, double ch) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
@@ -685,11 +818,60 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Token del libero quando entra in campo al posto del centrale di seconda
+  // linea (fase di ricezione). Stesso posizionamento/animazione di
+  // _buildPlayerToken, ma stile del libero (colore invertito, bordo bianco).
+  Widget _buildLiberoCourtToken(
+      Player player, Offset refPos, double cw, double ch) {
+    final radius = ch / 20;
+    final cx = (refPos.dx / 1200) * cw;
+    final cy = (refPos.dy / 600) * ch;
+    final color = _invertedColor(Color(widget.team.coloreDivisa));
+    final label = _showJerseyNumbers ? '${player.numero}' : 'L1';
+
+    return AnimatedPositioned(
+      key: ValueKey(player.id),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      left: cx - radius,
+      top: cy - radius,
+      width: radius * 2,
+      height: radius * 2,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(120),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: radius * 0.7,
+          ),
+        ),
+      ),
+    );
+  }
+
   // Token del/dei libero (L1, opzionale L2): non ruotano con P1-P6, restano
   // ancorati in basso a sinistra (a destra col cambio campo), affiancati.
+  // Esclude il libero già disegnato sul campo al posto del centrale (fase di
+  // ricezione), per non mostrarlo due volte.
   List<Widget> _buildLiberoTokens(BoxConstraints constraints, double courtWidth) {
+    final liberoInCampo = _liberoInCampoSlot;
     final entries = <MapEntry<String, Player>>[];
     for (final slot in const ['L1', 'L2']) {
+      if (slot == liberoInCampo) continue;
       final player = widget.assignments[slot];
       if (player != null) entries.add(MapEntry(slot, player));
     }

@@ -537,8 +537,48 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   - Posizioni fisse `_kAttackPositions` (coordinate di riferimento 1200×600,
     lato sinistro — riflesse a destra da `_displayPosition()` se
     `_isRightSide`): P1(200,470) P2(530,470) P3(530,300) P4(530,130)
-    P5(200,130) P6(200,300). Scalate a runtime con `cw/1200` e `ch/600`. Da
-    estendere in futuro con le posizioni di ricezione.
+    P5(200,130) P6(200,300). Scalate a runtime con `cw/1200` e `ch/600`.
+  - **Fasi di gioco e posizioni**: quale coordinata usare per ogni slot
+    dipende da chi è al servizio. `_squadraAlServizio` (getter) legge
+    `_setCorrente?.squadraServizioIniziale` — provvisorio: finché non si
+    registrano azioni vere e non si richiama `ricalcolaStato()` sugli eventi
+    reali, coincide sempre con chi serviva per primo nel set (nessun punto
+    ancora segnato può averlo cambiato). `_refPositionFor(slot)` sceglie la
+    coordinata: per **P1 quando battiamo noi** (`_squadraAlServizio ==
+    Squadra.nostra`) usa `_kBattutaP1Position` (200,470 → **140**,470: stessa
+    Y, X -60 verso la linea di fondo, fuori dalle posizioni di attacco) —
+    per tutti gli altri slot, e per P1 quando non battiamo noi, usa
+    `_kAttackPositions[slot]`. Passa comunque per `_displayPosition()` come
+    tutte le altre coordinate, quindi si specchia automaticamente col cambio
+    campo, nessuna logica separata necessaria.
+    - **Battuta avversaria (ricezione nostra)**: `_kDefensePositions` —
+      mappa `slot palleggiatore (P1..P6) -> ruolo (P/O/S1/S2/C1/C2/Libero) ->
+      Offset`. **Il libero sostituisce il centrale di seconda linea**: per
+      ogni rotazione la mappa contiene un **solo** centrale (quello a rete,
+      che resta) + `Libero` (al posto dell'altro) — l'altro centrale non va
+      disegnato in quella fase. **`P6` è incompleto** (manca `C1`, il
+      centrale a rete in quella rotazione): finché non viene fornito, quella
+      rotazione ricade sulle posizioni di attacco (vedi `_activeDefenseMap`,
+      che richiede la mappa completa — un solo centrale + tutti gli altri 5
+      ruoli — altrimenti torna `null`).
+      - `_activeDefenseMap`: attiva solo se `_squadraAlServizio ==
+        Squadra.avversari` **e** c'è un libero in formazione (`L1` presente)
+        **e** la mappa della rotazione corrente è completa.
+      - `_liberoInCampoSlot`: **semplificazione** — sempre `'L1'` quando la
+        mappa di ricezione è attiva (l'alternanza L1/L2 tra rotazioni non è
+        ancora modellata).
+      - `_buildCourtTokens()`: in attacco/battuta itera per **giocatore**
+        (come prima); in ricezione itera per **ruolo** sulla mappa di difesa
+        — il ruolo `Libero` usa `_buildLiberoCourtToken` (stile invertito,
+        stesso posizionamento/animazione di `_buildPlayerToken`), gli altri 5
+        ruoli risolvono lo slot via `_roleLabelsFor` invertita e prendono il
+        giocatore da `_currentAssignments`.
+      - `_buildLiberoTokens` (i due cerchi fissi ad angolo) **esclude**
+        `_liberoInCampoSlot`: il libero già disegnato sul campo non compare
+        più anche ad angolo, per non duplicarlo.
+    - In futuro probabilmente altre fasi (es. attacco dopo ricezione buona,
+      muro/difesa su attacco avversario) avranno ciascuna il proprio set di
+      coordinate, sempre scelto in base allo stato derivato dagli eventi.
   - **Animazione di rotazione**: il rendering itera per **giocatore**
     (`currentAssignments.entries`, non più per slot fisso), e ogni token è
     un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —
