@@ -553,17 +553,15 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     campo, nessuna logica separata necessaria.
     - **Battuta avversaria (ricezione nostra)**: `_kDefensePositions` —
       mappa `slot palleggiatore (P1..P6) -> ruolo (P/O/S1/S2/C1/C2/Libero) ->
-      Offset`. **Il libero sostituisce il centrale di seconda linea**: per
-      ogni rotazione la mappa contiene un **solo** centrale (quello a rete,
-      che resta) + `Libero` (al posto dell'altro) — l'altro centrale non va
-      disegnato in quella fase. **`P6` è incompleto** (manca `C1`, il
-      centrale a rete in quella rotazione): finché non viene fornito, quella
-      rotazione ricade sulle posizioni di attacco (vedi `_activeDefenseMap`,
-      che richiede la mappa completa — un solo centrale + tutti gli altri 5
-      ruoli — altrimenti torna `null`).
+      Offset`, tutte e 6 le rotazioni complete. **Il libero sostituisce il
+      centrale di seconda linea**: per ogni rotazione la mappa contiene un
+      **solo** centrale (quello a rete, che resta) + `Libero` (al posto
+      dell'altro) — l'altro centrale non va disegnato in quella fase.
       - `_activeDefenseMap`: attiva solo se `_squadraAlServizio ==
         Squadra.avversari` **e** c'è un libero in formazione (`L1` presente)
-        **e** la mappa della rotazione corrente è completa.
+        **e** la mappa della rotazione corrente è completa (controllo di
+        completezza tenuto per sicurezza, utile se in futuro si aggiungono
+        altre fasi con dati parziali).
       - `_liberoInCampoSlot`: **semplificazione** — sempre `'L1'` quando la
         mappa di ricezione è attiva (l'alternanza L1/L2 tra rotazioni non è
         ancora modellata).

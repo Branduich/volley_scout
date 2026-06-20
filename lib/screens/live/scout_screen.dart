@@ -58,9 +58,8 @@ const Offset _kBattutaP1Position = Offset(140, 470);
 // stessi codici di _roleLabelsFor: P, O, S1, S2, C1, C2). Il libero sostituisce
 // il centrale di seconda linea, che quindi non compare in questa mappa per
 // quella rotazione (solo il centrale a rete, che resta in campo, è presente).
-// P6 è incompleto (manca C1, il centrale a rete in quella rotazione): in
-// attesa del dato, quella rotazione ricade sulle posizioni di attacco — vedi
-// _activeDefenseMap.
+// Tutte e 6 le rotazioni sono complete — vedi _activeDefenseMap per il
+// controllo di completezza (resta utile se in futuro si aggiungono altre fasi).
 const Map<String, Map<String, Offset>> _kDefensePositions = {
   'P1': {
     'S1': Offset(240, 482),
@@ -108,7 +107,7 @@ const Map<String, Map<String, Offset>> _kDefensePositions = {
     'S1': Offset(240, 482),
     'Libero': Offset(166, 296),
     'P': Offset(498, 314),
-    // 'C1': MANCANTE — coordinata da fornire.
+    'C1': Offset(438, 542),
   },
 };
 
