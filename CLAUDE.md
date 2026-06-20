@@ -182,17 +182,85 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
 
 ### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
 
-**MatchSet**: id, matchId, numero, puntiCasa, puntiOspiti.
+**Principio architetturale chiave: stato derivato dagli eventi.** Punteggio e
+rotazione correnti NON si salvano come stato mutabile: si **ricalcolano**
+rigiocando la sequenza ordinata di `ScoutAction` di un set (event sourcing
+leggero). Conseguenze:
+- Ogni azione si scrive a DB nell'istante in cui viene registrata (mai solo in
+  memoria) — niente perso se l'app si chiude o il tablet si scarica.
+- **Undo** = elimina l'azione con `ordine` massimo nel set, poi ricalcola.
+  Nessuna logica di "inversione" manuale di punteggio/rotazione.
+- **Riprendi partita** = carica le azioni del set, ricostruisci punteggio e
+  rotazione con la stessa funzione di ricalcolo.
+- Serve una **funzione pura** `ricalcolaStato(List<ScoutAction>)` che
+  restituisce punteggio e rotazione correnti a partire dalla sequenza — è il
+  cuore logico di questa fase, va testata con unit test dedicati.
+- I contatori manuali di punteggio/rotazione già presenti in `ScoutScreen`
+  (`_nostroScore`/`_avversarioScore`, `_rotationSteps`) sono **temporanei**:
+  quando si implementa questo modello vanno sostituiti — i bottoni `-`/`+` e
+  di rotazione restano nell'interfaccia, ma generano/correggono `ScoutAction`
+  invece di incrementare un intero in memoria.
 
-**Rotation**: setId, squadra (nostra/avversari), mappa posizione(1-6) -> giocatoreId.
-La posizione 1 è il battitore. Metodo `ruotata()` per il sideout (rotazione oraria).
+**Avversario resta solo testo** (`VolleyMatches.avversario`, già implementato),
+**non** diventa una `Team` con roster in DB — scelta deliberata per non
+obbligare a creare/gestire la squadra avversaria. Conseguenze sul modello:
+- `rotations` (sotto) è popolata **solo per `squadra = nostra`**; il valore
+  `avversari` resta nell'enum per un'eventuale estensione futura (roster
+  avversario), ma oggi non viene mai scritto.
+- `scout_actions` per i punti avversari (bottone "+1 Loro", errori nostri)
+  hanno `giocatoreId = null` — già previsto dal modello, nessun problema.
+- Limite accettato: nessuna statistica per singolo giocatore avversario.
 
-**ScoutAction**: id, setId, rallyId (raggruppa le azioni di uno scambio), squadra,
-giocatoreId (nullable), fondamentale (enum), voto (enum), traiettoria (nullable),
-ordine, timestamp, puntiCasaAlMomento, puntiOspitiAlMomento.
+**StatoPartita** (nuovo campo su `VolleyMatches`, enum):
+```dart
+enum StatoPartita { configurazione, inCorso, sospesa, terminata }
+```
+Flusso: configurazione → inCorso ↔ sospesa → terminata. In `MatchesScreen`,
+le partite `sospesa` mostreranno "Riprendi", le `terminata` mostreranno
+"Statistiche" (oggi tutte le card mostrano solo "Inizia").
+`VolleyMatches` avrà anche `setCorrente` (int) per sapere quale set è attivo.
+
+**MatchSet** (tabella `MatchSets`): id, matchId (FK, cascade), numero (1,2,3…),
+aperto (bool — true = set in corso). **Niente** `puntiCasa`/`puntiOspiti`
+salvati: si derivano da `ScoutAction` (vedi principio sopra).
+
+**Rotation** (tabella `Rotations`): setId (FK), squadra (enum
+`Squadra { nostra, avversari }` — solo `nostra` popolata, vedi sopra), mappa
+posizione(1-6) -> giocatoreId. La posizione 1 è il battitore. Metodo
+`ruotata()` per il sideout (rotazione oraria). La rotazione INIZIALE del set
+è la formazione di partenza (da `LineupScreen`/`FormationConfigScreen`).
+
+**ScoutAction** (tabella `ScoutActions`): id, setId (FK, cascade), rallyId
+(raggruppa le azioni di uno scambio), ordine (int, progressivo nel set — per
+sequenza e undo), timestamp, squadra (enum Squadra), tipo (enum TipoAzione),
+giocatoreId (nullable — null per punti manuali/errori generici), fondamentale
+(enum, nullable), voto (enum, nullable), tipoEsecuzione (text, default
+`'nonSpecificato'` — solo per attacco/battuta, vedi sotto), esitoPunto (enum
+EsitoPunto), traiettoria_x1/y1/x2/y2 (double, nullable — solo battuta/attacco),
+puntiCasaAlMomento/puntiOspitiAlMomento (int — snapshot opzionale/debug, non
+sostituisce il ricalcolo).
+
+**Enum TipoAzione**: `scout` (giocatore + fondamentale + voto), `puntoManuale`
+(bottoni rapidi "+1 Noi"/"+1 Loro", nessun giocatore), `erroreGenerico` (punto
+all'altra squadra per errore non dettagliato).
+
+**Enum EsitoPunto**: `nessuno` (azione interna allo scambio, non chiude il
+punto), `puntoNostro`, `puntoAvversario`. Calcolato in automatico in base a
+fondamentale+voto (es. attacco/muro/battuta con voto `#` → puntoNostro;
+qualunque fondamentale con voto `=` → puntoAvversario), ma **sempre
+modificabile** prima di confermare l'azione.
 
 **Enum Fondamentale**: battuta, ricezione, alzata, attacco, muro, difesa, errore.
 - Battuta e attacco richiedono la traiettoria (getter `richiedeTraiettoria`).
+- Solo per battuta e attacco compaiono anche i bottoni contestuali del tipo di
+  esecuzione (vedi sotto), opzionali e non bloccanti per il flusso veloce.
+
+**Enum TipoAttacco**: `nonSpecificato` (default), `forte`, `piazzata`,
+`pallonetto`. **Enum TipoBattuta**: `nonSpecificato` (default),
+`floatStaccata`, `salto`, `saltoFloat` (terminologia da confermare). Salvati
+entrambi nello stesso campo testo `tipoEsecuzione` (.name dell'enum
+pertinente in base al `fondamentale` — colonna "polimorfica", la coerenza è
+garantita dall'interfaccia, non dallo schema).
 
 **Enum Voto**: perfetto (#), positivo (+), mezzoPunto (!), negativo (-), errore (=).
 Già definito in `enums.dart` (campo `simbolo`); usato da `CourtStyle.votoColor()`.
@@ -200,6 +268,18 @@ Già definito in `enums.dart` (campo `simbolo`); usato da `CourtStyle.votoColor(
 **Trajectory**: partenza e arrivo come **coordinate normalizzate 0.0-1.0**
 (CourtPoint x,y) rispetto al campo intero, rete a x=0.5. Non salvare pixel.
 Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
+
+**Bottoni rapidi sempre visibili nello scout** (percorso alternativo ai 3
+tocchi): "+1 Noi" (tipo=puntoManuale, esitoPunto=puntoNostro), "+1 Loro"
+(tipo=puntoManuale, esitoPunto=puntoAvversario), "Errore" (tipo=erroreGenerico,
+punto alla squadra che non sbaglia).
+
+**Query principali previste**: statistiche per giocatore/fondamentale
+(filtra `tipo == scout`, esclude i punti manuali che non hanno giocatore);
+statistiche per tipo di esecuzione (raggruppa attacco/battuta per
+`tipoEsecuzione` — poco informative se molte azioni restano
+`nonSpecificato`); punteggio e rotazione (vedi principio architetturale
+sopra, su tutti gli eventi del set guardando `esitoPunto`).
 
 ---
 
@@ -497,11 +577,20 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 - **Fase 3 — Scout** (IN CORSO)
   - [x] Setup grafico ScoutScreen: sfondo, barra top, campo doppio + campo
         piccolo proporzionati allo schermo (vedi sezione "Interfaccia di scout")
-  - [ ] **PROSSIMO**: logica vera e propria — CustomPainter campo intero,
-        token giocatori toccabili, flusso 3 tocchi (giocatore → fondamentale → voto),
-        registrazione ScoutAction a DB, traiettorie via drag.
-  - [ ] Modello DB: tabelle MatchSet, Rotation, ScoutAction.
-  - [ ] Logica rotazioni / sideout.
+  - [x] Punteggio e rotazione **provvisori** in memoria (`_nostroScore`/
+        `_avversarioScore`, `_rotationSteps`) — da sostituire col modello
+        event-sourced sotto, non persistiti.
+  - [ ] **PROSSIMO**: modello dati definitivo (vedi "Principio architetturale
+        chiave" nel Modello dati) — tabelle `MatchSet`, `Rotation`,
+        `ScoutAction`, campo `StatoPartita`/`setCorrente` su `VolleyMatches`,
+        enum `TipoAzione`/`EsitoPunto`/`TipoAttacco`/`TipoBattuta`.
+  - [ ] Funzione pura `ricalcolaStato(List<ScoutAction>)` (punteggio +
+        rotazione derivati) con unit test — cuore logico della fase.
+  - [ ] CustomPainter campo intero, token giocatori toccabili, flusso 3 tocchi
+        (giocatore → fondamentale → voto) con bottoni contestuali tipo
+        esecuzione, bottoni rapidi (+1 Noi/+1 Loro/Errore), traiettorie via drag.
+  - [ ] Sostituire i contatori provvisori con la logica derivata dagli eventi.
+  - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
 
