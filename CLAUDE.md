@@ -466,6 +466,20 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     token sul campo grande mostrano `player.numero` invece dell'etichetta di
     ruolo (la forma esagono/cerchio del palleggiatore resta comunque basata
     sul ruolo, non sul numero).
+  - **Toggle "Modalità test"** (`SwitchListTile`, **default `false`**, solo
+    per provare a video tutte le combinazioni rotazione × chi serve senza
+    passare dal flusso reale): stato `_testModeEnabled`. Quando attivo:
+    - `_squadraAlServizio` **ignora** `_setCorrente?.squadraServizioIniziale`
+      e usa `_testServizio` (parte da `Squadra.nostra`) — funziona anche
+      prima di aver risposto al dialog "Chi serve per primo?".
+    - Attivandolo si azzera lo stato del test: `_rotationSteps = 0`,
+      `_testServizio = Squadra.nostra` (si riparte sempre da "P1 battuta").
+    - Compare un `FloatingActionButton.extended` (icona `Icons.skip_next`,
+      label dinamica `"$_currentSlot battuta"`/`"...ricezione"`) che ad ogni
+      tap chiama `_testAvanza()`: stessa rotazione battuta→ricezione, poi
+      ricezione→battuta sulla rotazione successiva (`_rotationSteps--`, cioè
+      P1→P6→P5→P4→P3→P2→P1...). Sequenza completa: 12 tap per girare tutte
+      e 6 le rotazioni nelle due fasi.
 - `ScoutScreen` riceve da `FormationConfigScreen`: `match`, `team`,
   `palleggiatoreSlot` (slot P1–P6 dove si trova il palleggiatore) e
   `assignments` (`Map<String, Player>` — la formazione completa, usata per

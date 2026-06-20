@@ -249,8 +249,38 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   // Chi è al servizio ora. Finché non registriamo azioni vere (e quindi non
   // richiamiamo ricalcolaStato() su eventi reali), coincide sempre con chi
-  // serviva per primo nel set: nessun punto è stato ancora segnato.
-  Squadra? get _squadraAlServizio => _setCorrente?.squadraServizioIniziale;
+  // serviva per primo nel set: nessun punto è stato ancora segnato. In
+  // modalità test, ignora tutto questo e usa _testServizio (vedi sotto).
+  Squadra? get _squadraAlServizio =>
+      _testModeEnabled ? _testServizio : _setCorrente?.squadraServizioIniziale;
+
+  // --- Modalità test (solo per provare a video tutte le combinazioni
+  // rotazione × chi serve, senza dover passare dal flusso reale di gioco) ---
+  bool _testModeEnabled = false;
+  Squadra _testServizio = Squadra.nostra;
+
+  void _toggleTestMode(bool value) {
+    setState(() {
+      _testModeEnabled = value;
+      if (value) {
+        _rotationSteps = 0;
+        _testServizio = Squadra.nostra;
+      }
+    });
+  }
+
+  // Avanza di un passo: stessa rotazione battuta->ricezione, poi ricezione->
+  // battuta sulla rotazione successiva (P1->P6->P5->P4->P3->P2->P1...).
+  void _testAvanza() {
+    setState(() {
+      if (_testServizio == Squadra.nostra) {
+        _testServizio = Squadra.avversari;
+      } else {
+        _testServizio = Squadra.nostra;
+        _rotationSteps--;
+      }
+    });
+  }
 
   // Posizione di riferimento (1200×600) per uno slot: quella di attacco,
   // tranne per P1 quando battiamo noi (esce dal campo per servire).
@@ -423,6 +453,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       key: _scaffoldKey,
       backgroundColor: _kBg,
       drawer: _buildUtilityDrawer(),
+      floatingActionButton: _testModeEnabled
+          ? FloatingActionButton.extended(
+              backgroundColor: const Color(0xFF00008A),
+              onPressed: _testAvanza,
+              icon: const Icon(Icons.skip_next),
+              label: Text(
+                '$_currentSlot '
+                '${_squadraAlServizio == Squadra.nostra ? "battuta" : "ricezione"}',
+              ),
+            )
+          : null,
       body: Column(
         children: [
           Container(
@@ -624,6 +665,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               title: Text(
                   _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
                   style: const TextStyle(color: Colors.white)),
+              activeThumbColor: Colors.white,
+              activeTrackColor: const Color(0xFF00008A),
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white24,
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            SwitchListTile(
+              value: _testModeEnabled,
+              onChanged: _toggleTestMode,
+              title: const Text('Modalità test',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text(
+                'Bottone per scorrere rotazione × chi serve',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
               activeThumbColor: Colors.white,
               activeTrackColor: const Color(0xFF00008A),
               inactiveThumbColor: Colors.white70,
