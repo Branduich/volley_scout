@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/database_provider.dart';
-import '../../theme/app_colors.dart';
 import 'team_form_screen.dart';
 
 class TeamsScreen extends ConsumerWidget {
@@ -41,7 +40,7 @@ class TeamsScreen extends ConsumerWidget {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.darken(Color(team.coloreDivisa)),
+                    backgroundColor: Color(team.coloreDivisa),
                   ),
                   title: Text(team.nome),
                   subtitle: Text(team.categoria.label),

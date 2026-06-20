@@ -3,12 +3,21 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
-import '../../theme/app_colors.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
 const _kCourtImage = 'assets/images/double_court_bg.png';
 const _kSmallCourtImage = 'assets/images/small_court.png';
+
+// Colore invertito (canale per canale) rispetto al colore squadra, usato per
+// il cerchio del libero — in pallavolo il libero indossa sempre una maglia
+// di colore diverso dai compagni. Stessa logica di lineup_screen.dart.
+Color _invertedColor(Color color) => Color.from(
+      alpha: color.a,
+      red: 1.0 - color.r,
+      green: 1.0 - color.g,
+      blue: 1.0 - color.b,
+    );
 
 // Ancoraggio del badge di rotazione sul campo piccolo, per slot del
 // palleggiatore. Il campo piccolo è ruotato di 90° in senso orario rispetto
@@ -440,7 +449,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppColors.darken(Color(widget.team.coloreDivisa)),
+            color: Color(widget.team.coloreDivisa),
             borderRadius: BorderRadius.circular(badgeHeight * 0.1),
             border: Border.all(color: Colors.white, width: 2),
           ),
@@ -488,7 +497,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
     final radius = ch / 20;
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
-    final fillColor = AppColors.darken(Color(widget.team.coloreDivisa));
+    final fillColor = Color(widget.team.coloreDivisa);
     final isPalleggiatore = roleLabel == 'P';
     final label = _showJerseyNumbers ? '${player.numero}' : roleLabel;
     // L'esagono del palleggiatore è il 10% più grande dei token circolari.
@@ -580,14 +589,15 @@ class _ScoutScreenState extends State<ScoutScreen> {
 
   Widget _buildLiberoToken(String slotLabel, Player player, double size) {
     final label = _showJerseyNumbers ? '${player.numero}' : slotLabel;
+    final color = _invertedColor(Color(widget.team.coloreDivisa));
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white,
-        border: Border.all(color: Colors.black, width: 2),
+        color: color,
+        border: Border.all(color: Colors.white, width: 2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(120),
@@ -599,7 +609,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.black,
+          color: Colors.white,
           fontWeight: FontWeight.bold,
           fontSize: size * 0.4,
         ),

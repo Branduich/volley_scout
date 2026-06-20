@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../teams/player_form_screen.dart';
 import 'formation_config_screen.dart';
 
 const _kBg = Color(0xFF0F172A); // dark navy background
 const _kCourtImage = 'assets/images/court_bg.png';
+
+// Colore invertito (canale per canale) rispetto al colore squadra, usato per
+// il cerchio del libero — in pallavolo il libero indossa sempre una maglia
+// di colore diverso dai compagni.
+Color _invertedColor(Color color) => Color.from(
+      alpha: color.a,
+      red: 1.0 - color.r,
+      green: 1.0 - color.g,
+      blue: 1.0 - color.b,
+    );
 
 // Counter-clockwise selection order
 const _kCourtOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
@@ -377,7 +388,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     final assignedIds = _assignments.values.map((p) => p.id).toSet();
 
     return Container(
-      color: Colors.white,
+      color: _kBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -385,8 +396,13 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(
               children: [
-                Text('Giocatori',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Giocatori',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(color: Colors.white),
+                ),
                 const Spacer(),
                 FilledButton.icon(
                   onPressed: () => Navigator.push(
@@ -402,76 +418,88 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
               ],
             ),
           ),
-          const Divider(height: 1),
           Expanded(
             child: players.isEmpty
                 ? const Center(
                     child: Text(
                       'Nessun giocatore.\nUsare "Aggiungi" per inserirne uno.',
                       textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70),
                     ),
                   )
                 : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                     itemCount: players.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final p = players[i];
                       final assigned = assignedIds.contains(p.id);
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: assigned
-                              ? Colors.grey.shade300
-                              : AppColors.brandPrimary,
-                          child: Text(
-                            '${p.numero}',
-                            style: TextStyle(
-                              color:
-                                  assigned ? Colors.grey : Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                      final teamColor = Color(widget.team.coloreDivisa);
+                      final baseColor = p.ruolo == Ruolo.libero
+                          ? _invertedColor(teamColor)
+                          : teamColor;
+                      final cardColor =
+                          assigned ? Colors.grey.shade300 : Colors.white;
+                      final avatarColor =
+                          assigned ? baseColor.withAlpha(120) : baseColor;
+                      return Material(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: avatarColor,
+                            child: Text(
+                              '${p.numero}',
+                              style: TextStyle(
+                                color:
+                                    assigned ? Colors.white70 : Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                        title: Text(
-                          '${p.cognome} ${p.nome}',
-                          style: TextStyle(
-                            color: assigned ? Colors.grey : null,
+                          title: Text(
+                            '${p.cognome} ${p.nome}',
+                            style: TextStyle(
+                              color: assigned ? Colors.grey : null,
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          p.ruolo.label,
-                          style: TextStyle(
-                            color: assigned
-                                ? Colors.grey.shade400
-                                : null,
+                          subtitle: Text(
+                            p.ruolo.label,
+                            style: TextStyle(
+                              color: assigned
+                                  ? Colors.grey.shade500
+                                  : null,
+                            ),
                           ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!assigned)
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 20),
-                                tooltip: 'Modifica giocatore',
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PlayerFormScreen(
-                                      teamId: widget.team.id,
-                                      player: p,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!assigned)
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 20),
+                                  tooltip: 'Modifica giocatore',
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PlayerFormScreen(
+                                        teamId: widget.team.id,
+                                        player: p,
+                                      ),
                                     ),
                                   ),
                                 ),
+                              Icon(
+                                assigned
+                                    ? Icons.check_circle_outline
+                                    : Icons.chevron_right,
+                                color: assigned ? Colors.green : null,
                               ),
-                            Icon(
-                              assigned
-                                  ? Icons.check_circle_outline
-                                  : Icons.chevron_right,
-                              color: assigned ? Colors.green : null,
-                            ),
-                          ],
+                            ],
+                          ),
+                          onTap: () => _onPlayerTap(p),
                         ),
-                        onTap: () => _onPlayerTap(p),
                       );
                     },
                   ),

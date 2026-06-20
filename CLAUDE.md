@@ -123,7 +123,7 @@ valori hardcoded in widget.
 
 | File | Classe | Uso principale |
 |---|---|---|
-| `app_colors.dart` | `AppColors` | `brandPrimary` (blu 1E3A8A), `brandAccent` (ambra F59E0B), `success/warning/danger`, `surface/surfaceDim`, `darken(Color, [amount=0.25])` (scurisce un colore via HSL — usato ovunque si mostri il colore maglia di una squadra come avatar/badge: `teams_screen`, `team_selection_screen`, `team_form_screen` incluso il color picker, `scout_screen`) |
+| `app_colors.dart` | `AppColors` | `brandPrimary` (blu 1E3A8A), `brandAccent` (ambra F59E0B), `success/warning/danger`, `surface/surfaceDim`, `darken(Color, [amount=0.25])` (scurisce un colore via HSL — **non più usato da nessuna schermata** dopo il refactoring colori, lasciato disponibile per un eventuale uso futuro nello scout) |
 | `app_spacing.dart` | `AppSpacing` | padding/gap: `xs`=4, `sm`=8, `md`=16, `lg`=24, `xl`=32, `xxl`=48 |
 | `app_spacing.dart` | `AppRadius` | border radius: `sm`=8, `md`=12, `lg`=16, `pill`=999 |
 | `app_typography.dart` | `AppTypography` | `textTheme` con headlineMedium, titleLarge/Medium, bodyLarge/Medium/Small, labelLarge |
@@ -242,6 +242,17 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     non viene rimosso dallo slot — evita che la card sul campo mostri dati
     superati (l'oggetto `Player` in `_assignments` non si aggiorna da solo
     quando lo stream rilegge i dati modificati).
+    Lista giocatori a destra: card arrotondate (`Material` + `ListTile`,
+    `BorderRadius.circular(AppRadius.md)`, separate da `SizedBox(height: 8)`
+    invece di `Divider`) su sfondo `_kBg` (stesso blu scuro della pagina) —
+    bianca se disponibile, `Colors.grey.shade300` se già assegnato. Avatar
+    col **colore squadra raw** (`Color(team.coloreDivisa)`, niente
+    scurimento); se assegnato, stesso colore con opacità ridotta
+    (`withAlpha(120)`) invece di un grigio slegato. **Libero** (`Ruolo.libero`):
+    avatar col colore **invertito canale per canale** (`_invertedColor()` —
+    `1.0 - r/g/b` sulla nuova API `Color.from()`), per richiamare la maglia
+    di colore diverso che il libero indossa sempre in pallavolo; stessa
+    funzione duplicata in `scout_screen.dart` per coerenza tra le due pagine.
   - `FormationConfigScreen` (riceve `match`, `team`, `assignments` da
     `LineupScreen`): sfondo blu scuro (`0xFF0F172A`, stesso di `LineupScreen`).
     AppBar: titolo "Configurazione formazione – [nome squadra]" + bottone
@@ -381,9 +392,10 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     mentre il testo del badge resta dritto e leggibile (non ruotato).
 - **Token giocatore (posizioni di attacco)** sul campo grande: 6 cerchi con
   raggio **1/20** del campo (un singolo campo è un quadrato 600×600 nello
-  spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = colore
-  maglia squadra scurito, bordo bianco 2px, ombra (`BoxShadow` nero 47%
-  opacità, blur 4, offset verticale 2).
+  spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = **colore
+  maglia squadra raw** (`Color(team.coloreDivisa)`, niente scurimento — vedi
+  nota sul refactoring colori sotto), bordo bianco 2px, ombra (`BoxShadow`
+  nero 47% opacità, blur 4, offset verticale 2).
   - Posizioni fisse `_kAttackPositions` (coordinate di riferimento 1200×600,
     lato sinistro — riflesse a destra da `_displayPosition()` se
     `_isRightSide`): P1(200,470) P2(530,470) P3(530,300) P4(530,130)
@@ -417,6 +429,25 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     `canvas.drawShadow(path, Colors.black, 3, false)` (equivalente alla
     `BoxShadow` dei cerchi). Il testo resta centrato con `Center(child: text)`
     indipendentemente dalla dimensione del token.
+- **Token del/dei libero** (`_buildLiberoTokens`, slot `L1`/opzionale `L2`
+  letti da `widget.assignments` — non passano per `_currentAssignments`,
+  **non ruotano** con P1–P6): cerchi affiancati (gap 8px) ancorati in basso
+  a sinistra di default, a destra col cambio campo. Stesso meccanismo di
+  posizionamento della mini-map: solo `left` con offset calcolato
+  (`liberoLeft`), mai `right` — alternare `left`/`right` con `null` non si
+  anima fluidamente con `AnimatedPositioned`. Colore = **invertito canale
+  per canale** rispetto al colore squadra (`_invertedColor()`, stessa
+  funzione duplicata in `lineup_screen.dart`), bordo e testo bianchi (stesso
+  stile degli altri token, non più bordo/testo neri). Etichetta: numero di
+  maglia se `_showJerseyNumbers`, altrimenti "L1"/"L2".
+- **Refactoring colori (importante)**: il colore squadra è mostrato **sempre
+  raw** (`Color(team.coloreDivisa)`), in ogni schermata che lo usa —
+  `teams_screen`, `team_selection_screen`, `team_form_screen` (incluso il
+  color picker), `lineup_screen`, `scout_screen`. Provato uno scurimento
+  globale via `AppColors.darken()` ma annullato su richiesta: troppo
+  invasivo applicato indistintamente. L'unica eccezione è il **libero**, che
+  usa il colore invertito (non scurito) per richiamare la maglia diversa —
+  vedi sopra.
 - Nessuna logica di scouting ancora presente: il resto di questa sezione
   descrive il design deciso ma non ancora implementato.
 
