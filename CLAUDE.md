@@ -562,21 +562,66 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         **e** la mappa della rotazione corrente è completa (controllo di
         completezza tenuto per sicurezza, utile se in futuro si aggiungono
         altre fasi con dati parziali).
-      - `_liberoInCampoSlot`: **semplificazione** — sempre `'L1'` quando la
-        mappa di ricezione è attiva (l'alternanza L1/L2 tra rotazioni non è
-        ancora modellata).
-      - `_buildCourtTokens()`: in attacco/battuta itera per **giocatore**
-        (come prima); in ricezione itera per **ruolo** sulla mappa di difesa
-        — il ruolo `Libero` usa `_buildLiberoCourtToken` (stile invertito,
-        stesso posizionamento/animazione di `_buildPlayerToken`), gli altri 5
-        ruoli risolvono lo slot via `_roleLabelsFor` invertita e prendono il
-        giocatore da `_currentAssignments`.
+      - `_buildCourtTokens()`: in ricezione itera per **ruolo** sulla mappa
+        di difesa — il ruolo `Libero` usa `_buildLiberoCourtToken` (stile
+        invertito, stesso posizionamento/animazione di `_buildPlayerToken`),
+        gli altri 5 ruoli risolvono lo slot via `_roleLabelsFor` invertita e
+        prendono il giocatore da `_currentAssignments`. In attacco/battuta
+        (o ricezione senza dati di difesa completi) itera per **giocatore**
+        sulle posizioni di attacco, applicando la stessa sostituzione
+        libero↔centrale — vedi sezione dedicata sotto.
       - `_buildLiberoTokens` (i due cerchi fissi ad angolo) **esclude**
         `_liberoInCampoSlot`: il libero già disegnato sul campo non compare
-        più anche ad angolo, per non duplicarlo.
+        più anche ad angolo, per non duplicarlo (vale sia in ricezione sia
+        in battuta).
     - In futuro probabilmente altre fasi (es. attacco dopo ricezione buona,
       muro/difesa su attacco avversario) avranno ciascuna il proprio set di
       coordinate, sempre scelto in base allo stato derivato dagli eventi.
+  - **Logica del libero nelle rotazioni (IMPLEMENTATA, generale — vale sia in
+    attacco/battuta sia in ricezione)**. Principio: il libero gioca solo in
+    **seconda linea** (zone 1, 6, 5 — nel nostro sistema slot `P1`, `P6`,
+    `P5`) e **sostituisce sempre il giocatore della coppia scelta che si
+    trova lì** — i due della coppia sono opposti nella rotazione (3
+    posizioni di distanza), quindi ce n'è **sempre esattamente uno** in
+    seconda linea — il libero non "esce" mai, cambia solo chi sta
+    sostituendo. Non è modellato come un settimo giocatore: è una
+    sostituzione **derivata** dalla rotazione corrente (come tutto il resto
+    dello stato), non memorizzata azione per azione.
+    - **La coppia non è fissa**: in `FormationConfigScreen` il libero può
+      sostituire **o i due centrali o i due schiacciatori** (mai una
+      combinazione, vedi `_onCentraleSlotTap`). La scelta passa a
+      `ScoutScreen` come `ruoloCambiLibero` (`Ruolo?` — `centrale`,
+      `schiacciatore`, o `null` se non c'è libero), letto dal ruolo di uno
+      dei due slot selezionati (`widget.assignments[_centraliSlots.first]
+      ?.ruolo`).
+    - `_slotCentraleSecondaLinea(roleLabels)`: trova quale slot tra
+      `P5`/`P6`/`P1` ha l'etichetta della coppia giusta (`C1`/`C2` se
+      `ruoloCambiLibero == Ruolo.centrale`, `S1`/`S2` se
+      `Ruolo.schiacciatore`). Generale, usato sia dal ramo attacco/battuta di
+      `_buildCourtTokens` sia da `_liberoInCampoSlot`.
+    - **Limite noto**: `_kDefensePositions` (le coordinate di ricezione) è
+      stato costruito solo per il caso "libero sostituisce i centrali" (i
+      file CSV originali hanno sempre un C1/C2 + Libero). Se una squadra ha
+      il libero sui cambi degli schiacciatori, `_activeDefenseMap` non
+      troverà mai una mappa "completa" per quel caso (il controllo richiede
+      un solo `C1`/`C2`) e la ricezione **ricade sulle posizioni di attacco**
+      con la sostituzione generica — corretto ma senza la forma dedicata di
+      ricezione. Da estendere se servirà un set di coordinate per quel caso.
+    - **Eccezione del servizio** (zona 1 = `P1`, chi sta per servire): il
+      libero non può servire — in questa fase l'app **non sostituisce mai**
+      il centrale in `P1` (resta lui per il servizio, già coperto dalla
+      posizione speciale `_kBattutaP1Position`). **Confermato regolamento
+      2026: rimane definitivo**, non un placeholder — non serve
+      l'impostazione `RegolaServizioLibero`/regola FIPAV "una rotazione"
+      ipotizzata dal documento originale, quindi non implementata
+      (l'eccezione del servizio resta comunque generale/corretta a
+      prescindere).
+    - Caso limite già gestito: nessuna sostituzione se il libero non è in
+      formazione (`widget.assignments['L1'] == null`) — i centrali restano
+      visibili normalmente in entrambe le posizioni.
+    - **Backlog non implementato**: gestione doppio libero (oggi sempre
+      `L1`, nessuna alternanza L1/L2 tra rotazioni); unit test della logica
+      libero su tutte e 6 le rotazioni.
   - **Animazione di rotazione**: il rendering itera per **giocatore**
     (`currentAssignments.entries`, non più per slot fisso), e ogni token è
     un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —

@@ -224,6 +224,10 @@ class ScoutScreen extends ConsumerStatefulWidget {
   final Team team;
   final String palleggiatoreSlot;
   final Map<String, Player> assignments;
+  // Quale coppia di ruoli sostituisce il libero (deciso in
+  // FormationConfigScreen: o i due centrali o i due schiacciatori, mai una
+  // combinazione). Null se non c'è libero in formazione.
+  final Ruolo? ruoloCambiLibero;
 
   const ScoutScreen({
     super.key,
@@ -231,6 +235,7 @@ class ScoutScreen extends ConsumerStatefulWidget {
     required this.team,
     required this.palleggiatoreSlot,
     required this.assignments,
+    this.ruoloCambiLibero,
   });
 
   @override
@@ -277,9 +282,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   // Slot del libero attualmente in campo (semplificazione: sempre L1 — non
-  // modelliamo ancora l'alternanza L1/L2 tra rotazioni), solo quando la
-  // mappa di ricezione è attiva per la rotazione corrente.
-  String? get _liberoInCampoSlot => _activeDefenseMap != null ? 'L1' : null;
+  // modelliamo ancora l'alternanza L1/L2 tra rotazioni): in campo se la
+  // mappa di ricezione è attiva, oppure — in attacco/battuta — se c'è un
+  // centrale di seconda linea diverso da P1 da sostituire.
+  String? get _liberoInCampoSlot {
+    if (!widget.assignments.containsKey('L1')) return null;
+    if (_activeDefenseMap != null) return 'L1';
+    final roleLabels = _roleLabelsFor(_currentSlot, _currentAssignments);
+    final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
+    return (slotCentrale != null && slotCentrale != 'P1') ? 'L1' : null;
+  }
 
   @override
   void initState() {
@@ -716,25 +728,59 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Costruisce i token dei 6 giocatori sul campo grande. In attacco/battuta:
-  // itera per giocatore (currentAssignments), posizione da _refPositionFor.
-  // In ricezione (mappa di difesa attiva per la rotazione corrente): itera
-  // per RUOLO sulla mappa di difesa — il centrale di seconda linea non
-  // compare (sostituito dal libero, disegnato con lo stile invertito).
+  // Slot occupato dal giocatore di SECONDA LINEA (P5, P6 o P1) che il libero
+  // sostituisce — la coppia è quella scelta in FormationConfigScreen
+  // (`widget.ruoloCambiLibero`: centrali o schiacciatori, mai una
+  // combinazione). I due della coppia sono sempre opposti nella rotazione (3
+  // posizioni di distanza), quindi ce n'è sempre esattamente uno in seconda
+  // linea. Null se non c'è libero in formazione, o se per qualche motivo
+  // nessuno dei due ruoli della coppia è assegnato (formazione incompleta).
+  String? _slotCentraleSecondaLinea(Map<String, String> roleLabels) {
+    final ruolo = widget.ruoloCambiLibero;
+    if (ruolo == null) return null;
+    final etichette =
+        ruolo == Ruolo.centrale ? const {'C1', 'C2'} : const {'S1', 'S2'};
+    const secondaLinea = {'P5', 'P6', 'P1'};
+    for (final entry in roleLabels.entries) {
+      if (secondaLinea.contains(entry.key) &&
+          etichette.contains(entry.value)) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  // Costruisce i token dei 6 giocatori sul campo grande. In ricezione (mappa
+  // di difesa attiva per la rotazione corrente): itera per RUOLO sulla mappa
+  // di difesa — il centrale di seconda linea non compare (sostituito dal
+  // libero). Altrimenti (attacco/battuta, o ricezione senza dati di difesa
+  // completi): itera per giocatore sulle posizioni di attacco, sostituendo
+  // comunque il centrale di seconda linea col libero — **tranne in P1**
+  // (chi sta per servire resta lui: regola "classica", il libero non serve
+  // mai; la regola configurabile FIPAV non è ancora implementata, vedi
+  // CLAUDE.md).
   List<Widget> _buildCourtTokens(double cw, double ch) {
     final currentAssignments = _currentAssignments;
     final roleLabels = _roleLabelsFor(_currentSlot, currentAssignments);
     final defenseMap = _activeDefenseMap;
 
     if (defenseMap == null) {
+      final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
+      final libero = widget.assignments['L1'];
       return [
         for (final entry in currentAssignments.entries)
-          _buildPlayerToken(
-              roleLabels[entry.key] ?? entry.key,
-              entry.value,
-              _displayPosition(_refPositionFor(entry.key)),
-              cw,
-              ch),
+          if (entry.key == slotCentrale &&
+              entry.key != 'P1' &&
+              libero != null)
+            _buildLiberoCourtToken(
+                libero, _displayPosition(_refPositionFor(entry.key)), cw, ch)
+          else
+            _buildPlayerToken(
+                roleLabels[entry.key] ?? entry.key,
+                entry.value,
+                _displayPosition(_refPositionFor(entry.key)),
+                cw,
+                ch),
       ];
     }
 

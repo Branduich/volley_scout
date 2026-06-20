@@ -86,6 +86,13 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   }
 
   void _onAvanti() {
+    // Il libero sostituisce o i due centrali o i due schiacciatori (mai una
+    // combinazione, vedi _onCentraleSlotTap): basta leggere il ruolo di uno
+    // dei due slot selezionati per sapere quale coppia ScoutScreen dovrà
+    // sostituire ad ogni rotazione.
+    final ruoloCambiLibero = _hasLibero && _centraliSlots.isNotEmpty
+        ? widget.assignments[_centraliSlots.first]?.ruolo
+        : null;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -94,6 +101,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
           team: widget.team,
           palleggiatoreSlot: _palleggiatoreSlot!,
           assignments: widget.assignments,
+          ruoloCambiLibero: ruoloCambiLibero,
         ),
       ),
     );
