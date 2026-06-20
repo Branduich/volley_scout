@@ -201,6 +201,22 @@ class _ScoutScreenState extends State<ScoutScreen> {
       ? Offset(1200 - refPos.dx, 600 - refPos.dy)
       : refPos;
 
+  // "Nome nostro - Nome avversario" di default: il nome della squadra di cui
+  // si fa lo scout va sempre sul lato dove sono disegnati i suoi giocatori
+  // (non dipende da casa/trasferta, solo dal cambio campo).
+  String get _matchTitle {
+    final nostro = widget.team.nome;
+    final avversarioRaw = widget.match.avversario?.trim();
+    final avversario =
+        (avversarioRaw != null && avversarioRaw.isNotEmpty)
+            ? avversarioRaw
+            : 'AVVERSARI';
+    final nostroASinistra = !_isRightSide;
+    return nostroASinistra
+        ? '$nostro - $avversario'
+        : '$avversario - $nostro';
+  }
+
   // Di default i token mostrano il numero di maglia; disattivando il toggle
   // mostrano il ruolo.
   bool _showJerseyNumbers = true;
@@ -218,17 +234,38 @@ class _ScoutScreenState extends State<ScoutScreen> {
           Container(
             height: 60,
             color: _kTopBarBg,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.white),
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(left: 56, right: 56, bottom: 4),
+                  child: Text(
+                    _matchTitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.menu, color: Colors.white),
+                      onPressed: () =>
+                          _scaffoldKey.currentState?.openDrawer(),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ],
             ),

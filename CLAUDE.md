@@ -171,11 +171,14 @@ implementata.
 
 **VolleyMatch** (`@DataClassName('VolleyMatch')` su tabella `VolleyMatches`):
 id, nome, dataOra (DateTime, salvato come int64 ms epoch da drift), inCasa (bool),
-palestra (text nullable), teamId (FK -> Teams nullable, setNull on delete),
-lat (real nullable), lon (real nullable).
+palestra (text nullable), avversario (text nullable), teamId (FK -> Teams
+nullable, setNull on delete), lat (real nullable), lon (real nullable).
 - `lat`/`lon` riservati a futura integrazione Maps/OpenStreetMap, non visibili in UI.
+- `avversario`: nome squadra avversaria, opzionale, impostabile in
+  `MatchFormScreen` tra il blocco data/ora e il toggle "In casa". Se non
+  impostato, `ScoutScreen` mostra "AVVERSARI" come placeholder nel titolo.
 - `teamId` selezionabile da `TeamSelectionScreen` (vedi flusso navigazione).
-- Schema DB attuale: **v4** (v4 ha aggiunto `Players.scadenzaCertificato`).
+- Schema DB attuale: **v5** (v5 ha aggiunto `VolleyMatches.avversario`).
 
 ### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
 
@@ -233,6 +236,12 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
     assegnato (lista o badge ✕) → deassegna. "Conferma formazione" abilitato
     solo quando P1–P6 sono tutti riempiti. La formazione è in memoria (non
     ancora persistita a DB).
+    Icona matita (`Icons.edit`) nel `trailing` della lista, **visibile solo
+    se il giocatore non è assegnato**: apre `PlayerFormScreen` per
+    modificarlo. Un giocatore già in formazione non è modificabile finché
+    non viene rimosso dallo slot — evita che la card sul campo mostri dati
+    superati (l'oggetto `Player` in `_assignments` non si aggiorna da solo
+    quando lo stream rilegge i dati modificati).
   - `FormationConfigScreen` (riceve `match`, `team`, `assignments` da
     `LineupScreen`): sfondo blu scuro (`0xFF0F172A`, stesso di `LineupScreen`).
     AppBar: titolo "Configurazione formazione – [nome squadra]" + bottone
@@ -280,11 +289,19 @@ Nel DB: 4 colonne double (traiettoria_x1, y1, x2, y2).
 
 - Sfondo schermo: `Color(0xFF143E59)`.
 - Barra superiore fissa: `Container` alto 60dp, colore `Color(0xFF0D2738)`,
-  `Row` con bottone "menu" (`Icons.menu`, apre il drawer di utilità) a
-  **sinistra** e bottone "indietro" (`Icons.arrow_back`, `Navigator.pop`) a
-  **destra** (non centrato come un'AppBar standard — scelta deliberata per
-  ergonomia in landscape), entrambi ancorati in basso nella barra
-  (`crossAxisAlignment: CrossAxisAlignment.end`).
+  `Stack` con due livelli: sotto il titolo partita (centrato, vedi `_matchTitle`
+  sotto), sopra una `Row` con bottone "menu" (`Icons.menu`, apre il drawer di
+  utilità) a **sinistra** e bottone "indietro" (`Icons.arrow_back`,
+  `Navigator.pop`) a **destra** (non centrato come un'AppBar standard —
+  scelta deliberata per ergonomia in landscape). `Stack(alignment:
+  Alignment.bottomCenter)`: sia il titolo sia la riga di icone sono ancorati
+  vicino al **bordo inferiore** della barra, non centrati verticalmente.
+  - **`_matchTitle`**: "Nome squadra – Nome avversario" (o "AVVERSARI" se
+    `match.avversario` non è impostato). L'ordine **non dipende da
+    casa/trasferta**: di default la nostra squadra è sempre a sinistra, e
+    segue il lato dei suoi giocatori — si inverte quando si fa "Cambia
+    campo" (`nostroASinistra = !_isRightSide`). Padding orizzontale 56px per
+    non sovrapporsi alle icone, troncato con ellissi se troppo lungo.
 - **Drawer di utilità** (`_buildUtilityDrawer`, apribile via
   `_scaffoldKey.currentState?.openDrawer()` — necessario un
   `GlobalKey<ScaffoldState>` perché la barra superiore è custom, non

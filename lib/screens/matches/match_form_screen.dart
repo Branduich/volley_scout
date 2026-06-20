@@ -15,6 +15,7 @@ class MatchFormScreen extends ConsumerStatefulWidget {
 class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
+  late TextEditingController _avversarioController;
   late TextEditingController _palestraController;
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
@@ -27,6 +28,8 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
     super.initState();
     final m = widget.match;
     _nomeController = TextEditingController(text: m?.nome ?? '');
+    _avversarioController =
+        TextEditingController(text: m?.avversario ?? '');
     _palestraController = TextEditingController(text: m?.palestra ?? '');
     final dt = m?.dataOra ?? DateTime.now();
     _selectedDate = DateTime(dt.year, dt.month, dt.day);
@@ -37,6 +40,7 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
   @override
   void dispose() {
     _nomeController.dispose();
+    _avversarioController.dispose();
     _palestraController.dispose();
     super.dispose();
   }
@@ -77,6 +81,9 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
     final palestraTrimmed = _palestraController.text.trim();
     final palestraValue =
         Value(palestraTrimmed.isEmpty ? null : palestraTrimmed);
+    final avversarioTrimmed = _avversarioController.text.trim();
+    final avversarioValue =
+        Value(avversarioTrimmed.isEmpty ? null : avversarioTrimmed);
 
     if (isEditing) {
       await repo.updateMatch(widget.match!.copyWith(
@@ -84,6 +91,7 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
         dataOra: dataOra,
         inCasa: _inCasa,
         palestra: palestraValue,
+        avversario: avversarioValue,
       ));
     } else {
       await repo.addMatch(VolleyMatchesCompanion.insert(
@@ -91,6 +99,7 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
         dataOra: dataOra,
         inCasa: _inCasa,
         palestra: palestraValue,
+        avversario: avversarioValue,
       ));
     }
     if (mounted) Navigator.pop(context);
@@ -170,6 +179,15 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _avversarioController,
+                  decoration: const InputDecoration(
+                    labelText: 'Squadra avversaria',
+                    border: OutlineInputBorder(),
+                    hintText: 'opzionale',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile(

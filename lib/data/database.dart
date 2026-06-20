@@ -50,6 +50,7 @@ class VolleyMatches extends Table {
   DateTimeColumn get dataOra => dateTime()();
   BoolColumn get inCasa => boolean()();
   TextColumn get palestra => text().nullable()();
+  TextColumn get avversario => text().nullable()();
   IntColumn get teamId => integer()
       .nullable()
       .references(Teams, #id, onDelete: KeyAction.setNull)();
@@ -63,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +79,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 4) {
             await customStatement(
                 'ALTER TABLE players ADD COLUMN scadenza_certificato INTEGER');
+          }
+          if (from < 5) {
+            await customStatement(
+                'ALTER TABLE volley_matches ADD COLUMN avversario TEXT');
           }
         },
         beforeOpen: (details) async {

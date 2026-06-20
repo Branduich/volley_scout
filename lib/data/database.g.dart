@@ -847,6 +847,17 @@ class $VolleyMatchesTable extends VolleyMatches
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _avversarioMeta = const VerificationMeta(
+    'avversario',
+  );
+  @override
+  late final GeneratedColumn<String> avversario = GeneratedColumn<String>(
+    'avversario',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
   @override
   late final GeneratedColumn<int> teamId = GeneratedColumn<int>(
@@ -884,6 +895,7 @@ class $VolleyMatchesTable extends VolleyMatches
     dataOra,
     inCasa,
     palestra,
+    avversario,
     teamId,
     lat,
     lon,
@@ -933,6 +945,12 @@ class $VolleyMatchesTable extends VolleyMatches
         palestra.isAcceptableOrUnknown(data['palestra']!, _palestraMeta),
       );
     }
+    if (data.containsKey('avversario')) {
+      context.handle(
+        _avversarioMeta,
+        avversario.isAcceptableOrUnknown(data['avversario']!, _avversarioMeta),
+      );
+    }
     if (data.containsKey('team_id')) {
       context.handle(
         _teamIdMeta,
@@ -980,6 +998,10 @@ class $VolleyMatchesTable extends VolleyMatches
         DriftSqlType.string,
         data['${effectivePrefix}palestra'],
       ),
+      avversario: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}avversario'],
+      ),
       teamId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}team_id'],
@@ -1007,6 +1029,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   final DateTime dataOra;
   final bool inCasa;
   final String? palestra;
+  final String? avversario;
   final int? teamId;
   final double? lat;
   final double? lon;
@@ -1016,6 +1039,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     required this.dataOra,
     required this.inCasa,
     this.palestra,
+    this.avversario,
     this.teamId,
     this.lat,
     this.lon,
@@ -1029,6 +1053,9 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     map['in_casa'] = Variable<bool>(inCasa);
     if (!nullToAbsent || palestra != null) {
       map['palestra'] = Variable<String>(palestra);
+    }
+    if (!nullToAbsent || avversario != null) {
+      map['avversario'] = Variable<String>(avversario);
     }
     if (!nullToAbsent || teamId != null) {
       map['team_id'] = Variable<int>(teamId);
@@ -1051,6 +1078,9 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
       palestra: palestra == null && nullToAbsent
           ? const Value.absent()
           : Value(palestra),
+      avversario: avversario == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avversario),
       teamId: teamId == null && nullToAbsent
           ? const Value.absent()
           : Value(teamId),
@@ -1070,6 +1100,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
       dataOra: serializer.fromJson<DateTime>(json['dataOra']),
       inCasa: serializer.fromJson<bool>(json['inCasa']),
       palestra: serializer.fromJson<String?>(json['palestra']),
+      avversario: serializer.fromJson<String?>(json['avversario']),
       teamId: serializer.fromJson<int?>(json['teamId']),
       lat: serializer.fromJson<double?>(json['lat']),
       lon: serializer.fromJson<double?>(json['lon']),
@@ -1084,6 +1115,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
       'dataOra': serializer.toJson<DateTime>(dataOra),
       'inCasa': serializer.toJson<bool>(inCasa),
       'palestra': serializer.toJson<String?>(palestra),
+      'avversario': serializer.toJson<String?>(avversario),
       'teamId': serializer.toJson<int?>(teamId),
       'lat': serializer.toJson<double?>(lat),
       'lon': serializer.toJson<double?>(lon),
@@ -1096,6 +1128,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     DateTime? dataOra,
     bool? inCasa,
     Value<String?> palestra = const Value.absent(),
+    Value<String?> avversario = const Value.absent(),
     Value<int?> teamId = const Value.absent(),
     Value<double?> lat = const Value.absent(),
     Value<double?> lon = const Value.absent(),
@@ -1105,6 +1138,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     dataOra: dataOra ?? this.dataOra,
     inCasa: inCasa ?? this.inCasa,
     palestra: palestra.present ? palestra.value : this.palestra,
+    avversario: avversario.present ? avversario.value : this.avversario,
     teamId: teamId.present ? teamId.value : this.teamId,
     lat: lat.present ? lat.value : this.lat,
     lon: lon.present ? lon.value : this.lon,
@@ -1116,6 +1150,9 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
       dataOra: data.dataOra.present ? data.dataOra.value : this.dataOra,
       inCasa: data.inCasa.present ? data.inCasa.value : this.inCasa,
       palestra: data.palestra.present ? data.palestra.value : this.palestra,
+      avversario: data.avversario.present
+          ? data.avversario.value
+          : this.avversario,
       teamId: data.teamId.present ? data.teamId.value : this.teamId,
       lat: data.lat.present ? data.lat.value : this.lat,
       lon: data.lon.present ? data.lon.value : this.lon,
@@ -1130,6 +1167,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
           ..write('dataOra: $dataOra, ')
           ..write('inCasa: $inCasa, ')
           ..write('palestra: $palestra, ')
+          ..write('avversario: $avversario, ')
           ..write('teamId: $teamId, ')
           ..write('lat: $lat, ')
           ..write('lon: $lon')
@@ -1138,8 +1176,17 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, nome, dataOra, inCasa, palestra, teamId, lat, lon);
+  int get hashCode => Object.hash(
+    id,
+    nome,
+    dataOra,
+    inCasa,
+    palestra,
+    avversario,
+    teamId,
+    lat,
+    lon,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1149,6 +1196,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
           other.dataOra == this.dataOra &&
           other.inCasa == this.inCasa &&
           other.palestra == this.palestra &&
+          other.avversario == this.avversario &&
           other.teamId == this.teamId &&
           other.lat == this.lat &&
           other.lon == this.lon);
@@ -1160,6 +1208,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   final Value<DateTime> dataOra;
   final Value<bool> inCasa;
   final Value<String?> palestra;
+  final Value<String?> avversario;
   final Value<int?> teamId;
   final Value<double?> lat;
   final Value<double?> lon;
@@ -1169,6 +1218,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
     this.dataOra = const Value.absent(),
     this.inCasa = const Value.absent(),
     this.palestra = const Value.absent(),
+    this.avversario = const Value.absent(),
     this.teamId = const Value.absent(),
     this.lat = const Value.absent(),
     this.lon = const Value.absent(),
@@ -1179,6 +1229,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
     required DateTime dataOra,
     required bool inCasa,
     this.palestra = const Value.absent(),
+    this.avversario = const Value.absent(),
     this.teamId = const Value.absent(),
     this.lat = const Value.absent(),
     this.lon = const Value.absent(),
@@ -1191,6 +1242,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
     Expression<DateTime>? dataOra,
     Expression<bool>? inCasa,
     Expression<String>? palestra,
+    Expression<String>? avversario,
     Expression<int>? teamId,
     Expression<double>? lat,
     Expression<double>? lon,
@@ -1201,6 +1253,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
       if (dataOra != null) 'data_ora': dataOra,
       if (inCasa != null) 'in_casa': inCasa,
       if (palestra != null) 'palestra': palestra,
+      if (avversario != null) 'avversario': avversario,
       if (teamId != null) 'team_id': teamId,
       if (lat != null) 'lat': lat,
       if (lon != null) 'lon': lon,
@@ -1213,6 +1266,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
     Value<DateTime>? dataOra,
     Value<bool>? inCasa,
     Value<String?>? palestra,
+    Value<String?>? avversario,
     Value<int?>? teamId,
     Value<double?>? lat,
     Value<double?>? lon,
@@ -1223,6 +1277,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
       dataOra: dataOra ?? this.dataOra,
       inCasa: inCasa ?? this.inCasa,
       palestra: palestra ?? this.palestra,
+      avversario: avversario ?? this.avversario,
       teamId: teamId ?? this.teamId,
       lat: lat ?? this.lat,
       lon: lon ?? this.lon,
@@ -1247,6 +1302,9 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
     if (palestra.present) {
       map['palestra'] = Variable<String>(palestra.value);
     }
+    if (avversario.present) {
+      map['avversario'] = Variable<String>(avversario.value);
+    }
     if (teamId.present) {
       map['team_id'] = Variable<int>(teamId.value);
     }
@@ -1267,6 +1325,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
           ..write('dataOra: $dataOra, ')
           ..write('inCasa: $inCasa, ')
           ..write('palestra: $palestra, ')
+          ..write('avversario: $avversario, ')
           ..write('teamId: $teamId, ')
           ..write('lat: $lat, ')
           ..write('lon: $lon')
@@ -2032,6 +2091,7 @@ typedef $$VolleyMatchesTableCreateCompanionBuilder =
       required DateTime dataOra,
       required bool inCasa,
       Value<String?> palestra,
+      Value<String?> avversario,
       Value<int?> teamId,
       Value<double?> lat,
       Value<double?> lon,
@@ -2043,6 +2103,7 @@ typedef $$VolleyMatchesTableUpdateCompanionBuilder =
       Value<DateTime> dataOra,
       Value<bool> inCasa,
       Value<String?> palestra,
+      Value<String?> avversario,
       Value<int?> teamId,
       Value<double?> lat,
       Value<double?> lon,
@@ -2105,6 +2166,11 @@ class $$VolleyMatchesTableFilterComposer
 
   ColumnFilters<String> get palestra => $composableBuilder(
     column: $table.palestra,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get avversario => $composableBuilder(
+    column: $table.avversario,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2176,6 +2242,11 @@ class $$VolleyMatchesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get avversario => $composableBuilder(
+    column: $table.avversario,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get lat => $composableBuilder(
     column: $table.lat,
     builder: (column) => ColumnOrderings(column),
@@ -2233,6 +2304,11 @@ class $$VolleyMatchesTableAnnotationComposer
 
   GeneratedColumn<String> get palestra =>
       $composableBuilder(column: $table.palestra, builder: (column) => column);
+
+  GeneratedColumn<String> get avversario => $composableBuilder(
+    column: $table.avversario,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<double> get lat =>
       $composableBuilder(column: $table.lat, builder: (column) => column);
@@ -2297,6 +2373,7 @@ class $$VolleyMatchesTableTableManager
                 Value<DateTime> dataOra = const Value.absent(),
                 Value<bool> inCasa = const Value.absent(),
                 Value<String?> palestra = const Value.absent(),
+                Value<String?> avversario = const Value.absent(),
                 Value<int?> teamId = const Value.absent(),
                 Value<double?> lat = const Value.absent(),
                 Value<double?> lon = const Value.absent(),
@@ -2306,6 +2383,7 @@ class $$VolleyMatchesTableTableManager
                 dataOra: dataOra,
                 inCasa: inCasa,
                 palestra: palestra,
+                avversario: avversario,
                 teamId: teamId,
                 lat: lat,
                 lon: lon,
@@ -2317,6 +2395,7 @@ class $$VolleyMatchesTableTableManager
                 required DateTime dataOra,
                 required bool inCasa,
                 Value<String?> palestra = const Value.absent(),
+                Value<String?> avversario = const Value.absent(),
                 Value<int?> teamId = const Value.absent(),
                 Value<double?> lat = const Value.absent(),
                 Value<double?> lon = const Value.absent(),
@@ -2326,6 +2405,7 @@ class $$VolleyMatchesTableTableManager
                 dataOra: dataOra,
                 inCasa: inCasa,
                 palestra: palestra,
+                avversario: avversario,
                 teamId: teamId,
                 lat: lat,
                 lon: lon,

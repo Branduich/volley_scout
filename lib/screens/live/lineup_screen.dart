@@ -446,11 +446,30 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                                 : null,
                           ),
                         ),
-                        trailing: Icon(
-                          assigned
-                              ? Icons.check_circle_outline
-                              : Icons.chevron_right,
-                          color: assigned ? Colors.green : null,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!assigned)
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 20),
+                                tooltip: 'Modifica giocatore',
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PlayerFormScreen(
+                                      teamId: widget.team.id,
+                                      player: p,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Icon(
+                              assigned
+                                  ? Icons.check_circle_outline
+                                  : Icons.chevron_right,
+                              color: assigned ? Colors.green : null,
+                            ),
+                          ],
                         ),
                         onTap: () => _onPlayerTap(p),
                       );
