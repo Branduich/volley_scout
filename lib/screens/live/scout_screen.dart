@@ -230,6 +230,19 @@ class _ScoutScreenState extends State<ScoutScreen> {
   // mostrano il ruolo.
   bool _showJerseyNumbers = true;
 
+  // Punteggio del set in corso. Segue lo stesso criterio del titolo: il
+  // punteggio "nostro" è sempre mostrato sul lato dove sono disegnati i
+  // nostri giocatori (a sinistra di default, a destra col cambio campo).
+  int _nostroScore = 0;
+  int _avversarioScore = 0;
+
+  void _incNostro() => setState(() => _nostroScore++);
+  void _decNostro() =>
+      setState(() => _nostroScore = (_nostroScore - 1).clamp(0, 999));
+  void _incAvversario() => setState(() => _avversarioScore++);
+  void _decAvversario() =>
+      setState(() => _avversarioScore = (_avversarioScore - 1).clamp(0, 999));
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -243,40 +256,75 @@ class _ScoutScreenState extends State<ScoutScreen> {
           Container(
             height: 60,
             color: _kTopBarBg,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.only(left: 56, right: 56, bottom: 4),
-                  child: Text(
-                    _matchTitle,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+            child: LayoutBuilder(
+              builder: (context, headerConstraints) {
+                const scoreControlWidth = 76.0;
+                final leftScoreLeft =
+                    headerConstraints.maxWidth * 0.25 - scoreControlWidth / 2;
+                final rightScoreLeft =
+                    headerConstraints.maxWidth * 0.75 - scoreControlWidth / 2;
+                return Stack(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.menu, color: Colors.white),
-                      onPressed: () =>
-                          _scaffoldKey.currentState?.openDrawer(),
+                    Positioned(
+                      left: 56,
+                      right: 56,
+                      bottom: 4,
+                      child: Text(
+                        _matchTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                    Positioned(
+                      left: leftScoreLeft,
+                      width: scoreControlWidth,
+                      bottom: 4,
+                      child: _isRightSide
+                          ? _buildScoreControl(_avversarioScore,
+                              _decAvversario, _incAvversario)
+                          : _buildScoreControl(
+                              _nostroScore, _decNostro, _incNostro),
+                    ),
+                    Positioned(
+                      left: rightScoreLeft,
+                      width: scoreControlWidth,
+                      bottom: 4,
+                      child: _isRightSide
+                          ? _buildScoreControl(
+                              _nostroScore, _decNostro, _incNostro)
+                          : _buildScoreControl(_avversarioScore,
+                              _decAvversario, _incAvversario),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.menu, color: Colors.white),
+                            onPressed: () =>
+                                _scaffoldKey.currentState?.openDrawer(),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back,
+                                color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
           Expanded(
@@ -463,6 +511,39 @@ class _ScoutScreenState extends State<ScoutScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildScoreControl(
+      int score, VoidCallback onDecrement, VoidCallback onIncrement) {
+    // Stesso identico stile/Text per "-", numero e "+": niente IconButton
+    // (la sua area di tocco asimmetrica era la causa del disallineamento
+    // verticale rispetto al titolo). Tre Text con lo stesso TextStyle hanno
+    // sempre la stessa altezza di riga, quindi restano sulla stessa linea.
+    const style = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w600,
+      fontSize: 16,
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GestureDetector(
+          onTap: onDecrement,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text('-', style: style),
+          ),
+        ),
+        Text('$score', style: style),
+        GestureDetector(
+          onTap: onIncrement,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text('+', style: style),
+          ),
+        ),
+      ],
     );
   }
 

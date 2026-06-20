@@ -430,7 +430,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                     itemCount: players.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
                     itemBuilder: (context, i) {
                       final p = players[i];
                       final assigned = assignedIds.contains(p.id);
@@ -447,7 +447,12 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         clipBehavior: Clip.antiAlias,
                         child: ListTile(
+                          dense: true,
+                          visualDensity: const VisualDensity(vertical: -4),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 0),
                           leading: CircleAvatar(
+                            radius: 18,
                             backgroundColor: avatarColor,
                             child: Text(
                               '${p.numero}',
