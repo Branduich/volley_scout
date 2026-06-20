@@ -363,6 +363,7 @@ class _ScoutScreenState extends State<ScoutScreen> {
                         ],
                       ),
                     ),
+                    ..._buildLiberoTokens(constraints, courtWidth),
                   ],
                 );
               },
@@ -534,6 +535,75 @@ class _ScoutScreenState extends State<ScoutScreen> {
               ),
               child: text,
             ),
+    );
+  }
+
+  // Token del/dei libero (L1, opzionale L2): non ruotano con P1-P6, restano
+  // ancorati in basso a sinistra (a destra col cambio campo), affiancati.
+  List<Widget> _buildLiberoTokens(BoxConstraints constraints, double courtWidth) {
+    final entries = <MapEntry<String, Player>>[];
+    for (final slot in const ['L1', 'L2']) {
+      final player = widget.assignments[slot];
+      if (player != null) entries.add(MapEntry(slot, player));
+    }
+    if (entries.isEmpty) return const [];
+
+    final size = courtWidth / 20;
+    const gap = 8.0;
+    final margin = constraints.maxWidth * 0.03;
+    // Solo `left` (mai `right`), come per la mini-map: un valore costante
+    // toggling left/right non si anima fluidamente con AnimatedPositioned.
+    final rowWidth = entries.length * size + (entries.length - 1) * gap;
+    final liberoLeft = _isRightSide
+        ? constraints.maxWidth - rowWidth - margin
+        : margin;
+
+    return [
+      AnimatedPositioned(
+        key: const ValueKey('libero-row'),
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        bottom: margin,
+        left: liberoLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < entries.length; i++) ...[
+              if (i > 0) const SizedBox(width: gap),
+              _buildLiberoToken(entries[i].key, entries[i].value, size),
+            ],
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildLiberoToken(String slotLabel, Player player, double size) {
+    final label = _showJerseyNumbers ? '${player.numero}' : slotLabel;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(color: Colors.black, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(120),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.4,
+        ),
+      ),
     );
   }
 }
