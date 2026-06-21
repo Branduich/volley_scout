@@ -468,8 +468,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_fondamentaleGiudicatoRallyCorrente) return null;
     final fondamentale = _fondamentaleTappabile(slot);
     if (fondamentale == null) return null;
-    return () => setState(
-        () => _votoInCorso = (giocatore: player, fondamentale: fondamentale));
+    return () => setState(() {
+      _votoInCorso = (giocatore: player, fondamentale: fondamentale);
+      // Il tipo di battuta selezionato resta "armato" da una battuta
+      // all'altra dello stesso giocatore (spesso batte sempre nello stesso
+      // modo); cambia battitore → si azzera, non si assume che batta uguale.
+      if (fondamentale == Fondamentale.battuta &&
+          _giocatoreTipoBattutaArmato != player.id) {
+        _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
+        _giocatoreTipoBattutaArmato = player.id;
+      }
+    });
+  }
+
+  // Tipo di battuta opzionale selezionato nel pannello voto (griglia 2×2,
+  // solo per fondamentale == battuta) — nonSpecificato di default, non
+  // bloccante per il flusso veloce. Vedi _tapHandlerPerGiocatore per quando
+  // si azzera.
+  TipoBattuta _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
+  int? _giocatoreTipoBattutaArmato;
+
+  void _toggleTipoBattuta(TipoBattuta tipo) {
+    setState(() {
+      _tipoBattutaSelezionato =
+          _tipoBattutaSelezionato == tipo ? TipoBattuta.nonSpecificato : tipo;
+    });
   }
 
   // Esito automatico del voto. Generale per i due fondamentali implementati:
@@ -490,6 +513,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final inCorso = _votoInCorso;
     if (set == null || inCorso == null) return;
     final esito = _esitoVoto(inCorso.fondamentale, voto);
+    final tipoEsecuzione = inCorso.fondamentale == Fondamentale.battuta
+        ? _tipoBattutaSelezionato.name
+        : 'nonSpecificato';
     await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
@@ -497,11 +523,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           fondamentale: inCorso.fondamentale,
           voto: voto,
           esitoPunto: esito,
+          tipoEsecuzione: tipoEsecuzione,
         );
     if (!mounted) return;
     setState(() {
       _votoInCorso = null;
       _fondamentaleGiudicatoRallyCorrente = esito == EsitoPunto.nessuno;
+      // Il tipo selezionato NON si azzera qui: resta "armato" se lo stesso
+      // giocatore batte di nuovo (vedi _tapHandlerPerGiocatore).
     });
   }
 
@@ -1189,10 +1218,71 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Griglia 2×2 col tipo di battuta (opzionale — vedi _tipoBattutaSelezionato):
+  // "Dal basso"/"Float" sopra, "Salto"/"Salto float" sotto. Tap = seleziona
+  // (tap di nuovo sulla stessa = deseleziona, torna a nonSpecificato). Non
+  // blocca il flusso: ignorarla e toccare subito un voto registra
+  // "nonSpecificato" come sempre.
+  Widget _buildGrigliaTipoBattuta() {
+    const righe = [
+      [TipoBattuta.dalBasso, TipoBattuta.float],
+      [TipoBattuta.salto, TipoBattuta.saltoFloat],
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final riga in righe) ...[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final tipo in riga) ...[
+                _buildTipoBattutaChip(tipo),
+                if (tipo != riga.last) const SizedBox(width: 6),
+              ],
+            ],
+          ),
+          if (riga != righe.last) const SizedBox(height: 6),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTipoBattutaChip(TipoBattuta tipo) {
+    final selezionato = _tipoBattutaSelezionato == tipo;
+    return GestureDetector(
+      onTap: () => _toggleTipoBattuta(tipo),
+      child: Container(
+        width: 64,
+        height: 38,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: selezionato ? AppColors.brandAccent : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selezionato ? AppColors.brandAccent : Colors.white38,
+          ),
+        ),
+        child: Text(
+          tipo.label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   // Pannello voto: si apre toccando un giocatore tappabile (battitore in
   // battuta, qualunque ricevitore in ricezione — vedi
   // _tapHandlerPerGiocatore), ancorato al bordo destro dello schermo, 5
   // bottoni verticali (uno per Voto, stesso ordine dell'enum: # + / - =).
+  // Per la battuta, anche la griglia opzionale del tipo (vedi sopra).
   // Niente traiettoria per ora.
   // Ritorna [] se il pannello è chiuso. Quando aperto: uno sfondo
   // trasparente a tutto schermo (tap fuori dal pannello → annulla, vedi
@@ -1258,6 +1348,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                     inCorso.fondamentale.label,
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
+                  if (inCorso.fondamentale == Fondamentale.battuta) ...[
+                    const SizedBox(height: 8),
+                    _buildGrigliaTipoBattuta(),
+                  ],
                   const SizedBox(height: 12),
                   for (final voto in Voto.values) ...[
                     GestureDetector(

@@ -340,11 +340,12 @@ nell'interfaccia (lo schema/enum esistono già).
   esecuzione (vedi sotto), opzionali e non bloccanti per il flusso veloce.
 
 **Enum TipoAttacco**: `nonSpecificato` (default), `forte`, `piazzata`,
-`pallonetto`. **Enum TipoBattuta**: `nonSpecificato` (default),
-`floatStaccata`, `salto`, `saltoFloat` (terminologia da confermare). Salvati
-entrambi nello stesso campo testo `tipoEsecuzione` (.name dell'enum
-pertinente in base al `fondamentale` — colonna "polimorfica", la coerenza è
-garantita dall'interfaccia, non dallo schema).
+`pallonetto`. **Enum TipoBattuta**: `nonSpecificato` (default), `dalBasso`
+("Dal basso"), `float`, `salto`, `saltoFloat` ("Salto float") — terminologia
+confermata, i 4 tipi reali di battuta. Salvati entrambi nello stesso campo
+testo `tipoEsecuzione` (.name dell'enum pertinente in base al `fondamentale`
+— colonna "polimorfica", la coerenza è garantita dall'interfaccia, non dallo
+schema).
 
 **Enum Voto**: perfetto (#), positivo (+), mezzoPunto (/), negativo (-), errore (=).
 Già definito in `enums.dart` (campo `simbolo`); usato da `CourtStyle.votoColor()` e
@@ -594,9 +595,33 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     Center`), card scura (`_kTopBarBg`) con etichetta giocatore (numero di
     maglia, grande; sotto il cognome, più piccolo, `maxLines: 1` +
     ellissi se non ci sta) + nome del fondamentale (`Fondamentale.label`:
-    "Battuta" o "Ricezione") + 5 bottoni quadrati verticali, uno per `Voto`
-    (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
-    `CourtStyle.votoColor()` (vedi sotto).
+    "Battuta" o "Ricezione") + **solo per la battuta** la griglia opzionale
+    del tipo (`_buildGrigliaTipoBattuta`, vedi sotto) + 5 bottoni quadrati
+    verticali, uno per `Voto` (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`),
+    colore da `CourtStyle.votoColor()` (vedi sotto).
+    - **Griglia tipo battuta** (IMPLEMENTATA, opzionale — "Dal basso"/
+      "Float" sopra, "Salto"/"Salto float" sotto, 2×2 invece di una riga di
+      4 per avere chip abbastanza grandi da toccare con precisione):
+      `_tipoBattutaSelezionato` (`TipoBattuta`, default `nonSpecificato`).
+      Tap su un chip → lo seleziona (sfondo/bordo `AppColors.brandAccent`);
+      tap di nuovo sullo stesso chip → lo deseleziona (torna a
+      `nonSpecificato`). **Non blocca il flusso veloce**: ignorarlo e
+      toccare subito un voto registra comunque l'azione, con
+      `tipoEsecuzione = 'nonSpecificato'` come sempre.
+      - **Resta "armato" tra una battuta e l'altra dello STESSO giocatore**
+        (spesso batte sempre nello stesso modo) — cambia battitore e si
+        azzera (non si assume che batta uguale). Gestito in
+        `_tapHandlerPerGiocatore`: confronta `player.id` con
+        `_giocatoreTipoBattutaArmato` quando si apre il pannello per una
+        battuta; se diverso, resetta `_tipoBattutaSelezionato` a
+        `nonSpecificato` e aggiorna `_giocatoreTipoBattutaArmato`.
+        `_registraVoto` non lo resetta mai esplicitamente (resta quello che
+        è finché non cambia battitore).
+      - `_registraVoto` passa `tipoEsecuzione: _tipoBattutaSelezionato.name`
+        a `registraAzioneScout()` solo se `fondamentale == battuta`,
+        altrimenti `'nonSpecificato'` (la ricezione non ha un proprio
+        `TipoRicezione`, solo battuta/attacco hanno un tipo di esecuzione —
+        vedi Modello dati).
     - **Annulla = tap fuori dal pannello**, non un bottone dedicato.
       `_buildPannelloVoto` ritorna **due** widget nello Stack esterno: uno
       sfondo `Positioned.fill` con `GestureDetector(behavior: opaque)` che
@@ -1025,8 +1050,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         colori da `CourtStyle.votoColor()`) → `ScoutAction` reale via
         `registraAzioneScout()`, esito automatico (`#`→ace, `=`→errore,
         resto→nessuno), battitore si riporta in campo dopo un voto non
-        terminale. Solo battuta per ora, niente traiettoria. Vedi
-        "Interfaccia di scout".
+        terminale. Niente traiettoria. Vedi "Interfaccia di scout".
+  - [x] Tipo di battuta (opzionale): griglia 2×2 "Dal basso"/"Float"/
+        "Salto"/"Salto float" nel pannello voto, solo per la battuta —
+        ignorabile per non rallentare il flusso veloce, resta "armata" tra
+        battute dello stesso giocatore. Vedi "Interfaccia di scout".
   - [x] Voto ricezione: stesso pannello e flusso della battuta, generalizzato
         a "chiunque riceve" (tutti e 6 i ruoli, libero compreso) quando
         servono gli avversari — `_tapHandlerPerGiocatore`/

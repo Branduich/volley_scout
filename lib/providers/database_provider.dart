@@ -184,8 +184,10 @@ class ScoutActionRepository {
     );
   }
 
-  /// Registra il voto di un fondamentale per un giocatore (oggi solo
-  /// battuta — primo pezzo del flusso a 3 tocchi).
+  /// Registra il voto di un fondamentale per un giocatore (oggi battuta e
+  /// ricezione). `tipoEsecuzione` è il .name di TipoBattuta/TipoAttacco in
+  /// base al fondamentale (colonna polimorfica, vedi Modello dati) —
+  /// 'nonSpecificato' di default, non bloccante per il flusso veloce.
   Future<void> registraAzioneScout({
     required int setId,
     required Squadra squadra,
@@ -193,6 +195,7 @@ class ScoutActionRepository {
     required Fondamentale fondamentale,
     required Voto voto,
     required EsitoPunto esitoPunto,
+    String tipoEsecuzione = 'nonSpecificato',
   }) {
     return _registraAzione(
       setId: setId,
@@ -202,6 +205,7 @@ class ScoutActionRepository {
       giocatoreId: giocatoreId,
       fondamentale: fondamentale,
       voto: voto,
+      tipoEsecuzione: tipoEsecuzione,
     );
   }
 
@@ -213,6 +217,7 @@ class ScoutActionRepository {
     int? giocatoreId,
     Fondamentale? fondamentale,
     Voto? voto,
+    String tipoEsecuzione = 'nonSpecificato',
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -245,6 +250,7 @@ class ScoutActionRepository {
             giocatoreId: Value(giocatoreId),
             fondamentale: Value(fondamentale),
             voto: Value(voto),
+            tipoEsecuzione: Value(tipoEsecuzione),
           ),
         );
   }

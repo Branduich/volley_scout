@@ -97,10 +97,10 @@ enum TipoAttacco {
 }
 
 /// Tipo di esecuzione di una battuta — stessa logica di TipoAttacco.
-/// Terminologia da confermare.
 enum TipoBattuta {
   nonSpecificato('Non specificato'),
-  floatStaccata('Float staccata'),
+  dalBasso('Dal basso'),
+  float('Float'),
   salto('Salto'),
   saltoFloat('Salto float');
 
