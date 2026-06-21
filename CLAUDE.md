@@ -267,11 +267,15 @@ Conseguenze del principio:
   Nessuna logica di "inversione" manuale di punteggio/rotazione. **Non ancora
   implementato** (nessun bottone undo in UI per ora).
 - **Riprendi partita** = carica le azioni del set, ricostruisci punteggio e
-  rotazione con la stessa funzione di ricalcolo. **Non ancora implementato**:
+  rotazione con la stessa funzione di ricalcolo. **Implementato parzialmente**:
   `ScoutScreen.initState` mostra il dialog "Chi serve per primo?" solo se
-  `match.stato != inCorso`; se la partita è già `inCorso` (ripresa),
-  `_setCorrente` resta `null` e punteggio/rotazione/bottoni rapidi restano
-  inattivi — manca il caricamento di `MatchSet`/`Rotation` esistenti.
+  `match.stato != inCorso`; se è già `inCorso`, `_riprendiSet()` carica
+  direttamente il `MatchSet` esistente (`MatchSetRepository.caricaSet`),
+  senza richiedere di nuovo il servizio iniziale — punteggio/rotazione/
+  bottoni rapidi tornano subito attivi. Limite noto: `widget.assignments`
+  viene comunque dalla formazione appena riselezionata in `LineupScreen`/
+  `FormationConfigScreen`, non dalla `Rotation` già persistita — coerente
+  solo se si riseleziona la stessa formazione (vedi Fasi di sviluppo).
 - **`ScoutActionRepository`** (`lib/providers/database_provider.dart`):
   `watchAzioni(setId)` (stream ordinato per `ordine`) +
   `registraAzioneRapida({setId, squadra, tipo, esitoPunto})` (calcola il
@@ -342,8 +346,9 @@ entrambi nello stesso campo testo `tipoEsecuzione` (.name dell'enum
 pertinente in base al `fondamentale` — colonna "polimorfica", la coerenza è
 garantita dall'interfaccia, non dallo schema).
 
-**Enum Voto**: perfetto (#), positivo (+), mezzoPunto (!), negativo (-), errore (=).
-Già definito in `enums.dart` (campo `simbolo`); usato da `CourtStyle.votoColor()`.
+**Enum Voto**: perfetto (#), positivo (+), mezzoPunto (/), negativo (-), errore (=).
+Già definito in `enums.dart` (campo `simbolo`); usato da `CourtStyle.votoColor()` e
+dal pannello voto battuta di `ScoutScreen` (vedi "Interfaccia di scout").
 
 **Trajectory**: partenza e arrivo come **coordinate normalizzate 0.0-1.0**
 (CourtPoint x,y) rispetto al campo intero, rete a x=0.5. Non salvare pixel.
@@ -531,6 +536,87 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `_registraAzioneRapida()`, che inserisce subito un `ScoutAction` via
     `ScoutActionRepository` — niente stato locale, il punteggio si aggiorna
     perché `_statoSetReale` osserva lo stream delle azioni del set.
+    Restano **sempre tappabili** anche col pannello voto battuta aperto (la
+    riga dei bottoni rapidi vive nella `Column` del body, fuori dallo Stack
+    del campo dove sta il pannello — non viene coperta dal suo sfondo
+    trasparente): `_registraAzioneRapida` chiude comunque
+    `_giocatoreVotoBattuta` (lo riporta a `null`), perché un bottone rapido
+    chiude lo scambio per un'altra via e il pannello non avrebbe più senso.
+- **Voto battuta** (IMPLEMENTATO — primo pezzo reale del flusso a 3 tocchi,
+  per ora limitato alla battuta: "durante il servizio il giudizio lo si può
+  dare solo sulla battuta"). Nessuna traiettoria per ora.
+  - **Tap sul battitore**: il token P1, mentre battiamo noi e la battuta
+    dello scambio corrente non è ancora stata giudicata, è tappabile
+    (`_tapHandlerPerSlot` — disabilitato in modalità test, prima dell'inizio
+    del set, o se il servizio è già stato giudicato). Tap → apre
+    `_giocatoreVotoBattuta` (stato locale, il giocatore per cui si sta
+    registrando il voto).
+    - **Trabocchetto hit-test fuori dal campo** (`_buildBattitoreTapCatcher`):
+      quando il battitore è in posizione di battuta (X negativa, vedi
+      `_kBattutaP1Position`), il `GestureDetector` passato a
+      `_buildPlayerToken` **non riceve mai il tap**, anche se il token è
+      visibile lì grazie a `Clip.none`. Motivo: `Clip.none` evita solo il
+      clip del DISEGNO sullo Stack interno, ma il `SizedBox`/`AspectRatio`
+      che racchiude il campo limita comunque l'AREA DI HIT-TEST dei suoi
+      figli al proprio `size` — un tap fuori da quei limiti non raggiunge
+      mai lo Stack interno, a prescindere da `clipBehavior`. Soluzione:
+      stessa tecnica già usata per libero/panchina
+      (`_buildLiberoSwapTokens`) — un `GestureDetector` trasparente
+      nello Stack **esterno** (coordinate schermo assolute, sempre dentro i
+      suoi limiti), posizionato esattamente sopra al token visibile
+      (stessa formula `courtLeft`/`courtTop` + conversione spazio di
+      riferimento→pixel). Si applica a qualunque futuro token disegnato
+      fuori dai confini del riquadro campo — non solo al battitore.
+  - **Pannello voto** (`_buildPannelloVotoBattuta`, ritorna una lista — vedi
+    sotto): ancorato al bordo destro dello schermo (`Positioned(right: 16) +
+    Center`), card scura (`_kTopBarBg`) con etichetta giocatore (numero di
+    maglia, grande; sotto il cognome, più piccolo, `maxLines: 1` +
+    ellissi se non ci sta) + "Battuta" + 5 bottoni quadrati verticali, uno
+    per `Voto` (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
+    `CourtStyle.votoColor()` (vedi sotto).
+    - **Annulla = tap fuori dal pannello**, non un bottone dedicato.
+      `_buildPannelloVotoBattuta` ritorna **due** widget nello Stack
+      esterno: uno sfondo `Positioned.fill` con `GestureDetector(behavior:
+      opaque)` che chiude il pannello (`_giocatoreVotoBattuta = null`), più
+      il pannello stesso avvolto in un secondo `GestureDetector` (`onTap:
+      () {}`, anch'esso `opaque`) che **assorbe** il tap — necessario perché
+      lo Stack interrompe la ricerca del bersaglio al primo figlio che
+      reclama il tocco (vedi `defaultHitTestChildren`): senza questo
+      assorbimento, un tap su un punto del pannello senza un proprio
+      `onTap` (es. lo sfondo della card, il testo del nome) cadrebbe
+      comunque sullo sfondo sottostante e chiuderebbe il pannello per
+      errore.
+  - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
+    volta usata in UI) aggiornato allo schema scelto per questo pannello:
+    `perfetto` verde (`AppColors.success`), `positivo` blu
+    (`AppColors.info`, nuovo colore semantico), `mezzoPunto`/`negativo`
+    grigio neutro (`AppColors.neutral`, nuovo), `errore` rosso
+    (`AppColors.danger`) — nessun trattamento dedicato richiesto per
+    mezzoPunto/negativo, condividono lo stesso neutro.
+  - **Esito automatico** (`_esitoBattuta`, solo per la battuta — non è la
+    logica generale "fondamentale+voto" descritta nel Modello dati, quella
+    resta da generalizzare quando si aggiungeranno gli altri fondamentali):
+    `perfetto` → `puntoNostro` (ace), `errore` → `puntoAvversario` (battuta
+    in rete/fuori), `positivo`/`mezzoPunto`/`negativo` → `nessuno` (palla in
+    gioco, lo scambio continua).
+  - **`_registraVotoBattuta`**: chiama
+    `ScoutActionRepository.registraAzioneScout()` (nuovo metodo — stesso
+    calcolo di `ordine` di `registraAzioneRapida`, ma `rallyId` non
+    coincide più sempre con `ordine`: se l'ultima azione del set ha
+    `esitoPunto == nessuno` — scambio ancora in corso — la nuova azione
+    eredita il suo `rallyId`, altrimenti ne inizia uno nuovo. Generale: vale
+    anche per i bottoni rapidi, già pronto per quando si aggiungeranno
+    ricezione/attacco/ecc. nella stessa battuta non terminale). Chiude il
+    pannello e aggiorna `_battutaEseguitaRallyCorrente`.
+  - **`_battutaEseguitaRallyCorrente`** (bool, stato locale): true dopo un
+    voto non terminale (battuta giudicata, palla in gioco) — si resetta a
+    `false` ad ogni azione che chiude lo scambio (punto/errore, anche dai
+    bottoni rapidi: stesso reset in `_registraAzioneRapida`). Quando true,
+    `_refPositionFor('P1')` non usa più `_kBattutaP1Position`: **il
+    battitore si riporta nella sua posizione di attacco in campo**, perché
+    la palla è in gioco. In modalità test questo flag viene ignorato
+    (`_refPositionFor` mostra sempre la posa di battuta quando si "serve",
+    dato che lì non si registrano voti reali).
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
@@ -836,13 +922,46 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         punteggio/servizio/rotazione ora **derivati**, non più contatori
         manuali (`_nostroScore`/`_avversarioScore`/`_rotationSteps` rimossi
         fuori dalla modalità test). Vedi Modello dati e "Interfaccia di scout".
-  - [ ] **PROSSIMO**: flusso a 3 tocchi (giocatore → fondamentale → voto) con
-        bottoni contestuali tipo esecuzione, `CustomPainter` campo intero,
-        token giocatori toccabili, traiettorie via drag.
+  - [x] Voto battuta: tap sul battitore → pannello voto (5 bottoni verticali,
+        colori da `CourtStyle.votoColor()`) → `ScoutAction` reale via
+        `registraAzioneScout()`, esito automatico (`#`→ace, `=`→errore,
+        resto→nessuno), battitore si riporta in campo dopo un voto non
+        terminale. Solo battuta per ora, niente traiettoria. Vedi
+        "Interfaccia di scout".
+  - [ ] **PROSSIMO**: generalizzare il flusso a 3 tocchi agli altri
+        fondamentali (ricezione, alzata, attacco, muro, difesa) — mapping
+        esito automatico per fondamentale+voto, bottoni contestuali tipo
+        esecuzione, `CustomPainter` campo intero per le traiettorie
+        (battuta/attacco) via drag.
+  - [ ] Override manuale punteggio (+/-) e correzione rotazione (per errori
+        di scout/segnapunti — vale la situazione reale in campo): decisioni
+        già prese, non ancora implementate.
+        - **Punteggio**: override diretto del valore mostrato, **non**
+          loggato come `ScoutAction` (fine set/match restano comunque
+          decisioni manuali, quindi non serve restare fedeli al log eventi).
+          Probabile implementazione: due colonne su `MatchSet`
+          (`correzionePuntiNostri`/`correzionePuntiAvversari`, default 0)
+          che si sommano al punteggio calcolato da `ricalcolaStato()`.
+        - **Rotazione**: al contrario, **va loggata** come evento di "cambio
+          di configurazione" — qui l'event-sourcing resta valido (undo,
+          riprendi partita coerenti). Richiede estendere `ricalcolaStato()`/
+          `AzioneScout` con un evento dedicato che sposta esplicitamente la
+          rotazione in quel punto della sequenza (oggi cambia solo come
+          effetto derivato di un sideout su `esitoPunto`). Dettagli di
+          schema (nuovo `TipoAzione`? campo dedicato?) da decidere.
   - [ ] Undo (elimina ultima azione per `ordine`, ricalcola) — nessun bottone
         in UI per ora.
-  - [ ] Riprendi partita (`match.stato == inCorso`): caricare `MatchSet`/
-        `Rotation` esistenti invece di richiedere "Chi serve per primo?".
+  - [x] Riprendi partita (parziale): se `match.stato == inCorso`,
+        `ScoutScreen.initState` non richiede più "Chi serve per primo?" —
+        carica direttamente il `MatchSet` esistente con
+        `MatchSetRepository.caricaSet(matchId, match.setCorrente)`
+        (`_riprendiSet()`). **Limite noto**: `widget.assignments` viene
+        comunque dalla formazione appena riselezionata in `LineupScreen`/
+        `FormationConfigScreen` (non dalla `Rotation` persistita) — coerente
+        solo se si riseleziona la stessa formazione. Manca ancora il
+        bypass di `LineupScreen`/`FormationConfigScreen` per ricostruire
+        `assignments`/`palleggiatoreSlot`/`ruoloCambiLibero` dalla `Rotation`
+        già a DB quando si riapre una partita `inCorso` da `MatchesScreen`.
   - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
@@ -856,11 +975,12 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 Il flusso è navigabile end-to-end: lista partite → "Inizia" → selezione squadra →
 selezione formazione (`LineupScreen`) → configurazione formazione
 (`FormationConfigScreen`: sistema di gioco, conferma palleggiatore e cambi del
-libero) → `ScoutScreen` (setup grafico completo + bottoni rapidi funzionanti:
-punteggio, chi serve e rotazione sono derivati in tempo reale dagli eventi
-`ScoutAction` persistiti, vedi Modello dati).
-Il prossimo passo è il flusso a 3 tocchi (giocatore → fondamentale → voto)
-con `CustomPainter` del campo e traiettorie via drag.
+libero) → `ScoutScreen` (setup grafico completo + bottoni rapidi funzionanti +
+voto battuta: punteggio, chi serve e rotazione sono derivati in tempo reale
+dagli eventi `ScoutAction` persistiti, vedi Modello dati).
+Il prossimo passo è generalizzare il flusso a 3 tocchi agli altri
+fondamentali (ricezione, alzata, attacco, muro, difesa) e il `CustomPainter`
+per le traiettorie via drag.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout

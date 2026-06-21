@@ -36,7 +36,7 @@ enum Ruolo {
 enum Voto {
   perfetto('#'),
   positivo('+'),
-  mezzoPunto('!'),
+  mezzoPunto('/'),
   negativo('-'),
   errore('=');
 

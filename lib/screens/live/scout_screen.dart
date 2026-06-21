@@ -6,6 +6,7 @@ import '../../data/database.dart';
 import '../../logic/ricalcola_stato.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../theme/court_style.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -378,12 +379,74 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   // Posizione di riferimento (1200×600) per uno slot: quella di attacco,
-  // tranne per P1 quando battiamo noi (esce dal campo per servire).
+  // tranne per P1 quando battiamo noi E la battuta di questo scambio non è
+  // ancora stata giudicata (vedi _battutaEseguitaRallyCorrente) — una volta
+  // dato il voto, il battitore si riporta in campo nella sua posizione
+  // normale, perché la palla è in gioco. In modalità test (nessun voto reale
+  // da dare) mostra sempre la posizione di battuta quando si "serve".
   Offset _refPositionFor(String slot) {
-    if (slot == 'P1' && _squadraAlServizio == Squadra.nostra) {
+    final inBattuta = _squadraAlServizio == Squadra.nostra &&
+        (_testModeEnabled || !_battutaEseguitaRallyCorrente);
+    if (slot == 'P1' && inBattuta) {
       return _kBattutaP1Position;
     }
     return _kAttackPositions[slot]!;
+  }
+
+  // Giocatore per cui è aperto il pannello di voto (oggi solo battuta) —
+  // null = pannello chiuso. Tap sul battitore (vedi _tapHandlerPerSlot) lo
+  // apre; la selezione di un voto (_registraVotoBattuta) lo richiude.
+  Player? _giocatoreVotoBattuta;
+
+  // True dopo che la battuta dello scambio corrente è stata giudicata con un
+  // voto non terminale (+, !, -: palla in gioco, niente punto). Si resetta a
+  // false a ogni nuova azione che chiude lo scambio (punto/errore, anche dai
+  // bottoni rapidi) — vedi _registraAzioneRapida/_registraVotoBattuta.
+  bool _battutaEseguitaRallyCorrente = false;
+
+  // Tap-target per il voto della battuta: solo lo slot P1 quando battiamo
+  // noi, fuori dalla modalità test, col set già iniziato e la battuta di
+  // questo scambio non ancora giudicata.
+  VoidCallback? _tapHandlerPerSlot(String slot, Player player) {
+    if (slot != 'P1') return null;
+    if (_testModeEnabled) return null;
+    if (_setCorrente == null) return null;
+    if (_squadraAlServizio != Squadra.nostra) return null;
+    if (_battutaEseguitaRallyCorrente) return null;
+    return () => setState(() => _giocatoreVotoBattuta = player);
+  }
+
+  EsitoPunto _esitoBattuta(Voto voto) {
+    switch (voto) {
+      case Voto.perfetto:
+        return EsitoPunto.puntoNostro;
+      case Voto.errore:
+        return EsitoPunto.puntoAvversario;
+      case Voto.positivo:
+      case Voto.mezzoPunto:
+      case Voto.negativo:
+        return EsitoPunto.nessuno;
+    }
+  }
+
+  Future<void> _registraVotoBattuta(Voto voto) async {
+    final set = _setCorrente;
+    final player = _giocatoreVotoBattuta;
+    if (set == null || player == null) return;
+    final esito = _esitoBattuta(voto);
+    await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
+          setId: set.id,
+          squadra: Squadra.nostra,
+          giocatoreId: player.id,
+          fondamentale: Fondamentale.battuta,
+          voto: voto,
+          esitoPunto: esito,
+        );
+    if (!mounted) return;
+    setState(() {
+      _giocatoreVotoBattuta = null;
+      _battutaEseguitaRallyCorrente = esito == EsitoPunto.nessuno;
+    });
   }
 
   // Mappa di ricezione attiva per la rotazione corrente, solo se: stiamo
@@ -426,10 +489,22 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.match.stato != StatoPartita.inCorso) {
+    if (widget.match.stato == StatoPartita.inCorso) {
+      // Ripresa: il set esiste già (creato la prima volta che si è risposto
+      // al dialog), non richiederlo di nuovo.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _riprendiSet());
+    } else {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _chiediServizioIniziale());
     }
+  }
+
+  Future<void> _riprendiSet() async {
+    final setRepo = ref.read(matchSetRepositoryProvider);
+    final set =
+        await setRepo.caricaSet(widget.match.id, widget.match.setCorrente);
+    if (!mounted || set == null) return;
+    setState(() => _setCorrente = set);
   }
 
   Future<void> _chiediServizioIniziale() async {
@@ -573,6 +648,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           tipo: tipo,
           esitoPunto: esito,
         );
+    if (!mounted) return;
+    setState(() {
+      _battutaEseguitaRallyCorrente = esito == EsitoPunto.nessuno;
+      // Un bottone rapido chiude comunque lo scambio: il pannello voto
+      // battuta, se ancora aperto, non avrebbe più senso (l'esito è già
+      // stato deciso per un'altra via).
+      _giocatoreVotoBattuta = null;
+    });
   }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -765,6 +848,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ),
                     ..._buildLiberoTokens(constraints, courtWidth),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
+                    ..._buildBattitoreTapCatcher(constraints, courtWidth),
+                    ..._buildPannelloVotoBattuta(),
                   ],
                 );
               },
@@ -970,6 +1055,113 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Pannello voto battuta: si apre toccando il battitore (P1, mentre
+  // battiamo noi e lo scambio non ha ancora una battuta giudicata), ancorato
+  // al bordo destro dello schermo, 5 bottoni verticali (uno per Voto, stesso
+  // ordine dell'enum: # + ! - =). Niente traiettoria per ora.
+  // Ritorna [] se il pannello è chiuso. Quando aperto: uno sfondo
+  // trasparente a tutto schermo (tap fuori dal pannello → annulla, vedi
+  // sotto) + il pannello stesso.
+  List<Widget> _buildPannelloVotoBattuta() {
+    final player = _giocatoreVotoBattuta;
+    if (player == null) return const [];
+
+    return [
+      // Tap fuori dal pannello = annulla. Lo Stack ferma la ricerca del
+      // tocco al primo figlio che lo "reclama" (vedi GestureDetector del
+      // pannello sotto, che lo assorbe con un onTap no-op): quindi un tap
+      // sul pannello non arriva mai qui, solo un tap altrove sullo schermo.
+      Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _giocatoreVotoBattuta = null),
+        ),
+      ),
+      Positioned(
+        right: 16,
+        top: 0,
+        bottom: 0,
+        child: Center(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                color: _kTopBarBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 64,
+                    child: Column(
+                      children: [
+                        Text(
+                          '${player.numero}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                          ),
+                        ),
+                        Text(
+                          player.cognome,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Text(
+                    'Battuta',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final voto in Voto.values) ...[
+                    GestureDetector(
+                      onTap: () => _registraVotoBattuta(voto),
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: CourtStyle.votoColor(voto),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha(120),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          voto.simbolo,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (voto != Voto.values.last) const SizedBox(height: 12),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
   Widget _buildRotationButton(
       IconData icon, VoidCallback onTap, double smallCourtSize) {
     final buttonSize = smallCourtSize * 0.45;
@@ -1038,7 +1230,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 entry.value,
                 _displayPosition(_refPositionFor(entry.key)),
                 cw,
-                ch),
+                ch,
+                onTap: _tapHandlerPerSlot(entry.key, entry.value)),
       ];
     }
 
@@ -1119,6 +1312,42 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     ];
   }
 
+  // Area di tap per il battitore quando è fuori dal campo (X negativa, vedi
+  // _kBattutaP1Position): il token resta visibile lì grazie a Clip.none
+  // sullo Stack interno, ma quella zona è fuori dai limiti di hit-test del
+  // SizedBox/AspectRatio che racchiude il campo (Clip.none evita solo il
+  // clip del DISEGNO, non quello del tocco) — quindi un GestureDetector
+  // dentro lo Stack interno lì non riceverebbe mai il tap. Stessa soluzione
+  // già usata per libero/panchina: un overlay nello Stack esterno
+  // (coordinate schermo assolute, sempre dentro i suoi limiti), sovrapposto
+  // esattamente al token visibile.
+  List<Widget> _buildBattitoreTapCatcher(
+      BoxConstraints constraints, double courtWidth) {
+    final player = _currentAssignments['P1'];
+    if (player == null) return const [];
+    final onTap = _tapHandlerPerSlot('P1', player);
+    if (onTap == null) return const [];
+
+    final radius = _swapTokenRadius(courtWidth);
+    final tokenRadius = _currentSlot == 'P1' ? radius * 1.1 : radius;
+    final courtHeight = courtWidth / 2;
+    final courtLeft = (constraints.maxWidth - courtWidth) / 2;
+    final courtTop = (constraints.maxHeight - courtHeight) / 2;
+    final refPos = _displayPosition(_refPositionFor('P1'));
+    final cx = courtLeft + (refPos.dx / 1200) * courtWidth;
+    final cy = courtTop + (refPos.dy / 600) * courtHeight;
+
+    return [
+      Positioned(
+        left: cx - tokenRadius,
+        top: cy - tokenRadius,
+        width: tokenRadius * 2,
+        height: tokenRadius * 2,
+        child: GestureDetector(onTap: onTap),
+      ),
+    ];
+  }
+
   // Raggio in pixel reali (non in unità di riferimento): un ventesimo del
   // campo, dove "il campo" è l'altezza renderizzata (courtWidth/2), stessa
   // proporzione di _buildPlayerToken (ch/20).
@@ -1182,7 +1411,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   Widget _buildPlayerToken(
-      String roleLabel, Player player, Offset refPos, double cw, double ch) {
+      String roleLabel, Player player, Offset refPos, double cw, double ch,
+      {VoidCallback? onTap}) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
     // spazio di riferimento, quindi un ventesimo equivale a ch/20).
     final radius = ch / 20;
@@ -1203,6 +1433,28 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ),
     );
 
+    final tokenVisual = isPalleggiatore
+        ? CustomPaint(
+            painter: _RoundedHexagonPainter(fillColor),
+            child: Center(child: text),
+          )
+        : Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: fillColor,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(120),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: text,
+          );
+
     // Key = identità del giocatore (non lo slot): così, quando la rotazione
     // sposta tutti i giocatori, AnimatedPositioned anima ciascun token dalla
     // vecchia alla nuova posizione invece di "teletrasportarlo".
@@ -1214,27 +1466,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       top: cy - tokenRadius,
       width: tokenRadius * 2,
       height: tokenRadius * 2,
-      child: isPalleggiatore
-          ? CustomPaint(
-              painter: _RoundedHexagonPainter(fillColor),
-              child: Center(child: text),
-            )
-          : Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: fillColor,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(120),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: text,
-            ),
+      child: onTap == null
+          ? tokenVisual
+          : GestureDetector(onTap: onTap, child: tokenVisual),
     );
   }
 

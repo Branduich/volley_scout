@@ -15,15 +15,17 @@ class CourtStyle {
   static const Color trajectoryArrow = AppColors.brandAccent;
   static const double trajectoryWidth = 2.5;
 
-  // Colore associato a ciascun voto (#, +, !, -, =)
+  // Colore associato a ciascun voto (#, +, !, -, =). Mezzo punto e negativo
+  // condividono un colore neutro (non richiesto un trattamento dedicato).
   static Color votoColor(Voto v) {
     switch (v) {
       case Voto.perfetto:
-      case Voto.positivo:
         return AppColors.success;
+      case Voto.positivo:
+        return AppColors.info;
       case Voto.mezzoPunto:
-        return AppColors.warning;
       case Voto.negativo:
+        return AppColors.neutral;
       case Voto.errore:
         return AppColors.danger;
     }

@@ -107,6 +107,16 @@ class MatchSetRepository {
   MatchSetRepository(this._db);
   final AppDatabase _db;
 
+  /// Carica il set esistente di una partita già in corso (ripresa: la
+  /// partita ha `stato == inCorso`, quindi il dialog "Chi serve per primo?"
+  /// non va richiesto di nuovo) — null se non esiste (dato incoerente, non
+  /// dovrebbe succedere se `stato == inCorso`).
+  Future<MatchSet?> caricaSet(int matchId, int numero) {
+    return (_db.select(_db.matchSets)
+          ..where((s) => s.matchId.equals(matchId) & s.numero.equals(numero)))
+        .getSingleOrNull();
+  }
+
   /// Crea il primo set di una partita, registrando chi serve per primo
   /// (input necessario a ricalcolaStato(), non derivabile dagli eventi).
   Future<MatchSet> creaPrimoSet(int matchId, Squadra servizioIniziale) async {
@@ -159,13 +169,50 @@ class ScoutActionRepository {
   }
 
   /// Registra un'azione dei bottoni rapidi (+1 Noi/+1 Loro/Errore): nessun
-  /// giocatore/fondamentale/voto, solo squadra + tipo + esito. `ordine` e
-  /// `rallyId` coincidono: l'azione è da sola un intero scambio.
+  /// giocatore/fondamentale/voto, solo squadra + tipo + esito.
   Future<void> registraAzioneRapida({
     required int setId,
     required Squadra squadra,
     required TipoAzione tipo,
     required EsitoPunto esitoPunto,
+  }) {
+    return _registraAzione(
+      setId: setId,
+      squadra: squadra,
+      tipo: tipo,
+      esitoPunto: esitoPunto,
+    );
+  }
+
+  /// Registra il voto di un fondamentale per un giocatore (oggi solo
+  /// battuta — primo pezzo del flusso a 3 tocchi).
+  Future<void> registraAzioneScout({
+    required int setId,
+    required Squadra squadra,
+    required int giocatoreId,
+    required Fondamentale fondamentale,
+    required Voto voto,
+    required EsitoPunto esitoPunto,
+  }) {
+    return _registraAzione(
+      setId: setId,
+      squadra: squadra,
+      tipo: TipoAzione.scout,
+      esitoPunto: esitoPunto,
+      giocatoreId: giocatoreId,
+      fondamentale: fondamentale,
+      voto: voto,
+    );
+  }
+
+  Future<void> _registraAzione({
+    required int setId,
+    required Squadra squadra,
+    required TipoAzione tipo,
+    required EsitoPunto esitoPunto,
+    int? giocatoreId,
+    Fondamentale? fondamentale,
+    Voto? voto,
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -173,15 +220,31 @@ class ScoutActionRepository {
         .map((row) => row.read(_db.scoutActions.ordine.max()))
         .getSingleOrNull();
     final ordine = (maxOrdine ?? 0) + 1;
+
+    // Se l'ultima azione del set è ancora "in corso" (esitoPunto = nessuno,
+    // es. una battuta non terminale), questa azione fa parte dello stesso
+    // scambio — stesso rallyId. Altrimenti inizia un nuovo scambio.
+    final ultima = await (_db.select(_db.scoutActions)
+          ..where((a) => a.setId.equals(setId))
+          ..orderBy([(a) => OrderingTerm.desc(a.ordine)])
+          ..limit(1))
+        .getSingleOrNull();
+    final rallyId = (ultima != null && ultima.esitoPunto == EsitoPunto.nessuno)
+        ? ultima.rallyId
+        : ordine;
+
     await _db.into(_db.scoutActions).insert(
           ScoutActionsCompanion.insert(
             setId: setId,
-            rallyId: ordine,
+            rallyId: rallyId,
             ordine: ordine,
             timestamp: DateTime.now(),
             squadra: squadra,
             tipo: tipo,
             esitoPunto: esitoPunto,
+            giocatoreId: Value(giocatoreId),
+            fondamentale: Value(fondamentale),
+            voto: Value(voto),
           ),
         );
   }
