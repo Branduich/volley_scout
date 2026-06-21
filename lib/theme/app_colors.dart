@@ -11,7 +11,6 @@ class AppColors {
   static const Color success = Color(0xFF16A34A);
   static const Color warning = Color(0xFFF59E0B);
   static const Color danger  = Color(0xFFDC2626);
-  static const Color info    = Color(0xFF2563EB);
   static const Color neutral = Color(0xFF64748B);
 
   // --- Superfici / neutri ---

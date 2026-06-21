@@ -517,11 +517,17 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   `Row(spaceBetween)`), due gruppi da due bottoni ciascuno:
   - **Gruppo nostro** (`_buildBottoniNostri`): "Errore nostro" (rosso,
     `Icons.close` — `TipoAzione.erroreGenerico`, `Squadra.nostra`,
-    `EsitoPunto.puntoAvversario`) + "Punto nostro" (blu, `Icons.check` —
+    `EsitoPunto.puntoAvversario`) + "Punto nostro" (verde, `Icons.check` —
     `TipoAzione.puntoManuale`, `Squadra.nostra`, `EsitoPunto.puntoNostro`).
   - **Gruppo avversario** (`_buildBottoniAvversario`), ordine invertito per
-    simmetria visiva: "Punto avversario" (blu, check) + "Errore avversario"
+    simmetria visiva: "Punto avversario" (verde, check) + "Errore avversario"
     (rosso, X) — stessi tipi/esiti specchiati (`Squadra.avversari`).
+  - **Colori**: rosso `Colors.red` (errore) e verde `AppColors.success`
+    (punto — non blu: un punto generico è semanticamente più vicino al voto
+    "perfetto" che a "positivo", quindi stesso colore di quello, vedi
+    `CourtStyle.votoColor()` sotto), letterali/condivisi con
+    `_descrizioneAzione` (banner ultima azione, vedi sotto) — stesso
+    significato, stesso colore ovunque.
   - **Segue il lato come titolo/punteggio**: `_isRightSide` decide quale
     gruppo va a sinistra/destra nella `Row`, stessa convenzione di
     `_matchTitle`/`_buildScoreDisplay`.
@@ -604,11 +610,19 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       sottostante e chiuderebbe il pannello per errore.
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
-    `perfetto` verde (`AppColors.success`), `positivo` blu
-    (`AppColors.info`, nuovo colore semantico), `mezzoPunto`/`negativo`
-    grigio neutro (`AppColors.neutral`, nuovo), `errore` rosso
-    (`AppColors.danger`) — nessun trattamento dedicato richiesto per
-    mezzoPunto/negativo, condividono lo stesso neutro.
+    `perfetto` verde (`AppColors.success`) — **stesso colore dei bottoni
+    rapidi "Punto"** (vedi sopra): un punto generico è semanticamente più
+    vicino al voto "perfetto" che a "positivo", quindi condividono il
+    colore. `mezzoPunto`/`negativo` grigio neutro (`AppColors.neutral`) —
+    nessun trattamento dedicato richiesto, condividono lo stesso neutro.
+    `errore` rosso `Colors.red` **letterale** — stesso colore dei bottoni
+    rapidi "Errore" e del banner ultima azione
+    (`_buildQuickActionButton`/`_descrizioneAzione` in `scout_screen.dart`):
+    stesso significato, stesso colore ovunque. `positivo` resta blu
+    (`Colors.blue` letterale) — colore indipendente, non condiviso con
+    nessun altro elemento dell'interfaccia (il punto generico usa il verde
+    di "perfetto", non più il blu di "positivo" come in una versione
+    precedente).
   - **Esito automatico** (`_esitoVoto(fondamentale, voto)` — non è ancora la
     logica generale "fondamentale+voto" completa descritta nel Modello dati,
     quella resta da generalizzare quando si aggiungeranno gli altri
@@ -656,10 +670,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       come il voto (`CourtStyle.votoColor()`).
     - `TipoAzione.puntoManuale`/`erroreGenerico` (bottoni rapidi, nessun
       giocatore): solo l'etichetta — `"Punto nostro"`/`"Punto avversario"`
-      (blu) o `"Errore nostro"`/`"Errore avversario"` (rosso), stessi
-      colori dei bottoni che le generano (`Colors.blue`/`Colors.red`, non
-      `AppColors.info`/`danger` — coerenza con `_buildQuickActionButton`,
-      che usa gli stessi colori letterali).
+      (verde, `AppColors.success`) o `"Errore nostro"`/`"Errore avversario"`
+      (rosso, `Colors.red` letterale) — stessi colori dei bottoni che le
+      generano (`_buildQuickActionButton`) e di `CourtStyle.votoColor()` per
+      perfetto/errore (vedi sopra): stesso significato, stesso colore in
+      tutti e tre i posti.
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato

@@ -6,6 +6,7 @@ import '../../data/database.dart';
 import '../../logic/ricalcola_stato.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 
 const _kBg = Color(0xFF143E59);
@@ -1042,9 +1043,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // finale "|" invece di "-" perché il simbolo del voto può essere lui
   // stesso "-" (negativo): con due trattini di seguito si confondeva con un
   // separatore. Colorato come il voto stesso. Bottoni rapidi (punto/errore,
-  // nessun giocatore): solo l'etichetta, blu per i punti e rosso per gli
-  // errori — stessi colori dei bottoni che li generano (vedi
-  // _buildQuickActionButton).
+  // nessun giocatore): solo l'etichetta, verde per i punti (stesso
+  // AppColors.success del voto "perfetto" — un punto generico è più vicino
+  // a "perfetto" che a "positivo") e rosso per gli errori — stessi colori
+  // dei bottoni che li generano (vedi _buildQuickActionButton).
   ({String testo, Color colore}) _descrizioneAzione(ScoutAction azione) {
     final player = _playerPerId(azione.giocatoreId);
     final fondamentale = azione.fondamentale;
@@ -1063,7 +1065,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final isPunto = azione.tipo == TipoAzione.puntoManuale;
     return (
       testo: '${isPunto ? "Punto" : "Errore"} $squadraLabel',
-      colore: isPunto ? Colors.blue : Colors.red,
+      colore: isPunto ? AppColors.success : Colors.red,
     );
   }
 
@@ -1103,7 +1105,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Riga "Errore nostro" (rosso, X) + "Punto nostro" (blu, check).
+  // Riga "Errore nostro" (rosso, X) + "Punto nostro" (verde, check — stesso
+  // colore del voto "perfetto", non blu: un punto generico è semanticamente
+  // più vicino a "perfetto" che a "positivo").
   Widget _buildBottoniNostri() {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1119,7 +1123,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         const SizedBox(width: 8),
         _buildQuickActionButton(
           icon: Icons.check,
-          color: Colors.blue,
+          color: AppColors.success,
           onTap: _bottoniRapidiAttivi
               ? () => _registraAzioneRapida(Squadra.nostra,
                   TipoAzione.puntoManuale, EsitoPunto.puntoNostro)
@@ -1129,7 +1133,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Speculare a _buildBottoniNostri: "Punto avversario" (blu, check) +
+  // Speculare a _buildBottoniNostri: "Punto avversario" (verde, check) +
   // "Errore avversario" (rosso, X) — ordine invertito per simmetria visiva.
   Widget _buildBottoniAvversario() {
     return Row(
@@ -1137,7 +1141,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       children: [
         _buildQuickActionButton(
           icon: Icons.check,
-          color: Colors.blue,
+          color: AppColors.success,
           onTap: _bottoniRapidiAttivi
               ? () => _registraAzioneRapida(Squadra.avversari,
                   TipoAzione.puntoManuale, EsitoPunto.puntoAvversario)

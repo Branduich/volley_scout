@@ -17,17 +17,22 @@ class CourtStyle {
 
   // Colore associato a ciascun voto (#, +, !, -, =). Mezzo punto e negativo
   // condividono un colore neutro (non richiesto un trattamento dedicato).
+  // positivo/errore usano Colors.blue/Colors.red letterali (non
+  // AppColors.info/danger) per essere IDENTICI ai bottoni rapidi Punto/
+  // Errore e al banner ultima azione (_buildQuickActionButton,
+  // _descrizioneAzione in scout_screen.dart) — stesso significato
+  // (punto/errore), deve essere lo stesso colore ovunque appaia.
   static Color votoColor(Voto v) {
     switch (v) {
       case Voto.perfetto:
         return AppColors.success;
       case Voto.positivo:
-        return AppColors.info;
+        return Colors.blue;
       case Voto.mezzoPunto:
       case Voto.negativo:
         return AppColors.neutral;
       case Voto.errore:
-        return AppColors.danger;
+        return Colors.red;
     }
   }
 }
