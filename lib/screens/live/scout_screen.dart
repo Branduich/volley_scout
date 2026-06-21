@@ -170,6 +170,26 @@ const Map<String, Map<String, Offset>> _kDefensePositionsSchiacciatori = {
   },
 };
 
+// Stessa "forma" difensiva delle due tabelle sopra, ma per formazioni SENZA
+// libero: nessun ruolo va sostituito, quindi servono le posizioni REALI di
+// tutti e 6 i ruoli (P, O, S1, S2, C1, C2). Le due tabelle con libero non ne
+// contengono mai più di 5 (un ruolo è sempre "Libero" al posto del
+// sostituito) — ma insieme si completano: il ruolo mancante in una tabella
+// (quello sostituito dal libero in quella coppia) è presente nell'altra
+// (dove la coppia sostituita è l'opposta). Unendo le due e scartando la
+// chiave "Libero" si ottengono le posizioni reali di tutti i 6 ruoli, per
+// ogni rotazione — verificato che i ruoli condivisi tra le due tabelle
+// (P, O e il centrale/schiacciatore "fisso" di ciascuna coppia) abbiano le
+// stesse coordinate in entrambe.
+Map<String, Offset>? _kDefensePositionsComplete(String slot) {
+  final centrali = _kDefensePositionsCentrali[slot];
+  final schiacciatori = _kDefensePositionsSchiacciatori[slot];
+  if (centrali == null || schiacciatori == null) return null;
+  final merged = {...centrali, ...schiacciatori}..remove('Libero');
+  const ruoliCompleti = {'P', 'O', 'S1', 'S2', 'C1', 'C2'};
+  return ruoliCompleti.every(merged.containsKey) ? merged : null;
+}
+
 // Ordine antiorario degli slot sul campo grande (verificato sulle coordinate
 // di _kAttackPositions), usato per calcolare la distanza dal palleggiatore.
 const List<String> _kSlotOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
@@ -489,18 +509,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // ancora stata giudicata (una volta giudicata con un voto non terminale,
   // la palla è in gioco verso l'attacco: i giocatori si spostano in
   // posizione di gioco, stessa logica del battitore dopo la battuta — vedi
-  // _fondamentaleGiudicatoRallyCorrente), c'è un libero in formazione, e i
-  // dati di quella rotazione sono completi. La tabella e la coppia
-  // sostituita dipendono da widget.ruoloCambiLibero: se centrali, deve
+  // _fondamentaleGiudicatoRallyCorrente), e i dati di quella rotazione sono
+  // completi. Senza libero in formazione: stessa "forma" difensiva ma con
+  // le posizioni REALI di tutti i 6 ruoli, nessuna sostituzione (vedi
+  // _kDefensePositionsComplete). Con libero: la tabella e la coppia
+  // sostituita dipendono da widget.ruoloCambiLibero — se centrali, deve
   // restare un solo C1/C2 (l'altro è il libero) e S1/S2 entrambi presenti;
-  // se schiacciatori, il contrario. Altrimenti (nessun libero, o nessuna
-  // delle due tabelle applicabile) si ricade sulle posizioni di attacco. In
-  // modalità test il flag di giudizio viene ignorato (nessun voto reale da
-  // dare, vedi _refPositionFor per la stessa convenzione sulla battuta).
+  // se schiacciatori, il contrario. In modalità test il flag di giudizio
+  // viene ignorato (nessun voto reale da dare, vedi _refPositionFor per la
+  // stessa convenzione sulla battuta).
   Map<String, Offset>? get _activeDefenseMap {
     if (_squadraAlServizio != Squadra.avversari) return null;
     if (!_testModeEnabled && _fondamentaleGiudicatoRallyCorrente) return null;
-    if (!widget.assignments.containsKey('L1')) return null;
+    if (!widget.assignments.containsKey('L1')) {
+      return _kDefensePositionsComplete(_currentSlot);
+    }
     final ruolo = widget.ruoloCambiLibero;
     final Map<String, Map<String, Offset>> tabella;
     final List<String> coppiaSostituita;

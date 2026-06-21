@@ -812,6 +812,19 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       coppia da verificare in base a `widget.ruoloCambiLibero`, con lo stesso
       controllo di completezza generalizzato (P, O, Libero, coppia fissa
       completa, coppia sostituita con un solo elemento presente).
+    - **Ricezione senza libero in formazione**: stessa "forma" difensiva
+      delle due tabelle sopra, ma con le posizioni REALI di tutti i 6 ruoli
+      (nessuna sostituzione) — `_kDefensePositionsComplete(slot)` unisce le
+      due tabelle e scarta la chiave `'Libero'`: il ruolo che in una tabella
+      è sostituito dal libero è sempre presente nell'altra (dove la coppia
+      sostituita è l'opposta), quindi insieme si completano. Verificato che
+      i ruoli condivisi tra le due tabelle (P, O, e il centrale/
+      schiacciatore "fisso" di ciascuna coppia) abbiano le stesse coordinate
+      in entrambe, per tutte le 6 rotazioni — la fusione non sceglie quindi
+      mai arbitrariamente tra due valori in conflitto. `_activeDefenseMap`
+      ci ricade quando `widget.assignments['L1'] == null`, prima ancora di
+      guardare `widget.ruoloCambiLibero` (che in quel caso è comunque
+      `null`, vedi `FormationConfigScreen`).
     - **Eccezione del servizio** (zona 1 = `P1`, chi sta per servire): il
       libero non può servire — in questa fase l'app **non sostituisce mai**
       il centrale in `P1` (resta lui per il servizio, già coperto dalla
@@ -834,8 +847,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       che la rotazione lo portava in zona P1 durante il NOSTRO attacco (dopo
       ricezione), anche se non stavamo affatto servendo.
     - Caso limite già gestito: nessuna sostituzione se il libero non è in
-      formazione (`widget.assignments['L1'] == null`) — i centrali restano
-      visibili normalmente in entrambe le posizioni.
+      formazione (`widget.assignments['L1'] == null`) — `_buildLiberoSwapTokens`
+      esce subito (`if (libero == null) return const [];`), tutti e 6 i
+      giocatori passano per `_buildCourtTokens` normale. La forma difensiva
+      in ricezione resta comunque quella delle tabelle (vedi
+      `_kDefensePositionsComplete` sopra), solo senza alcuna sostituzione.
     - **Animazione "panchina" libero↔sostituito (IMPLEMENTATA)**: il
       sostituito (centrale/schiacciatore di seconda linea) e il libero si
       scambiano il posto a ogni rotazione/fase. La panchina deve restare
