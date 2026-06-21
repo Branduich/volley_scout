@@ -536,56 +536,72 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `_registraAzioneRapida()`, che inserisce subito un `ScoutAction` via
     `ScoutActionRepository` — niente stato locale, il punteggio si aggiorna
     perché `_statoSetReale` osserva lo stream delle azioni del set.
-    Restano **sempre tappabili** anche col pannello voto battuta aperto (la
-    riga dei bottoni rapidi vive nella `Column` del body, fuori dallo Stack
-    del campo dove sta il pannello — non viene coperta dal suo sfondo
-    trasparente): `_registraAzioneRapida` chiude comunque
-    `_giocatoreVotoBattuta` (lo riporta a `null`), perché un bottone rapido
-    chiude lo scambio per un'altra via e il pannello non avrebbe più senso.
-- **Voto battuta** (IMPLEMENTATO — primo pezzo reale del flusso a 3 tocchi,
-  per ora limitato alla battuta: "durante il servizio il giudizio lo si può
-  dare solo sulla battuta"). Nessuna traiettoria per ora.
-  - **Tap sul battitore**: il token P1, mentre battiamo noi e la battuta
-    dello scambio corrente non è ancora stata giudicata, è tappabile
-    (`_tapHandlerPerSlot` — disabilitato in modalità test, prima dell'inizio
-    del set, o se il servizio è già stato giudicato). Tap → apre
-    `_giocatoreVotoBattuta` (stato locale, il giocatore per cui si sta
-    registrando il voto).
-    - **Trabocchetto hit-test fuori dal campo** (`_buildBattitoreTapCatcher`):
-      quando il battitore è in posizione di battuta (X negativa, vedi
-      `_kBattutaP1Position`), il `GestureDetector` passato a
-      `_buildPlayerToken` **non riceve mai il tap**, anche se il token è
-      visibile lì grazie a `Clip.none`. Motivo: `Clip.none` evita solo il
-      clip del DISEGNO sullo Stack interno, ma il `SizedBox`/`AspectRatio`
-      che racchiude il campo limita comunque l'AREA DI HIT-TEST dei suoi
-      figli al proprio `size` — un tap fuori da quei limiti non raggiunge
-      mai lo Stack interno, a prescindere da `clipBehavior`. Soluzione:
-      stessa tecnica già usata per libero/panchina
-      (`_buildLiberoSwapTokens`) — un `GestureDetector` trasparente
-      nello Stack **esterno** (coordinate schermo assolute, sempre dentro i
-      suoi limiti), posizionato esattamente sopra al token visibile
-      (stessa formula `courtLeft`/`courtTop` + conversione spazio di
-      riferimento→pixel). Si applica a qualunque futuro token disegnato
+    Restano **sempre tappabili** anche col pannello voto aperto (la riga dei
+    bottoni rapidi vive nella `Column` del body, fuori dallo Stack del campo
+    dove sta il pannello — non viene coperta dal suo sfondo trasparente):
+    `_registraAzioneRapida` chiude comunque `_votoInCorso` (lo riporta a
+    `null`), perché un bottone rapido chiude lo scambio per un'altra via e
+    il pannello non avrebbe più senso.
+- **Voto battuta/ricezione** (IMPLEMENTATO — primo pezzo reale del flusso a
+  3 tocchi, per ora limitato a questi due fondamentali: "durante il
+  servizio/la ricezione il giudizio lo si può dare solo su quell'azione").
+  Nessuna traiettoria per ora.
+  - **`_fondamentaleTappabile(slot)`**: quale fondamentale (se c'è) è
+    giudicabile toccando uno slot, in base a chi è al servizio — `null` =
+    non tappabile in questa fase. Se battiamo noi: solo `slot == 'P1'`
+    (il battitore) → `Fondamentale.battuta`. Se battono loro: **chiunque**
+    → `Fondamentale.ricezione` (`slot` può essere `null`, usato per il
+    libero che non ha uno slot P1-P6 proprio — vedi sotto). Mai entrambi
+    nello stesso scambio: chi serve e chi riceve sono sempre squadre
+    diverse.
+  - **Tap su un giocatore tappabile**: `_tapHandlerPerGiocatore(player,
+    {slot})` — disabilitato in modalità test, prima dell'inizio del set, o
+    se il fondamentale di questo scambio è già stato giudicato. Tap → apre
+    `_votoInCorso` (record `(giocatore, fondamentale)`, stato locale).
+    - **Trabocchetto hit-test fuori dal campo** (`_buildBattitoreTapCatcher`,
+      solo quando battiamo noi — in ricezione P1 è una posizione normale in
+      campo, già coperta dal proprio token): quando il battitore è in
+      posizione di battuta (X negativa, vedi `_kBattutaP1Position`), il
+      `GestureDetector` passato a `_buildPlayerToken` **non riceve mai il
+      tap**, anche se il token è visibile lì grazie a `Clip.none`. Motivo:
+      `Clip.none` evita solo il clip del DISEGNO sullo Stack interno, ma il
+      `SizedBox`/`AspectRatio` che racchiude il campo limita comunque
+      l'AREA DI HIT-TEST dei suoi figli al proprio `size` — un tap fuori da
+      quei limiti non raggiunge mai lo Stack interno, a prescindere da
+      `clipBehavior`. Soluzione: stessa tecnica già usata per
+      libero/panchina (`_buildLiberoSwapTokens`) — un `GestureDetector`
+      trasparente nello Stack **esterno** (coordinate schermo assolute,
+      sempre dentro i suoi limiti), posizionato esattamente sopra al token
+      visibile (stessa formula `courtLeft`/`courtTop` + conversione spazio
+      di riferimento→pixel). Si applica a qualunque futuro token disegnato
       fuori dai confini del riquadro campo — non solo al battitore.
-  - **Pannello voto** (`_buildPannelloVotoBattuta`, ritorna una lista — vedi
+    - **In ricezione, tutti i 6 ruoli sono tappabili**, libero compreso:
+      `_buildCourtTokens` passa `onTap` in entrambi i rami (con e senza
+      mappa di difesa attiva); `_buildLiberoSwapTokens` passa `onTap` al
+      libero solo quando è effettivamente **in campo** (mai al sostituito
+      in panchina, né al libero stesso quando è lui in panchina per
+      l'eccezione del servizio) — il libero non ha uno slot proprio, quindi
+      passa `slot: null` a `_tapHandlerPerGiocatore` (tappabile solo in
+      ricezione, mai in battuta: coerente con "il libero non serve mai").
+  - **Pannello voto** (`_buildPannelloVoto`, ritorna una lista — vedi
     sotto): ancorato al bordo destro dello schermo (`Positioned(right: 16) +
     Center`), card scura (`_kTopBarBg`) con etichetta giocatore (numero di
     maglia, grande; sotto il cognome, più piccolo, `maxLines: 1` +
-    ellissi se non ci sta) + "Battuta" + 5 bottoni quadrati verticali, uno
-    per `Voto` (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
+    ellissi se non ci sta) + nome del fondamentale (`Fondamentale.label`:
+    "Battuta" o "Ricezione") + 5 bottoni quadrati verticali, uno per `Voto`
+    (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
     `CourtStyle.votoColor()` (vedi sotto).
     - **Annulla = tap fuori dal pannello**, non un bottone dedicato.
-      `_buildPannelloVotoBattuta` ritorna **due** widget nello Stack
-      esterno: uno sfondo `Positioned.fill` con `GestureDetector(behavior:
-      opaque)` che chiude il pannello (`_giocatoreVotoBattuta = null`), più
-      il pannello stesso avvolto in un secondo `GestureDetector` (`onTap:
-      () {}`, anch'esso `opaque`) che **assorbe** il tap — necessario perché
-      lo Stack interrompe la ricerca del bersaglio al primo figlio che
-      reclama il tocco (vedi `defaultHitTestChildren`): senza questo
-      assorbimento, un tap su un punto del pannello senza un proprio
-      `onTap` (es. lo sfondo della card, il testo del nome) cadrebbe
-      comunque sullo sfondo sottostante e chiuderebbe il pannello per
-      errore.
+      `_buildPannelloVoto` ritorna **due** widget nello Stack esterno: uno
+      sfondo `Positioned.fill` con `GestureDetector(behavior: opaque)` che
+      chiude il pannello (`_votoInCorso = null`), più il pannello stesso
+      avvolto in un secondo `GestureDetector` (`onTap: () {}`, anch'esso
+      `opaque`) che **assorbe** il tap — necessario perché lo Stack
+      interrompe la ricerca del bersaglio al primo figlio che reclama il
+      tocco (vedi `defaultHitTestChildren`): senza questo assorbimento, un
+      tap su un punto del pannello senza un proprio `onTap` (es. lo sfondo
+      della card, il testo del nome) cadrebbe comunque sullo sfondo
+      sottostante e chiuderebbe il pannello per errore.
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
     `perfetto` verde (`AppColors.success`), `positivo` blu
@@ -593,30 +609,33 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     grigio neutro (`AppColors.neutral`, nuovo), `errore` rosso
     (`AppColors.danger`) — nessun trattamento dedicato richiesto per
     mezzoPunto/negativo, condividono lo stesso neutro.
-  - **Esito automatico** (`_esitoBattuta`, solo per la battuta — non è la
-    logica generale "fondamentale+voto" descritta nel Modello dati, quella
-    resta da generalizzare quando si aggiungeranno gli altri fondamentali):
-    `perfetto` → `puntoNostro` (ace), `errore` → `puntoAvversario` (battuta
-    in rete/fuori), `positivo`/`mezzoPunto`/`negativo` → `nessuno` (palla in
-    gioco, lo scambio continua).
-  - **`_registraVotoBattuta`**: chiama
-    `ScoutActionRepository.registraAzioneScout()` (nuovo metodo — stesso
-    calcolo di `ordine` di `registraAzioneRapida`, ma `rallyId` non
-    coincide più sempre con `ordine`: se l'ultima azione del set ha
-    `esitoPunto == nessuno` — scambio ancora in corso — la nuova azione
-    eredita il suo `rallyId`, altrimenti ne inizia uno nuovo. Generale: vale
-    anche per i bottoni rapidi, già pronto per quando si aggiungeranno
-    ricezione/attacco/ecc. nella stessa battuta non terminale). Chiude il
-    pannello e aggiorna `_battutaEseguitaRallyCorrente`.
-  - **`_battutaEseguitaRallyCorrente`** (bool, stato locale): true dopo un
-    voto non terminale (battuta giudicata, palla in gioco) — si resetta a
-    `false` ad ogni azione che chiude lo scambio (punto/errore, anche dai
-    bottoni rapidi: stesso reset in `_registraAzioneRapida`). Quando true,
+  - **Esito automatico** (`_esitoVoto(fondamentale, voto)` — non è ancora la
+    logica generale "fondamentale+voto" completa descritta nel Modello dati,
+    quella resta da generalizzare quando si aggiungeranno gli altri
+    fondamentali): qualunque fondamentale con voto `errore` → `puntoAvversario`
+    (battuta in rete/fuori, o ricezione non tenuta); solo per la `battuta`,
+    voto `perfetto` → `puntoNostro` (ace) — la ricezione non vince mai punti
+    da sola, prepara solo la giocata successiva (`perfetto`/`positivo`/
+    `mezzoPunto`/`negativo` → `nessuno`, palla in gioco).
+  - **`_registraVoto(voto)`**: chiama
+    `ScoutActionRepository.registraAzioneScout()` (stesso calcolo di
+    `ordine` di `registraAzioneRapida`, ma `rallyId` non coincide più
+    sempre con `ordine`: se l'ultima azione del set ha `esitoPunto ==
+    nessuno` — scambio ancora in corso — la nuova azione eredita il suo
+    `rallyId`, altrimenti ne inizia uno nuovo. Generale: pronto per quando
+    si aggiungeranno alzata/attacco/ecc. nello stesso scambio). Chiude il
+    pannello e aggiorna `_fondamentaleGiudicatoRallyCorrente`.
+  - **`_fondamentaleGiudicatoRallyCorrente`** (bool, stato locale): true
+    dopo un voto non terminale (battuta o ricezione giudicata, palla in
+    gioco) — si resetta a `false` ad ogni azione che chiude lo scambio
+    (punto/errore, anche dai bottoni rapidi: stesso reset in
+    `_registraAzioneRapida`). Quando true e battiamo noi,
     `_refPositionFor('P1')` non usa più `_kBattutaP1Position`: **il
     battitore si riporta nella sua posizione di attacco in campo**, perché
-    la palla è in gioco. In modalità test questo flag viene ignorato
-    (`_refPositionFor` mostra sempre la posa di battuta quando si "serve",
-    dato che lì non si registrano voti reali).
+    la palla è in gioco (nessun effetto sulle posizioni di ricezione, che
+    non hanno un equivalente "fuori campo"). In modalità test questo flag
+    viene ignorato (`_refPositionFor` mostra sempre la posa di battuta
+    quando si "serve", dato che lì non si registrano voti reali).
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
@@ -715,9 +734,9 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         completezza tenuto per sicurezza, utile se in futuro si aggiungono
         altre fasi con dati parziali).
       - `_buildCourtTokens()`: in ricezione itera per **ruolo** sulla mappa
-        di difesa — il ruolo `Libero` usa `_buildLiberoCourtToken` (stile
-        invertito, stesso posizionamento/animazione di `_buildPlayerToken`),
-        gli altri 5 ruoli risolvono lo slot via `_roleLabelsFor` invertita e
+        di difesa — il ruolo `Libero` è saltato (`continue`, gestito a parte
+        da `_buildLiberoSwapTokens` nello Stack esterno, vedi sotto), gli
+        altri 5 ruoli risolvono lo slot via `_roleLabelsFor` invertita e
         prendono il giocatore da `_currentAssignments`. In attacco/battuta
         (o ricezione senza dati di difesa completi) itera per **giocatore**
         sulle posizioni di attacco, applicando la stessa sostituzione
@@ -928,9 +947,16 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         resto→nessuno), battitore si riporta in campo dopo un voto non
         terminale. Solo battuta per ora, niente traiettoria. Vedi
         "Interfaccia di scout".
+  - [x] Voto ricezione: stesso pannello e flusso della battuta, generalizzato
+        a "chiunque riceve" (tutti e 6 i ruoli, libero compreso) quando
+        servono gli avversari — `_tapHandlerPerGiocatore`/
+        `_fondamentaleTappabile` decidono battuta vs ricezione in base a chi
+        è al servizio. Esito automatico: solo `errore` → punto avversario
+        (la ricezione non vince mai punti da sola). Vedi "Interfaccia di
+        scout".
   - [ ] **PROSSIMO**: generalizzare il flusso a 3 tocchi agli altri
-        fondamentali (ricezione, alzata, attacco, muro, difesa) — mapping
-        esito automatico per fondamentale+voto, bottoni contestuali tipo
+        fondamentali (alzata, attacco, muro, difesa) — mapping esito
+        automatico per fondamentale+voto, bottoni contestuali tipo
         esecuzione, `CustomPainter` campo intero per le traiettorie
         (battuta/attacco) via drag.
   - [ ] Override manuale punteggio (+/-) e correzione rotazione (per errori
@@ -976,11 +1002,11 @@ Il flusso è navigabile end-to-end: lista partite → "Inizia" → selezione squ
 selezione formazione (`LineupScreen`) → configurazione formazione
 (`FormationConfigScreen`: sistema di gioco, conferma palleggiatore e cambi del
 libero) → `ScoutScreen` (setup grafico completo + bottoni rapidi funzionanti +
-voto battuta: punteggio, chi serve e rotazione sono derivati in tempo reale
-dagli eventi `ScoutAction` persistiti, vedi Modello dati).
+voto battuta/ricezione: punteggio, chi serve e rotazione sono derivati in
+tempo reale dagli eventi `ScoutAction` persistiti, vedi Modello dati).
 Il prossimo passo è generalizzare il flusso a 3 tocchi agli altri
-fondamentali (ricezione, alzata, attacco, muro, difesa) e il `CustomPainter`
-per le traiettorie via drag.
+fondamentali (alzata, attacco, muro, difesa) e il `CustomPainter` per le
+traiettorie via drag.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout

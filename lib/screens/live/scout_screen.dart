@@ -380,72 +380,93 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   // Posizione di riferimento (1200×600) per uno slot: quella di attacco,
   // tranne per P1 quando battiamo noi E la battuta di questo scambio non è
-  // ancora stata giudicata (vedi _battutaEseguitaRallyCorrente) — una volta
-  // dato il voto, il battitore si riporta in campo nella sua posizione
+  // ancora stata giudicata (vedi _fondamentaleGiudicatoRallyCorrente) — una
+  // volta dato il voto, il battitore si riporta in campo nella sua posizione
   // normale, perché la palla è in gioco. In modalità test (nessun voto reale
   // da dare) mostra sempre la posizione di battuta quando si "serve".
   Offset _refPositionFor(String slot) {
     final inBattuta = _squadraAlServizio == Squadra.nostra &&
-        (_testModeEnabled || !_battutaEseguitaRallyCorrente);
+        (_testModeEnabled || !_fondamentaleGiudicatoRallyCorrente);
     if (slot == 'P1' && inBattuta) {
       return _kBattutaP1Position;
     }
     return _kAttackPositions[slot]!;
   }
 
-  // Giocatore per cui è aperto il pannello di voto (oggi solo battuta) —
-  // null = pannello chiuso. Tap sul battitore (vedi _tapHandlerPerSlot) lo
-  // apre; la selezione di un voto (_registraVotoBattuta) lo richiude.
-  Player? _giocatoreVotoBattuta;
+  // Giocatore + fondamentale per cui è aperto il pannello di voto (oggi
+  // battuta o ricezione, mai entrambi nello stesso scambio — vedi
+  // _fondamentaleTappabile) — null = pannello chiuso. Tap sul giocatore
+  // (vedi _tapHandlerPerGiocatore) lo apre; la selezione di un voto
+  // (_registraVoto) lo richiude.
+  ({Player giocatore, Fondamentale fondamentale})? _votoInCorso;
 
-  // True dopo che la battuta dello scambio corrente è stata giudicata con un
-  // voto non terminale (+, !, -: palla in gioco, niente punto). Si resetta a
-  // false a ogni nuova azione che chiude lo scambio (punto/errore, anche dai
-  // bottoni rapidi) — vedi _registraAzioneRapida/_registraVotoBattuta.
-  bool _battutaEseguitaRallyCorrente = false;
+  // True dopo che il fondamentale giudicabile dello scambio corrente
+  // (battuta se serviamo noi, ricezione se servono loro) è stato giudicato
+  // con un voto non terminale (palla ancora in gioco, niente punto). Si
+  // resetta a false a ogni nuova azione che chiude lo scambio (punto/errore,
+  // anche dai bottoni rapidi) — vedi _registraAzioneRapida/_registraVoto.
+  bool _fondamentaleGiudicatoRallyCorrente = false;
 
-  // Tap-target per il voto della battuta: solo lo slot P1 quando battiamo
-  // noi, fuori dalla modalità test, col set già iniziato e la battuta di
-  // questo scambio non ancora giudicata.
-  VoidCallback? _tapHandlerPerSlot(String slot, Player player) {
-    if (slot != 'P1') return null;
+  // Quale fondamentale (se c'è) è giudicabile toccando questo slot, in base
+  // alla fase di gioco corrente: durante la battuta solo P1 (il battitore,
+  // fondamentale=battuta); durante la ricezione, chiunque (fondamentale=
+  // ricezione — il libero compreso, passando slot=null: non ha uno slot
+  // P1-P6 proprio, vedi _tapHandlerPerGiocatore). Null = non giudicabile in
+  // questa fase (es. P2..P6 mentre battiamo noi).
+  Fondamentale? _fondamentaleTappabile(String? slot) {
+    final servizio = _squadraAlServizio;
+    if (servizio == Squadra.nostra) {
+      return slot == 'P1' ? Fondamentale.battuta : null;
+    }
+    if (servizio == Squadra.avversari) {
+      return Fondamentale.ricezione;
+    }
+    return null;
+  }
+
+  // Tap-target per il voto di un giocatore: fuori dalla modalità test, col
+  // set già iniziato e il fondamentale di questo scambio non ancora
+  // giudicato. `slot` è null per il libero (nessuno slot P1-P6 proprio).
+  VoidCallback? _tapHandlerPerGiocatore(Player player, {String? slot}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
-    if (_squadraAlServizio != Squadra.nostra) return null;
-    if (_battutaEseguitaRallyCorrente) return null;
-    return () => setState(() => _giocatoreVotoBattuta = player);
+    if (_fondamentaleGiudicatoRallyCorrente) return null;
+    final fondamentale = _fondamentaleTappabile(slot);
+    if (fondamentale == null) return null;
+    return () => setState(
+        () => _votoInCorso = (giocatore: player, fondamentale: fondamentale));
   }
 
-  EsitoPunto _esitoBattuta(Voto voto) {
-    switch (voto) {
-      case Voto.perfetto:
-        return EsitoPunto.puntoNostro;
-      case Voto.errore:
-        return EsitoPunto.puntoAvversario;
-      case Voto.positivo:
-      case Voto.mezzoPunto:
-      case Voto.negativo:
-        return EsitoPunto.nessuno;
+  // Esito automatico del voto. Generale per i due fondamentali implementati:
+  // qualunque fondamentale con voto "errore" → punto avversario (battuta in
+  // rete/fuori, o ricezione non tenuta). Solo per la battuta, "perfetto" è
+  // anche un punto immediato (ace) — la ricezione non vince mai punti da
+  // sola, prepara solo la giocata successiva.
+  EsitoPunto _esitoVoto(Fondamentale fondamentale, Voto voto) {
+    if (voto == Voto.errore) return EsitoPunto.puntoAvversario;
+    if (fondamentale == Fondamentale.battuta && voto == Voto.perfetto) {
+      return EsitoPunto.puntoNostro;
     }
+    return EsitoPunto.nessuno;
   }
 
-  Future<void> _registraVotoBattuta(Voto voto) async {
+  Future<void> _registraVoto(Voto voto) async {
     final set = _setCorrente;
-    final player = _giocatoreVotoBattuta;
-    if (set == null || player == null) return;
-    final esito = _esitoBattuta(voto);
+    final inCorso = _votoInCorso;
+    if (set == null || inCorso == null) return;
+    final esito = _esitoVoto(inCorso.fondamentale, voto);
     await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
-          giocatoreId: player.id,
-          fondamentale: Fondamentale.battuta,
+          giocatoreId: inCorso.giocatore.id,
+          fondamentale: inCorso.fondamentale,
           voto: voto,
           esitoPunto: esito,
         );
     if (!mounted) return;
     setState(() {
-      _giocatoreVotoBattuta = null;
-      _battutaEseguitaRallyCorrente = esito == EsitoPunto.nessuno;
+      _votoInCorso = null;
+      _fondamentaleGiudicatoRallyCorrente = esito == EsitoPunto.nessuno;
     });
   }
 
@@ -650,11 +671,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         );
     if (!mounted) return;
     setState(() {
-      _battutaEseguitaRallyCorrente = esito == EsitoPunto.nessuno;
-      // Un bottone rapido chiude comunque lo scambio: il pannello voto
-      // battuta, se ancora aperto, non avrebbe più senso (l'esito è già
-      // stato deciso per un'altra via).
-      _giocatoreVotoBattuta = null;
+      _fondamentaleGiudicatoRallyCorrente = esito == EsitoPunto.nessuno;
+      // Un bottone rapido chiude comunque lo scambio: il pannello voto,
+      // se ancora aperto, non avrebbe più senso (l'esito è già stato
+      // deciso per un'altra via).
+      _votoInCorso = null;
     });
   }
 
@@ -849,7 +870,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                     ..._buildLiberoTokens(constraints, courtWidth),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                     ..._buildBattitoreTapCatcher(constraints, courtWidth),
-                    ..._buildPannelloVotoBattuta(),
+                    ..._buildPannelloVoto(),
                   ],
                 );
               },
@@ -1055,16 +1076,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Pannello voto battuta: si apre toccando il battitore (P1, mentre
-  // battiamo noi e lo scambio non ha ancora una battuta giudicata), ancorato
-  // al bordo destro dello schermo, 5 bottoni verticali (uno per Voto, stesso
-  // ordine dell'enum: # + ! - =). Niente traiettoria per ora.
+  // Pannello voto: si apre toccando un giocatore tappabile (battitore in
+  // battuta, qualunque ricevitore in ricezione — vedi
+  // _tapHandlerPerGiocatore), ancorato al bordo destro dello schermo, 5
+  // bottoni verticali (uno per Voto, stesso ordine dell'enum: # + / - =).
+  // Niente traiettoria per ora.
   // Ritorna [] se il pannello è chiuso. Quando aperto: uno sfondo
   // trasparente a tutto schermo (tap fuori dal pannello → annulla, vedi
   // sotto) + il pannello stesso.
-  List<Widget> _buildPannelloVotoBattuta() {
-    final player = _giocatoreVotoBattuta;
-    if (player == null) return const [];
+  List<Widget> _buildPannelloVoto() {
+    final inCorso = _votoInCorso;
+    if (inCorso == null) return const [];
+    final player = inCorso.giocatore;
 
     return [
       // Tap fuori dal pannello = annulla. Lo Stack ferma la ricerca del
@@ -1074,7 +1097,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       Positioned.fill(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _giocatoreVotoBattuta = null),
+          onTap: () => setState(() => _votoInCorso = null),
         ),
       ),
       Positioned(
@@ -1118,14 +1141,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ],
                     ),
                   ),
-                  const Text(
-                    'Battuta',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  Text(
+                    inCorso.fondamentale.label,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   const SizedBox(height: 12),
                   for (final voto in Voto.values) ...[
                     GestureDetector(
-                      onTap: () => _registraVotoBattuta(voto),
+                      onTap: () => _registraVoto(voto),
                       child: Container(
                         width: 56,
                         height: 56,
@@ -1231,7 +1254,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 _displayPosition(_refPositionFor(entry.key)),
                 cw,
                 ch,
-                onTap: _tapHandlerPerSlot(entry.key, entry.value)),
+                onTap: _tapHandlerPerGiocatore(entry.value, slot: entry.key)),
       ];
     }
 
@@ -1245,7 +1268,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       final player = slot == null ? null : currentAssignments[slot];
       if (player != null) {
         tokens.add(_buildPlayerToken(
-            entry.key, player, _displayPosition(entry.value), cw, ch));
+            entry.key, player, _displayPosition(entry.value), cw, ch,
+            onTap: _tapHandlerPerGiocatore(player, slot: slot)));
       }
     }
     return tokens;
@@ -1288,26 +1312,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
     if (sostituzioneAttiva) {
       // In ricezione il libero ha una sua posizione dedicata (mappa di
-      // difesa); in battuta prende esattamente il posto del sostituito.
+      // difesa); in battuta prende esattamente il posto del sostituito. È
+      // in campo → tappabile (solo in ricezione, vedi _fondamentaleTappabile
+      // con slot=null: il libero non ha uno slot P1-P6 proprio).
       final liberoRef = defenseMap != null
           ? defenseMap['Libero']!
           : _refPositionFor(slotCentrale);
       return [
         _buildAbsoluteToken('L1', libero, toScreen(_displayPosition(liberoRef)),
             radius,
-            isLibero: true),
+            isLibero: true, onTap: _tapHandlerPerGiocatore(libero)),
+        // Il sostituito è in panchina: non tappabile, non gioca questo scambio.
         _buildAbsoluteToken(roleLabels[slotCentrale] ?? slotCentrale,
             giocatoreCoppia, benchPos, radius),
       ];
     }
-    // Eccezione del servizio (P1): il sostituito resta in campo, il libero
-    // va in panchina.
+    // Eccezione del servizio (P1): il sostituito resta in campo (tappabile:
+    // è il battitore in battuta, un ricevitore normale in ricezione), il
+    // libero va in panchina (non tappabile, non gioca questo scambio).
     return [
       _buildAbsoluteToken(
           roleLabels[slotCentrale] ?? slotCentrale,
           giocatoreCoppia,
           toScreen(_displayPosition(_refPositionFor(slotCentrale))),
-          radius),
+          radius,
+          onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale)),
       _buildAbsoluteToken('L1', libero, benchPos, radius, isLibero: true),
     ];
   }
@@ -1320,12 +1349,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // dentro lo Stack interno lì non riceverebbe mai il tap. Stessa soluzione
   // già usata per libero/panchina: un overlay nello Stack esterno
   // (coordinate schermo assolute, sempre dentro i suoi limiti), sovrapposto
-  // esattamente al token visibile.
+  // esattamente al token visibile. Solo quando battiamo noi: in ricezione
+  // P1 è una posizione normale in campo, già tappabile dal proprio token
+  // (qui sarebbe solo un overlay ridondante).
   List<Widget> _buildBattitoreTapCatcher(
       BoxConstraints constraints, double courtWidth) {
+    if (_squadraAlServizio != Squadra.nostra) return const [];
     final player = _currentAssignments['P1'];
     if (player == null) return const [];
-    final onTap = _tapHandlerPerSlot('P1', player);
+    final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
     if (onTap == null) return const [];
 
     final radius = _swapTokenRadius(courtWidth);
@@ -1365,17 +1397,41 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return Offset(left + radius, top + radius);
   }
 
-  // Token "assoluto": stesso stile di _buildPlayerToken/_buildLiberoCourtToken
-  // ma posizionato in pixel di SCHERMO già calcolati (non da scalare da uno
-  // spazio di riferimento) — necessario perché questo Stack esterno copre
-  // sia l'area del campo sia l'area "panchina" ancorata ai bordi schermo.
+  // Token "assoluto": stesso stile di _buildPlayerToken (cerchio, colore
+  // invertito per il libero) ma posizionato in pixel di SCHERMO già
+  // calcolati (non da scalare da uno spazio di riferimento) — necessario
+  // perché questo Stack esterno copre sia l'area del campo sia l'area
+  // "panchina" ancorata ai bordi schermo.
   Widget _buildAbsoluteToken(
       String roleLabel, Player player, Offset center, double radius,
-      {bool isLibero = false}) {
+      {bool isLibero = false, VoidCallback? onTap}) {
     final fillColor = isLibero
         ? _invertedColor(Color(widget.team.coloreDivisa))
         : Color(widget.team.coloreDivisa);
     final label = _showJerseyNumbers ? '${player.numero}' : roleLabel;
+    final tokenVisual = Container(
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: fillColor,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(120),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: radius * 0.7,
+        ),
+      ),
+    );
     return AnimatedPositioned(
       key: ValueKey(player.id),
       duration: const Duration(milliseconds: 500),
@@ -1384,29 +1440,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       top: center.dy - radius,
       width: radius * 2,
       height: radius * 2,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: fillColor,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(120),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: radius * 0.7,
-          ),
-        ),
-      ),
+      child: onTap == null
+          ? tokenVisual
+          : GestureDetector(onTap: onTap, child: tokenVisual),
     );
   }
 
