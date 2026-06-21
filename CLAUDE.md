@@ -618,14 +618,14 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       `ruoloCambiLibero == Ruolo.centrale`, `S1`/`S2` se
       `Ruolo.schiacciatore`). Generale, usato dal ramo attacco/battuta di
       `_buildCourtTokens`.
-    - **Limite noto**: `_kDefensePositions` (le coordinate di ricezione) è
-      stato costruito solo per il caso "libero sostituisce i centrali" (i
-      file CSV originali hanno sempre un C1/C2 + Libero). `_activeDefenseMap`
-      lo verifica esplicitamente (`widget.ruoloCambiLibero != Ruolo.centrale
-      → null`): se il libero sostituisce gli schiacciatori, la ricezione
-      **ricade sulle posizioni di attacco** con la sostituzione generica —
-      corretto ma senza la forma dedicata di ricezione. Da estendere se
-      servirà un set di coordinate per quel caso.
+    - **Coordinate di ricezione per entrambi i casi**: due tabelle separate,
+      stesso formato (rotazione → ruolo → `Offset`) — `_kDefensePositionsCentrali`
+      (libero sui centrali, un solo C1/C2 + S1/S2 entrambi) e
+      `_kDefensePositionsSchiacciatori` (libero sugli schiacciatori, un solo
+      S1/S2 + C1/C2 entrambi). `_activeDefenseMap` scelge la tabella e la
+      coppia da verificare in base a `widget.ruoloCambiLibero`, con lo stesso
+      controllo di completezza generalizzato (P, O, Libero, coppia fissa
+      completa, coppia sostituita con un solo elemento presente).
     - **Eccezione del servizio** (zona 1 = `P1`, chi sta per servire): il
       libero non può servire — in questa fase l'app **non sostituisce mai**
       il centrale in `P1` (resta lui per il servizio, già coperto dalla
