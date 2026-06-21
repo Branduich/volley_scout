@@ -753,10 +753,20 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       **solo** centrale (quello a rete, che resta) + `Libero` (al posto
       dell'altro) — l'altro centrale non va disegnato in quella fase.
       - `_activeDefenseMap`: attiva solo se `_squadraAlServizio ==
-        Squadra.avversari` **e** c'è un libero in formazione (`L1` presente)
-        **e** la mappa della rotazione corrente è completa (controllo di
-        completezza tenuto per sicurezza, utile se in futuro si aggiungono
-        altre fasi con dati parziali).
+        Squadra.avversari` **e** la ricezione di questo scambio non è
+        ancora stata giudicata (`_fondamentaleGiudicatoRallyCorrente`,
+        ignorato in modalità test) **e** c'è un libero in formazione (`L1`
+        presente) **e** la mappa della rotazione corrente è completa
+        (controllo di completezza tenuto per sicurezza, utile se in futuro
+        si aggiungono altre fasi con dati parziali). Una volta giudicata la
+        ricezione con un voto non terminale, la mappa si disattiva e
+        `_buildCourtTokens()`/`_buildLiberoSwapTokens()` ricadono sulle
+        posizioni di attacco: **i giocatori si spostano in posizione di
+        gioco secondo la rotazione corrente**, stessa logica (e stessa
+        animazione via `AnimatedPositioned`/key sul giocatore) già usata per
+        il battitore dopo la battuta — nessun codice di transizione
+        dedicato, è un effetto collaterale gratuito di riusare le stesse
+        coordinate/key.
       - `_buildCourtTokens()`: in ricezione itera per **ruolo** sulla mappa
         di difesa — il ruolo `Libero` è saltato (`continue`, gestito a parte
         da `_buildLiberoSwapTokens` nello Stack esterno, vedi sotto), gli
@@ -810,7 +820,19 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       l'impostazione `RegolaServizioLibero`/regola FIPAV "una rotazione"
       ipotizzata dal documento originale, quindi non implementata
       (l'eccezione del servizio resta comunque generale/corretta a
-      prescindere).
+      prescindere). **Importante**: la condizione che attiva l'eccezione è
+      `_squadraAlServizio == Squadra.nostra && slotCentrale == 'P1'`
+      esplicitamente — **non** "`_activeDefenseMap == null` e
+      `slotCentrale == 'P1'`". Bug corretto: prima dell'introduzione della
+      disattivazione di `_activeDefenseMap` dopo un voto di ricezione (vedi
+      sopra), le due condizioni coincidevano sempre (la mappa era `null`
+      solo quando si serviva o mancavano i dati libero), quindi usare
+      `defenseMap == null` come proxy funzionava. Da quando la mappa si
+      disattiva anche **in ricezione già giudicata** (fase di attacco dopo
+      una ricezione non terminale), quella equivalenza non vale più: con la
+      vecchia condizione, il libero finiva in panchina per errore ogni volta
+      che la rotazione lo portava in zona P1 durante il NOSTRO attacco (dopo
+      ricezione), anche se non stavamo affatto servendo.
     - Caso limite già gestito: nessuna sostituzione se il libero non è in
       formazione (`widget.assignments['L1'] == null`) — i centrali restano
       visibili normalmente in entrambe le posizioni.
@@ -839,10 +861,13 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         `AnimatedPositioned` anima il movimento avanti e indietro tra le due
         posizioni esattamente come la rotazione — nessun salto istantaneo.
       - In ricezione (mappa di difesa attiva) il libero usa la sua posizione
-        dedicata (`defenseMap['Libero']`); in battuta prende esattamente il
-        posto del sostituito (`_refPositionFor(slotCentrale)`). Eccezione
-        del servizio: il sostituito resta in campo nella sua posizione
-        normale, il libero va in panchina.
+        dedicata (`defenseMap['Libero']`); in battuta, o in attacco dopo una
+        ricezione già giudicata (mappa disattivata, vedi sopra), prende
+        esattamente il posto del sostituito (`_refPositionFor(slotCentrale)`
+        — di nuovo posizione di attacco, perché `_refPositionFor` usa la
+        posa di battuta solo se `_squadraAlServizio == nostra`). Eccezione
+        del servizio (solo se stiamo per servire noi): il sostituito resta
+        in campo nella sua posizione normale, il libero va in panchina.
     - **`_buildLiberoTokens`** ora gestisce **solo L2** (doppio libero): `L1`
       è sempre gestito da `_buildLiberoSwapTokens` (vedi sopra). Per non
       sovrapporsi visivamente, `_buildLiberoTokens` riserva il primo "slot"
@@ -976,7 +1001,10 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         servono gli avversari — `_tapHandlerPerGiocatore`/
         `_fondamentaleTappabile` decidono battuta vs ricezione in base a chi
         è al servizio. Esito automatico: solo `errore` → punto avversario
-        (la ricezione non vince mai punti da sola). Vedi "Interfaccia di
+        (la ricezione non vince mai punti da sola). Dopo un voto non
+        terminale, `_activeDefenseMap` si disattiva e i giocatori si
+        spostano in posizione di attacco secondo la rotazione (stessa
+        animazione del battitore dopo la battuta). Vedi "Interfaccia di
         scout".
   - [x] Banner ultima azione: riga sopra al campo, mostra l'ultima
         `ScoutAction` del set (stesso dato che alimenterà le statistiche),

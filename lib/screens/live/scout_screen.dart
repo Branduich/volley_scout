@@ -485,14 +485,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   // Mappa di ricezione attiva per la rotazione corrente, solo se: stiamo
-  // ricevendo (batte l'avversario), c'è un libero in formazione, e i dati di
-  // quella rotazione sono completi. La tabella e la coppia sostituita
-  // dipendono da widget.ruoloCambiLibero: se centrali, deve restare un solo
-  // C1/C2 (l'altro è il libero) e S1/S2 entrambi presenti; se schiacciatori,
-  // il contrario. Altrimenti (nessun libero, o nessuna delle due tabelle
-  // applicabile) si ricade sulle posizioni di attacco.
+  // ricevendo (batte l'avversario), la ricezione di questo scambio non è
+  // ancora stata giudicata (una volta giudicata con un voto non terminale,
+  // la palla è in gioco verso l'attacco: i giocatori si spostano in
+  // posizione di gioco, stessa logica del battitore dopo la battuta — vedi
+  // _fondamentaleGiudicatoRallyCorrente), c'è un libero in formazione, e i
+  // dati di quella rotazione sono completi. La tabella e la coppia
+  // sostituita dipendono da widget.ruoloCambiLibero: se centrali, deve
+  // restare un solo C1/C2 (l'altro è il libero) e S1/S2 entrambi presenti;
+  // se schiacciatori, il contrario. Altrimenti (nessun libero, o nessuna
+  // delle due tabelle applicabile) si ricade sulle posizioni di attacco. In
+  // modalità test il flag di giudizio viene ignorato (nessun voto reale da
+  // dare, vedi _refPositionFor per la stessa convenzione sulla battuta).
   Map<String, Offset>? get _activeDefenseMap {
     if (_squadraAlServizio != Squadra.avversari) return null;
+    if (!_testModeEnabled && _fondamentaleGiudicatoRallyCorrente) return null;
     if (!widget.assignments.containsKey('L1')) return null;
     final ruolo = widget.ruoloCambiLibero;
     final Map<String, Map<String, Offset>> tabella;
@@ -1380,7 +1387,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (giocatoreCoppia == null) return const [];
 
     final defenseMap = _activeDefenseMap;
-    final sostituzioneAttiva = defenseMap != null || slotCentrale != 'P1';
+    // L'eccezione del servizio (libero in panchina) vale SOLO quando stiamo
+    // per servire noi e il sostituito è in P1 — non quando `defenseMap` è
+    // null per un altro motivo (es. ricezione già giudicata, fase di
+    // attacco: il libero deve restare in campo anche se il sostituito è
+    // rotato in P1, perché in quella fase P1 non significa "deve servire").
+    final stiamoServendo = _squadraAlServizio == Squadra.nostra;
+    final sostituzioneAttiva = !(stiamoServendo && slotCentrale == 'P1');
     final courtHeight = courtWidth / 2;
     final courtLeft = (constraints.maxWidth - courtWidth) / 2;
     final courtTop = (constraints.maxHeight - courtHeight) / 2;
