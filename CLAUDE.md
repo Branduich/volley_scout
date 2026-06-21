@@ -559,12 +559,17 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     reali, coincide sempre con chi serviva per primo nel set (nessun punto
     ancora segnato può averlo cambiato). `_refPositionFor(slot)` sceglie la
     coordinata: per **P1 quando battiamo noi** (`_squadraAlServizio ==
-    Squadra.nostra`) usa `_kBattutaP1Position` (200,470 → **140**,470: stessa
-    Y, X -60 verso la linea di fondo, fuori dalle posizioni di attacco) —
-    per tutti gli altri slot, e per P1 quando non battiamo noi, usa
+    Squadra.nostra`) usa `_kBattutaP1Position` (200,470 → **-60**,470: stessa
+    Y, X = bordo del campo (0) meno 60, non posizione di attacco meno 60 —
+    il battitore deve stare FUORI dal campo, X negativa) — per tutti gli
+    altri slot, e per P1 quando non battiamo noi, usa
     `_kAttackPositions[slot]`. Passa comunque per `_displayPosition()` come
     tutte le altre coordinate, quindi si specchia automaticamente col cambio
-    campo, nessuna logica separata necessaria.
+    campo, nessuna logica separata necessaria. Lo `Stack` del campo grande
+    (quello con `Image.asset(_kCourtImage)` + `_buildCourtTokens()`) ha
+    `clipBehavior: Clip.none`: il default (`Clip.hardEdge`) taglierebbe via
+    il token del battitore, che essendo a X negativa cade fuori dai confini
+    dello `Stack` stesso.
     - **Battuta avversaria (ricezione nostra)**: `_kDefensePositions` —
       mappa `slot palleggiatore (P1..P6) -> ruolo (P/O/S1/S2/C1/C2/Libero) ->
       Offset`, tutte e 6 le rotazioni complete. **Il libero sostituisce il
@@ -611,16 +616,16 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     - `_slotCentraleSecondaLinea(roleLabels)`: trova quale slot tra
       `P5`/`P6`/`P1` ha l'etichetta della coppia giusta (`C1`/`C2` se
       `ruoloCambiLibero == Ruolo.centrale`, `S1`/`S2` se
-      `Ruolo.schiacciatore`). Generale, usato sia dal ramo attacco/battuta di
-      `_buildCourtTokens` sia da `_liberoInCampoSlot`.
+      `Ruolo.schiacciatore`). Generale, usato dal ramo attacco/battuta di
+      `_buildCourtTokens`.
     - **Limite noto**: `_kDefensePositions` (le coordinate di ricezione) è
       stato costruito solo per il caso "libero sostituisce i centrali" (i
-      file CSV originali hanno sempre un C1/C2 + Libero). Se una squadra ha
-      il libero sui cambi degli schiacciatori, `_activeDefenseMap` non
-      troverà mai una mappa "completa" per quel caso (il controllo richiede
-      un solo `C1`/`C2`) e la ricezione **ricade sulle posizioni di attacco**
-      con la sostituzione generica — corretto ma senza la forma dedicata di
-      ricezione. Da estendere se servirà un set di coordinate per quel caso.
+      file CSV originali hanno sempre un C1/C2 + Libero). `_activeDefenseMap`
+      lo verifica esplicitamente (`widget.ruoloCambiLibero != Ruolo.centrale
+      → null`): se il libero sostituisce gli schiacciatori, la ricezione
+      **ricade sulle posizioni di attacco** con la sostituzione generica —
+      corretto ma senza la forma dedicata di ricezione. Da estendere se
+      servirà un set di coordinate per quel caso.
     - **Eccezione del servizio** (zona 1 = `P1`, chi sta per servire): il
       libero non può servire — in questa fase l'app **non sostituisce mai**
       il centrale in `P1` (resta lui per il servizio, già coperto dalla
@@ -633,9 +638,44 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     - Caso limite già gestito: nessuna sostituzione se il libero non è in
       formazione (`widget.assignments['L1'] == null`) — i centrali restano
       visibili normalmente in entrambe le posizioni.
+    - **Animazione "panchina" libero↔sostituito (IMPLEMENTATA)**: il
+      sostituito (centrale/schiacciatore di seconda linea) e il libero si
+      scambiano il posto a ogni rotazione/fase. La panchina deve restare
+      ancorata ai **bordi reali dello schermo** (com'era la vecchia card
+      fissa ad angolo), non al riquadro del campo — che è centrato con
+      margini propri e quindi non coincide col bordo schermo su schermi con
+      aspect ratio diversi. Per questo libero e sostituito vivono in un
+      `Stack` **diverso** da quello dei 6 token "normali":
+      - `_buildCourtTokens()` (Stack interno, coordinate di riferimento
+        1200×600) disegna i 6 ruoli **escluso** lo slot della coppia
+        cambi-libero (`_slotCentraleSecondaLinea`) — quello slot non compare
+        mai qui, viene sempre gestito altrove.
+      - `_buildLiberoSwapTokens()` (Stack esterno del `LayoutBuilder` del
+        corpo, coordinate **pixel di schermo assolute**): calcola
+        esplicitamente la trasformazione campo→schermo (`courtLeft`/
+        `courtTop` dalla stessa formula di centratura usata da `Center` per
+        il riquadro campo) per convertire la posizione "in campo" di
+        libero/sostituito in pixel; la posizione "in panchina"
+        (`_benchScreenPos`) usa invece la stessa formula della vecchia card
+        fissa (margine 3% dai bordi schermo, ancorata in basso, lato secondo
+        `_isRightSide`). Sia il token in campo sia quello in panchina usano
+        `_buildAbsoluteToken` con la stessa `key: ValueKey(player.id)`, quindi
+        `AnimatedPositioned` anima il movimento avanti e indietro tra le due
+        posizioni esattamente come la rotazione — nessun salto istantaneo.
+      - In ricezione (mappa di difesa attiva) il libero usa la sua posizione
+        dedicata (`defenseMap['Libero']`); in battuta prende esattamente il
+        posto del sostituito (`_refPositionFor(slotCentrale)`). Eccezione
+        del servizio: il sostituito resta in campo nella sua posizione
+        normale, il libero va in panchina.
+    - **`_buildLiberoTokens`** ora gestisce **solo L2** (doppio libero): `L1`
+      è sempre gestito da `_buildLiberoSwapTokens` (vedi sopra). Per non
+      sovrapporsi visivamente, `_buildLiberoTokens` riserva il primo "slot"
+      della fila (stessa size/gap) a L1 e posiziona L2 nel secondo. L2 resta
+      fisso in basso, non entra mai in campo (alternanza L1/L2 non
+      modellata).
     - **Backlog non implementato**: gestione doppio libero (oggi sempre
-      `L1`, nessuna alternanza L1/L2 tra rotazioni); unit test della logica
-      libero su tutte e 6 le rotazioni.
+      `L1` può entrare in campo, mai `L2`); unit test della logica libero su
+      tutte e 6 le rotazioni.
   - **Animazione di rotazione**: il rendering itera per **giocatore**
     (`currentAssignments.entries`, non più per slot fisso), e ogni token è
     un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —
