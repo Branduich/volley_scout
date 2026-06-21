@@ -341,6 +341,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Ultima azione registrata nel set (stessa riga che alimenterà in futuro
+  // le statistiche/report — vedi Modello dati), per il banner "ultima
+  // azione" sopra al campo. Null se il set non è iniziato o non ha ancora
+  // azioni. Resta lì finché non ne arriva una successiva (nessun timer di
+  // sparizione, nemmeno per punto/errore — vedi "Interfaccia di scout").
+  ScoutAction? get _ultimaAzione {
+    final set = _setCorrente;
+    if (set == null) return null;
+    final azioniAsync = ref.watch(scoutAzioniStreamProvider(set.id));
+    final righe = azioniAsync.value;
+    if (righe == null || righe.isEmpty) return null;
+    return righe.last; // watchAzioni ordina per `ordine` crescente
+  }
+
   // Chi è al servizio ora. Fuori dalla modalità test, deriva dallo stato
   // reale (ricalcolaStato sugli eventi persistiti); prima che il set inizi
   // ricade su null. In modalità test, ignora tutto questo e usa
@@ -779,6 +793,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                   : [_buildBottoniNostri(), _buildBottoniAvversario()],
             ),
           ),
+          // Altezza fissa (anche senza azioni) per non far "saltare" il
+          // campo sottostante quando il banner appare/scompare.
+          SizedBox(
+            height: 32,
+            child: Center(child: _buildBannerUltimaAzione()),
+          ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -974,6 +994,65 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               fontSize: badgeHeight * 0.5,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Player? _playerPerId(int? id) {
+    if (id == null) return null;
+    for (final p in widget.assignments.values) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  // Testo + colore per il banner "ultima azione". Azione di scout (voto su
+  // un fondamentale): "Numero - Cognome - Fondamentale | Voto" — separatore
+  // finale "|" invece di "-" perché il simbolo del voto può essere lui
+  // stesso "-" (negativo): con due trattini di seguito si confondeva con un
+  // separatore. Colorato come il voto stesso. Bottoni rapidi (punto/errore,
+  // nessun giocatore): solo l'etichetta, blu per i punti e rosso per gli
+  // errori — stessi colori dei bottoni che li generano (vedi
+  // _buildQuickActionButton).
+  ({String testo, Color colore}) _descrizioneAzione(ScoutAction azione) {
+    final player = _playerPerId(azione.giocatoreId);
+    final fondamentale = azione.fondamentale;
+    final voto = azione.voto;
+    if (azione.tipo == TipoAzione.scout &&
+        player != null &&
+        fondamentale != null &&
+        voto != null) {
+      return (
+        testo:
+            '${player.numero} - ${player.cognome} - ${fondamentale.label} | ${voto.simbolo}',
+        colore: CourtStyle.votoColor(voto),
+      );
+    }
+    final squadraLabel = azione.squadra == Squadra.nostra ? 'nostro' : 'avversario';
+    final isPunto = azione.tipo == TipoAzione.puntoManuale;
+    return (
+      testo: '${isPunto ? "Punto" : "Errore"} $squadraLabel',
+      colore: isPunto ? Colors.blue : Colors.red,
+    );
+  }
+
+  Widget? _buildBannerUltimaAzione() {
+    final azione = _ultimaAzione;
+    if (azione == null) return null;
+    final descrizione = _descrizioneAzione(azione);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: descrizione.colore,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        descrizione.testo,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
         ),
       ),
     );

@@ -636,6 +636,30 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     non hanno un equivalente "fuori campo"). In modalità test questo flag
     viene ignorato (`_refPositionFor` mostra sempre la posa di battuta
     quando si "serve", dato che lì non si registrano voti reali).
+- **Banner ultima azione** (IMPLEMENTATO): riga centrata ad altezza fissa
+  32dp tra i bottoni rapidi e il campo (`SizedBox(height: 32) + Center` —
+  altezza fissa anche quando non c'è nulla da mostrare, per non far
+  "saltare" il campo sottostante ad ogni apparizione/scomparsa). Mostra
+  l'**ultima riga `ScoutAction`** del set corrente (`_ultimaAzione`,
+  `righe.last` dello stesso stream già osservato da `_statoSetReale` —
+  niente stato locale duplicato: è la stessa riga che in futuro alimenterà
+  anche le statistiche/report, vedi Modello dati). Resta visibile finché
+  non arriva un'azione successiva — **nessun timer di sparizione**
+  automatica, nemmeno per punto/errore (deciso esplicitamente: stesso
+  comportamento per tutte le azioni, per non introdurre la complessità di
+  un timer prima che serva davvero).
+  - **`_descrizioneAzione(ScoutAction)`** (testo + colore):
+    - `TipoAzione.scout` (voto su un fondamentale): `"Numero - Cognome -
+      Fondamentale | Voto"` (es. "7 - Rossi - Battuta | +") — separatore
+      finale `|` invece di `-`: il simbolo del voto può essere lui stesso
+      `-` (negativo), con due trattini di seguito si confondeva. Colorato
+      come il voto (`CourtStyle.votoColor()`).
+    - `TipoAzione.puntoManuale`/`erroreGenerico` (bottoni rapidi, nessun
+      giocatore): solo l'etichetta — `"Punto nostro"`/`"Punto avversario"`
+      (blu) o `"Errore nostro"`/`"Errore avversario"` (rosso), stessi
+      colori dei bottoni che le generano (`Colors.blue`/`Colors.red`, non
+      `AppColors.info`/`danger` — coerenza con `_buildQuickActionButton`,
+      che usa gli stessi colori letterali).
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
@@ -954,6 +978,10 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         è al servizio. Esito automatico: solo `errore` → punto avversario
         (la ricezione non vince mai punti da sola). Vedi "Interfaccia di
         scout".
+  - [x] Banner ultima azione: riga sopra al campo, mostra l'ultima
+        `ScoutAction` del set (stesso dato che alimenterà le statistiche),
+        resta visibile finché non arriva l'azione successiva (nessun timer
+        di sparizione). Vedi "Interfaccia di scout".
   - [ ] **PROSSIMO**: generalizzare il flusso a 3 tocchi agli altri
         fondamentali (alzata, attacco, muro, difesa) — mapping esito
         automatico per fondamentale+voto, bottoni contestuali tipo
