@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../logic/ricalcola_stato.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 
@@ -304,12 +305,49 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // risponde al dialog "Chi serve per primo?" — vedi _chiediServizioIniziale.
   MatchSet? _setCorrente;
 
-  // Chi è al servizio ora. Finché non registriamo azioni vere (e quindi non
-  // richiamiamo ricalcolaStato() su eventi reali), coincide sempre con chi
-  // serviva per primo nel set: nessun punto è stato ancora segnato. In
-  // modalità test, ignora tutto questo e usa _testServizio (vedi sotto).
-  Squadra? get _squadraAlServizio =>
-      _testModeEnabled ? _testServizio : _setCorrente?.squadraServizioIniziale;
+  // Rotazione di partenza (posizione 1-6 -> id giocatore), letta dalla
+  // formazione confermata — stesso parsing di
+  // MatchSetRepository.salvaRotazioneIniziale, ma calcolato qui in memoria:
+  // serve a ricalcolaStato() come stato iniziale, non a un'altra lettura DB.
+  Map<int, int> get _rotazioneInizialeMap {
+    final map = <int, int>{};
+    for (final entry in widget.assignments.entries) {
+      final pos = int.tryParse(entry.key.replaceFirst('P', ''));
+      if (pos != null && pos >= 1 && pos <= 6) {
+        map[pos] = entry.value.id;
+      }
+    }
+    return map;
+  }
+
+  // Stato reale del set (punteggio, chi serve, rotazione), derivato dagli
+  // eventi ScoutAction persistiti — null finché il set non è ancora iniziato
+  // (dialog "Chi serve per primo?" non ancora risposto). Punto centrale del
+  // principio event-sourcing: niente di tutto questo è salvato come stato
+  // mutabile, si ricalcola sempre dalla sequenza di azioni.
+  StatoSet? get _statoSetReale {
+    final set = _setCorrente;
+    if (set == null) return null;
+    final azioniAsync = ref.watch(scoutAzioniStreamProvider(set.id));
+    final righe = azioniAsync.value ?? const <ScoutAction>[];
+    final azioni = [
+      for (final r in righe) (ordine: r.ordine, esitoPunto: r.esitoPunto),
+    ];
+    return ricalcolaStato(
+      azioni: azioni,
+      servizioIniziale: set.squadraServizioIniziale,
+      rotazioneIniziale: _rotazioneInizialeMap,
+    );
+  }
+
+  // Chi è al servizio ora. Fuori dalla modalità test, deriva dallo stato
+  // reale (ricalcolaStato sugli eventi persistiti); prima che il set inizi
+  // ricade su null. In modalità test, ignora tutto questo e usa
+  // _testServizio (vedi sotto).
+  Squadra? get _squadraAlServizio => _testModeEnabled
+      ? _testServizio
+      : (_statoSetReale?.squadraAlServizio ??
+          _setCorrente?.squadraServizioIniziale);
 
   // --- Modalità test (solo per provare a video tutte le combinazioni
   // rotazione × chi serve, senza dover passare dal flusso reale di gioco) ---
@@ -436,18 +474,36 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     setState(() => _setCorrente = set);
   }
 
-  // Numero di rotazioni applicate da inizio set (positivo = avanti, P1→P2;
-  // negativo = indietro, P1→P6). Tutti i giocatori ruotano insieme: chi era
-  // nello slot di indice i si trova ora nello slot di indice i+_rotationSteps.
+  // Numero di rotazioni applicate da inizio set — usato SOLO in modalità
+  // test (positivo = avanti, P1→P2; negativo = indietro, P1→P6) per simulare
+  // tutte le combinazioni senza eventi reali. Fuori dalla modalità test la
+  // rotazione vera viene da _statoSetReale (derivata dagli eventi).
   int _rotationSteps = 0;
 
   String get _currentSlot {
+    final stato = _testModeEnabled ? null : _statoSetReale;
+    if (stato != null) {
+      final palleggiatoreId = widget.assignments[widget.palleggiatoreSlot]?.id;
+      for (final entry in stato.rotazione.entries) {
+        if (entry.value == palleggiatoreId) return 'P${entry.key}';
+      }
+    }
     final originalIndex = _kSlotOrder.indexOf(widget.palleggiatoreSlot);
     return _kSlotOrder[_mod(originalIndex + _rotationSteps, _kSlotOrder.length)];
   }
 
   // Mappa slot -> giocatore aggiornata in base alla rotazione corrente.
   Map<String, Player> get _currentAssignments {
+    final stato = _testModeEnabled ? null : _statoSetReale;
+    if (stato != null) {
+      final idToPlayer = {for (final p in widget.assignments.values) p.id: p};
+      final result = <String, Player>{};
+      for (final entry in stato.rotazione.entries) {
+        final player = idToPlayer[entry.value];
+        if (player != null) result['P${entry.key}'] = player;
+      }
+      if (result.length == 6) return result;
+    }
     final n = _kSlotOrder.length;
     final result = <String, Player>{};
     for (var j = 0; j < n; j++) {
@@ -494,18 +550,30 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // mostrano il ruolo.
   bool _showJerseyNumbers = true;
 
-  // Punteggio del set in corso. Segue lo stesso criterio del titolo: il
-  // punteggio "nostro" è sempre mostrato sul lato dove sono disegnati i
-  // nostri giocatori (a sinistra di default, a destra col cambio campo).
-  int _nostroScore = 0;
-  int _avversarioScore = 0;
+  // Punteggio del set in corso, derivato da _statoSetReale (eventi reali).
+  // Segue lo stesso criterio del titolo: il punteggio "nostro" è sempre
+  // mostrato sul lato dove sono disegnati i nostri giocatori (a sinistra di
+  // default, a destra col cambio campo).
+  int get _punteggioNostro => _statoSetReale?.punteggioNostro ?? 0;
+  int get _punteggioAvversario => _statoSetReale?.punteggioAvversario ?? 0;
 
-  void _incNostro() => setState(() => _nostroScore++);
-  void _decNostro() =>
-      setState(() => _nostroScore = (_nostroScore - 1).clamp(0, 999));
-  void _incAvversario() => setState(() => _avversarioScore++);
-  void _decAvversario() =>
-      setState(() => _avversarioScore = (_avversarioScore - 1).clamp(0, 999));
+  // Bottoni rapidi (+1 Noi/+1 Loro/Errore nostro/Errore avversario):
+  // percorso alternativo ai 3 tocchi, registrano subito un ScoutAction.
+  // Disabilitati prima dell'inizio del set e durante la modalità test (per
+  // non sporcare i dati reali del set con azioni di prova).
+  bool get _bottoniRapidiAttivi => _setCorrente != null && !_testModeEnabled;
+
+  Future<void> _registraAzioneRapida(
+      Squadra squadra, TipoAzione tipo, EsitoPunto esito) async {
+    final set = _setCorrente;
+    if (set == null) return;
+    await ref.read(scoutActionRepositoryProvider).registraAzioneRapida(
+          setId: set.id,
+          squadra: squadra,
+          tipo: tipo,
+          esitoPunto: esito,
+        );
+  }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -561,20 +629,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       width: scoreControlWidth,
                       bottom: 4,
                       child: _isRightSide
-                          ? _buildScoreControl(_avversarioScore,
-                              _decAvversario, _incAvversario)
-                          : _buildScoreControl(
-                              _nostroScore, _decNostro, _incNostro),
+                          ? _buildScoreDisplay(_punteggioAvversario)
+                          : _buildScoreDisplay(_punteggioNostro),
                     ),
                     Positioned(
                       left: rightScoreLeft,
                       width: scoreControlWidth,
                       bottom: 4,
                       child: _isRightSide
-                          ? _buildScoreControl(
-                              _nostroScore, _decNostro, _incNostro)
-                          : _buildScoreControl(_avversarioScore,
-                              _decAvversario, _incAvversario),
+                          ? _buildScoreDisplay(_punteggioNostro)
+                          : _buildScoreDisplay(_punteggioAvversario),
                     ),
                     Positioned(
                       left: 0,
@@ -600,6 +664,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                   ],
                 );
               },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _isRightSide
+                  ? [_buildBottoniAvversario(), _buildBottoniNostri()]
+                  : [_buildBottoniNostri(), _buildBottoniAvversario()],
             ),
           ),
           Expanded(
@@ -672,20 +745,24 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                         ),
                       ),
                     ),
-                    Positioned(
-                      top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
-                      left: minimapLeft,
-                      width: smallCourtSize,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildRotationButton(
-                              Icons.rotate_right, _rotateBackward, smallCourtSize),
-                          _buildRotationButton(
-                              Icons.rotate_left, _rotateForward, smallCourtSize),
-                        ],
+                    // Bottoni di rotazione manuale: utili solo in modalità
+                    // test (la rotazione reale segue gli eventi via
+                    // _statoSetReale, non più un contatore manuale).
+                    if (_testModeEnabled)
+                      Positioned(
+                        top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
+                        left: minimapLeft,
+                        width: smallCourtSize,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildRotationButton(
+                                Icons.rotate_right, _rotateBackward, smallCourtSize),
+                            _buildRotationButton(
+                                Icons.rotate_left, _rotateForward, smallCourtSize),
+                          ],
+                        ),
                       ),
-                    ),
                     ..._buildLiberoTokens(constraints, courtWidth),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                   ],
@@ -796,36 +873,100 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  Widget _buildScoreControl(
-      int score, VoidCallback onDecrement, VoidCallback onIncrement) {
-    // Stesso identico stile/Text per "-", numero e "+": niente IconButton
-    // (la sua area di tocco asimmetrica era la causa del disallineamento
-    // verticale rispetto al titolo). Tre Text con lo stesso TextStyle hanno
-    // sempre la stessa altezza di riga, quindi restano sulla stessa linea.
-    const style = TextStyle(
-      color: Colors.white,
-      fontWeight: FontWeight.w600,
-      fontSize: 16,
+  // Punteggio in sola lettura: deriva da _statoSetReale (eventi reali), non
+  // più un contatore +/- manuale — i bottoni rapidi sotto sono ora l'unico
+  // modo di modificarlo.
+  Widget _buildScoreDisplay(int score) {
+    return Text(
+      '$score',
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+        fontSize: 16,
+      ),
     );
+  }
+
+  // Riga "Errore nostro" (rosso, X) + "Punto nostro" (blu, check).
+  Widget _buildBottoniNostri() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: onDecrement,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text('-', style: style),
-          ),
+        _buildQuickActionButton(
+          icon: Icons.close,
+          color: Colors.red,
+          onTap: _bottoniRapidiAttivi
+              ? () => _registraAzioneRapida(Squadra.nostra,
+                  TipoAzione.erroreGenerico, EsitoPunto.puntoAvversario)
+              : null,
         ),
-        Text('$score', style: style),
-        GestureDetector(
-          onTap: onIncrement,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text('+', style: style),
-          ),
+        const SizedBox(width: 8),
+        _buildQuickActionButton(
+          icon: Icons.check,
+          color: Colors.blue,
+          onTap: _bottoniRapidiAttivi
+              ? () => _registraAzioneRapida(Squadra.nostra,
+                  TipoAzione.puntoManuale, EsitoPunto.puntoNostro)
+              : null,
         ),
       ],
+    );
+  }
+
+  // Speculare a _buildBottoniNostri: "Punto avversario" (blu, check) +
+  // "Errore avversario" (rosso, X) — ordine invertito per simmetria visiva.
+  Widget _buildBottoniAvversario() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildQuickActionButton(
+          icon: Icons.check,
+          color: Colors.blue,
+          onTap: _bottoniRapidiAttivi
+              ? () => _registraAzioneRapida(Squadra.avversari,
+                  TipoAzione.puntoManuale, EsitoPunto.puntoAvversario)
+              : null,
+        ),
+        const SizedBox(width: 8),
+        _buildQuickActionButton(
+          icon: Icons.close,
+          color: Colors.red,
+          onTap: _bottoniRapidiAttivi
+              ? () => _registraAzioneRapida(Squadra.avversari,
+                  TipoAzione.erroreGenerico, EsitoPunto.puntoNostro)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    final abilitato = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: abilitato ? color : color.withAlpha(80),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: abilitato
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(120),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Icon(icon, color: Colors.white, size: 24),
+      ),
     );
   }
 

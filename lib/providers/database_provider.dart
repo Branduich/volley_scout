@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show OrderingTerm;
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../models/enums.dart';
@@ -143,4 +143,55 @@ class MatchSetRepository {
 
 final matchSetRepositoryProvider = Provider<MatchSetRepository>((ref) {
   return MatchSetRepository(ref.watch(appDatabaseProvider));
+});
+
+// --- Azioni di scout (eventi che alimentano ricalcolaStato()) ---
+
+class ScoutActionRepository {
+  ScoutActionRepository(this._db);
+  final AppDatabase _db;
+
+  Stream<List<ScoutAction>> watchAzioni(int setId) {
+    return (_db.select(_db.scoutActions)
+          ..where((a) => a.setId.equals(setId))
+          ..orderBy([(a) => OrderingTerm.asc(a.ordine)]))
+        .watch();
+  }
+
+  /// Registra un'azione dei bottoni rapidi (+1 Noi/+1 Loro/Errore): nessun
+  /// giocatore/fondamentale/voto, solo squadra + tipo + esito. `ordine` e
+  /// `rallyId` coincidono: l'azione è da sola un intero scambio.
+  Future<void> registraAzioneRapida({
+    required int setId,
+    required Squadra squadra,
+    required TipoAzione tipo,
+    required EsitoPunto esitoPunto,
+  }) async {
+    final maxOrdine = await (_db.selectOnly(_db.scoutActions)
+          ..addColumns([_db.scoutActions.ordine.max()])
+          ..where(_db.scoutActions.setId.equals(setId)))
+        .map((row) => row.read(_db.scoutActions.ordine.max()))
+        .getSingleOrNull();
+    final ordine = (maxOrdine ?? 0) + 1;
+    await _db.into(_db.scoutActions).insert(
+          ScoutActionsCompanion.insert(
+            setId: setId,
+            rallyId: ordine,
+            ordine: ordine,
+            timestamp: DateTime.now(),
+            squadra: squadra,
+            tipo: tipo,
+            esitoPunto: esitoPunto,
+          ),
+        );
+  }
+}
+
+final scoutActionRepositoryProvider = Provider<ScoutActionRepository>((ref) {
+  return ScoutActionRepository(ref.watch(appDatabaseProvider));
+});
+
+final scoutAzioniStreamProvider =
+    StreamProvider.family<List<ScoutAction>, int>((ref, setId) {
+  return ref.watch(scoutActionRepositoryProvider).watchAzioni(setId);
 });

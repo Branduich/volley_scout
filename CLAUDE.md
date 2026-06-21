@@ -260,21 +260,43 @@ DB prima di chiamare la funzione.
 - Enum `Squadra` ed `EsitoPunto` aggiunti a `enums.dart` (servivano comunque
   alla futura tabella `ScoutActions`, quindi vivono lì e non in `logic/`).
 
-Conseguenze del principio (ancora da implementare oltre alla funzione pura):
+Conseguenze del principio:
 - Ogni azione si scrive a DB nell'istante in cui viene registrata (mai solo in
   memoria) — niente perso se l'app si chiude o il tablet si scarica.
 - **Undo** = elimina l'azione con `ordine` massimo nel set, poi ricalcola.
-  Nessuna logica di "inversione" manuale di punteggio/rotazione.
+  Nessuna logica di "inversione" manuale di punteggio/rotazione. **Non ancora
+  implementato** (nessun bottone undo in UI per ora).
 - **Riprendi partita** = carica le azioni del set, ricostruisci punteggio e
-  rotazione con la stessa funzione di ricalcolo.
-- Serve una **funzione pura** `ricalcolaStato(List<ScoutAction>)` che
-  restituisce punteggio e rotazione correnti a partire dalla sequenza — è il
-  cuore logico di questa fase, va testata con unit test dedicati.
-- I contatori manuali di punteggio/rotazione già presenti in `ScoutScreen`
-  (`_nostroScore`/`_avversarioScore`, `_rotationSteps`) sono **temporanei**:
-  quando si implementa questo modello vanno sostituiti — i bottoni `-`/`+` e
-  di rotazione restano nell'interfaccia, ma generano/correggono `ScoutAction`
-  invece di incrementare un intero in memoria.
+  rotazione con la stessa funzione di ricalcolo. **Non ancora implementato**:
+  `ScoutScreen.initState` mostra il dialog "Chi serve per primo?" solo se
+  `match.stato != inCorso`; se la partita è già `inCorso` (ripresa),
+  `_setCorrente` resta `null` e punteggio/rotazione/bottoni rapidi restano
+  inattivi — manca il caricamento di `MatchSet`/`Rotation` esistenti.
+- **`ScoutActionRepository`** (`lib/providers/database_provider.dart`):
+  `watchAzioni(setId)` (stream ordinato per `ordine`) +
+  `registraAzioneRapida({setId, squadra, tipo, esitoPunto})` (calcola il
+  prossimo `ordine` con una query `MAX(ordine)` sul set, `rallyId == ordine`
+  perché l'azione è da sola un intero scambio; `giocatoreId`/`fondamentale`/
+  `voto`/traiettoria restano `null`, non servono ai bottoni rapidi).
+- **`ScoutScreen._statoSetReale`** (getter): collega gli eventi reali a
+  `ricalcolaStato()` — `null` finché `_setCorrente` non esiste (set non
+  iniziato); altrimenti `ref.watch(scoutAzioniStreamProvider(setId))` +
+  `_rotazioneInizialeMap` (P1..P6 di `widget.assignments` → id giocatore,
+  stesso parsing di `salvaRotazioneIniziale` ma in memoria) +
+  `set.squadraServizioIniziale`. Punteggio (`_punteggioNostro`/
+  `_punteggioAvversario`), `_squadraAlServizio` e `_currentSlot`/
+  `_currentAssignments` leggono tutti da qui fuori dalla modalità test — i
+  vecchi contatori manuali (`_nostroScore`/`_avversarioScore`) sono stati
+  rimossi. I bottoni di rotazione manuale (freccette accanto alla mini-map)
+  e il vecchio `_rotationSteps` restano **solo per la modalità test**
+  (`if (_testModeEnabled)` attorno al loro `Positioned` — fuori da lì la
+  rotazione vera segue gli eventi, un contatore manuale in parallelo
+  creerebbe disallineamento).
+- **Bottoni rapidi** (vedi sezione dedicata sotto "Interfaccia di scout") sono
+  l'implementazione di questa pipeline: ogni tap chiama
+  `_registraAzioneRapida()` → `ScoutActionRepository.registraAzioneRapida()`
+  → il `StreamProvider` notifica → `_statoSetReale` si ricalcola → punteggio/
+  servizio/rotazione si aggiornano in UI. Nessuno stato locale duplicato.
 
 **Avversario resta solo testo** (`VolleyMatches.avversario`, già implementato),
 **non** diventa una `Team` con roster in DB — scelta deliberata per non
@@ -484,6 +506,31 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   `palleggiatoreSlot` (slot P1–P6 dove si trova il palleggiatore) e
   `assignments` (`Map<String, Player>` — la formazione completa, usata per
   leggere il ruolo reale di ciascun giocatore).
+- **Bottoni rapidi** (IMPLEMENTATI — percorso alternativo ai 3 tocchi, prima
+  voce concreta del modello event-sourced, vedi Modello dati): riga sotto la
+  barra superiore e sopra il campo (`Padding` orizzontale 24/verticale 8,
+  `Row(spaceBetween)`), due gruppi da due bottoni ciascuno:
+  - **Gruppo nostro** (`_buildBottoniNostri`): "Errore nostro" (rosso,
+    `Icons.close` — `TipoAzione.erroreGenerico`, `Squadra.nostra`,
+    `EsitoPunto.puntoAvversario`) + "Punto nostro" (blu, `Icons.check` —
+    `TipoAzione.puntoManuale`, `Squadra.nostra`, `EsitoPunto.puntoNostro`).
+  - **Gruppo avversario** (`_buildBottoniAvversario`), ordine invertito per
+    simmetria visiva: "Punto avversario" (blu, check) + "Errore avversario"
+    (rosso, X) — stessi tipi/esiti specchiati (`Squadra.avversari`).
+  - **Segue il lato come titolo/punteggio**: `_isRightSide` decide quale
+    gruppo va a sinistra/destra nella `Row`, stessa convenzione di
+    `_matchTitle`/`_buildScoreDisplay`.
+  - `_buildQuickActionButton`: stesso stile visivo di `_buildRotationButton`
+    (quadrato arrotondato 44×44, icona bianca, ombra) ma colore parametrico;
+    se disabilitato (`onTap == null`) il colore perde opacità (`withAlpha(80)`)
+    e l'ombra non viene disegnata.
+  - **Disabilitati** (`_bottoniRapidiAttivi == false`) quando `_setCorrente
+    == null` (set non ancora iniziato — dialog "Chi serve per primo?" non
+    risposto) o `_testModeEnabled == true` (per non scrivere azioni reali
+    nel set mentre si sta solo simulando a video). Il tap chiama
+    `_registraAzioneRapida()`, che inserisce subito un `ScoutAction` via
+    `ScoutActionRepository` — niente stato locale, il punteggio si aggiorna
+    perché `_statoSetReale` osserva lo stream delle azioni del set.
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
@@ -774,27 +821,28 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 - **Fase 3 — Scout** (IN CORSO)
   - [x] Setup grafico ScoutScreen: sfondo, barra top, campo doppio + campo
         piccolo proporzionati allo schermo (vedi sezione "Interfaccia di scout")
-  - [x] Punteggio e rotazione **provvisori** in memoria (`_nostroScore`/
-        `_avversarioScore`, `_rotationSteps`) — da sostituire col modello
-        event-sourced sotto, non persistiti.
   - [x] Funzione pura `ricalcolaStato()` (punteggio + rotazione derivati) +
         14 unit test — `lib/logic/ricalcola_stato.dart` /
         `test/logic/ricalcola_stato_test.dart`. Vedi dettagli nel Modello dati.
   - [x] Modello dati a DB (schema v6/v7): tabelle `MatchSet`, `Rotation`,
-        `ScoutAction` (schema pronto, non ancora usata), campo
-        `StatoPartita`/`setCorrente` su `VolleyMatches`, enum
-        `TipoAzione`/`Fondamentale`/`TipoAttacco`/`TipoBattuta` in `enums.dart`.
+        `ScoutAction`, campo `StatoPartita`/`setCorrente` su `VolleyMatches`,
+        enum `TipoAzione`/`Fondamentale`/`TipoAttacco`/`TipoBattuta` in
+        `enums.dart`.
   - [x] Avvio del set: dialog "Chi serve per primo?" in `ScoutScreen`,
         `MatchSetRepository.creaPrimoSet()` + `salvaRotazioneIniziale()`
         (vedi Modello dati). `VolleyMatch.stato` passa a `inCorso`.
-  - [ ] **PROSSIMO**: collegare `ricalcolaStato()` ai dati reali — un
-        repository per `ScoutAction` (CRUD + stream) che alimenti la funzione
-        pura con le azioni del set corrente, sostituendo i contatori
-        provvisori in `ScoutScreen` (`_nostroScore`/`_avversarioScore`/
-        `_rotationSteps`).
-  - [ ] CustomPainter campo intero, token giocatori toccabili, flusso 3 tocchi
-        (giocatore → fondamentale → voto) con bottoni contestuali tipo
-        esecuzione, bottoni rapidi (+1 Noi/+1 Loro/Errore), traiettorie via drag.
+  - [x] `ScoutActionRepository` + bottoni rapidi (Errore/Punto nostro e
+        avversario) collegati a `ricalcolaStato()` su eventi reali —
+        punteggio/servizio/rotazione ora **derivati**, non più contatori
+        manuali (`_nostroScore`/`_avversarioScore`/`_rotationSteps` rimossi
+        fuori dalla modalità test). Vedi Modello dati e "Interfaccia di scout".
+  - [ ] **PROSSIMO**: flusso a 3 tocchi (giocatore → fondamentale → voto) con
+        bottoni contestuali tipo esecuzione, `CustomPainter` campo intero,
+        token giocatori toccabili, traiettorie via drag.
+  - [ ] Undo (elimina ultima azione per `ordine`, ricalcola) — nessun bottone
+        in UI per ora.
+  - [ ] Riprendi partita (`match.stato == inCorso`): caricare `MatchSet`/
+        `Rotation` esistenti invece di richiedere "Chi serve per primo?".
   - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
@@ -808,11 +856,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 Il flusso è navigabile end-to-end: lista partite → "Inizia" → selezione squadra →
 selezione formazione (`LineupScreen`) → configurazione formazione
 (`FormationConfigScreen`: sistema di gioco, conferma palleggiatore e cambi del
-libero) → `ScoutScreen` (setup grafico completo: sfondo, barra top, campo
-doppio + campo piccolo).
-Il prossimo passo è implementare la logica vera della schermata scout:
-CustomPainter del campo, token giocatori, flusso 3 tocchi e registrazione
-azioni a DB.
+libero) → `ScoutScreen` (setup grafico completo + bottoni rapidi funzionanti:
+punteggio, chi serve e rotazione sono derivati in tempo reale dagli eventi
+`ScoutAction` persistiti, vedi Modello dati).
+Il prossimo passo è il flusso a 3 tocchi (giocatore → fondamentale → voto)
+con `CustomPainter` del campo e traiettorie via drag.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout
