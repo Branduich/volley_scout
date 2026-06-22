@@ -428,12 +428,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return _kAttackPositions[slot]!;
   }
 
-  // Giocatore + fondamentale per cui è aperto il pannello di voto (oggi
-  // battuta o ricezione, mai entrambi nello stesso scambio — vedi
-  // _fondamentaleTappabile) — null = pannello chiuso. Tap sul giocatore
-  // (vedi _tapHandlerPerGiocatore) lo apre; la selezione di un voto
-  // (_registraVoto) lo richiude.
-  ({Player giocatore, Fondamentale fondamentale})? _votoInCorso;
+  // Giocatore + fondamentale per cui è aperto il pannello di voto — null =
+  // pannello chiuso. `fondamentale` è null quando il giocatore è stato
+  // toccato in fase "libera" (dopo battuta/ricezione già giudicate): in quel
+  // caso il pannello mostra prima la scelta tra Alzata/Attacco/Muro/Difesa
+  // (vedi _sceglieFondamentale), altrimenti è già forzato da
+  // _fondamentaleForzato (battuta/ricezione). Tap sul giocatore (vedi
+  // _tapHandlerPerGiocatore) lo apre; la selezione di un voto (_registraVoto)
+  // lo richiude.
+  ({Player giocatore, Fondamentale? fondamentale})? _votoInCorso;
 
   // True dopo che il fondamentale giudicabile dello scambio corrente
   // (battuta se serviamo noi, ricezione se servono loro) è stato giudicato
@@ -442,41 +445,67 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // anche dai bottoni rapidi) — vedi _registraAzioneRapida/_registraVoto.
   bool _fondamentaleGiudicatoRallyCorrente = false;
 
-  // Quale fondamentale (se c'è) è giudicabile toccando questo slot, in base
-  // alla fase di gioco corrente: durante la battuta solo P1 (il battitore,
-  // fondamentale=battuta); durante la ricezione, chiunque (fondamentale=
-  // ricezione — il libero compreso, passando slot=null: non ha uno slot
-  // P1-P6 proprio, vedi _tapHandlerPerGiocatore). Null = non giudicabile in
-  // questa fase (es. P2..P6 mentre battiamo noi).
-  Fondamentale? _fondamentaleTappabile(String? slot) {
+  // Tappabile in questa fase di gioco, a prescindere dal fondamentale: prima
+  // che battuta/ricezione siano state giudicate, solo il giocatore coinvolto
+  // in quell'azione (slot=='P1' se battiamo noi — il battitore; chiunque se
+  // servono loro — la ricezione, libero compreso passando slot=null). Dopo
+  // quel voto (palla in gioco, _fondamentaleGiudicatoRallyCorrente),
+  // chiunque è tappabile: il fondamentale (Alzata/Attacco/Muro/Difesa) si
+  // scegli nel pannello, vedi _sceglieFondamentale.
+  bool _giocatoreTappabile(String? slot) {
     final servizio = _squadraAlServizio;
     if (servizio == Squadra.nostra) {
-      return slot == 'P1' ? Fondamentale.battuta : null;
+      return _fondamentaleGiudicatoRallyCorrente || slot == 'P1';
     }
-    if (servizio == Squadra.avversari) {
-      return Fondamentale.ricezione;
-    }
-    return null;
+    return servizio == Squadra.avversari;
+  }
+
+  // Fondamentale forzato dalla fase di gioco (battuta se battiamo noi,
+  // ricezione se servono loro), o null se va scelto nel pannello tra
+  // Alzata/Attacco/Muro/Difesa — quest'ultimo solo dopo che battuta o
+  // ricezione sono già state giudicate in questo scambio.
+  Fondamentale? _fondamentaleForzato() {
+    if (_fondamentaleGiudicatoRallyCorrente) return null;
+    return _squadraAlServizio == Squadra.nostra
+        ? Fondamentale.battuta
+        : Fondamentale.ricezione;
   }
 
   // Tap-target per il voto di un giocatore: fuori dalla modalità test, col
-  // set già iniziato e il fondamentale di questo scambio non ancora
-  // giudicato. `slot` è null per il libero (nessuno slot P1-P6 proprio).
+  // set già iniziato e questo slot tappabile nella fase corrente (vedi
+  // _giocatoreTappabile). `slot` è null per il libero (nessuno slot P1-P6
+  // proprio).
   VoidCallback? _tapHandlerPerGiocatore(Player player, {String? slot}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
-    if (_fondamentaleGiudicatoRallyCorrente) return null;
-    final fondamentale = _fondamentaleTappabile(slot);
-    if (fondamentale == null) return null;
+    if (!_giocatoreTappabile(slot)) return null;
+    final forzato = _fondamentaleForzato();
     return () => setState(() {
-      _votoInCorso = (giocatore: player, fondamentale: fondamentale);
+      _votoInCorso = (giocatore: player, fondamentale: forzato);
       // Il tipo di battuta selezionato resta "armato" da una battuta
       // all'altra dello stesso giocatore (spesso batte sempre nello stesso
       // modo); cambia battitore → si azzera, non si assume che batta uguale.
-      if (fondamentale == Fondamentale.battuta &&
+      if (forzato == Fondamentale.battuta &&
           _giocatoreTipoBattutaArmato != player.id) {
         _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
         _giocatoreTipoBattutaArmato = player.id;
+      }
+    });
+  }
+
+  // Sceglie il fondamentale (Alzata/Attacco/Muro/Difesa) per il giocatore già
+  // selezionato in fase "libera" (_votoInCorso.fondamentale == null) — tap su
+  // uno dei 4 bottoni del pannello, vedi _buildSceltaFondamentale.
+  void _sceglieFondamentale(Fondamentale fondamentale) {
+    final inCorso = _votoInCorso;
+    if (inCorso == null) return;
+    setState(() {
+      _votoInCorso = (giocatore: inCorso.giocatore, fondamentale: fondamentale);
+      // A differenza della battuta (di solito eseguita sempre nello stesso
+      // modo dallo stesso giocatore), il tipo di attacco varia spesso colpo
+      // su colpo: si azzera sempre, mai "armato" tra un attacco e l'altro.
+      if (fondamentale == Fondamentale.attacco) {
+        _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
       }
     });
   }
@@ -495,14 +524,34 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     });
   }
 
-  // Esito automatico del voto. Generale per i due fondamentali implementati:
-  // qualunque fondamentale con voto "errore" → punto avversario (battuta in
-  // rete/fuori, o ricezione non tenuta). Solo per la battuta, "perfetto" è
-  // anche un punto immediato (ace) — la ricezione non vince mai punti da
-  // sola, prepara solo la giocata successiva.
+  // Tipo di attacco opzionale (chips "Forte"/"Piazzata"/"Pallonetto" nel
+  // pannello voto, solo per fondamentale == attacco) — a differenza della
+  // battuta non resta mai "armato" tra un'azione e l'altra (vedi
+  // _sceglieFondamentale): il tipo di attacco varia spesso da un colpo
+  // all'altro, anche per lo stesso giocatore.
+  TipoAttacco _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
+
+  void _toggleTipoAttacco(TipoAttacco tipo) {
+    setState(() {
+      _tipoAttaccoSelezionato =
+          _tipoAttaccoSelezionato == tipo ? TipoAttacco.nonSpecificato : tipo;
+    });
+  }
+
+  // Esito automatico del voto, generale per tutti i fondamentali: qualunque
+  // fondamentale con voto "errore" → punto avversario (battuta in rete/
+  // fuori, ricezione non tenuta, attacco murato/fuori, muro sbagliato, ecc.).
+  // Solo battuta/attacco/muro hanno anche un punto immediato su "perfetto"
+  // (ace, schiacciata vincente, muro punto) — ricezione/alzata/difesa non
+  // vincono mai punti da sole, preparano solo la giocata successiva.
   EsitoPunto _esitoVoto(Fondamentale fondamentale, Voto voto) {
     if (voto == Voto.errore) return EsitoPunto.puntoAvversario;
-    if (fondamentale == Fondamentale.battuta && voto == Voto.perfetto) {
+    const direttoSePerfetto = {
+      Fondamentale.battuta,
+      Fondamentale.attacco,
+      Fondamentale.muro,
+    };
+    if (direttoSePerfetto.contains(fondamentale) && voto == Voto.perfetto) {
       return EsitoPunto.puntoNostro;
     }
     return EsitoPunto.nessuno;
@@ -511,16 +560,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Future<void> _registraVoto(Voto voto) async {
     final set = _setCorrente;
     final inCorso = _votoInCorso;
-    if (set == null || inCorso == null) return;
-    final esito = _esitoVoto(inCorso.fondamentale, voto);
-    final tipoEsecuzione = inCorso.fondamentale == Fondamentale.battuta
-        ? _tipoBattutaSelezionato.name
-        : 'nonSpecificato';
+    final fondamentale = inCorso?.fondamentale;
+    if (set == null || inCorso == null || fondamentale == null) return;
+    final esito = _esitoVoto(fondamentale, voto);
+    final tipoEsecuzione = switch (fondamentale) {
+      Fondamentale.battuta => _tipoBattutaSelezionato.name,
+      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
+      _ => 'nonSpecificato',
+    };
     await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
           giocatoreId: inCorso.giocatore.id,
-          fondamentale: inCorso.fondamentale,
+          fondamentale: fondamentale,
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
@@ -529,8 +581,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     setState(() {
       _votoInCorso = null;
       _fondamentaleGiudicatoRallyCorrente = esito == EsitoPunto.nessuno;
-      // Il tipo selezionato NON si azzera qui: resta "armato" se lo stesso
-      // giocatore batte di nuovo (vedi _tapHandlerPerGiocatore).
+      // I tipi selezionati NON si azzerano qui: restano "armati" se lo
+      // stesso giocatore ripete la stessa azione (vedi
+      // _tapHandlerPerGiocatore/_sceglieFondamentale).
     });
   }
 
@@ -854,9 +907,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
           ),
           // Altezza fissa (anche senza azioni) per non far "saltare" il
-          // campo sottostante quando il banner appare/scompare.
+          // campo sottostante quando il banner appare/scompare — 36 invece
+          // di 32 per lasciare spazio al simbolo del voto, più grande del
+          // resto della riga (vedi _buildBannerUltimaAzione).
           SizedBox(
-            height: 32,
+            height: 36,
             child: Center(child: _buildBannerUltimaAzione()),
           ),
           Expanded(
@@ -1076,7 +1131,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // AppColors.success del voto "perfetto" — un punto generico è più vicino
   // a "perfetto" che a "positivo") e rosso per gli errori — stessi colori
   // dei bottoni che li generano (vedi _buildQuickActionButton).
-  ({String testo, Color colore}) _descrizioneAzione(ScoutAction azione) {
+  ({String testo, String? voto, Color colore}) _descrizioneAzione(
+      ScoutAction azione) {
     final player = _playerPerId(azione.giocatoreId);
     final fondamentale = azione.fondamentale;
     final voto = azione.voto;
@@ -1085,8 +1141,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         fondamentale != null &&
         voto != null) {
       return (
-        testo:
-            '${player.numero} - ${player.cognome} - ${fondamentale.label} | ${voto.simbolo}',
+        testo: '${player.numero} - ${player.cognome} - ${fondamentale.label}',
+        voto: voto.simbolo,
         colore: CourtStyle.votoColor(voto),
       );
     }
@@ -1094,6 +1150,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final isPunto = azione.tipo == TipoAzione.puntoManuale;
     return (
       testo: '${isPunto ? "Punto" : "Errore"} $squadraLabel',
+      voto: null,
       colore: isPunto ? AppColors.success : Colors.red,
     );
   }
@@ -1108,13 +1165,32 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         color: descrizione.colore,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        descrizione.testo,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            descrizione.testo,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              height: 1.0,
+            ),
+          ),
+          if (descrizione.voto != null) ...[
+            const SizedBox(width: 10),
+            Text(
+              descrizione.voto!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                height: 1.0,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1236,7 +1312,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final tipo in riga) ...[
-                _buildTipoBattutaChip(tipo),
+                _buildTipoChip(
+                  label: tipo.label,
+                  selezionato: _tipoBattutaSelezionato == tipo,
+                  onTap: () => _toggleTipoBattuta(tipo),
+                ),
                 if (tipo != riga.last) const SizedBox(width: 6),
               ],
             ],
@@ -1247,10 +1327,38 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  Widget _buildTipoBattutaChip(TipoBattuta tipo) {
-    final selezionato = _tipoBattutaSelezionato == tipo;
+  // Riga unica con le 3 chips del tipo di attacco (opzionale — vedi
+  // _tipoAttaccoSelezionato), stessa meccanica/stile della griglia battuta.
+  Widget _buildGrigliaTipoAttacco() {
+    const tipi = [
+      TipoAttacco.forte,
+      TipoAttacco.piazzata,
+      TipoAttacco.pallonetto,
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final tipo in tipi) ...[
+          _buildTipoChip(
+            label: tipo.label,
+            selezionato: _tipoAttaccoSelezionato == tipo,
+            onTap: () => _toggleTipoAttacco(tipo),
+          ),
+          if (tipo != tipi.last) const SizedBox(width: 6),
+        ],
+      ],
+    );
+  }
+
+  // Chip generica usata sia dalla griglia tipo battuta sia da quella tipo
+  // attacco — stesso stile, stato di selezione e callback parametrici.
+  Widget _buildTipoChip({
+    required String label,
+    required bool selezionato,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () => _toggleTipoBattuta(tipo),
+      onTap: onTap,
       child: Container(
         width: 64,
         height: 38,
@@ -1264,7 +1372,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           ),
         ),
         child: Text(
-          tipo.label,
+          label,
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -1272,6 +1380,58 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             color: Colors.white,
             fontSize: 10,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Bottoni di scelta del fondamentale (Alzata/Attacco/Muro/Difesa), mostrati
+  // nel pannello voto quando _votoInCorso.fondamentale è ancora null (fase
+  // "libera", dopo che battuta/ricezione sono già state giudicate in questo
+  // scambio) — vedi _sceglieFondamentale.
+  Widget _buildSceltaFondamentale() {
+    const opzioni = [
+      Fondamentale.alzata,
+      Fondamentale.attacco,
+      Fondamentale.muro,
+      Fondamentale.difesa,
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final f in opzioni) ...[
+          _buildFondamentaleButton(f),
+          if (f != opzioni.last) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFondamentaleButton(Fondamentale fondamentale) {
+    return GestureDetector(
+      onTap: () => _sceglieFondamentale(fondamentale),
+      child: Container(
+        width: 110,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.brandPrimary,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(120),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          fondamentale.label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
         ),
       ),
@@ -1344,44 +1504,54 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ],
                     ),
                   ),
-                  Text(
-                    inCorso.fondamentale.label,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  if (inCorso.fondamentale == Fondamentale.battuta) ...[
-                    const SizedBox(height: 8),
-                    _buildGrigliaTipoBattuta(),
-                  ],
-                  const SizedBox(height: 12),
-                  for (final voto in Voto.values) ...[
-                    GestureDetector(
-                      onTap: () => _registraVoto(voto),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: CourtStyle.votoColor(voto),
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(120),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                  if (inCorso.fondamentale == null) ...[
+                    const SizedBox(height: 4),
+                    _buildSceltaFondamentale(),
+                  ] else ...[
+                    Text(
+                      inCorso.fondamentale!.label,
+                      style: const TextStyle(
+                          color: Colors.white54, fontSize: 12),
+                    ),
+                    if (inCorso.fondamentale == Fondamentale.battuta) ...[
+                      const SizedBox(height: 8),
+                      _buildGrigliaTipoBattuta(),
+                    ],
+                    if (inCorso.fondamentale == Fondamentale.attacco) ...[
+                      const SizedBox(height: 8),
+                      _buildGrigliaTipoAttacco(),
+                    ],
+                    const SizedBox(height: 12),
+                    for (final voto in Voto.values) ...[
+                      GestureDetector(
+                        onTap: () => _registraVoto(voto),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: CourtStyle.votoColor(voto),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(120),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            voto.simbolo,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
                             ),
-                          ],
-                        ),
-                        child: Text(
-                          voto.simbolo,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 22,
                           ),
                         ),
                       ),
-                    ),
-                    if (voto != Voto.values.last) const SizedBox(height: 12),
+                      if (voto != Voto.values.last) const SizedBox(height: 12),
+                    ],
                   ],
                 ],
               ),
@@ -1564,10 +1734,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // (coordinate schermo assolute, sempre dentro i suoi limiti), sovrapposto
   // esattamente al token visibile. Solo quando battiamo noi: in ricezione
   // P1 è una posizione normale in campo, già tappabile dal proprio token
-  // (qui sarebbe solo un overlay ridondante).
+  // (qui sarebbe solo un overlay ridondante) — stesso motivo una volta che
+  // la battuta è già stata giudicata in questo scambio
+  // (_fondamentaleGiudicatoRallyCorrente): il battitore è rientrato in
+  // posizione di attacco, di nuovo coperto dal proprio token normale.
   List<Widget> _buildBattitoreTapCatcher(
       BoxConstraints constraints, double courtWidth) {
     if (_squadraAlServizio != Squadra.nostra) return const [];
+    if (_fondamentaleGiudicatoRallyCorrente) return const [];
     final player = _currentAssignments['P1'];
     if (player == null) return const [];
     final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
