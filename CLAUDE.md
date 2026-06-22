@@ -475,11 +475,18 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 - Barra superiore fissa: `Container` alto 60dp, colore `Color(0xFF0D2738)`,
   `Stack` con due livelli: sotto il titolo partita (centrato, vedi `_matchTitle`
   sotto), sopra una `Row` con bottone "menu" (`Icons.menu`, apre il drawer di
-  utilità) a **sinistra** e bottone "indietro" (`Icons.arrow_back`,
-  `Navigator.pop`) a **destra** (non centrato come un'AppBar standard —
+  utilità) a **sinistra** e bottone "annulla" (`Icons.undo`,
+  `_annullaUltimaAzione`) a **destra** (non centrato come un'AppBar standard —
   scelta deliberata per ergonomia in landscape). `Stack(alignment:
   Alignment.bottomCenter)`: sia il titolo sia la riga di icone sono ancorati
   vicino al **bordo inferiore** della barra, non centrati verticalmente.
+  - **Bottone "indietro" spostato nel drawer di utilità** (voce "Indietro",
+    vedi sotto): quella posizione fissa a destra è usata molto più spesso
+    dall'undo durante la presa dati che dal back (azione rara) — libera
+    anche un tap diretto e facilmente raggiungibile per l'azione più
+    frequente, a costo di un tap in più (apri il drawer) per uscire dallo
+    schermo. Decisione esplicita dello sviluppatore, non un effetto
+    collaterale.
   - **`_matchTitle`**: "Nome squadra – Nome avversario" (o "AVVERSARI" se
     `match.avversario` non è impostato). L'ordine **non dipende da
     casa/trasferta**: di default la nostra squadra è sempre a sinistra, e
@@ -515,6 +522,52 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       ricezione→battuta sulla rotazione successiva (`_rotationSteps--`, cioè
       P1→P6→P5→P4→P3→P2→P1...). Sequenza completa: 12 tap per girare tutte
       e 6 le rotazioni nelle due fasi.
+  - **"Indietro"** (`ListTile`, icona `Icons.arrow_back`, in fondo alla
+    lista dopo un `Divider`): spostato qui dalla barra superiore (vedi
+    sopra) per lasciare il posto all'undo. **Non** un semplice
+    `Navigator.pop(context)`: il `Drawer` registra una "local history entry"
+    sulla route corrente (è così che il tasto back di sistema chiude prima
+    il drawer e solo dopo torna indietro) — chiamare `Navigator.pop` mentre
+    il drawer è aperto consuma quella entry e chiude SOLO il drawer, non
+    naviga indietro (bug riscontrato: il bottone "non faceva nulla" perché
+    in realtà chiudeva il drawer, già aperto, in modo impercettibile).
+    Soluzione: catturare `Navigator.of(context)` **prima** di chiudere
+    esplicitamente il drawer (`_scaffoldKey.currentState?.closeDrawer()`),
+    poi chiamare `.pop()` sul Navigator già catturato — quel pop non passa
+    più dalla local history entry (già consumata dalla chiusura esplicita)
+    e naviga davvero alla schermata precedente.
+- **Undo** (IMPLEMENTATO): bottone "annulla" nella barra superiore (vedi
+  sopra). `_puoAnnullare` (bool): attivo solo con `_setCorrente != null`,
+  fuori dalla modalità test (che non scrive azioni reali) e con almeno
+  un'azione nel set (`_ultimaAzione != null`) — altrimenti l'`IconButton` è
+  disabilitato (icona grigia di default Material, nessuno stile custom).
+  - **Conferma prima dell'undo** (`_confermaAnnullaUltimaAzione`,
+    IMPLEMENTATA — l'azione è irreversibile, niente "redo"): `AlertDialog`
+    con la descrizione dell'azione che verrebbe eliminata (riusa
+    `_descrizioneAzione`, stesso testo/voto del banner ultima azione) +
+    bottoni "Annulla" (chiude il dialog, nessun effetto) / "Conferma"
+    (chiama `_annullaUltimaAzione()`). Il bottone "annulla" in barra
+    superiore chiama questo metodo, non `_annullaUltimaAzione()`
+    direttamente.
+  - **`_annullaUltimaAzione()`**: chiama
+    `ScoutActionRepository.annullaUltimaAzione(setId)` — elimina la riga con
+    `ordine` massimo nel set (niente logica di "inversione" manuale:
+    punteggio/servizio/rotazione sono derivati da `ricalcolaStato()` sugli
+    eventi rimanenti, quindi si aggiornano da soli quando lo
+    `scoutAzioniStreamProvider` notifica la modifica). Chiude anche un
+    eventuale pannello voto aperto (`_votoInCorso = null`) — coerente con lo
+    stesso comportamento dei bottoni rapidi.
+  - **`_fondamentaleGiudicatoRallyCorrente` va aggiornato a mano**: a
+    differenza di punteggio/rotazione, questo flag è stato locale (non
+    derivato dallo stream, vedi sopra), quindi dopo l'undo va ricalcolato in
+    base alla **nuova** ultima azione rimasta nel set (non a quella appena
+    eliminata) — altrimenti resterebbe quello dell'azione cancellata.
+    `_annullaUltimaAzione()` rilegge l'ultima azione rimasta via
+    `ScoutActionRepository.ultimaAzione(setId)` (stessa query usata
+    internamente da `_registraAzione` per il calcolo del `rallyId`,
+    estratta in un metodo pubblico riutilizzabile) e imposta il flag a
+    `true` solo se quella riga ha `esitoPunto == nessuno` (`false`,
+    compreso il caso "nessuna azione rimasta", se il set torna vuoto).
 - `ScoutScreen` riceve da `FormationConfigScreen`: `match`, `team`,
   `palleggiatoreSlot` (slot P1–P6 dove si trova il palleggiatore) e
   `assignments` (`Map<String, Player>` — la formazione completa, usata per
@@ -1154,8 +1207,16 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           rotazione in quel punto della sequenza (oggi cambia solo come
           effetto derivato di un sideout su `esitoPunto`). Dettagli di
           schema (nuovo `TipoAzione`? campo dedicato?) da decidere.
-  - [ ] Undo (elimina ultima azione per `ordine`, ricalcola) — nessun bottone
-        in UI per ora.
+  - [x] Undo: bottone (icona `Icons.undo`) nella barra superiore di
+        `ScoutScreen`, al posto del bottone "indietro" (spostato nel drawer
+        di utilità, vedi "Interfaccia di scout" — libera quella posizione
+        fissa e comoda per un'azione usata molto più spesso durante la
+        presa dati). `_annullaUltimaAzione()` →
+        `ScoutActionRepository.annullaUltimaAzione(setId)` elimina la riga
+        con `ordine` massimo; punteggio/servizio/rotazione si ricalcolano da
+        soli (derivati dagli eventi rimanenti). Disabilitato
+        (`_puoAnnullare`) prima dell'inizio del set, in modalità test, o se
+        il set non ha ancora azioni.
   - [x] Riprendi partita (parziale): se `match.stato == inCorso`,
         `ScoutScreen.initState` non richiede più "Chi serve per primo?" —
         carica direttamente il `MatchSet` esistente con

@@ -806,6 +806,70 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     });
   }
 
+  // Undo: attivo solo col set iniziato, fuori dalla modalità test (che non
+  // scrive azioni reali) e con almeno un'azione da annullare.
+  bool get _puoAnnullare =>
+      !_testModeEnabled && _setCorrente != null && _ultimaAzione != null;
+
+  // Dialog di conferma prima dell'undo vero e proprio (irreversibile: una
+  // volta eliminata l'azione non c'è un "redo") — mostra una descrizione
+  // dell'azione che verrebbe eliminata, riusando _descrizioneAzione (stesso
+  // testo/voto del banner ultima azione).
+  Future<void> _confermaAnnullaUltimaAzione() async {
+    final azione = _ultimaAzione;
+    if (azione == null) return;
+    final descrizione = _descrizioneAzione(azione);
+    final testoAzione = descrizione.voto == null
+        ? descrizione.testo
+        : '${descrizione.testo} ${descrizione.voto}';
+    final confermato = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Annullare l\'ultima azione?',
+          style: TextStyle(fontSize: 14),
+        ),
+        content: Text(
+          testoAzione,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Conferma'),
+          ),
+        ],
+      ),
+    );
+    if (confermato == true) await _annullaUltimaAzione();
+  }
+
+  // Elimina l'azione con `ordine` massimo nel set (vedi
+  // ScoutActionRepository.annullaUltimaAzione) — punteggio/servizio/
+  // rotazione si ricalcolano da soli perché _statoSetReale osserva lo stesso
+  // stream. `_fondamentaleGiudicatoRallyCorrente` non è derivato dallo
+  // stream (vedi sopra) e va invece aggiornato a mano in base alla nuova
+  // ultima azione rimasta nel set, altrimenti resterebbe quello dell'azione
+  // appena annullata.
+  Future<void> _annullaUltimaAzione() async {
+    final set = _setCorrente;
+    if (set == null) return;
+    final repo = ref.read(scoutActionRepositoryProvider);
+    await repo.annullaUltimaAzione(set.id);
+    if (!mounted) return;
+    final nuovaUltima = await repo.ultimaAzione(set.id);
+    if (!mounted) return;
+    setState(() {
+      _votoInCorso = null;
+      _fondamentaleGiudicatoRallyCorrente =
+          nuovaUltima?.esitoPunto == EsitoPunto.nessuno;
+    });
+  }
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -885,9 +949,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                           ),
                           const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.arrow_back,
-                                color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.undo, color: Colors.white),
+                            onPressed:
+                                _puoAnnullare
+                                    ? _confermaAnnullaUltimaAzione
+                                    : null,
                           ),
                         ],
                       ),
@@ -1071,6 +1137,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               activeTrackColor: const Color(0xFF00008A),
               inactiveThumbColor: Colors.white70,
               inactiveTrackColor: Colors.white24,
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              leading: const Icon(Icons.arrow_back, color: Colors.white),
+              title: const Text('Indietro',
+                  style: TextStyle(color: Colors.white)),
+              // Il Drawer registra una "local history entry" sulla route:
+              // mentre è aperto, Navigator.pop(context) chiude SOLO il
+              // drawer (consuma quella entry) invece di tornare alla
+              // schermata precedente. Si cattura il Navigator prima di
+              // chiudere il drawer esplicitamente, poi si fa il pop vero
+              // sul Navigator catturato.
+              onTap: () {
+                final navigator = Navigator.of(context);
+                _scaffoldKey.currentState?.closeDrawer();
+                navigator.pop();
+              },
             ),
           ],
         ),

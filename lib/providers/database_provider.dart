@@ -178,6 +178,25 @@ class ScoutActionRepository {
         .watch();
   }
 
+  /// Azione con `ordine` massimo del set, o null se non ce ne sono ancora.
+  Future<ScoutAction?> ultimaAzione(int setId) {
+    return (_db.select(_db.scoutActions)
+          ..where((a) => a.setId.equals(setId))
+          ..orderBy([(a) => OrderingTerm.desc(a.ordine)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Undo: elimina l'azione con `ordine` massimo nel set. Punteggio/
+  /// rotazione si ricalcolano da soli (derivati dagli eventi rimanenti via
+  /// ricalcolaStato()) — nessuna logica di "inversione" manuale.
+  Future<void> annullaUltimaAzione(int setId) async {
+    final ultima = await ultimaAzione(setId);
+    if (ultima == null) return;
+    await (_db.delete(_db.scoutActions)..where((a) => a.id.equals(ultima.id)))
+        .go();
+  }
+
   /// Registra un'azione dei bottoni rapidi (+1 Noi/+1 Loro/Errore): nessun
   /// giocatore/fondamentale/voto, solo squadra + tipo + esito.
   Future<void> registraAzioneRapida({
@@ -239,11 +258,7 @@ class ScoutActionRepository {
     // Se l'ultima azione del set è ancora "in corso" (esitoPunto = nessuno,
     // es. una battuta non terminale), questa azione fa parte dello stesso
     // scambio — stesso rallyId. Altrimenti inizia un nuovo scambio.
-    final ultima = await (_db.select(_db.scoutActions)
-          ..where((a) => a.setId.equals(setId))
-          ..orderBy([(a) => OrderingTerm.desc(a.ordine)])
-          ..limit(1))
-        .getSingleOrNull();
+    final ultima = await ultimaAzione(setId);
     final rallyId = (ultima != null && ultima.esitoPunto == EsitoPunto.nessuno)
         ? ultima.rallyId
         : ordine;
