@@ -210,22 +210,37 @@ cascade su Players). Una riga per posizione (6 righe per set, popolate dalla
 formazione confermata).
 
 **`MatchSetRepository`** (`lib/providers/database_provider.dart`):
-- `creaPrimoSet(matchId, servizioIniziale)`: inserisce il `MatchSet` numero 1.
+- `caricaSet(matchId, numero)`: il set con quel numero, o `null` se non
+  esiste ancora — ordina per `id` decrescente e prende il primo invece di
+  `getSingleOrNull()` (tollera righe duplicate già nel DB senza lanciare
+  "Bad state: Too many elements", prende la più recente — bug reale
+  riscontrato e corretto, vedi sotto).
+- `creaSet(matchId, numero, servizioIniziale)`: inserisce un `MatchSet` con
+  quel numero (non più solo il numero 1 — vale anche per "Prossimo Set" in
+  `EndSetScreen`, che incrementa `VolleyMatch.setCorrente` prima di arrivare
+  qui). Idempotente: se un set con quel numero esiste già, lo restituisce
+  invece di duplicarlo.
 - `salvaRotazioneIniziale(setId, assignments)`: estrae solo gli slot
   `P1`..`P6` dalla mappa `assignments` di `LineupScreen`/`FormationConfigScreen`
   (ignora `L1`/`L2`, il libero non ha una posizione di rotazione) e inserisce
   le 6 righe `Rotation` con `squadra: Squadra.nostra`.
 
 **Dialog "Chi serve per primo?" in `ScoutScreen`**: `ScoutScreen` è ora
-`ConsumerStatefulWidget` (serve `ref` per i repository). In `initState`, se
-`widget.match.stato != StatoPartita.inCorso`, dopo il primo frame
-(`addPostFrameCallback`) mostra un `AlertDialog` non dismissibile con due
-bottoni (nome nostra squadra / nome avversario o "Avversari"). Alla scelta,
-`_iniziaSet()`: porta `VolleyMatch.stato` a `inCorso`, crea il `MatchSet` e
-la rotazione iniziale, salva il `MatchSet` risultante in `_setCorrente`
-(stato locale — verrà usato dal prossimo pezzo, la registrazione delle
-azioni). Se la partita è già `inCorso` (ripresa, quando esisterà quel
-flusso), il dialog non viene mostrato.
+`ConsumerStatefulWidget` (serve `ref` per i repository). In `initState`,
+`_avviaOCaricaSet()` prova a caricare il set numero `match.setCorrente`
+(`MatchSetRepository.caricaSet`): se esiste già lo riprende direttamente
+(ripresa di una partita in corso, o ritorno dopo "Prossimo Set" con il set
+già creato); se non esiste — sia il primissimo set della partita (`stato`
+ancora `configurazione`), sia un nuovo set dopo "Prossimo Set" (`stato` già
+`inCorso`, ma `setCorrente` incrementato e quel set non ancora creato) —
+mostra, dopo il primo frame (`addPostFrameCallback`), un `AlertDialog` non
+dismissibile con due bottoni (nome nostra squadra / nome avversario o
+"Avversari"). **Non distingue più i due casi guardando `stato`** (vecchia
+logica, rimossa: causava un set "fantasma" mai creato per i set successivi
+al primo). Alla scelta, `_iniziaSet()`: porta `VolleyMatch.stato` a
+`inCorso` (idempotente se già tale), crea il `MatchSet` (numero
+`match.setCorrente`) e la rotazione iniziale, salva il `MatchSet`
+risultante in `_setCorrente` (stato locale).
 
 ### Da implementare nelle fasi successive (modello previsto, non ancora a DB)
 
@@ -381,7 +396,7 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 - **HomeScreen**: layout landscape con area principale a sinistra (vuota per ora)
   e colonna di bottoni a destra: "Setup squadre" e "Gestione partite".
 - **Flusso scout** (navigabile end-to-end fino al setup grafico di `ScoutScreen`):
-  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `FormationConfigScreen` → [Inizia scout] → `ScoutScreen`
+  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `FormationConfigScreen` → [Inizia scout] → `ScoutScreen` → [drawer "Fine"] → `EndSetScreen` → [Prossimo Set] → `LineupScreen` (da capo, set successivo) **oppure** [Fine Partita] → `MatchesScreen`
   - Il `teamId` viene salvato sulla partita nel DB al momento della selezione squadra.
   - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
     automaticamente via stream al ritorno.
@@ -532,6 +547,12 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       ricezione→battuta sulla rotazione successiva (`_rotationSteps--`, cioè
       P1→P6→P5→P4→P3→P2→P1...). Sequenza completa: 12 tap per girare tutte
       e 6 le rotazioni nelle due fasi.
+  - **"Fine"** (`ListTile`, icona `Icons.flag`, subito sopra "Indietro",
+    stesso `Divider`): apre `EndSetScreen` (vedi Modello dati e "Fasi di
+    sviluppo" per i dettagli di fine set/fine partita) — un `Navigator.push`,
+    non un `pop`, quindi nessun problema di local history entry del Drawer
+    (quel problema riguarda solo il pop, vedi sotto): basta chiudere il
+    drawer per pulizia visiva prima di navigare.
   - **"Indietro"** (`ListTile`, icona `Icons.arrow_back`, in fondo alla
     lista dopo un `Divider`): spostato qui dalla barra superiore (vedi
     sopra) per lasciare il posto all'undo. **Non** un semplice
@@ -1176,7 +1197,7 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         enum `TipoAzione`/`Fondamentale`/`TipoAttacco`/`TipoBattuta` in
         `enums.dart`.
   - [x] Avvio del set: dialog "Chi serve per primo?" in `ScoutScreen`,
-        `MatchSetRepository.creaPrimoSet()` + `salvaRotazioneIniziale()`
+        `MatchSetRepository.creaSet()` + `salvaRotazioneIniziale()`
         (vedi Modello dati). `VolleyMatch.stato` passa a `inCorso`.
   - [x] `ScoutActionRepository` + bottoni rapidi (Errore/Punto nostro e
         avversario) collegati a `ricalcolaStato()` su eventi reali —
@@ -1247,17 +1268,48 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         soli (derivati dagli eventi rimanenti). Disabilitato
         (`_puoAnnullare`) prima dell'inizio del set, in modalità test, o se
         il set non ha ancora azioni.
-  - [x] Riprendi partita (parziale): se `match.stato == inCorso`,
-        `ScoutScreen.initState` non richiede più "Chi serve per primo?" —
-        carica direttamente il `MatchSet` esistente con
-        `MatchSetRepository.caricaSet(matchId, match.setCorrente)`
-        (`_riprendiSet()`). **Limite noto**: `widget.assignments` viene
-        comunque dalla formazione appena riselezionata in `LineupScreen`/
+  - [x] Riprendi partita (parziale): `ScoutScreen.initState` →
+        `_avviaOCaricaSet()` carica direttamente il `MatchSet` esistente con
+        `MatchSetRepository.caricaSet(matchId, match.setCorrente)` se c'è
+        già, senza richiedere di nuovo "Chi serve per primo?" (vedi Modello
+        dati per i dettagli, inclusa la generalizzazione a "Prossimo Set").
+        **Limite noto**: `widget.assignments` viene comunque dalla
+        formazione appena riselezionata in `LineupScreen`/
         `FormationConfigScreen` (non dalla `Rotation` persistita) — coerente
         solo se si riseleziona la stessa formazione. Manca ancora il
         bypass di `LineupScreen`/`FormationConfigScreen` per ricostruire
         `assignments`/`palleggiatoreSlot`/`ruoloCambiLibero` dalla `Rotation`
         già a DB quando si riapre una partita `inCorso` da `MatchesScreen`.
+  - [x] Fine set / fine partita: voce "Fine" nel drawer di utilità di
+        `ScoutScreen` (icona `Icons.flag`, sopra "Indietro" — push non pop,
+        quindi nessun problema di local history entry del Drawer) apre
+        `EndSetScreen` (`lib/screens/live/end_set_screen.dart`, NUOVA
+        schermata dedicata, **non** dentro `ScoutScreen` — in Fase 4 potrà
+        diventare la pagina delle statistiche del set, oggi resta un
+        placeholder con AppBar (back automatico) e due bottoni centrali:
+        - **"Prossimo Set"**: dialog di conferma → incrementa
+          `VolleyMatch.setCorrente` (`MatchRepository.updateMatch`) → push di
+          una `LineupScreen` **vuota** (nessuna formazione precompilata:
+          deciso esplicitamente — in pallavolo si può cambiare
+          rotazione/formazione tra un set e l'altro). Il punteggio del nuovo
+          set è automaticamente 0-0: è un `MatchSet` con `id` diverso, niente
+          logica di reset manuale (stesso principio event-sourced di
+          sempre). Il vecchio stack (vecchia `LineupScreen`/
+          `FormationConfigScreen`/`ScoutScreen`/`EndSetScreen`) resta sotto
+          nello stack di navigazione invece di essere rimosso — scelta
+          deliberata per semplicità (al massimo ~5 set a partita, crescita
+          dello stack limitata e accettabile).
+        - **"Fine Partita"**: dialog di conferma → `VolleyMatch.stato` a
+          `terminata` → `Navigator.popUntil(context,
+          ModalRoute.withName('/matches'))`, robusto a quante schermate si
+          siano accumulate per i set precedenti. Richiede che la route di
+          `MatchesScreen` sia nominata: `main.dart` ora passa
+          `MaterialPageRoute(settings: RouteSettings(name: '/matches'), ...)`
+          quando la apre da `HomeScreen`.
+        - **Salvataggio dei punteggi (set vinti, punteggio finale)**: non
+          ancora deciso, discussione rimandata — oggi "Fine Partita" si
+          limita a cambiare `stato`, nessun dato di punteggio aggregato
+          viene salvato.
   - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
@@ -1275,7 +1327,10 @@ libero) → `ScoutScreen` (setup grafico completo + bottoni rapidi funzionanti +
 flusso a 3 tocchi su tutti i fondamentali tranne `errore` — battuta/ricezione
 forzati dalla fase di gioco, alzata/attacco/muro/difesa a scelta libera dopo:
 punteggio, chi serve e rotazione sono derivati in tempo reale dagli eventi
-`ScoutAction` persistiti, vedi Modello dati).
+`ScoutAction` persistiti, vedi Modello dati) → drawer "Fine" → `EndSetScreen`
+("Prossimo Set" ripristina la scelta formazione da zero per il set
+successivo, "Fine Partita" torna a `MatchesScreen` — salvataggio dei
+punteggi ancora da decidere).
 Il prossimo passo è il `CustomPainter` per le traiettorie (battuta/attacco)
 via drag.
 

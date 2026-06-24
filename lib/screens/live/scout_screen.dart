@@ -8,6 +8,7 @@ import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import 'end_set_screen.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -648,22 +649,28 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.match.stato == StatoPartita.inCorso) {
-      // Ripresa: il set esiste già (creato la prima volta che si è risposto
-      // al dialog), non richiederlo di nuovo.
-      WidgetsBinding.instance.addPostFrameCallback((_) => _riprendiSet());
-    } else {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _chiediServizioIniziale());
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _avviaOCaricaSet());
   }
 
-  Future<void> _riprendiSet() async {
+  // Punto di ingresso unico per l'avvio dello schermo: provo a caricare il
+  // set numero `match.setCorrente`. Se esiste già (ripresa di una partita
+  // in corso) lo riprendo senza richiedere di nuovo "chi serve per primo".
+  // Se non esiste ancora — sia il primissimo set della partita (stato
+  // ancora `configurazione`), sia un nuovo set dopo "Prossimo Set" in
+  // `EndSetScreen` (stato già `inCorso`, ma `setCorrente` è stato
+  // incrementato a monte e quel set non è stato ancora creato) — lo
+  // richiedo e lo creo: stessa logica per entrambi i casi, non serve più
+  // distinguerli guardando `stato`.
+  Future<void> _avviaOCaricaSet() async {
     final setRepo = ref.read(matchSetRepositoryProvider);
-    final set =
+    final esistente =
         await setRepo.caricaSet(widget.match.id, widget.match.setCorrente);
-    if (!mounted || set == null) return;
-    setState(() => _setCorrente = set);
+    if (!mounted) return;
+    if (esistente != null) {
+      setState(() => _setCorrente = esistente);
+    } else {
+      await _chiediServizioIniziale();
+    }
   }
 
   Future<void> _chiediServizioIniziale() async {
@@ -698,10 +705,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final matchRepo = ref.read(matchRepositoryProvider);
     final setRepo = ref.read(matchSetRepositoryProvider);
 
+    // `setCorrente` non si tocca qui: è già quello giusto, impostato alla
+    // creazione della partita (1) o incrementato da EndSetScreen prima di
+    // arrivare a questa schermata ("Prossimo Set").
     await matchRepo.updateMatch(
-      widget.match.copyWith(stato: StatoPartita.inCorso, setCorrente: 1),
+      widget.match.copyWith(stato: StatoPartita.inCorso),
     );
-    final set = await setRepo.creaPrimoSet(widget.match.id, servizioIniziale);
+    final set = await setRepo.creaSet(
+        widget.match.id, widget.match.setCorrente, servizioIniziale);
     await setRepo.salvaRotazioneIniziale(set.id, widget.assignments);
 
     if (!mounted) return;
@@ -1150,6 +1161,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               inactiveTrackColor: Colors.white24,
             ),
             const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.white),
+              title: const Text('Fine', style: TextStyle(color: Colors.white)),
+              // A differenza di "Indietro" qui si fa un push, non un pop:
+              // niente local history entry da gestire, basta chiudere il
+              // drawer per pulizia visiva prima di navigare.
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        EndSetScreen(match: widget.match, team: widget.team),
+                  ),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.arrow_back, color: Colors.white),
               title: const Text('Indietro',

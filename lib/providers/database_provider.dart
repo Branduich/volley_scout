@@ -107,12 +107,10 @@ class MatchSetRepository {
   MatchSetRepository(this._db);
   final AppDatabase _db;
 
-  /// Carica il set esistente di una partita già in corso (ripresa: la
-  /// partita ha `stato == inCorso`, quindi il dialog "Chi serve per primo?"
-  /// non va richiesto di nuovo) — null se non esiste (dato incoerente, non
-  /// dovrebbe succedere se `stato == inCorso`). Ordina per `id` decrescente
-  /// e prende il primo invece di `getSingleOrNull()`: tollera eventuali
-  /// righe duplicate già presenti nel DB (vedi `creaPrimoSet`) senza
+  /// Carica il set numero `numero` di una partita, se esiste — null se non
+  /// esiste ancora (va richiesto/creato, vedi `creaSet`). Ordina per `id`
+  /// decrescente e prende il primo invece di `getSingleOrNull()`: tollera
+  /// eventuali righe duplicate già presenti nel DB (vedi `creaSet`) senza
   /// lanciare "Bad state: Too many elements" — prende la più recente.
   Future<MatchSet?> caricaSet(int matchId, int numero) {
     return (_db.select(_db.matchSets)
@@ -122,18 +120,21 @@ class MatchSetRepository {
         .getSingleOrNull();
   }
 
-  /// Crea il primo set di una partita, registrando chi serve per primo
-  /// (input necessario a ricalcolaStato(), non derivabile dagli eventi).
-  /// Idempotente: se un set numero 1 esiste già per questa partita (es.
-  /// doppia chiamata accidentale), lo restituisce invece di inserirne un
-  /// duplicato.
-  Future<MatchSet> creaPrimoSet(int matchId, Squadra servizioIniziale) async {
-    final esistente = await caricaSet(matchId, 1);
+  /// Crea un set della partita (numero generico, non solo il primo: vale
+  /// anche per "Prossimo Set" in `EndSetScreen`, che incrementa
+  /// `VolleyMatch.setCorrente` prima di arrivare qui), registrando chi
+  /// serve per primo (input necessario a ricalcolaStato(), non derivabile
+  /// dagli eventi). Idempotente: se un set con questo numero esiste già per
+  /// questa partita (es. doppia chiamata accidentale), lo restituisce
+  /// invece di inserirne un duplicato.
+  Future<MatchSet> creaSet(
+      int matchId, int numero, Squadra servizioIniziale) async {
+    final esistente = await caricaSet(matchId, numero);
     if (esistente != null) return esistente;
     final id = await _db.into(_db.matchSets).insert(
           MatchSetsCompanion.insert(
             matchId: matchId,
-            numero: 1,
+            numero: numero,
             squadraServizioIniziale: servizioIniziale,
           ),
         );

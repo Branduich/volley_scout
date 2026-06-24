@@ -73,7 +73,10 @@ class HomeScreen extends StatelessWidget {
                     label: 'Gestione partite',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const MatchesScreen()),
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/matches'),
+                        builder: (_) => const MatchesScreen(),
+                      ),
                     ),
                   ),
                 ],
