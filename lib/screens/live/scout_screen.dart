@@ -50,13 +50,24 @@ const Map<String, Offset> _kAttackPositions = {
   'P6': Offset(200, 300),
 };
 
-// Quando battiamo noi, chi è in P1 esce dal campo per servire: X = -60,
-// cioè il bordo del campo (x=0, la linea di fondo) meno 60 — non l'X della
-// posizione di attacco meno 60. Il battitore deve stare FUORI dal campo
-// (X negativa), non semplicemente più indietro ma ancora dentro. Stessa Y
-// della posizione di attacco. Passa comunque per _displayPosition(), quindi
-// si specchia correttamente anche ripartendo da destra.
-const Offset _kBattutaP1Position = Offset(-60, 470);
+// Quando battiamo noi, chi è in P1 esce dal campo per servire: X = -70,
+// cioè il bordo del campo (x=0, la linea di fondo) meno 70 (era -60 con
+// token più piccoli, vedi _kTokenSizeScale — aumentato per mantenere lo
+// stesso margine visivo di distacco dal campo) — non l'X della posizione di
+// attacco meno 70. Il battitore deve stare FUORI dal campo (X negativa), non
+// semplicemente più indietro ma ancora dentro. Stessa Y della posizione di
+// attacco. Passa comunque per _displayPosition(), quindi si specchia
+// correttamente anche ripartendo da destra.
+const Offset _kBattutaP1Position = Offset(-70, 470);
+
+// Fattore di scala applicato al raggio "base" (ch/20) di tutti i token
+// giocatore — token su campo (_buildPlayerToken), libero in campo/panchina
+// e battitore fuori campo (_swapTokenRadius, stesso Stack esterno) e L2
+// fisso ad angolo (_buildLiberoTokens). Le tre formule derivano tutte dallo
+// stesso raggio "base" e vanno scalate insieme, altrimenti i token
+// finiscono disallineati in dimensione tra Stack interno ed esterno.
+// Aumentato da 1.0 dopo test su tablet fisico (token troppo piccoli).
+const double _kTokenSizeScale = 1.4;
 
 // Posizioni di ricezione (battuta avversaria), per rotazione (chiave = slot
 // del palleggiatore, come _currentSlot) e per RUOLO (non per slot fisso —
@@ -84,7 +95,7 @@ const Map<String, Map<String, Offset>> _kDefensePositionsCentrali = {
   },
   'P3': {
     'P': Offset(552, 356),
-    'C2': Offset(480, 384),
+    'C2': Offset(470, 384),
     'O': Offset(84, 416),
     'S1': Offset(240, 114),
     'S2': Offset(240, 482),
@@ -92,8 +103,8 @@ const Map<String, Map<String, Offset>> _kDefensePositionsCentrali = {
   },
   'P4': {
     'P': Offset(552, 50),
-    'C2': Offset(482, 76),
-    'O': Offset(188, 542),
+    'C2': Offset(460, 76),
+    'O': Offset(180, 550),
     'S1': Offset(166, 296),
     'S2': Offset(240, 114),
     'Libero': Offset(240, 482),
@@ -111,7 +122,7 @@ const Map<String, Map<String, Offset>> _kDefensePositionsCentrali = {
     'S2': Offset(240, 114),
     'S1': Offset(240, 482),
     'Libero': Offset(166, 296),
-    'P': Offset(498, 314),
+    'P': Offset(470, 314),
     'C1': Offset(438, 542),
   },
 };
@@ -139,7 +150,7 @@ const Map<String, Map<String, Offset>> _kDefensePositionsSchiacciatori = {
   },
   'P3': {
     'P': Offset(552, 356),
-    'C2': Offset(480, 384),
+    'C2': Offset(470, 384),
     'O': Offset(84, 416),
     'S1': Offset(240, 114),
     'Libero': Offset(240, 482),
@@ -147,8 +158,8 @@ const Map<String, Map<String, Offset>> _kDefensePositionsSchiacciatori = {
   },
   'P4': {
     'P': Offset(552, 50),
-    'C2': Offset(482, 76),
-    'O': Offset(188, 542),
+    'C2': Offset(460, 76),
+    'O': Offset(180, 550),
     'S2': Offset(240, 114),
     'Libero': Offset(166, 296),
     'C1': Offset(240, 482),
@@ -163,7 +174,7 @@ const Map<String, Map<String, Offset>> _kDefensePositionsSchiacciatori = {
   },
   'P6': {
     'O': Offset(552, 274),
-    'P': Offset(498, 314),
+    'P': Offset(470, 314),
     'C1': Offset(438, 542),
     'S2': Offset(240, 114),
     'Libero': Offset(240, 482),
@@ -1853,7 +1864,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Raggio in pixel reali (non in unità di riferimento): un ventesimo del
   // campo, dove "il campo" è l'altezza renderizzata (courtWidth/2), stessa
   // proporzione di _buildPlayerToken (ch/20).
-  double _swapTokenRadius(double courtWidth) => (courtWidth / 2) / 20;
+  double _swapTokenRadius(double courtWidth) =>
+      (courtWidth / 2) / 20 * _kTokenSizeScale;
 
   // Stessa posizione/dimensione della vecchia card fissa ad angolo: margine
   // 3% dai bordi reali dello schermo, ancorata in basso (a destra col cambio
@@ -1920,8 +1932,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       String roleLabel, Player player, Offset refPos, double cw, double ch,
       {VoidCallback? onTap}) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
-    // spazio di riferimento, quindi un ventesimo equivale a ch/20).
-    final radius = ch / 20;
+    // spazio di riferimento, quindi un ventesimo equivale a ch/20), scalato
+    // da _kTokenSizeScale.
+    final radius = ch / 20 * _kTokenSizeScale;
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
     final fillColor = Color(widget.team.coloreDivisa);
@@ -1992,7 +2005,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (l2 != null) entries.add(MapEntry('L2', l2));
     if (entries.isEmpty) return const [];
 
-    final size = courtWidth / 20;
+    final size = courtWidth / 20 * _kTokenSizeScale;
     const gap = 8.0;
     final margin = constraints.maxWidth * 0.03;
     // Riserva il primo "slot" (size+gap) per L1, gestito da

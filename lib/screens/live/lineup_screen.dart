@@ -149,7 +149,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
         children: [
           _buildDoppiLiberoCheckbox(),
           const SizedBox(height: 8),
-          SizedBox(width: 460, height: 460, child: _buildCourtGrid()),
+          SizedBox(width: 520, height: 520, child: _buildCourtGrid()),
           const SizedBox(height: 14),
           _buildLiberoRow(),
           const SizedBox(height: 4),
@@ -231,8 +231,8 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 
   Widget _buildLiberoRow() {
-    // Card libero stessa dimensione visiva delle P (112×112) con margine uniforme
-    const slotSize = 136.0;
+    // Card libero stessa dimensione visiva delle P (~140×140) con margine uniforme
+    const slotSize = 152.0;
     const liberoMargin = EdgeInsets.all(12);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -255,7 +255,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 
   Widget _buildSlot(String slot,
-      {EdgeInsets margin = const EdgeInsets.fromLTRB(20, 12, 20, 104)}) {
+      {EdgeInsets margin = const EdgeInsets.fromLTRB(16, 12, 16, 108)}) {
     final player = _assignments[slot];
     final isSelected = _selectedSlot == slot;
 
@@ -319,7 +319,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
       child: Text(
         slot,
         style: const TextStyle(
-          fontSize: 22,
+          fontSize: 26,
           fontWeight: FontWeight.bold,
           color: Colors.black87,
         ),
@@ -329,12 +329,12 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
 
   Widget _slotPlayer(Player player) {
     const nameRoleStyle = TextStyle(
-      fontSize: 13,
+      fontSize: 16,
       fontWeight: FontWeight.w600,
       color: Colors.black54,
     );
     const nameStyle = TextStyle(
-      fontSize: 13,
+      fontSize: 16,
       fontWeight: FontWeight.w600,
       color: Colors.black54,
       height: 1.1,
@@ -348,7 +348,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
           Text(
             '${player.numero}',
             style: const TextStyle(
-              fontSize: 31,
+              fontSize: 36,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
@@ -430,7 +430,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                     itemCount: players.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final p = players[i];
                       final assigned = assignedIds.contains(p.id);
@@ -447,12 +447,10 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         clipBehavior: Clip.antiAlias,
                         child: ListTile(
-                          dense: true,
-                          visualDensity: const VisualDensity(vertical: -4),
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 0),
+                              horizontal: 14, vertical: 8),
                           leading: CircleAvatar(
-                            radius: 18,
+                            radius: 24,
                             backgroundColor: avatarColor,
                             child: Text(
                               '${p.numero}',
@@ -460,19 +458,22 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                                 color:
                                     assigned ? Colors.white70 : Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: 20,
                               ),
                             ),
                           ),
                           title: Text(
                             '${p.cognome} ${p.nome}',
                             style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
                               color: assigned ? Colors.grey : null,
                             ),
                           ),
                           subtitle: Text(
                             p.ruolo.label,
                             style: TextStyle(
+                              fontSize: 16,
                               color: assigned
                                   ? Colors.grey.shade500
                                   : null,
@@ -483,7 +484,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                             children: [
                               if (!assigned)
                                 IconButton(
-                                  icon: const Icon(Icons.edit, size: 20),
+                                  icon: const Icon(Icons.edit, size: 24),
                                   tooltip: 'Modifica giocatore',
                                   onPressed: () => Navigator.push(
                                     context,
@@ -499,6 +500,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                                 assigned
                                     ? Icons.check_circle_outline
                                     : Icons.chevron_right,
+                                size: 28,
                                 color: assigned ? Colors.green : null,
                               ),
                             ],

@@ -386,21 +386,24 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
     automaticamente via stream al ritorno.
   - `LineupScreen`: layout landscape con sfondo blu scuro; sinistra = campo fisso
-    460×460dp con sfondo da PNG asset (`assets/images/court_bg.png`, dichiarato in
-    `pubspec.yaml`) — le linee del campo sono nell'immagine, non più disegnate a
-    codice. Griglia 3×2 sovrapposta (P1–P6 in senso antiorario), card ~112×112
-    con margini asimmetrici (vicine al top della cella) + slot libero sotto
-    (L1, opzionalmente L2 con checkbox "Doppio libero", stessa dimensione delle P).
+    520×520dp (**ingrandito da 460×460 dopo test su tablet fisico** — su
+    schermo reale le card risultavano troppo piccole) con sfondo da PNG asset
+    (`assets/images/court_bg.png`, dichiarato in `pubspec.yaml`) — le linee
+    del campo sono nell'immagine, non più disegnate a codice. Griglia 3×2
+    sovrapposta (P1–P6 in senso antiorario), card ~140×140 (margini
+    `EdgeInsets.fromLTRB(16, 12, 16, 108)`, ancora asimmetrici/vicine al top
+    della cella) + slot libero sotto (L1, opzionalmente L2 con checkbox
+    "Doppio libero", stessa dimensione delle P — 152×152).
     Colonna sinistra centrata e scrollabile (`SingleChildScrollView`) per evitare
     overflow su schermi piccoli. Destra = lista giocatori della squadra (grayed
     out + ✓ quando assegnati, "Aggiungi" per crearne uno al volo). Slot
     selezionato = bordo rosso; slot vuoto = sfondo `Colors.lightBlueAccent` per
     distinguerlo a colpo d'occhio dallo slot occupato (bianco pieno). Card
-    giocatore: numero centrato (font 31, +20%
-    rispetto all'originale) con nome/cognome ancorati in alto e ruolo ancorato
-    in basso (stesso font, 13px, `height: 1.0` per interlinea compatta) — layout
-    realizzato con `Stack` interno e `Positioned top/bottom` per garantire che il
-    numero resti sempre centrato. Badge "✕" nero circolare a cavallo dell'angolo
+    giocatore: numero centrato (font 36) con nome/cognome ancorati in alto e
+    ruolo ancorato in basso (stesso font, 16px, `height: 1.1` per interlinea
+    compatta) — layout realizzato con `Stack` interno e `Positioned top/bottom`
+    per garantire che il numero resti sempre centrato. Badge "✕" nero circolare
+    a cavallo dell'angolo
     in alto a destra di ogni slot occupato (tap → rimuove il giocatore e
     riseleziona quello slot); vedi convenzione n.8 sul perché va in
     `Positioned.fill` insieme alla card e non come `Stack` annidato semplice.
@@ -418,7 +421,14 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     Lista giocatori a destra: card arrotondate (`Material` + `ListTile`,
     `BorderRadius.circular(AppRadius.md)`, separate da `SizedBox(height: 8)`
     invece di `Divider`) su sfondo `_kBg` (stesso blu scuro della pagina) —
-    bianca se disponibile, `Colors.grey.shade300` se già assegnato. Avatar
+    bianca se disponibile, `Colors.grey.shade300` se già assegnato.
+    **Ingrandita dopo test su tablet fisico** (testo/avatar troppo piccoli su
+    schermo reale, più passaggi): `ListTile` senza `dense`, `contentPadding`
+    orizzontale 14/verticale 8 (era 12/0 con `dense: true` +
+    `VisualDensity(vertical: -4)`), avatar raggio 24 (era 18) con numero
+    **20px** (era 13), nome/cognome **20px** bold (era stile default tema),
+    ruolo **16px** (era default), icona matita 24 (era 20), icona ✓/chevron
+    finale 28 (era default ~24). Avatar
     col **colore squadra raw** (`Color(team.coloreDivisa)`, niente
     scurimento); se assegnato, stesso colore con opacità ridotta
     (`withAlpha(120)`) invece di un grigio slegato. **Libero** (`Ruolo.libero`):
@@ -865,12 +875,32 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     (`Transform.rotate(angle: math.pi)`); l'ancoraggio del badge di rotazione
     segue la stessa rotazione (`Alignment(-x, -y)` quando `_isRightSide`),
     mentre il testo del badge resta dritto e leggibile (non ruotato).
+- **Dimensione dei token** (`_kTokenSizeScale = 1.4`, in cima al file):
+  fattore di scala unico applicato al raggio "base" (un ventesimo del campo)
+  di **tutti** i token giocatore — su campo (`_buildPlayerToken`), libero in
+  campo/panchina e battitore fuori campo (`_swapTokenRadius`, Stack
+  **esterno**) e L2 fisso ad angolo (`_buildLiberoTokens`). Le tre formule
+  derivano dallo stesso raggio base e vanno scalate **insieme**, altrimenti i
+  token finiscono disallineati in dimensione tra Stack interno (coordinate di
+  riferimento 1200×600) ed esterno (pixel schermo assoluti). Aumentato da
+  `1.0` a `1.4` dopo test su tablet fisico (token troppo piccoli) — di
+  conseguenza anche `_kBattutaP1Position` è passato da X=-60 a X=-70 (stesso
+  margine visivo di distacco dal campo con il token più grande).
+  **Verificato** dallo sviluppatore a video su tutte e 6 le rotazioni in
+  modalità test: con token più grandi 3 posizioni risultavano troppo vicine
+  a un token adiacente, corrette in entrambe le tabelle
+  (`_kDefensePositionsCentrali`/`_kDefensePositionsSchiacciatori`, stesso
+  valore in entrambe per i ruoli condivisi — vedi sopra): P6 ruolo `P`
+  X 498→470; P4 ruolo `C2` X 482→460; P3 ruolo `C2` X 480→470 (solo X, Y
+  invariata in tutti i casi); P4 ruolo `O` X 188→184→180, Y 542→546→550 (due
+  aggiustamenti successivi di -4/+4).
 - **Token giocatore (posizioni di attacco)** sul campo grande: 6 cerchi con
-  raggio **1/20** del campo (un singolo campo è un quadrato 600×600 nello
-  spazio di riferimento 1200×600 di `double_court_bg.png`), sfondo = **colore
-  maglia squadra raw** (`Color(team.coloreDivisa)`, niente scurimento — vedi
-  nota sul refactoring colori sotto), bordo bianco 2px, ombra (`BoxShadow`
-  nero 47% opacità, blur 4, offset verticale 2).
+  raggio **1/20 × `_kTokenSizeScale`** del campo (un singolo campo è un
+  quadrato 600×600 nello spazio di riferimento 1200×600 di
+  `double_court_bg.png`), sfondo = **colore maglia squadra raw**
+  (`Color(team.coloreDivisa)`, niente scurimento — vedi nota sul
+  refactoring colori sotto), bordo bianco 2px, ombra (`BoxShadow` nero 47%
+  opacità, blur 4, offset verticale 2).
   - Posizioni fisse `_kAttackPositions` (coordinate di riferimento 1200×600,
     lato sinistro — riflesse a destra da `_displayPosition()` se
     `_isRightSide`): P1(200,470) P2(530,470) P3(530,300) P4(530,130)
