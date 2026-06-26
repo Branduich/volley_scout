@@ -70,6 +70,172 @@ const Offset _kBattutaP1Position = Offset(-70, 470);
 // Aumentato da 1.0 dopo test su tablet fisico (token troppo piccoli).
 const double _kTokenSizeScale = 1.4;
 
+// Posizioni di attacco per RUOLO e FASE (non solo per zona fissa come
+// _kAttackPositions): "Battuta" (chi sta per servire, fuori campo con X
+// negativa — il ruolo che serve varia per rotazione) e "DopoBattuta"/
+// "DopoRicezione" (palla in gioco, ognuna con la propria "forma" tattica —
+// NON sempre coincidenti tra loro, a differenza delle posizioni di
+// ricezione). Solo variante "libero sui centrali" per ora (le altre due
+// varianti ricadono sulla vecchia logica generica — vedi _attackPosition).
+// L'eccezione "il libero non può servire" è già implicita nei dati: quando
+// il centrale di seconda linea sta per servire, compare lui stesso (es.
+// 'C2') invece di 'Libero'.
+const Map<String, Map<String, Offset>> _kAttackBattutaCentrali = {
+  'P1': {
+    'P': Offset(-60, 470),
+    'S1': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'O': Offset(530, 130),
+    'S2': Offset(200, 130),
+    'Libero': Offset(200, 300),
+  },
+  'P2': {
+    'C2': Offset(-60, 470),
+    'P': Offset(530, 470),
+    'S1': Offset(530, 300),
+    'C1': Offset(530, 130),
+    'O': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P3': {
+    'S2': Offset(-60, 470),
+    'C2': Offset(530, 470),
+    'P': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'O': Offset(200, 300),
+  },
+  'P4': {
+    'O': Offset(-60, 470),
+    'S2': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'P': Offset(530, 130),
+    'S1': Offset(200, 130),
+    'Libero': Offset(200, 300),
+  },
+  'P5': {
+    'C1': Offset(-60, 470),
+    'O': Offset(530, 470),
+    'S2': Offset(530, 300),
+    'C2': Offset(530, 130),
+    'P': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P6': {
+    'S1': Offset(-60, 470),
+    'C1': Offset(530, 470),
+    'O': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'P': Offset(200, 300),
+  },
+};
+
+const Map<String, Map<String, Offset>> _kAttackDopoBattutaCentrali = {
+  'P1': {
+    'P': Offset(200, 470),
+    'O': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P2': {
+    'P': Offset(200, 470),
+    'O': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'C2': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P3': {
+    'O': Offset(200, 470),
+    'P': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P4': {
+    'O': Offset(200, 470),
+    'P': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P5': {
+    'P': Offset(200, 470),
+    'O': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'C1': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P6': {
+    'P': Offset(200, 470),
+    'O': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+};
+
+// Coincide con _kAttackDopoBattutaCentrali per P3, P4 e P6 (confermato dallo
+// sviluppatore) ma differisce per P1, P2 e P5: dopo aver ricevuto la
+// squadra si schiera diversamente rispetto a dopo aver servito.
+const Map<String, Map<String, Offset>> _kAttackDopoRicezioneCentrali = {
+  'P1': {
+    'P': Offset(200, 470),
+    'S1': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'O': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P2': {
+    'O': Offset(200, 470),
+    'P': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P3': {
+    'O': Offset(200, 470),
+    'P': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P4': {
+    'O': Offset(200, 470),
+    'P': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P5': {
+    'P': Offset(200, 470),
+    'O': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P6': {
+    'P': Offset(200, 470),
+    'O': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+};
+
 // Posizioni di ricezione (battuta avversaria), per rotazione (chiave = slot
 // del palleggiatore, come _currentSlot) e per RUOLO (non per slot fisso —
 // stessi codici di _roleLabelsFor: P, O, S1, S2, C1, C2). Caso "libero sui
@@ -397,10 +563,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       : (_statoSetReale?.squadraAlServizio ??
           _setCorrente?.squadraServizioIniziale);
 
+  // True se siamo nella sotto-fase "dopo" dello scambio corrente (palla in
+  // gioco, voto già dato) — in modalità test deriva da _testDopo (ciclato a
+  // mano da _testAvanza), altrimenti da _fondamentaleGiudicatoRallyCorrente
+  // (derivato dagli eventi reali). Unifica i due casi per
+  // _refPositionFor/_activeAttackMap/_activeDefenseMap.
+  bool get _faseDopo =>
+      _testModeEnabled ? _testDopo : _fondamentaleGiudicatoRallyCorrente;
+
   // --- Modalità test (solo per provare a video tutte le combinazioni
   // rotazione × chi serve, senza dover passare dal flusso reale di gioco) ---
   bool _testModeEnabled = false;
   Squadra _testServizio = Squadra.nostra;
+  // Sotto-fase "dopo" (palla in gioco, voto già dato) all'interno di
+  // _testServizio — vedi _testAvanza per le 4 combinazioni cicliche.
+  bool _testDopo = false;
 
   void _toggleTestMode(bool value) {
     setState(() {
@@ -408,36 +585,79 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       if (value) {
         _rotationSteps = 0;
         _testServizio = Squadra.nostra;
+        _testDopo = false;
       }
     });
   }
 
-  // Avanza di un passo: stessa rotazione battuta->ricezione, poi ricezione->
-  // battuta sulla rotazione successiva (P1->P6->P5->P4->P3->P2->P1...).
+  // Avanza di un passo tra le 4 fasi vere dello scambio, nello stesso ordine
+  // del gioco reale: Battuta → Dopo_Battuta → Ricezione → Dopo_Ricezione →
+  // Battuta della rotazione successiva (P1→P6→P5→P4→P3→P2→P1...).
   void _testAvanza() {
     setState(() {
-      if (_testServizio == Squadra.nostra) {
+      if (_testServizio == Squadra.nostra && !_testDopo) {
+        _testDopo = true; // Battuta -> Dopo_Battuta
+      } else if (_testServizio == Squadra.nostra && _testDopo) {
         _testServizio = Squadra.avversari;
+        _testDopo = false; // Dopo_Battuta -> Ricezione
+      } else if (_testServizio == Squadra.avversari && !_testDopo) {
+        _testDopo = true; // Ricezione -> Dopo_Ricezione
       } else {
         _testServizio = Squadra.nostra;
-        _rotationSteps--;
+        _testDopo = false;
+        _rotationSteps--; // Dopo_Ricezione -> Battuta rotazione successiva
       }
     });
   }
 
   // Posizione di riferimento (1200×600) per uno slot: quella di attacco,
   // tranne per P1 quando battiamo noi E la battuta di questo scambio non è
-  // ancora stata giudicata (vedi _fondamentaleGiudicatoRallyCorrente) — una
-  // volta dato il voto, il battitore si riporta in campo nella sua posizione
-  // normale, perché la palla è in gioco. In modalità test (nessun voto reale
-  // da dare) mostra sempre la posizione di battuta quando si "serve".
+  // ancora stata giudicata (vedi _faseDopo) — una volta dato il voto, il
+  // battitore si riporta in campo nella sua posizione normale, perché la
+  // palla è in gioco. In modalità test segue _testDopo (vedi _testAvanza)
+  // invece che i voti reali.
   Offset _refPositionFor(String slot) {
-    final inBattuta = _squadraAlServizio == Squadra.nostra &&
-        (_testModeEnabled || !_fondamentaleGiudicatoRallyCorrente);
+    final inBattuta = _squadraAlServizio == Squadra.nostra && !_faseDopo;
     if (slot == 'P1' && inBattuta) {
       return _kBattutaP1Position;
     }
     return _kAttackPositions[slot]!;
+  }
+
+  // Tabella di attacco attiva per rotazione/RUOLO nella fase corrente
+  // (Battuta/DopoBattuta/DopoRicezione) — solo per la variante "libero sui
+  // centrali", l'unica con dati per ora (vedi _kAttackBattutaCentrali e
+  // tabelle gemelle). Null per le altre due varianti (senza libero, libero
+  // sugli schiacciatori — da fare) o durante la ricezione in corso (gestita
+  // da _activeDefenseMap): in entrambi i casi si ricade su _refPositionFor
+  // (logica generica per zona fissa, non per ruolo) — vedi _attackPosition.
+  Map<String, Offset>? get _activeAttackMap {
+    if (widget.ruoloCambiLibero != Ruolo.centrale) return null;
+    final rotazione = _currentSlot;
+    if (_squadraAlServizio == Squadra.nostra) {
+      return !_faseDopo
+          ? _kAttackBattutaCentrali[rotazione]
+          : _kAttackDopoBattutaCentrali[rotazione];
+    }
+    if (_squadraAlServizio == Squadra.avversari && _faseDopo) {
+      return _kAttackDopoRicezioneCentrali[rotazione];
+    }
+    return null;
+  }
+
+  // Posizione di riferimento per il giocatore nello slot (rotazione
+  // corrente) indicato, in fase di attacco: usa la tabella per ruolo
+  // (_activeAttackMap) se disponibile per questa variante/fase/ruolo,
+  // altrimenti ricade su _refPositionFor (zona fissa, non per ruolo) — il
+  // fallback resta finché non ci sono le tabelle delle altre varianti
+  // libero.
+  Offset _attackPosition(String slot, Map<String, String> roleLabels) {
+    final mappa = _activeAttackMap;
+    final ruolo = roleLabels[slot];
+    if (mappa != null && ruolo != null && mappa.containsKey(ruolo)) {
+      return mappa[ruolo]!;
+    }
+    return _refPositionFor(slot);
   }
 
   // Giocatore + fondamentale per cui è aperto il pannello di voto — null =
@@ -604,18 +824,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // ancora stata giudicata (una volta giudicata con un voto non terminale,
   // la palla è in gioco verso l'attacco: i giocatori si spostano in
   // posizione di gioco, stessa logica del battitore dopo la battuta — vedi
-  // _fondamentaleGiudicatoRallyCorrente), e i dati di quella rotazione sono
-  // completi. Senza libero in formazione: stessa "forma" difensiva ma con
-  // le posizioni REALI di tutti i 6 ruoli, nessuna sostituzione (vedi
-  // _kDefensePositionsComplete). Con libero: la tabella e la coppia
-  // sostituita dipendono da widget.ruoloCambiLibero — se centrali, deve
-  // restare un solo C1/C2 (l'altro è il libero) e S1/S2 entrambi presenti;
-  // se schiacciatori, il contrario. In modalità test il flag di giudizio
-  // viene ignorato (nessun voto reale da dare, vedi _refPositionFor per la
-  // stessa convenzione sulla battuta).
+  // _faseDopo), e i dati di quella rotazione sono completi. Senza libero in
+  // formazione: stessa "forma" difensiva ma con le posizioni REALI di tutti
+  // i 6 ruoli, nessuna sostituzione (vedi _kDefensePositionsComplete). Con
+  // libero: la tabella e la coppia sostituita dipendono da
+  // widget.ruoloCambiLibero — se centrali, deve restare un solo C1/C2
+  // (l'altro è il libero) e S1/S2 entrambi presenti; se schiacciatori, il
+  // contrario. In modalità test segue _testDopo (vedi _testAvanza) invece
+  // dei voti reali.
   Map<String, Offset>? get _activeDefenseMap {
     if (_squadraAlServizio != Squadra.avversari) return null;
-    if (!_testModeEnabled && _fondamentaleGiudicatoRallyCorrente) return null;
+    if (_faseDopo) return null;
     if (!widget.assignments.containsKey('L1')) {
       return _kDefensePositionsComplete(_currentSlot);
     }
@@ -920,7 +1139,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               icon: const Icon(Icons.skip_next),
               label: Text(
                 '$_currentSlot '
-                '${_squadraAlServizio == Squadra.nostra ? "battuta" : "ricezione"}',
+                '${_testServizio == Squadra.nostra ? "battuta" : "ricezione"}'
+                '${_testDopo ? " (dopo)" : ""}',
               ),
             )
           : null,
@@ -1763,7 +1983,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             _buildPlayerToken(
                 roleLabels[entry.key] ?? entry.key,
                 entry.value,
-                _displayPosition(_refPositionFor(entry.key)),
+                _displayPosition(_attackPosition(entry.key, roleLabels)),
                 cw,
                 ch,
                 onTap: _tapHandlerPerGiocatore(entry.value, slot: entry.key)),
@@ -1835,7 +2055,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       // con slot=null: il libero non ha uno slot P1-P6 proprio).
       final liberoRef = defenseMap != null
           ? defenseMap['Libero']!
-          : _refPositionFor(slotCentrale);
+          : (_activeAttackMap?['Libero'] ?? _refPositionFor(slotCentrale));
       return [
         _buildAbsoluteToken('L1', libero, toScreen(_displayPosition(liberoRef)),
             radius,
@@ -1852,7 +2072,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       _buildAbsoluteToken(
           roleLabels[slotCentrale] ?? slotCentrale,
           giocatoreCoppia,
-          toScreen(_displayPosition(_refPositionFor(slotCentrale))),
+          toScreen(_displayPosition(_attackPosition(slotCentrale, roleLabels))),
           radius,
           onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale)),
       _buildAbsoluteToken('L1', libero, benchPos, radius, isLibero: true),
@@ -1870,24 +2090,25 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // esattamente al token visibile. Solo quando battiamo noi: in ricezione
   // P1 è una posizione normale in campo, già tappabile dal proprio token
   // (qui sarebbe solo un overlay ridondante) — stesso motivo una volta che
-  // la battuta è già stata giudicata in questo scambio
-  // (_fondamentaleGiudicatoRallyCorrente): il battitore è rientrato in
-  // posizione di attacco, di nuovo coperto dal proprio token normale.
+  // la battuta è già stata giudicata in questo scambio (_faseDopo): il
+  // battitore è rientrato in posizione di attacco, di nuovo coperto dal
+  // proprio token normale.
   List<Widget> _buildBattitoreTapCatcher(
       BoxConstraints constraints, double courtWidth) {
     if (_squadraAlServizio != Squadra.nostra) return const [];
-    if (_fondamentaleGiudicatoRallyCorrente) return const [];
+    if (_faseDopo) return const [];
     final player = _currentAssignments['P1'];
     if (player == null) return const [];
     final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
     if (onTap == null) return const [];
 
+    final roleLabels = _roleLabelsFor(_currentSlot, _currentAssignments);
     final radius = _swapTokenRadius(courtWidth);
     final tokenRadius = _currentSlot == 'P1' ? radius * 1.1 : radius;
     final courtHeight = courtWidth / 2;
     final courtLeft = (constraints.maxWidth - courtWidth) / 2;
     final courtTop = (constraints.maxHeight - courtHeight) / 2;
-    final refPos = _displayPosition(_refPositionFor('P1'));
+    final refPos = _displayPosition(_attackPosition('P1', roleLabels));
     final cx = courtLeft + (refPos.dx / 1200) * courtWidth;
     final cy = courtTop + (refPos.dy / 600) * courtHeight;
 

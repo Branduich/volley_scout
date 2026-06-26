@@ -565,19 +565,27 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     ruolo (la forma esagono/cerchio del palleggiatore resta comunque basata
     sul ruolo, non sul numero).
   - **Toggle "Modalità test"** (`SwitchListTile`, **default `false`**, solo
-    per provare a video tutte le combinazioni rotazione × chi serve senza
+    per provare a video tutte le combinazioni rotazione × fase senza
     passare dal flusso reale): stato `_testModeEnabled`. Quando attivo:
     - `_squadraAlServizio` **ignora** `_setCorrente?.squadraServizioIniziale`
       e usa `_testServizio` (parte da `Squadra.nostra`) — funziona anche
       prima di aver risposto al dialog "Chi serve per primo?".
     - Attivandolo si azzera lo stato del test: `_rotationSteps = 0`,
-      `_testServizio = Squadra.nostra` (si riparte sempre da "P1 battuta").
+      `_testServizio = Squadra.nostra`, `_testDopo = false` (si riparte
+      sempre da "P1 battuta").
     - Compare un `FloatingActionButton.extended` (icona `Icons.skip_next`,
-      label dinamica `"$_currentSlot battuta"`/`"...ricezione"`) che ad ogni
-      tap chiama `_testAvanza()`: stessa rotazione battuta→ricezione, poi
-      ricezione→battuta sulla rotazione successiva (`_rotationSteps--`, cioè
-      P1→P6→P5→P4→P3→P2→P1...). Sequenza completa: 12 tap per girare tutte
-      e 6 le rotazioni nelle due fasi.
+      label dinamica `"$_currentSlot battuta"`/`"...ricezione"`, con
+      `" (dopo)"` in coda quando `_testDopo` è true) che ad ogni tap chiama
+      `_testAvanza()`: cicla le **4 fasi vere** dello scambio, nello stesso
+      ordine del gioco reale — Battuta → Dopo_Battuta → Ricezione →
+      Dopo_Ricezione → Battuta della rotazione successiva (`_rotationSteps--`,
+      cioè P1→P6→P5→P4→P3→P2→P1...). Sequenza completa: 24 tap per girare
+      tutte e 6 le rotazioni nelle quattro fasi.
+    - **`_faseDopo`** (getter): unifica la sotto-fase "dopo" tra modalità
+      test (`_testDopo`, ciclato a mano) e gioco reale
+      (`_fondamentaleGiudicatoRallyCorrente`, derivato dagli eventi) — usato
+      da `_refPositionFor`/`_activeAttackMap`/`_activeDefenseMap` al posto di
+      controllare `_testModeEnabled` caso per caso.
   - **"Fine"** (`ListTile`, icona `Icons.flag`, subito sopra "Indietro",
     stesso `Divider`): apre `EndSetScreen` (vedi Modello dati e "Fasi di
     sviluppo" per i dettagli di fine set/fine partita) — un `Navigator.push`,
@@ -975,6 +983,45 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `clipBehavior: Clip.none`: il default (`Clip.hardEdge`) taglierebbe via
     il token del battitore, che essendo a X negativa cade fuori dai confini
     dello `Stack` stesso.
+    - **Posizioni di attacco per RUOLO e FASE** (IMPLEMENTATO, solo variante
+      "libero sui centrali" — le altre due, senza libero e libero sugli
+      schiacciatori, restano da fare e ricadono sulla logica generica sopra):
+      `_kAttackBattutaCentrali`/`_kAttackDopoBattutaCentrali`/
+      `_kAttackDopoRicezioneCentrali`, stesso formato delle tabelle di
+      ricezione (`slot palleggiatore (P1..P6) -> ruolo -> Offset`). A
+      differenza della posizione fissa per zona (`_kAttackPositions`), qui la
+      posizione dipende dal **ruolo** e dalla **fase** dello scambio — in
+      pallavolo reale la zona di rotazione conta solo per la legalità al
+      momento del servizio, poi la squadra si sposta nella propria "forma"
+      tattica (es. il palleggiatore va sempre verso la stessa zona di rete a
+      prescindere dalla zona di rotazione). Le 4 fasi vere sono Battuta,
+      Dopo_Battuta, Ricezione (= tabelle di difesa esistenti, invariate) e
+      Dopo_Ricezione — **Dopo_Battuta e Dopo_Ricezione non sono sempre
+      identiche** (dipende dalla rotazione: lo sviluppatore ha confermato che
+      a volte la squadra si schiera diversamente dopo aver servito rispetto a
+      dopo aver ricevuto). L'eccezione "il libero non può servire" è già
+      implicita nei dati di `_kAttackBattutaCentrali`: quando il centrale di
+      seconda linea sta per servire, la tabella mostra lui stesso (es. 'C2')
+      invece di 'Libero' — nessuna logica extra in Dart per quel caso.
+      - **`_activeAttackMap`** (getter): sceglie la tabella giusta per
+        rotazione (`_currentSlot`) e fase — `_kAttackBattutaCentrali` se
+        stiamo servendo e non `_faseDopo`, `_kAttackDopoBattutaCentrali` se
+        stiamo servendo e `_faseDopo`, `_kAttackDopoRicezioneCentrali` se
+        servono loro e `_faseDopo` (in ricezione, prima di `_faseDopo`,
+        comanda `_activeDefenseMap`, non questa). Torna `null` se
+        `widget.ruoloCambiLibero != Ruolo.centrale` (variante non ancora
+        supportata).
+      - **`_attackPosition(slot, roleLabels)`**: la funzione che `_buildCourtTokens`/
+        `_buildLiberoSwapTokens`/`_buildBattitoreTapCatcher` chiamano davvero
+        per ottenere la posizione di un giocatore in fase di attacco — risolve
+        il ruolo dello slot (`roleLabels[slot]`) e lo cerca in
+        `_activeAttackMap`; se la mappa è `null` o non contiene quel ruolo
+        (variante non supportata, o ruolo sostituito dal libero), ricade su
+        `_refPositionFor(slot)` (la vecchia logica generica per zona fissa).
+        Iterare per **slot** (come faceva già il codice) e tradurre slot→ruolo
+        dentro `_attackPosition` è equivalente a iterare per ruolo (1:1 tra
+        slot e ruolo in una data rotazione): nessuna riscrittura del ciclo di
+        rendering è servita, solo il lookup della posizione è cambiato.
     - **Battuta avversaria (ricezione nostra)**: `_kDefensePositions` —
       mappa `slot palleggiatore (P1..P6) -> ruolo (P/O/S1/S2/C1/C2/Libero) ->
       Offset`, tutte e 6 le rotazioni complete. **Il libero sostituisce il
