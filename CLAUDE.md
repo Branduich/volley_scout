@@ -192,9 +192,10 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v7** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v8** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
-  `MatchSets.squadraServizioIniziale`).
+  `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
+  `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 
@@ -202,7 +203,14 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
 aperto (bool, default true), `squadraServizioIniziale` (enum Squadra — chi
 serve per primo nel set; input necessario a `ricalcolaStato()`, non
 derivabile dagli eventi). Niente `puntiCasa`/`puntiOspiti` salvati (si
-derivano da `ScoutAction`, non ancora implementata).
+derivano da `ScoutAction`, non ancora implementata). `liberoId`/`libero2Id`
+(FK nullable su Players, setNull — `@ReferenceName` dedicato su ciascuna per
+evitare il clash di nome sulla relazione inversa generata da drift, dato che
+sono due FK separate verso la stessa tabella) e `ruoloCambiLibero` (enum
+Ruolo, nullable): formazione iniziale del set che non ha una posizione di
+rotazione (vedi `Rotation` sotto), salvata qui per poter ricostruire la
+formazione completa quando si riprende lo scout — vedi
+`MatchSetRepository.caricaFormazione()`.
 
 **`Rotation`** (tabella `Rotations`): id, setId (FK cascade), squadra (enum
 Squadra — solo `nostra` viene scritta), posizione (1-6), giocatoreId (FK
@@ -220,10 +228,23 @@ formazione confermata).
   `EndSetScreen`, che incrementa `VolleyMatch.setCorrente` prima di arrivare
   qui). Idempotente: se un set con quel numero esiste già, lo restituisce
   invece di duplicarlo.
-- `salvaRotazioneIniziale(setId, assignments)`: estrae solo gli slot
+- `salvaRotazioneIniziale(setId, assignments, {ruoloCambiLibero})`: estrae solo gli slot
   `P1`..`P6` dalla mappa `assignments` di `LineupScreen`/`FormationConfigScreen`
   (ignora `L1`/`L2`, il libero non ha una posizione di rotazione) e inserisce
-  le 6 righe `Rotation` con `squadra: Squadra.nostra`.
+  le 6 righe `Rotation` con `squadra: Squadra.nostra`. Salva anche
+  `liberoId`/`libero2Id` (da `assignments['L1']`/`['L2']`, se presenti) e
+  `ruoloCambiLibero` sul `MatchSet` stesso (un `UPDATE`, non c'entra con le
+  righe `Rotation`).
+- `caricaFormazione(setId)`: l'inverso di `salvaRotazioneIniziale` — ricostruisce
+  `({assignments, palleggiatoreSlot, ruoloCambiLibero})` leggendo `Rotations`
+  (risolvendo ogni `giocatoreId` in un `Player` con una query su `Players`;
+  `palleggiatoreSlot` = lo slot del giocatore con `Ruolo.palleggiatore`) +
+  `liberoId`/`libero2Id`/`ruoloCambiLibero` dal `MatchSet`. Ritorna `null` se
+  il set non ha ancora righe `Rotation` (set nuovo, mai iniziato) o se manca
+  un palleggiatore (dato incoerente) — in entrambi i casi il chiamante deve
+  ricadere sul flusso normale di selezione formazione. Usata da
+  `TeamSelectionScreen` per bypassare `LineupScreen`/`FormationConfigScreen`
+  quando si riprende lo scout di un set già iniziato (vedi sotto).
 
 **Dialog "Chi serve per primo?" in `ScoutScreen`**: `ScoutScreen` è ora
 `ConsumerStatefulWidget` (serve `ref` per i repository). In `initState`,
@@ -279,18 +300,21 @@ Conseguenze del principio:
 - Ogni azione si scrive a DB nell'istante in cui viene registrata (mai solo in
   memoria) — niente perso se l'app si chiude o il tablet si scarica.
 - **Undo** = elimina l'azione con `ordine` massimo nel set, poi ricalcola.
-  Nessuna logica di "inversione" manuale di punteggio/rotazione. **Non ancora
-  implementato** (nessun bottone undo in UI per ora).
+  Nessuna logica di "inversione" manuale di punteggio/rotazione.
+  **IMPLEMENTATO** (bottone "annulla" nella barra superiore di `ScoutScreen`,
+  con dialog di conferma — vedi "Interfaccia di scout").
 - **Riprendi partita** = carica le azioni del set, ricostruisci punteggio e
-  rotazione con la stessa funzione di ricalcolo. **Implementato parzialmente**:
-  `ScoutScreen.initState` mostra il dialog "Chi serve per primo?" solo se
-  `match.stato != inCorso`; se è già `inCorso`, `_riprendiSet()` carica
-  direttamente il `MatchSet` esistente (`MatchSetRepository.caricaSet`),
-  senza richiedere di nuovo il servizio iniziale — punteggio/rotazione/
-  bottoni rapidi tornano subito attivi. Limite noto: `widget.assignments`
-  viene comunque dalla formazione appena riselezionata in `LineupScreen`/
-  `FormationConfigScreen`, non dalla `Rotation` già persistita — coerente
-  solo se si riseleziona la stessa formazione (vedi Fasi di sviluppo).
+  rotazione con la stessa funzione di ricalcolo. **IMPLEMENTATO**:
+  `ScoutScreen.initState` → `_avviaOCaricaSet()` carica direttamente il
+  `MatchSet` esistente (`MatchSetRepository.caricaSet`) se c'è già, senza
+  richiedere di nuovo il servizio iniziale — punteggio/rotazione/bottoni
+  rapidi tornano subito attivi, qualunque sia `match.stato` (anche
+  `terminata`: riprendere lo scout la riporta a `inCorso`, vedi
+  "MatchesScreen a due sezioni" in Fasi di sviluppo). `MatchesScreen`
+  bypassa anche `TeamSelectionScreen`/`LineupScreen`/`FormationConfigScreen`,
+  ricostruendo squadra/`assignments`/`palleggiatoreSlot`/`ruoloCambiLibero`
+  dalla `Rotation`/`MatchSet` già a DB via
+  `MatchSetRepository.caricaFormazione()` — vedi Flusso dell'app.
 - **`ScoutActionRepository`** (`lib/providers/database_provider.dart`):
   `watchAzioni(setId)` (stream ordinato per `ordine`) +
   `registraAzioneRapida({setId, squadra, tipo, esitoPunto})` (calcola il
@@ -396,7 +420,14 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 - **HomeScreen**: layout landscape con area principale a sinistra (vuota per ora)
   e colonna di bottoni a destra: "Setup squadre" e "Gestione partite".
 - **Flusso scout** (navigabile end-to-end fino al setup grafico di `ScoutScreen`):
-  `MatchesScreen` → [Inizia] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `FormationConfigScreen` → [Inizia scout] → `ScoutScreen` → [drawer "Fine"] → `EndSetScreen` → [Prossimo Set] → `LineupScreen` (da capo, set successivo) **oppure** [Fine Partita] → `MatchesScreen`
+  `MatchesScreen` → [Inizia/Riprendi] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `FormationConfigScreen` → [Inizia scout] → `ScoutScreen` → [drawer "Fine"] → `EndSetScreen` → [Prossimo Set] → `LineupScreen` (da capo, set successivo) **oppure** [Fine Partita] → `MatchesScreen`
+  - **Bypass alla ripresa**: se il set corrente ha già una formazione salvata
+    (`MatchSetRepository.caricaFormazione`, vedi Modello dati),
+    `MatchesScreen` salta direttamente a `ScoutScreen` — niente
+    `TeamSelectionScreen`/`LineupScreen`/`FormationConfigScreen` — con la
+    squadra e la formazione ricostruite dal DB. Vale per qualunque
+    `StatoPartita` tranne `configurazione` (set mai iniziato, nessuna
+    `Rotation` da cui ricostruire).
   - Il `teamId` viene salvato sulla partita nel DB al momento della selezione squadra.
   - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
     automaticamente via stream al ritorno.
@@ -1176,6 +1207,7 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 - **Fase 2 — Gestione partite** (COMPLETATA)
   - [x] Tabella VolleyMatches (schema v3), MatchRepository, provider
   - [x] MatchesScreen: lista partite con badge Casa/Trasferta + FAB + bottone "Inizia"
+        (vedi anche Fase 3 per l'evoluzione a due sezioni/"Riprendi")
   - [x] MatchFormScreen: nome, date/time picker, switch casa/trasferta, palestra
   - [x] TeamSelectionScreen: label dinamica, lista squadre, selezione salva teamId,
         crea squadra al volo
@@ -1268,18 +1300,34 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         soli (derivati dagli eventi rimanenti). Disabilitato
         (`_puoAnnullare`) prima dell'inizio del set, in modalità test, o se
         il set non ha ancora azioni.
-  - [x] Riprendi partita (parziale): `ScoutScreen.initState` →
+  - [x] Riprendi partita: `ScoutScreen.initState` →
         `_avviaOCaricaSet()` carica direttamente il `MatchSet` esistente con
         `MatchSetRepository.caricaSet(matchId, match.setCorrente)` se c'è
         già, senza richiedere di nuovo "Chi serve per primo?" (vedi Modello
         dati per i dettagli, inclusa la generalizzazione a "Prossimo Set").
-        **Limite noto**: `widget.assignments` viene comunque dalla
-        formazione appena riselezionata in `LineupScreen`/
-        `FormationConfigScreen` (non dalla `Rotation` persistita) — coerente
-        solo se si riseleziona la stessa formazione. Manca ancora il
-        bypass di `LineupScreen`/`FormationConfigScreen` per ricostruire
-        `assignments`/`palleggiatoreSlot`/`ruoloCambiLibero` dalla `Rotation`
-        già a DB quando si riapre una partita `inCorso` da `MatchesScreen`.
+  - [x] Bypass di `TeamSelectionScreen`/`LineupScreen`/`FormationConfigScreen`
+        alla ripresa: `MatchesScreen._avviaOContinua()` (chiamata dal
+        bottone "Inizia"/"Riprendi" di ogni card) controlla se il set
+        corrente (`match.setCorrente`) ha già una formazione salvata
+        (`MatchSetRepository.caricaSet` + `caricaFormazione`) — se sì,
+        naviga direttamente a `ScoutScreen` con `team` (letto una volta da
+        `TeamRepository.getTeam(match.teamId)`, non in streaming) e
+        `assignments`/`palleggiatoreSlot`/`ruoloCambiLibero` ricostruiti dal
+        DB (`Rotations` + le 3 nuove colonne su `MatchSet`, schema v8 — vedi
+        Modello dati); se no (set nuovo, mai iniziato — `match.teamId` può
+        essere ancora null), passa dal flusso normale
+        (`TeamSelectionScreen` → `LineupScreen` → `FormationConfigScreen`)
+        come prima. **Salta anche la selezione squadra**, non solo
+        formazione: a quel punto la squadra è già fissata dalla `Rotation`
+        persistita, selezionarne un'altra in `TeamSelectionScreen` creerebbe
+        un'incoerenza con i giocatori già salvati — di conseguenza
+        `TeamSelectionScreen` ora si raggiunge SOLO quando il set non ha
+        ancora una formazione, e la sua vecchia logica di bypass (provata
+        prima di scoprire che andava spostata più a monte) è stata rimossa
+        perché irraggiungibile/duplicata. Risolve il limite noto della
+        ripresa: prima si doveva riselezionare manualmente la stessa
+        identica formazione perché `widget.assignments` veniva sempre dalla
+        selezione appena fatta, non dalla `Rotation` persistita.
   - [x] Fine set / fine partita: voce "Fine" nel drawer di utilità di
         `ScoutScreen` (icona `Icons.flag`, sopra "Indietro" — push non pop,
         quindi nessun problema di local history entry del Drawer) apre
@@ -1310,7 +1358,29 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           ancora deciso, discussione rimandata — oggi "Fine Partita" si
           limita a cambiare `stato`, nessun dato di punteggio aggregato
           viene salvato.
-  - [ ] `MatchesScreen`: bottoni "Riprendi"/"Statistiche" in base a `StatoPartita`.
+  - [x] `MatchesScreen` a due sezioni in base a `StatoPartita`: "Da iniziare /
+        in corso" (`configurazione`/`inCorso`/`sospesa`) e "Terminate"
+        (`terminata`) — sezione nascosta se vuota, ordine cronologico
+        invariato (`watchMatches()` ordina già per `dataOra` desc)
+        all'interno di ciascuna. Stesso bottone, label/icona dinamiche:
+        "Inizia" (`Icons.play_arrow`) per le prime, "Riprendi"
+        (`Icons.replay`) per le terminate — stesso `onStart`, stesso flusso
+        (`TeamSelectionScreen` → ... → `ScoutScreen`).
+        **Riprendere una partita `terminata`**: voluto esplicitamente (es.
+        per correggere un'azione dopo aver chiuso per errore) — quando
+        `ScoutScreen._avviaOCaricaSet()` trova il set già esistente, se
+        `match.stato != inCorso` lo riporta a `inCorso` (solo "Fine
+        Partita" lo rimette a `terminata`): `terminata` deve sempre voler
+        dire "scout non in corso ora", mai uno stato ibrido.
+        **Bottone "Apri report" non incluso**: la schermata report è Fase 4,
+        non ancora costruita — niente a cui linkare oggi.
+        **Punteggi/statistiche per il report**: nessuna nuova colonna
+        necessaria — ogni `MatchSet` resta congelato con le sue
+        `ScoutAction` una volta passati al set successivo, quindi il
+        punteggio finale di ogni set (e il vincitore) si ricalcola in
+        qualsiasi momento rigiocandole con `ricalcolaStato()`, esattamente
+        come già avviene a runtime in `ScoutScreen`. Il report di Fase 4
+        farà lo stesso replay per ogni set della partita.
 
 - **Fase 4 — Statistiche ed export PDF** + condivisione.
 
@@ -1329,8 +1399,13 @@ forzati dalla fase di gioco, alzata/attacco/muro/difesa a scelta libera dopo:
 punteggio, chi serve e rotazione sono derivati in tempo reale dagli eventi
 `ScoutAction` persistiti, vedi Modello dati) → drawer "Fine" → `EndSetScreen`
 ("Prossimo Set" ripristina la scelta formazione da zero per il set
-successivo, "Fine Partita" torna a `MatchesScreen` — salvataggio dei
-punteggi ancora da decidere).
+successivo, "Fine Partita" torna a `MatchesScreen`, ora a due sezioni
+"Da iniziare/in corso" / "Terminate" — da queste ultime si può "Riprendere"
+lo scout, che riporta `stato` a `inCorso` e salta `LineupScreen`/
+`FormationConfigScreen` ricostruendo la formazione già salvata). Nessuna
+nuova colonna serve per i punteggi: ogni set congelato si ricalcola sempre
+con `ricalcolaStato()`, manca solo la schermata report (Fase 4) che farà
+questo replay.
 Il prossimo passo è il `CustomPainter` per le traiettorie (battuta/attacco)
 via drag.
 

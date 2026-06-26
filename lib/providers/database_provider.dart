@@ -20,6 +20,14 @@ class TeamRepository {
     return _db.select(_db.teams).watch();
   }
 
+  /// Singola squadra per id (non uno stream) — usata da `MatchesScreen`
+  /// quando "Riprendi" salta `TeamSelectionScreen` e serve solo leggere una
+  /// volta la squadra già fissata sulla partita (`match.teamId`).
+  Future<Team?> getTeam(int id) {
+    return (_db.select(_db.teams)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+  }
+
   Future<int> addTeam(TeamsCompanion team) {
     return _db.into(_db.teams).insert(team);
   }
@@ -143,10 +151,15 @@ class MatchSetRepository {
   }
 
   /// Salva la rotazione iniziale del set a partire dalla formazione
-  /// confermata (slot 'P1'..'P6' -> Player). Il libero (L1/L2) non ha una
-  /// posizione di rotazione e viene ignorato.
+  /// confermata (slot 'P1'..'P6' -> Player). Il libero (L1/L2) e
+  /// `ruoloCambiLibero` non hanno una posizione di rotazione, quindi non
+  /// finiscono in `Rotations`: vengono salvati sul `MatchSet` stesso, per
+  /// poter ricostruire la formazione quando si riprende lo scout senza
+  /// passare di nuovo da LineupScreen/FormationConfigScreen — vedi
+  /// `caricaFormazione()`.
   Future<void> salvaRotazioneIniziale(
-      int setId, Map<String, Player> assignments) async {
+      int setId, Map<String, Player> assignments,
+      {Ruolo? ruoloCambiLibero}) async {
     final righe = <RotationsCompanion>[];
     for (final entry in assignments.entries) {
       final posizione = int.tryParse(entry.key.replaceFirst('P', ''));
@@ -159,6 +172,71 @@ class MatchSetRepository {
       ));
     }
     await _db.batch((batch) => batch.insertAll(_db.rotations, righe));
+
+    await (_db.update(_db.matchSets)..where((s) => s.id.equals(setId))).write(
+          MatchSetsCompanion(
+            liberoId: Value(assignments['L1']?.id),
+            libero2Id: Value(assignments['L2']?.id),
+            ruoloCambiLibero: Value(ruoloCambiLibero),
+          ),
+        );
+  }
+
+  /// Ricostruisce la formazione iniziale di un set già a DB (assignments,
+  /// palleggiatoreSlot, ruoloCambiLibero) — usata da `TeamSelectionScreen`
+  /// per bypassare `LineupScreen`/`FormationConfigScreen` quando si riprende
+  /// lo scout di un set già iniziato (anche se la partita è `terminata`).
+  /// Null se il set non ha ancora una rotazione salvata (set nuovo, mai
+  /// iniziato) — in quel caso va comunque attraverso il flusso normale di
+  /// selezione formazione.
+  Future<
+      ({
+        Map<String, Player> assignments,
+        String palleggiatoreSlot,
+        Ruolo? ruoloCambiLibero,
+      })?> caricaFormazione(int setId) async {
+    final set = await (_db.select(_db.matchSets)
+          ..where((s) => s.id.equals(setId)))
+        .getSingleOrNull();
+    if (set == null) return null;
+    final righeRotazione = await (_db.select(_db.rotations)
+          ..where((r) => r.setId.equals(setId)))
+        .get();
+    if (righeRotazione.isEmpty) return null;
+
+    final assignments = <String, Player>{};
+    String? palleggiatoreSlot;
+    for (final r in righeRotazione) {
+      final player = await (_db.select(_db.players)
+            ..where((p) => p.id.equals(r.giocatoreId)))
+          .getSingleOrNull();
+      if (player == null) continue; // giocatore eliminato dopo la creazione
+      final slot = 'P${r.posizione}';
+      assignments[slot] = player;
+      if (player.ruolo == Ruolo.palleggiatore) palleggiatoreSlot = slot;
+    }
+    if (palleggiatoreSlot == null) return null; // dato incoerente
+
+    final liberoId = set.liberoId;
+    if (liberoId != null) {
+      final libero = await (_db.select(_db.players)
+            ..where((p) => p.id.equals(liberoId)))
+          .getSingleOrNull();
+      if (libero != null) assignments['L1'] = libero;
+    }
+    final libero2Id = set.libero2Id;
+    if (libero2Id != null) {
+      final libero2 = await (_db.select(_db.players)
+            ..where((p) => p.id.equals(libero2Id)))
+          .getSingleOrNull();
+      if (libero2 != null) assignments['L2'] = libero2;
+    }
+
+    return (
+      assignments: assignments,
+      palleggiatoreSlot: palleggiatoreSlot,
+      ruoloCambiLibero: set.ruoloCambiLibero,
+    );
   }
 }
 

@@ -118,6 +118,22 @@ class MatchSets extends Table {
   // non derivabile dagli eventi (scelto fuori dal gioco).
   TextColumn get squadraServizioIniziale =>
       text().map(const SquadraConverter())();
+  // Libero(i) e coppia sostituita nella formazione iniziale di questo set
+  // (null se non c'è libero) — non hanno una posizione di rotazione, quindi
+  // non sono in Rotations. Persistiti per poter ricostruire
+  // assignments/palleggiatoreSlot/ruoloCambiLibero quando si riprende lo
+  // scout di un set già iniziato, bypassando LineupScreen/
+  // FormationConfigScreen — vedi MatchSetRepository.caricaFormazione().
+  @ReferenceName('matchSetsComeLibero1')
+  IntColumn get liberoId => integer()
+      .nullable()
+      .references(Players, #id, onDelete: KeyAction.setNull)();
+  @ReferenceName('matchSetsComeLibero2')
+  IntColumn get libero2Id => integer()
+      .nullable()
+      .references(Players, #id, onDelete: KeyAction.setNull)();
+  TextColumn get ruoloCambiLibero =>
+      text().nullable().map(const RuoloConverter())();
 }
 
 class Rotations extends Table {
@@ -171,7 +187,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -242,6 +258,20 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
                 'ALTER TABLE match_sets ADD COLUMN '
                 "squadra_servizio_iniziale TEXT NOT NULL DEFAULT 'nostra'");
+          }
+          if (from < 8) {
+            if (!await _hasColumn('match_sets', 'libero_id')) {
+              await customStatement('ALTER TABLE match_sets ADD COLUMN '
+                  'libero_id INTEGER REFERENCES players (id)');
+            }
+            if (!await _hasColumn('match_sets', 'libero2_id')) {
+              await customStatement('ALTER TABLE match_sets ADD COLUMN '
+                  'libero2_id INTEGER REFERENCES players (id)');
+            }
+            if (!await _hasColumn('match_sets', 'ruolo_cambi_libero')) {
+              await customStatement(
+                  'ALTER TABLE match_sets ADD COLUMN ruolo_cambi_libero TEXT');
+            }
           }
         },
         beforeOpen: (details) async {

@@ -654,10 +654,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   // Punto di ingresso unico per l'avvio dello schermo: provo a caricare il
   // set numero `match.setCorrente`. Se esiste già (ripresa di una partita
-  // in corso) lo riprendo senza richiedere di nuovo "chi serve per primo".
-  // Se non esiste ancora — sia il primissimo set della partita (stato
-  // ancora `configurazione`), sia un nuovo set dopo "Prossimo Set" in
-  // `EndSetScreen` (stato già `inCorso`, ma `setCorrente` è stato
+  // in corso, O di una partita già `terminata` che si vuole correggere —
+  // vedi sotto) lo riprendo senza richiedere di nuovo "chi serve per
+  // primo". Se non esiste ancora — sia il primissimo set della partita
+  // (stato ancora `configurazione`), sia un nuovo set dopo "Prossimo Set"
+  // in `EndSetScreen` (stato già `inCorso`, ma `setCorrente` è stato
   // incrementato a monte e quel set non è stato ancora creato) — lo
   // richiedo e lo creo: stessa logica per entrambi i casi, non serve più
   // distinguerli guardando `stato`.
@@ -667,6 +668,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         await setRepo.caricaSet(widget.match.id, widget.match.setCorrente);
     if (!mounted) return;
     if (esistente != null) {
+      // Riprendere lo scout (anche da MatchesScreen → "Riprendi" su una
+      // partita già `terminata`, es. per correggere un'azione) significa
+      // che si torna a scoutare attivamente: `terminata` deve sempre voler
+      // dire "scout non in corso ora", quindi torna `inCorso` — solo "Fine
+      // Partita" la riporta a `terminata`.
+      if (widget.match.stato != StatoPartita.inCorso) {
+        await ref.read(matchRepositoryProvider).updateMatch(
+              widget.match.copyWith(stato: StatoPartita.inCorso),
+            );
+      }
+      if (!mounted) return;
       setState(() => _setCorrente = esistente);
     } else {
       await _chiediServizioIniziale();
@@ -713,7 +725,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
     final set = await setRepo.creaSet(
         widget.match.id, widget.match.setCorrente, servizioIniziale);
-    await setRepo.salvaRotazioneIniziale(set.id, widget.assignments);
+    await setRepo.salvaRotazioneIniziale(set.id, widget.assignments,
+        ruoloCambiLibero: widget.ruoloCambiLibero);
 
     if (!mounted) return;
     setState(() => _setCorrente = set);

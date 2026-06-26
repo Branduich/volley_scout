@@ -1500,6 +1500,43 @@ class $MatchSetsTable extends MatchSets
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   ).withConverter<Squadra>($MatchSetsTable.$convertersquadraServizioIniziale);
+  static const VerificationMeta _liberoIdMeta = const VerificationMeta(
+    'liberoId',
+  );
+  @override
+  late final GeneratedColumn<int> liberoId = GeneratedColumn<int>(
+    'libero_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _libero2IdMeta = const VerificationMeta(
+    'libero2Id',
+  );
+  @override
+  late final GeneratedColumn<int> libero2Id = GeneratedColumn<int>(
+    'libero2_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE SET NULL',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<Ruolo?, String> ruoloCambiLibero =
+      GeneratedColumn<String>(
+        'ruolo_cambi_libero',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Ruolo?>($MatchSetsTable.$converterruoloCambiLiberon);
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1507,6 +1544,9 @@ class $MatchSetsTable extends MatchSets
     numero,
     aperto,
     squadraServizioIniziale,
+    liberoId,
+    libero2Id,
+    ruoloCambiLibero,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1545,6 +1585,18 @@ class $MatchSetsTable extends MatchSets
         aperto.isAcceptableOrUnknown(data['aperto']!, _apertoMeta),
       );
     }
+    if (data.containsKey('libero_id')) {
+      context.handle(
+        _liberoIdMeta,
+        liberoId.isAcceptableOrUnknown(data['libero_id']!, _liberoIdMeta),
+      );
+    }
+    if (data.containsKey('libero2_id')) {
+      context.handle(
+        _libero2IdMeta,
+        libero2Id.isAcceptableOrUnknown(data['libero2_id']!, _libero2IdMeta),
+      );
+    }
     return context;
   }
 
@@ -1577,6 +1629,20 @@ class $MatchSetsTable extends MatchSets
               data['${effectivePrefix}squadra_servizio_iniziale'],
             )!,
           ),
+      liberoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}libero_id'],
+      ),
+      libero2Id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}libero2_id'],
+      ),
+      ruoloCambiLibero: $MatchSetsTable.$converterruoloCambiLiberon.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}ruolo_cambi_libero'],
+        ),
+      ),
     );
   }
 
@@ -1587,6 +1653,10 @@ class $MatchSetsTable extends MatchSets
 
   static TypeConverter<Squadra, String> $convertersquadraServizioIniziale =
       const SquadraConverter();
+  static TypeConverter<Ruolo, String> $converterruoloCambiLibero =
+      const RuoloConverter();
+  static TypeConverter<Ruolo?, String?> $converterruoloCambiLiberon =
+      NullAwareTypeConverter.wrap($converterruoloCambiLibero);
 }
 
 class MatchSet extends DataClass implements Insertable<MatchSet> {
@@ -1595,12 +1665,18 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
   final int numero;
   final bool aperto;
   final Squadra squadraServizioIniziale;
+  final int? liberoId;
+  final int? libero2Id;
+  final Ruolo? ruoloCambiLibero;
   const MatchSet({
     required this.id,
     required this.matchId,
     required this.numero,
     required this.aperto,
     required this.squadraServizioIniziale,
+    this.liberoId,
+    this.libero2Id,
+    this.ruoloCambiLibero,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1616,6 +1692,17 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
         ),
       );
     }
+    if (!nullToAbsent || liberoId != null) {
+      map['libero_id'] = Variable<int>(liberoId);
+    }
+    if (!nullToAbsent || libero2Id != null) {
+      map['libero2_id'] = Variable<int>(libero2Id);
+    }
+    if (!nullToAbsent || ruoloCambiLibero != null) {
+      map['ruolo_cambi_libero'] = Variable<String>(
+        $MatchSetsTable.$converterruoloCambiLiberon.toSql(ruoloCambiLibero),
+      );
+    }
     return map;
   }
 
@@ -1626,6 +1713,15 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       numero: Value(numero),
       aperto: Value(aperto),
       squadraServizioIniziale: Value(squadraServizioIniziale),
+      liberoId: liberoId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(liberoId),
+      libero2Id: libero2Id == null && nullToAbsent
+          ? const Value.absent()
+          : Value(libero2Id),
+      ruoloCambiLibero: ruoloCambiLibero == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ruoloCambiLibero),
     );
   }
 
@@ -1642,6 +1738,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       squadraServizioIniziale: serializer.fromJson<Squadra>(
         json['squadraServizioIniziale'],
       ),
+      liberoId: serializer.fromJson<int?>(json['liberoId']),
+      libero2Id: serializer.fromJson<int?>(json['libero2Id']),
+      ruoloCambiLibero: serializer.fromJson<Ruolo?>(json['ruoloCambiLibero']),
     );
   }
   @override
@@ -1655,6 +1754,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       'squadraServizioIniziale': serializer.toJson<Squadra>(
         squadraServizioIniziale,
       ),
+      'liberoId': serializer.toJson<int?>(liberoId),
+      'libero2Id': serializer.toJson<int?>(libero2Id),
+      'ruoloCambiLibero': serializer.toJson<Ruolo?>(ruoloCambiLibero),
     };
   }
 
@@ -1664,6 +1766,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     int? numero,
     bool? aperto,
     Squadra? squadraServizioIniziale,
+    Value<int?> liberoId = const Value.absent(),
+    Value<int?> libero2Id = const Value.absent(),
+    Value<Ruolo?> ruoloCambiLibero = const Value.absent(),
   }) => MatchSet(
     id: id ?? this.id,
     matchId: matchId ?? this.matchId,
@@ -1671,6 +1776,11 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     aperto: aperto ?? this.aperto,
     squadraServizioIniziale:
         squadraServizioIniziale ?? this.squadraServizioIniziale,
+    liberoId: liberoId.present ? liberoId.value : this.liberoId,
+    libero2Id: libero2Id.present ? libero2Id.value : this.libero2Id,
+    ruoloCambiLibero: ruoloCambiLibero.present
+        ? ruoloCambiLibero.value
+        : this.ruoloCambiLibero,
   );
   MatchSet copyWithCompanion(MatchSetsCompanion data) {
     return MatchSet(
@@ -1681,6 +1791,11 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       squadraServizioIniziale: data.squadraServizioIniziale.present
           ? data.squadraServizioIniziale.value
           : this.squadraServizioIniziale,
+      liberoId: data.liberoId.present ? data.liberoId.value : this.liberoId,
+      libero2Id: data.libero2Id.present ? data.libero2Id.value : this.libero2Id,
+      ruoloCambiLibero: data.ruoloCambiLibero.present
+          ? data.ruoloCambiLibero.value
+          : this.ruoloCambiLibero,
     );
   }
 
@@ -1691,14 +1806,25 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
           ..write('matchId: $matchId, ')
           ..write('numero: $numero, ')
           ..write('aperto: $aperto, ')
-          ..write('squadraServizioIniziale: $squadraServizioIniziale')
+          ..write('squadraServizioIniziale: $squadraServizioIniziale, ')
+          ..write('liberoId: $liberoId, ')
+          ..write('libero2Id: $libero2Id, ')
+          ..write('ruoloCambiLibero: $ruoloCambiLibero')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, matchId, numero, aperto, squadraServizioIniziale);
+  int get hashCode => Object.hash(
+    id,
+    matchId,
+    numero,
+    aperto,
+    squadraServizioIniziale,
+    liberoId,
+    libero2Id,
+    ruoloCambiLibero,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1707,7 +1833,10 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
           other.matchId == this.matchId &&
           other.numero == this.numero &&
           other.aperto == this.aperto &&
-          other.squadraServizioIniziale == this.squadraServizioIniziale);
+          other.squadraServizioIniziale == this.squadraServizioIniziale &&
+          other.liberoId == this.liberoId &&
+          other.libero2Id == this.libero2Id &&
+          other.ruoloCambiLibero == this.ruoloCambiLibero);
 }
 
 class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
@@ -1716,12 +1845,18 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
   final Value<int> numero;
   final Value<bool> aperto;
   final Value<Squadra> squadraServizioIniziale;
+  final Value<int?> liberoId;
+  final Value<int?> libero2Id;
+  final Value<Ruolo?> ruoloCambiLibero;
   const MatchSetsCompanion({
     this.id = const Value.absent(),
     this.matchId = const Value.absent(),
     this.numero = const Value.absent(),
     this.aperto = const Value.absent(),
     this.squadraServizioIniziale = const Value.absent(),
+    this.liberoId = const Value.absent(),
+    this.libero2Id = const Value.absent(),
+    this.ruoloCambiLibero = const Value.absent(),
   });
   MatchSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -1729,6 +1864,9 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     required int numero,
     this.aperto = const Value.absent(),
     required Squadra squadraServizioIniziale,
+    this.liberoId = const Value.absent(),
+    this.libero2Id = const Value.absent(),
+    this.ruoloCambiLibero = const Value.absent(),
   }) : matchId = Value(matchId),
        numero = Value(numero),
        squadraServizioIniziale = Value(squadraServizioIniziale);
@@ -1738,6 +1876,9 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     Expression<int>? numero,
     Expression<bool>? aperto,
     Expression<String>? squadraServizioIniziale,
+    Expression<int>? liberoId,
+    Expression<int>? libero2Id,
+    Expression<String>? ruoloCambiLibero,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1746,6 +1887,9 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
       if (aperto != null) 'aperto': aperto,
       if (squadraServizioIniziale != null)
         'squadra_servizio_iniziale': squadraServizioIniziale,
+      if (liberoId != null) 'libero_id': liberoId,
+      if (libero2Id != null) 'libero2_id': libero2Id,
+      if (ruoloCambiLibero != null) 'ruolo_cambi_libero': ruoloCambiLibero,
     });
   }
 
@@ -1755,6 +1899,9 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     Value<int>? numero,
     Value<bool>? aperto,
     Value<Squadra>? squadraServizioIniziale,
+    Value<int?>? liberoId,
+    Value<int?>? libero2Id,
+    Value<Ruolo?>? ruoloCambiLibero,
   }) {
     return MatchSetsCompanion(
       id: id ?? this.id,
@@ -1763,6 +1910,9 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
       aperto: aperto ?? this.aperto,
       squadraServizioIniziale:
           squadraServizioIniziale ?? this.squadraServizioIniziale,
+      liberoId: liberoId ?? this.liberoId,
+      libero2Id: libero2Id ?? this.libero2Id,
+      ruoloCambiLibero: ruoloCambiLibero ?? this.ruoloCambiLibero,
     );
   }
 
@@ -1788,6 +1938,19 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
         ),
       );
     }
+    if (liberoId.present) {
+      map['libero_id'] = Variable<int>(liberoId.value);
+    }
+    if (libero2Id.present) {
+      map['libero2_id'] = Variable<int>(libero2Id.value);
+    }
+    if (ruoloCambiLibero.present) {
+      map['ruolo_cambi_libero'] = Variable<String>(
+        $MatchSetsTable.$converterruoloCambiLiberon.toSql(
+          ruoloCambiLibero.value,
+        ),
+      );
+    }
     return map;
   }
 
@@ -1798,7 +1961,10 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
           ..write('matchId: $matchId, ')
           ..write('numero: $numero, ')
           ..write('aperto: $aperto, ')
-          ..write('squadraServizioIniziale: $squadraServizioIniziale')
+          ..write('squadraServizioIniziale: $squadraServizioIniziale, ')
+          ..write('liberoId: $liberoId, ')
+          ..write('libero2Id: $libero2Id, ')
+          ..write('ruoloCambiLibero: $ruoloCambiLibero')
           ..write(')'))
         .toString();
   }
@@ -3265,6 +3431,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('match_sets', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('match_sets', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
         'match_sets',
         limitUpdateKind: UpdateKind.delete,
       ),
@@ -3700,6 +3880,46 @@ final class $$PlayersTableReferences
     );
   }
 
+  static MultiTypedResultKey<$MatchSetsTable, List<MatchSet>>
+  _matchSetsComeLibero1Table(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.matchSets,
+    aliasName: 'players__id__match_sets__libero_id',
+  );
+
+  $$MatchSetsTableProcessedTableManager get matchSetsComeLibero1 {
+    final manager = $$MatchSetsTableTableManager(
+      $_db,
+      $_db.matchSets,
+    ).filter((f) => f.liberoId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _matchSetsComeLibero1Table($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$MatchSetsTable, List<MatchSet>>
+  _matchSetsComeLibero2Table(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.matchSets,
+    aliasName: 'players__id__match_sets__libero2_id',
+  );
+
+  $$MatchSetsTableProcessedTableManager get matchSetsComeLibero2 {
+    final manager = $$MatchSetsTableTableManager(
+      $_db,
+      $_db.matchSets,
+    ).filter((f) => f.libero2Id.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _matchSetsComeLibero2Table($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$RotationsTable, List<Rotation>>
   _rotationsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.rotations,
@@ -3798,6 +4018,56 @@ class $$PlayersTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> matchSetsComeLibero1(
+    Expression<bool> Function($$MatchSetsTableFilterComposer f) f,
+  ) {
+    final $$MatchSetsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchSets,
+      getReferencedColumn: (t) => t.liberoId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSetsTableFilterComposer(
+            $db: $db,
+            $table: $db.matchSets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> matchSetsComeLibero2(
+    Expression<bool> Function($$MatchSetsTableFilterComposer f) f,
+  ) {
+    final $$MatchSetsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchSets,
+      getReferencedColumn: (t) => t.libero2Id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSetsTableFilterComposer(
+            $db: $db,
+            $table: $db.matchSets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 
   Expression<bool> rotationsRefs(
@@ -3966,6 +4236,56 @@ class $$PlayersTableAnnotationComposer
     return composer;
   }
 
+  Expression<T> matchSetsComeLibero1<T extends Object>(
+    Expression<T> Function($$MatchSetsTableAnnotationComposer a) f,
+  ) {
+    final $$MatchSetsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchSets,
+      getReferencedColumn: (t) => t.liberoId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSetsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchSets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> matchSetsComeLibero2<T extends Object>(
+    Expression<T> Function($$MatchSetsTableAnnotationComposer a) f,
+  ) {
+    final $$MatchSetsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchSets,
+      getReferencedColumn: (t) => t.libero2Id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSetsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchSets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> rotationsRefs<T extends Object>(
     Expression<T> Function($$RotationsTableAnnotationComposer a) f,
   ) {
@@ -4032,6 +4352,8 @@ class $$PlayersTableTableManager
           Player,
           PrefetchHooks Function({
             bool teamId,
+            bool matchSetsComeLibero1,
+            bool matchSetsComeLibero2,
             bool rotationsRefs,
             bool scoutActionsRefs,
           })
@@ -4094,12 +4416,16 @@ class $$PlayersTableTableManager
           prefetchHooksCallback:
               ({
                 teamId = false,
+                matchSetsComeLibero1 = false,
+                matchSetsComeLibero2 = false,
                 rotationsRefs = false,
                 scoutActionsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
+                    if (matchSetsComeLibero1) db.matchSets,
+                    if (matchSetsComeLibero2) db.matchSets,
                     if (rotationsRefs) db.rotations,
                     if (scoutActionsRefs) db.scoutActions,
                   ],
@@ -4137,6 +4463,48 @@ class $$PlayersTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
+                      if (matchSetsComeLibero1)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          MatchSet
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._matchSetsComeLibero1Table(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchSetsComeLibero1,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.liberoId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (matchSetsComeLibero2)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          MatchSet
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._matchSetsComeLibero2Table(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchSetsComeLibero2,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.libero2Id == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (rotationsRefs)
                         await $_getPrefetchedData<
                           Player,
@@ -4201,6 +4569,8 @@ typedef $$PlayersTableProcessedTableManager =
       Player,
       PrefetchHooks Function({
         bool teamId,
+        bool matchSetsComeLibero1,
+        bool matchSetsComeLibero2,
         bool rotationsRefs,
         bool scoutActionsRefs,
       })
@@ -4734,6 +5104,9 @@ typedef $$MatchSetsTableCreateCompanionBuilder =
       required int numero,
       Value<bool> aperto,
       required Squadra squadraServizioIniziale,
+      Value<int?> liberoId,
+      Value<int?> libero2Id,
+      Value<Ruolo?> ruoloCambiLibero,
     });
 typedef $$MatchSetsTableUpdateCompanionBuilder =
     MatchSetsCompanion Function({
@@ -4742,6 +5115,9 @@ typedef $$MatchSetsTableUpdateCompanionBuilder =
       Value<int> numero,
       Value<bool> aperto,
       Value<Squadra> squadraServizioIniziale,
+      Value<int?> liberoId,
+      Value<int?> libero2Id,
+      Value<Ruolo?> ruoloCambiLibero,
     });
 
 final class $$MatchSetsTableReferences
@@ -4759,6 +5135,40 @@ final class $$MatchSetsTableReferences
       $_db.volleyMatches,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_matchIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _liberoIdTable(_$AppDatabase db) =>
+      db.players.createAlias('match_sets__libero_id__players__id');
+
+  $$PlayersTableProcessedTableManager? get liberoId {
+    final $_column = $_itemColumn<int>('libero_id');
+    if ($_column == null) return null;
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_liberoIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _libero2IdTable(_$AppDatabase db) =>
+      db.players.createAlias('match_sets__libero2_id__players__id');
+
+  $$PlayersTableProcessedTableManager? get libero2Id {
+    final $_column = $_itemColumn<int>('libero2_id');
+    if ($_column == null) return null;
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_libero2IdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -4832,6 +5242,12 @@ class $$MatchSetsTableFilterComposer
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
+  ColumnWithTypeConverterFilters<Ruolo?, Ruolo, String> get ruoloCambiLibero =>
+      $composableBuilder(
+        column: $table.ruoloCambiLibero,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
   $$VolleyMatchesTableFilterComposer get matchId {
     final $$VolleyMatchesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -4846,6 +5262,52 @@ class $$MatchSetsTableFilterComposer
           }) => $$VolleyMatchesTableFilterComposer(
             $db: $db,
             $table: $db.volleyMatches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get liberoId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.liberoId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get libero2Id {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.libero2Id,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4935,6 +5397,11 @@ class $$MatchSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ruoloCambiLibero => $composableBuilder(
+    column: $table.ruoloCambiLibero,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$VolleyMatchesTableOrderingComposer get matchId {
     final $$VolleyMatchesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4949,6 +5416,52 @@ class $$MatchSetsTableOrderingComposer
           }) => $$VolleyMatchesTableOrderingComposer(
             $db: $db,
             $table: $db.volleyMatches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get liberoId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.liberoId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get libero2Id {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.libero2Id,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4983,6 +5496,12 @@ class $$MatchSetsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<Ruolo?, String> get ruoloCambiLibero =>
+      $composableBuilder(
+        column: $table.ruoloCambiLibero,
+        builder: (column) => column,
+      );
+
   $$VolleyMatchesTableAnnotationComposer get matchId {
     final $$VolleyMatchesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -4997,6 +5516,52 @@ class $$MatchSetsTableAnnotationComposer
           }) => $$VolleyMatchesTableAnnotationComposer(
             $db: $db,
             $table: $db.volleyMatches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get liberoId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.liberoId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get libero2Id {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.libero2Id,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5072,6 +5637,8 @@ class $$MatchSetsTableTableManager
           MatchSet,
           PrefetchHooks Function({
             bool matchId,
+            bool liberoId,
+            bool libero2Id,
             bool rotationsRefs,
             bool scoutActionsRefs,
           })
@@ -5094,12 +5661,18 @@ class $$MatchSetsTableTableManager
                 Value<int> numero = const Value.absent(),
                 Value<bool> aperto = const Value.absent(),
                 Value<Squadra> squadraServizioIniziale = const Value.absent(),
+                Value<int?> liberoId = const Value.absent(),
+                Value<int?> libero2Id = const Value.absent(),
+                Value<Ruolo?> ruoloCambiLibero = const Value.absent(),
               }) => MatchSetsCompanion(
                 id: id,
                 matchId: matchId,
                 numero: numero,
                 aperto: aperto,
                 squadraServizioIniziale: squadraServizioIniziale,
+                liberoId: liberoId,
+                libero2Id: libero2Id,
+                ruoloCambiLibero: ruoloCambiLibero,
               ),
           createCompanionCallback:
               ({
@@ -5108,12 +5681,18 @@ class $$MatchSetsTableTableManager
                 required int numero,
                 Value<bool> aperto = const Value.absent(),
                 required Squadra squadraServizioIniziale,
+                Value<int?> liberoId = const Value.absent(),
+                Value<int?> libero2Id = const Value.absent(),
+                Value<Ruolo?> ruoloCambiLibero = const Value.absent(),
               }) => MatchSetsCompanion.insert(
                 id: id,
                 matchId: matchId,
                 numero: numero,
                 aperto: aperto,
                 squadraServizioIniziale: squadraServizioIniziale,
+                liberoId: liberoId,
+                libero2Id: libero2Id,
+                ruoloCambiLibero: ruoloCambiLibero,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -5126,6 +5705,8 @@ class $$MatchSetsTableTableManager
           prefetchHooksCallback:
               ({
                 matchId = false,
+                liberoId = false,
+                libero2Id = false,
                 rotationsRefs = false,
                 scoutActionsRefs = false,
               }) {
@@ -5160,6 +5741,32 @@ class $$MatchSetsTableTableManager
                                         ._matchIdTable(db),
                                     referencedColumn: $$MatchSetsTableReferences
                                         ._matchIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (liberoId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.liberoId,
+                                    referencedTable: $$MatchSetsTableReferences
+                                        ._liberoIdTable(db),
+                                    referencedColumn: $$MatchSetsTableReferences
+                                        ._liberoIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (libero2Id) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.libero2Id,
+                                    referencedTable: $$MatchSetsTableReferences
+                                        ._libero2IdTable(db),
+                                    referencedColumn: $$MatchSetsTableReferences
+                                        ._libero2IdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -5233,6 +5840,8 @@ typedef $$MatchSetsTableProcessedTableManager =
       MatchSet,
       PrefetchHooks Function({
         bool matchId,
+        bool liberoId,
+        bool libero2Id,
         bool rotationsRefs,
         bool scoutActionsRefs,
       })

@@ -6,6 +6,11 @@ import '../../providers/database_provider.dart';
 import '../teams/team_form_screen.dart';
 import '../live/lineup_screen.dart';
 
+// Questa schermata si raggiunge SOLO quando il set corrente non ha ancora
+// una formazione salvata (vedi MatchesScreen._avviaOnStart): la ripresa di
+// un set già iniziato salta direttamente a ScoutScreen, senza passare di
+// qui, perché a quel punto la squadra è già fissata dalla Rotation
+// persistita — selezionarne un'altra qui creerebbe un'incoerenza.
 class TeamSelectionScreen extends ConsumerWidget {
   final VolleyMatch match;
   const TeamSelectionScreen({super.key, required this.match});
@@ -15,14 +20,13 @@ class TeamSelectionScreen extends ConsumerWidget {
     await ref.read(matchRepositoryProvider).updateMatch(
           match.copyWith(teamId: Value(team.id)),
         );
-    if (context.mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LineupScreen(match: match, team: team),
-        ),
-      );
-    }
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LineupScreen(match: match, team: team),
+      ),
+    );
   }
 
   @override
