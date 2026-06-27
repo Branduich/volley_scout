@@ -1827,8 +1827,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 64,
-        height: 38,
+        width: 92,
+        height: 52,
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
@@ -1836,6 +1836,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selezionato ? AppColors.brandAccent : Colors.white38,
+            width: selezionato ? 2 : 1,
           ),
         ),
         child: Text(
@@ -1845,7 +1846,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 10,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1932,9 +1933,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ),
       Positioned(
         right: 16,
-        top: 0,
-        bottom: 0,
-        child: Center(
+        top: 12,
+        bottom: 16,
+        child: Align(
+          alignment: Alignment.topCenter,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
@@ -1949,7 +1951,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    width: 64,
+                    width: 100,
                     child: Column(
                       children: [
                         Text(
@@ -1993,8 +1995,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       GestureDetector(
                         onTap: () => _registraVoto(voto),
                         child: Container(
-                          width: 56,
-                          height: 56,
+                          width: 100,
+                          height: 64,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: CourtStyle.votoColor(voto),
@@ -2012,7 +2014,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 22,
+                              fontSize: 28,
                             ),
                           ),
                         ),
