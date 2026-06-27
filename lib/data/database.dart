@@ -134,6 +134,16 @@ class MatchSets extends Table {
       .references(Players, #id, onDelete: KeyAction.setNull)();
   TextColumn get ruoloCambiLibero =>
       text().nullable().map(const RuoloConverter())();
+  // Override manuale del punteggio (per errori di scout/segnapunti — vale
+  // la situazione reale in campo): si somma al punteggio calcolato da
+  // ricalcolaStato() per ottenere il valore mostrato in UI, NON è loggato
+  // come ScoutAction (decisione esplicita: fine set/match sono già
+  // decisioni manuali, non serve restare fedeli al log eventi per il
+  // punteggio). Vedi ScoutScreen._correggiPunteggio().
+  IntColumn get correzionePuntiNostri =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get correzionePuntiAvversari =>
+      integer().withDefault(const Constant(0))();
 }
 
 class Rotations extends Table {
@@ -187,7 +197,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -271,6 +281,18 @@ class AppDatabase extends _$AppDatabase {
             if (!await _hasColumn('match_sets', 'ruolo_cambi_libero')) {
               await customStatement(
                   'ALTER TABLE match_sets ADD COLUMN ruolo_cambi_libero TEXT');
+            }
+          }
+          if (from < 9) {
+            if (!await _hasColumn('match_sets', 'correzione_punti_nostri')) {
+              await customStatement(
+                  'ALTER TABLE match_sets ADD COLUMN correzione_punti_nostri '
+                  'INTEGER NOT NULL DEFAULT 0');
+            }
+            if (!await _hasColumn('match_sets', 'correzione_punti_avversari')) {
+              await customStatement(
+                  'ALTER TABLE match_sets ADD COLUMN '
+                  'correzione_punti_avversari INTEGER NOT NULL DEFAULT 0');
             }
           }
         },

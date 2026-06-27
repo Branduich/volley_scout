@@ -1065,18 +1065,46 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // mostrano il ruolo.
   bool _showJerseyNumbers = true;
 
-  // Punteggio del set in corso, derivato da _statoSetReale (eventi reali).
-  // Segue lo stesso criterio del titolo: il punteggio "nostro" è sempre
-  // mostrato sul lato dove sono disegnati i nostri giocatori (a sinistra di
-  // default, a destra col cambio campo).
-  int get _punteggioNostro => _statoSetReale?.punteggioNostro ?? 0;
-  int get _punteggioAvversario => _statoSetReale?.punteggioAvversario ?? 0;
+  // Punteggio del set in corso, derivato da _statoSetReale (eventi reali) +
+  // l'eventuale correzione manuale persistita su MatchSet (vedi
+  // _correggiPunteggio — override diretto del valore mostrato, NON loggato
+  // come ScoutAction: fine set/match sono già decisioni manuali, non serve
+  // restare fedeli al log eventi per il punteggio). Segue lo stesso
+  // criterio del titolo: il punteggio "nostro" è sempre mostrato sul lato
+  // dove sono disegnati i nostri giocatori (a sinistra di default, a
+  // destra col cambio campo).
+  int get _punteggioNostro =>
+      (_statoSetReale?.punteggioNostro ?? 0) +
+      (_setCorrente?.correzionePuntiNostri ?? 0);
+  int get _punteggioAvversario =>
+      (_statoSetReale?.punteggioAvversario ?? 0) +
+      (_setCorrente?.correzionePuntiAvversari ?? 0);
 
   // Bottoni rapidi (+1 Noi/+1 Loro/Errore nostro/Errore avversario):
   // percorso alternativo ai 3 tocchi, registrano subito un ScoutAction.
   // Disabilitati prima dell'inizio del set e durante la modalità test (per
-  // non sporcare i dati reali del set con azioni di prova).
+  // non sporcare i dati reali del set con azioni di prova). Stessa
+  // condizione usata per i bottoni di correzione punteggio (_correggiPunteggio).
   bool get _bottoniRapidiAttivi => _setCorrente != null && !_testModeEnabled;
+
+  // Override manuale del punteggio (bottoni +/- accanto al numero): somma
+  // il delta alla correzione già persistita su MatchSet (mai loggato come
+  // ScoutAction, vedi sopra) e aggiorna `_setCorrente` localmente — non
+  // c'è uno stream da osservare per questi due campi, quindi va fatto a
+  // mano (a differenza di punteggio/rotazione "veri", derivati da
+  // _statoSetReale che osserva scoutAzioniStreamProvider).
+  Future<void> _correggiPunteggio(Squadra squadra, int delta) async {
+    final set = _setCorrente;
+    if (set == null) return;
+    final aggiornato =
+        await ref.read(matchSetRepositoryProvider).correggiPunteggio(
+              set.id,
+              deltaNostro: squadra == Squadra.nostra ? delta : 0,
+              deltaAvversario: squadra == Squadra.avversari ? delta : 0,
+            );
+    if (!mounted) return;
+    setState(() => _setCorrente = aggiornato);
+  }
 
   Future<void> _registraAzioneRapida(
       Squadra squadra, TipoAzione tipo, EsitoPunto esito) async {
@@ -1189,7 +1217,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             color: _kTopBarBg,
             child: LayoutBuilder(
               builder: (context, headerConstraints) {
-                const scoreControlWidth = 76.0;
+                const scoreControlWidth = 116.0;
                 final leftScoreLeft =
                     headerConstraints.maxWidth * 0.25 - scoreControlWidth / 2;
                 final rightScoreLeft =
@@ -1217,16 +1245,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       width: scoreControlWidth,
                       bottom: 4,
                       child: _isRightSide
-                          ? _buildScoreDisplay(_punteggioAvversario)
-                          : _buildScoreDisplay(_punteggioNostro),
+                          ? _buildScoreDisplay(
+                              _punteggioAvversario, Squadra.avversari)
+                          : _buildScoreDisplay(
+                              _punteggioNostro, Squadra.nostra),
                     ),
                     Positioned(
                       left: rightScoreLeft,
                       width: scoreControlWidth,
                       bottom: 4,
                       child: _isRightSide
-                          ? _buildScoreDisplay(_punteggioNostro)
-                          : _buildScoreDisplay(_punteggioAvversario),
+                          ? _buildScoreDisplay(
+                              _punteggioNostro, Squadra.nostra)
+                          : _buildScoreDisplay(
+                              _punteggioAvversario, Squadra.avversari),
                     ),
                     Positioned(
                       left: 0,
@@ -1588,17 +1620,59 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Punteggio in sola lettura: deriva da _statoSetReale (eventi reali), non
-  // più un contatore +/- manuale — i bottoni rapidi sotto sono ora l'unico
-  // modo di modificarlo.
-  Widget _buildScoreDisplay(int score) {
-    return Text(
-      '$score',
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.w600,
-        fontSize: 16,
+  // Punteggio + bottoni di correzione manuale (+/-) — override diretto del
+  // valore mostrato (vedi _correggiPunteggio), non loggato come ScoutAction.
+  // Disabilitati con le stesse condizioni dei bottoni rapidi
+  // (_bottoniRapidiAttivi); "-" disabilitato anche a punteggio già a 0 (un
+  // punteggio reale non scende mai sotto zero).
+  Widget _buildScoreDisplay(int score, Squadra squadra) {
+    final attivo = _bottoniRapidiAttivi;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _buildScoreAdjustButton(
+          Icons.remove,
+          attivo && score > 0
+              ? () => _correggiPunteggio(squadra, -1)
+              : null,
+        ),
+        SizedBox(
+          width: 32,
+          child: Text(
+            '$score',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
+        ),
+        _buildScoreAdjustButton(
+          Icons.add,
+          attivo ? () => _correggiPunteggio(squadra, 1) : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScoreAdjustButton(IconData icon, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(onTap != null ? 30 : 10),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(
+          icon,
+          color: onTap != null ? Colors.white : Colors.white38,
+          size: 16,
+        ),
       ),
     );
   }

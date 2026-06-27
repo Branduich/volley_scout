@@ -238,6 +238,29 @@ class MatchSetRepository {
       ruoloCambiLibero: set.ruoloCambiLibero,
     );
   }
+
+  /// Aggiusta l'override manuale del punteggio (bottoni +/- accanto al
+  /// punteggio in `ScoutScreen`) — somma `deltaNostro`/`deltaAvversario` al
+  /// valore già presente su `MatchSet`, **non** loggato come `ScoutAction`
+  /// (vedi `correzionePuntiNostri`/`correzionePuntiAvversari` in
+  /// `database.dart`). Ritorna il `MatchSet` aggiornato, per aggiornare lo
+  /// stato locale di `ScoutScreen` senza dover rileggere il set da capo.
+  Future<MatchSet> correggiPunteggio(int setId,
+      {int deltaNostro = 0, int deltaAvversario = 0}) async {
+    final set =
+        await (_db.select(_db.matchSets)..where((s) => s.id.equals(setId)))
+            .getSingle();
+    await (_db.update(_db.matchSets)..where((s) => s.id.equals(setId))).write(
+          MatchSetsCompanion(
+            correzionePuntiNostri:
+                Value(set.correzionePuntiNostri + deltaNostro),
+            correzionePuntiAvversari:
+                Value(set.correzionePuntiAvversari + deltaAvversario),
+          ),
+        );
+    return (_db.select(_db.matchSets)..where((s) => s.id.equals(setId)))
+        .getSingle();
+  }
 }
 
 final matchSetRepositoryProvider = Provider<MatchSetRepository>((ref) {

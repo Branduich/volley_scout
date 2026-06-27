@@ -192,10 +192,11 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v8** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v9** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
-  `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`).
+  `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
+  `MatchSets.correzionePuntiNostri`/`correzionePuntiAvversari`).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 
@@ -210,7 +211,12 @@ sono due FK separate verso la stessa tabella) e `ruoloCambiLibero` (enum
 Ruolo, nullable): formazione iniziale del set che non ha una posizione di
 rotazione (vedi `Rotation` sotto), salvata qui per poter ricostruire la
 formazione completa quando si riprende lo scout — vedi
-`MatchSetRepository.caricaFormazione()`.
+`MatchSetRepository.caricaFormazione()`. `correzionePuntiNostri`/
+`correzionePuntiAvversari` (int, default 0, schema v9): override manuale
+del punteggio (bottoni +/- in `ScoutScreen`), si sommano al punteggio
+calcolato da `ricalcolaStato()` — **non** loggati come `ScoutAction` (vedi
+"Fasi di sviluppo" per la motivazione). Aggiornati da
+`MatchSetRepository.correggiPunteggio()`.
 
 **`Rotation`** (tabella `Rotations`): id, setId (FK cascade), squadra (enum
 Squadra — solo `nostra` viene scritta), posizione (1-6), giocatoreId (FK
@@ -1336,22 +1342,35 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         (battuta/attacco) via drag; rendere modificabile l'esito automatico
         prima di confermare l'azione (idea annotata nel Modello dati, non
         ancora in UI).
-  - [ ] Override manuale punteggio (+/-) e correzione rotazione (per errori
-        di scout/segnapunti — vale la situazione reale in campo): decisioni
-        già prese, non ancora implementate.
-        - **Punteggio**: override diretto del valore mostrato, **non**
-          loggato come `ScoutAction` (fine set/match restano comunque
-          decisioni manuali, quindi non serve restare fedeli al log eventi).
-          Probabile implementazione: due colonne su `MatchSet`
-          (`correzionePuntiNostri`/`correzionePuntiAvversari`, default 0)
-          che si sommano al punteggio calcolato da `ricalcolaStato()`.
-        - **Rotazione**: al contrario, **va loggata** come evento di "cambio
-          di configurazione" — qui l'event-sourcing resta valido (undo,
-          riprendi partita coerenti). Richiede estendere `ricalcolaStato()`/
-          `AzioneScout` con un evento dedicato che sposta esplicitamente la
-          rotazione in quel punto della sequenza (oggi cambia solo come
-          effetto derivato di un sideout su `esitoPunto`). Dettagli di
-          schema (nuovo `TipoAzione`? campo dedicato?) da decidere.
+  - [x] Override manuale punteggio: bottoni "+"/"-" (`Icons.add`/
+        `Icons.remove`, 22×22) accanto a ciascun numero in barra superiore,
+        dentro `_buildScoreDisplay` (ora prende anche `Squadra` per sapere
+        quale dei due correggere). Override diretto del valore mostrato,
+        **non** loggato come `ScoutAction` (fine set/match restano comunque
+        decisioni manuali, quindi non serve restare fedeli al log eventi).
+        Schema: due colonne su `MatchSet` — `correzionePuntiNostri`/
+        `correzionePuntiAvversari` (default 0, schema v9) — che si sommano
+        al punteggio calcolato da `ricalcolaStato()` in
+        `_punteggioNostro`/`_punteggioAvversario`.
+        `MatchSetRepository.correggiPunteggio(setId, {deltaNostro,
+        deltaAvversario})` somma il delta al valore già persistito e
+        ritorna il `MatchSet` aggiornato — `_correggiPunteggio()` in
+        `ScoutScreen` lo richiama e aggiorna `_setCorrente` localmente
+        (questi due campi non hanno uno stream da osservare, a differenza
+        di punteggio/rotazione "veri" derivati da `_statoSetReale`).
+        Bottoni disabilitati con le stesse condizioni dei bottoni rapidi
+        (`_bottoniRapidiAttivi`); "-" disabilitato anche a punteggio già a
+        0 (un punteggio reale non scende mai sotto zero).
+  - [ ] Correzione manuale rotazione (per errori di scout/segnapunti — vale
+        la situazione reale in campo): decisione già presa, non ancora
+        implementata. **Va loggata** come evento di "cambio di
+        configurazione" (al contrario del punteggio) — qui l'event-sourcing
+        resta valido (undo, riprendi partita coerenti). Richiede estendere
+        `ricalcolaStato()`/`AzioneScout` con un evento dedicato che sposta
+        esplicitamente la rotazione in quel punto della sequenza (oggi
+        cambia solo come effetto derivato di un sideout su `esitoPunto`).
+        Dettagli di schema (nuovo `TipoAzione`? campo dedicato?) da
+        decidere.
   - [x] Undo: bottone (icona `Icons.undo`) nella barra superiore di
         `ScoutScreen`, al posto del bottone "indietro" (spostato nel drawer
         di utilità, vedi "Interfaccia di scout" — libera quella posizione

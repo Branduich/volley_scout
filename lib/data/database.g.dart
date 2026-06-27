@@ -1537,6 +1537,29 @@ class $MatchSetsTable extends MatchSets
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       ).withConverter<Ruolo?>($MatchSetsTable.$converterruoloCambiLiberon);
+  static const VerificationMeta _correzionePuntiNostriMeta =
+      const VerificationMeta('correzionePuntiNostri');
+  @override
+  late final GeneratedColumn<int> correzionePuntiNostri = GeneratedColumn<int>(
+    'correzione_punti_nostri',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _correzionePuntiAvversariMeta =
+      const VerificationMeta('correzionePuntiAvversari');
+  @override
+  late final GeneratedColumn<int> correzionePuntiAvversari =
+      GeneratedColumn<int>(
+        'correzione_punti_avversari',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1547,6 +1570,8 @@ class $MatchSetsTable extends MatchSets
     liberoId,
     libero2Id,
     ruoloCambiLibero,
+    correzionePuntiNostri,
+    correzionePuntiAvversari,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1597,6 +1622,24 @@ class $MatchSetsTable extends MatchSets
         libero2Id.isAcceptableOrUnknown(data['libero2_id']!, _libero2IdMeta),
       );
     }
+    if (data.containsKey('correzione_punti_nostri')) {
+      context.handle(
+        _correzionePuntiNostriMeta,
+        correzionePuntiNostri.isAcceptableOrUnknown(
+          data['correzione_punti_nostri']!,
+          _correzionePuntiNostriMeta,
+        ),
+      );
+    }
+    if (data.containsKey('correzione_punti_avversari')) {
+      context.handle(
+        _correzionePuntiAvversariMeta,
+        correzionePuntiAvversari.isAcceptableOrUnknown(
+          data['correzione_punti_avversari']!,
+          _correzionePuntiAvversariMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1643,6 +1686,14 @@ class $MatchSetsTable extends MatchSets
           data['${effectivePrefix}ruolo_cambi_libero'],
         ),
       ),
+      correzionePuntiNostri: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}correzione_punti_nostri'],
+      )!,
+      correzionePuntiAvversari: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}correzione_punti_avversari'],
+      )!,
     );
   }
 
@@ -1668,6 +1719,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
   final int? liberoId;
   final int? libero2Id;
   final Ruolo? ruoloCambiLibero;
+  final int correzionePuntiNostri;
+  final int correzionePuntiAvversari;
   const MatchSet({
     required this.id,
     required this.matchId,
@@ -1677,6 +1730,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     this.liberoId,
     this.libero2Id,
     this.ruoloCambiLibero,
+    required this.correzionePuntiNostri,
+    required this.correzionePuntiAvversari,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1703,6 +1758,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
         $MatchSetsTable.$converterruoloCambiLiberon.toSql(ruoloCambiLibero),
       );
     }
+    map['correzione_punti_nostri'] = Variable<int>(correzionePuntiNostri);
+    map['correzione_punti_avversari'] = Variable<int>(correzionePuntiAvversari);
     return map;
   }
 
@@ -1722,6 +1779,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       ruoloCambiLibero: ruoloCambiLibero == null && nullToAbsent
           ? const Value.absent()
           : Value(ruoloCambiLibero),
+      correzionePuntiNostri: Value(correzionePuntiNostri),
+      correzionePuntiAvversari: Value(correzionePuntiAvversari),
     );
   }
 
@@ -1741,6 +1800,12 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       liberoId: serializer.fromJson<int?>(json['liberoId']),
       libero2Id: serializer.fromJson<int?>(json['libero2Id']),
       ruoloCambiLibero: serializer.fromJson<Ruolo?>(json['ruoloCambiLibero']),
+      correzionePuntiNostri: serializer.fromJson<int>(
+        json['correzionePuntiNostri'],
+      ),
+      correzionePuntiAvversari: serializer.fromJson<int>(
+        json['correzionePuntiAvversari'],
+      ),
     );
   }
   @override
@@ -1757,6 +1822,10 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       'liberoId': serializer.toJson<int?>(liberoId),
       'libero2Id': serializer.toJson<int?>(libero2Id),
       'ruoloCambiLibero': serializer.toJson<Ruolo?>(ruoloCambiLibero),
+      'correzionePuntiNostri': serializer.toJson<int>(correzionePuntiNostri),
+      'correzionePuntiAvversari': serializer.toJson<int>(
+        correzionePuntiAvversari,
+      ),
     };
   }
 
@@ -1769,6 +1838,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     Value<int?> liberoId = const Value.absent(),
     Value<int?> libero2Id = const Value.absent(),
     Value<Ruolo?> ruoloCambiLibero = const Value.absent(),
+    int? correzionePuntiNostri,
+    int? correzionePuntiAvversari,
   }) => MatchSet(
     id: id ?? this.id,
     matchId: matchId ?? this.matchId,
@@ -1781,6 +1852,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     ruoloCambiLibero: ruoloCambiLibero.present
         ? ruoloCambiLibero.value
         : this.ruoloCambiLibero,
+    correzionePuntiNostri: correzionePuntiNostri ?? this.correzionePuntiNostri,
+    correzionePuntiAvversari:
+        correzionePuntiAvversari ?? this.correzionePuntiAvversari,
   );
   MatchSet copyWithCompanion(MatchSetsCompanion data) {
     return MatchSet(
@@ -1796,6 +1870,12 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
       ruoloCambiLibero: data.ruoloCambiLibero.present
           ? data.ruoloCambiLibero.value
           : this.ruoloCambiLibero,
+      correzionePuntiNostri: data.correzionePuntiNostri.present
+          ? data.correzionePuntiNostri.value
+          : this.correzionePuntiNostri,
+      correzionePuntiAvversari: data.correzionePuntiAvversari.present
+          ? data.correzionePuntiAvversari.value
+          : this.correzionePuntiAvversari,
     );
   }
 
@@ -1809,7 +1889,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
           ..write('squadraServizioIniziale: $squadraServizioIniziale, ')
           ..write('liberoId: $liberoId, ')
           ..write('libero2Id: $libero2Id, ')
-          ..write('ruoloCambiLibero: $ruoloCambiLibero')
+          ..write('ruoloCambiLibero: $ruoloCambiLibero, ')
+          ..write('correzionePuntiNostri: $correzionePuntiNostri, ')
+          ..write('correzionePuntiAvversari: $correzionePuntiAvversari')
           ..write(')'))
         .toString();
   }
@@ -1824,6 +1906,8 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
     liberoId,
     libero2Id,
     ruoloCambiLibero,
+    correzionePuntiNostri,
+    correzionePuntiAvversari,
   );
   @override
   bool operator ==(Object other) =>
@@ -1836,7 +1920,9 @@ class MatchSet extends DataClass implements Insertable<MatchSet> {
           other.squadraServizioIniziale == this.squadraServizioIniziale &&
           other.liberoId == this.liberoId &&
           other.libero2Id == this.libero2Id &&
-          other.ruoloCambiLibero == this.ruoloCambiLibero);
+          other.ruoloCambiLibero == this.ruoloCambiLibero &&
+          other.correzionePuntiNostri == this.correzionePuntiNostri &&
+          other.correzionePuntiAvversari == this.correzionePuntiAvversari);
 }
 
 class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
@@ -1848,6 +1934,8 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
   final Value<int?> liberoId;
   final Value<int?> libero2Id;
   final Value<Ruolo?> ruoloCambiLibero;
+  final Value<int> correzionePuntiNostri;
+  final Value<int> correzionePuntiAvversari;
   const MatchSetsCompanion({
     this.id = const Value.absent(),
     this.matchId = const Value.absent(),
@@ -1857,6 +1945,8 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     this.liberoId = const Value.absent(),
     this.libero2Id = const Value.absent(),
     this.ruoloCambiLibero = const Value.absent(),
+    this.correzionePuntiNostri = const Value.absent(),
+    this.correzionePuntiAvversari = const Value.absent(),
   });
   MatchSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -1867,6 +1957,8 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     this.liberoId = const Value.absent(),
     this.libero2Id = const Value.absent(),
     this.ruoloCambiLibero = const Value.absent(),
+    this.correzionePuntiNostri = const Value.absent(),
+    this.correzionePuntiAvversari = const Value.absent(),
   }) : matchId = Value(matchId),
        numero = Value(numero),
        squadraServizioIniziale = Value(squadraServizioIniziale);
@@ -1879,6 +1971,8 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     Expression<int>? liberoId,
     Expression<int>? libero2Id,
     Expression<String>? ruoloCambiLibero,
+    Expression<int>? correzionePuntiNostri,
+    Expression<int>? correzionePuntiAvversari,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1890,6 +1984,10 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
       if (liberoId != null) 'libero_id': liberoId,
       if (libero2Id != null) 'libero2_id': libero2Id,
       if (ruoloCambiLibero != null) 'ruolo_cambi_libero': ruoloCambiLibero,
+      if (correzionePuntiNostri != null)
+        'correzione_punti_nostri': correzionePuntiNostri,
+      if (correzionePuntiAvversari != null)
+        'correzione_punti_avversari': correzionePuntiAvversari,
     });
   }
 
@@ -1902,6 +2000,8 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
     Value<int?>? liberoId,
     Value<int?>? libero2Id,
     Value<Ruolo?>? ruoloCambiLibero,
+    Value<int>? correzionePuntiNostri,
+    Value<int>? correzionePuntiAvversari,
   }) {
     return MatchSetsCompanion(
       id: id ?? this.id,
@@ -1913,6 +2013,10 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
       liberoId: liberoId ?? this.liberoId,
       libero2Id: libero2Id ?? this.libero2Id,
       ruoloCambiLibero: ruoloCambiLibero ?? this.ruoloCambiLibero,
+      correzionePuntiNostri:
+          correzionePuntiNostri ?? this.correzionePuntiNostri,
+      correzionePuntiAvversari:
+          correzionePuntiAvversari ?? this.correzionePuntiAvversari,
     );
   }
 
@@ -1951,6 +2055,16 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
         ),
       );
     }
+    if (correzionePuntiNostri.present) {
+      map['correzione_punti_nostri'] = Variable<int>(
+        correzionePuntiNostri.value,
+      );
+    }
+    if (correzionePuntiAvversari.present) {
+      map['correzione_punti_avversari'] = Variable<int>(
+        correzionePuntiAvversari.value,
+      );
+    }
     return map;
   }
 
@@ -1964,7 +2078,9 @@ class MatchSetsCompanion extends UpdateCompanion<MatchSet> {
           ..write('squadraServizioIniziale: $squadraServizioIniziale, ')
           ..write('liberoId: $liberoId, ')
           ..write('libero2Id: $libero2Id, ')
-          ..write('ruoloCambiLibero: $ruoloCambiLibero')
+          ..write('ruoloCambiLibero: $ruoloCambiLibero, ')
+          ..write('correzionePuntiNostri: $correzionePuntiNostri, ')
+          ..write('correzionePuntiAvversari: $correzionePuntiAvversari')
           ..write(')'))
         .toString();
   }
@@ -5107,6 +5223,8 @@ typedef $$MatchSetsTableCreateCompanionBuilder =
       Value<int?> liberoId,
       Value<int?> libero2Id,
       Value<Ruolo?> ruoloCambiLibero,
+      Value<int> correzionePuntiNostri,
+      Value<int> correzionePuntiAvversari,
     });
 typedef $$MatchSetsTableUpdateCompanionBuilder =
     MatchSetsCompanion Function({
@@ -5118,6 +5236,8 @@ typedef $$MatchSetsTableUpdateCompanionBuilder =
       Value<int?> liberoId,
       Value<int?> libero2Id,
       Value<Ruolo?> ruoloCambiLibero,
+      Value<int> correzionePuntiNostri,
+      Value<int> correzionePuntiAvversari,
     });
 
 final class $$MatchSetsTableReferences
@@ -5247,6 +5367,16 @@ class $$MatchSetsTableFilterComposer
         column: $table.ruoloCambiLibero,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  ColumnFilters<int> get correzionePuntiNostri => $composableBuilder(
+    column: $table.correzionePuntiNostri,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get correzionePuntiAvversari => $composableBuilder(
+    column: $table.correzionePuntiAvversari,
+    builder: (column) => ColumnFilters(column),
+  );
 
   $$VolleyMatchesTableFilterComposer get matchId {
     final $$VolleyMatchesTableFilterComposer composer = $composerBuilder(
@@ -5402,6 +5532,16 @@ class $$MatchSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get correzionePuntiNostri => $composableBuilder(
+    column: $table.correzionePuntiNostri,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get correzionePuntiAvversari => $composableBuilder(
+    column: $table.correzionePuntiAvversari,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$VolleyMatchesTableOrderingComposer get matchId {
     final $$VolleyMatchesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5501,6 +5641,16 @@ class $$MatchSetsTableAnnotationComposer
         column: $table.ruoloCambiLibero,
         builder: (column) => column,
       );
+
+  GeneratedColumn<int> get correzionePuntiNostri => $composableBuilder(
+    column: $table.correzionePuntiNostri,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get correzionePuntiAvversari => $composableBuilder(
+    column: $table.correzionePuntiAvversari,
+    builder: (column) => column,
+  );
 
   $$VolleyMatchesTableAnnotationComposer get matchId {
     final $$VolleyMatchesTableAnnotationComposer composer = $composerBuilder(
@@ -5664,6 +5814,8 @@ class $$MatchSetsTableTableManager
                 Value<int?> liberoId = const Value.absent(),
                 Value<int?> libero2Id = const Value.absent(),
                 Value<Ruolo?> ruoloCambiLibero = const Value.absent(),
+                Value<int> correzionePuntiNostri = const Value.absent(),
+                Value<int> correzionePuntiAvversari = const Value.absent(),
               }) => MatchSetsCompanion(
                 id: id,
                 matchId: matchId,
@@ -5673,6 +5825,8 @@ class $$MatchSetsTableTableManager
                 liberoId: liberoId,
                 libero2Id: libero2Id,
                 ruoloCambiLibero: ruoloCambiLibero,
+                correzionePuntiNostri: correzionePuntiNostri,
+                correzionePuntiAvversari: correzionePuntiAvversari,
               ),
           createCompanionCallback:
               ({
@@ -5684,6 +5838,8 @@ class $$MatchSetsTableTableManager
                 Value<int?> liberoId = const Value.absent(),
                 Value<int?> libero2Id = const Value.absent(),
                 Value<Ruolo?> ruoloCambiLibero = const Value.absent(),
+                Value<int> correzionePuntiNostri = const Value.absent(),
+                Value<int> correzionePuntiAvversari = const Value.absent(),
               }) => MatchSetsCompanion.insert(
                 id: id,
                 matchId: matchId,
@@ -5693,6 +5849,8 @@ class $$MatchSetsTableTableManager
                 liberoId: liberoId,
                 libero2Id: libero2Id,
                 ruoloCambiLibero: ruoloCambiLibero,
+                correzionePuntiNostri: correzionePuntiNostri,
+                correzionePuntiAvversari: correzionePuntiAvversari,
               ),
           withReferenceMapper: (p0) => p0
               .map(
