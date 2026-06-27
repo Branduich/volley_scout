@@ -15,6 +15,16 @@ const _kTopBarBg = Color(0xFF0D2738);
 const _kCourtImage = 'assets/images/double_court_bg.png';
 const _kSmallCourtImage = 'assets/images/small_court.png';
 
+// Margine fisso tra il bordo superiore dell'area di gioco (sotto banner/
+// bottoni rapidi) e il campo grande — il campo non è più centrato
+// verticalmente nello spazio rimanente, ma ancorato in alto a questa
+// distanza. Stesso valore usato per calcolare `courtTop` in
+// _buildLiberoSwapTokens/_buildBattitoreTapCatcher (Stack esterno,
+// coordinate schermo assolute): deve restare identico a quello passato a
+// `Positioned(top: ...)` nel campo vero, altrimenti libero/battitore fuori
+// campo si disallineano dal campo disegnato.
+const double _kCourtTopMargin = 16.0;
+
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
 // il cerchio del libero — in pallavolo il libero indossa sempre una maglia
 // di colore diverso dai compagni. Stessa logica di lineup_screen.dart.
@@ -1308,9 +1318,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Margine sinistro/destro del 15% dello schermo: il campo
-                // occupa il restante 70% della larghezza, centrato.
-                final courtWidth = constraints.maxWidth * 0.7;
+                // Margine sinistro/destro del 21% dello schermo: il campo
+                // occupa il restante 58% della larghezza, centrato.
+                final courtWidth = constraints.maxWidth * 0.58;
                 // Campo piccolo: 5% di margine da top e 3% da left
                 // larghezza massima del 7% dello schermo (per mantenere proporzioni con il campo grande)
                 final smallCourtSize = constraints.maxWidth * 0.07;
@@ -1323,29 +1333,34 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                     : horizontalMargin;
                 return Stack(
                   children: [
-                    Center(
-                      child: SizedBox(
-                        width: courtWidth,
-                        child: AspectRatio(
-                          aspectRatio: 1200 / 600,
-                          child: LayoutBuilder(
-                            builder: (context, courtConstraints) {
-                              final cw = courtConstraints.maxWidth;
-                              final ch = courtConstraints.maxHeight;
-                              return Stack(
-                                // Il battitore in P1 esce dal campo (X
-                                // negativa, vedi _kBattutaP1Position): senza
-                                // Clip.none lo Stack lo taglierebbe via
-                                // (default Clip.hardEdge) invece di
-                                // disegnarlo comunque sopra.
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Image.asset(_kCourtImage,
-                                      fit: BoxFit.contain),
-                                  ..._buildCourtTokens(cw, ch),
-                                ],
-                              );
-                            },
+                    Positioned(
+                      top: _kCourtTopMargin,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: SizedBox(
+                          width: courtWidth,
+                          child: AspectRatio(
+                            aspectRatio: 1200 / 600,
+                            child: LayoutBuilder(
+                              builder: (context, courtConstraints) {
+                                final cw = courtConstraints.maxWidth;
+                                final ch = courtConstraints.maxHeight;
+                                return Stack(
+                                  // Il battitore in P1 esce dal campo (X
+                                  // negativa, vedi _kBattutaP1Position): senza
+                                  // Clip.none lo Stack lo taglierebbe via
+                                  // (default Clip.hardEdge) invece di
+                                  // disegnarlo comunque sopra.
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Image.asset(_kCourtImage,
+                                        fit: BoxFit.contain),
+                                    ..._buildCourtTokens(cw, ch),
+                                  ],
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -2156,7 +2171,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final sostituzioneAttiva = !(stiamoServendo && slotCentrale == 'P1');
     final courtHeight = courtWidth / 2;
     final courtLeft = (constraints.maxWidth - courtWidth) / 2;
-    final courtTop = (constraints.maxHeight - courtHeight) / 2;
+    final courtTop = _kCourtTopMargin;
     Offset toScreen(Offset ref) => Offset(
           courtLeft + (ref.dx / 1200) * courtWidth,
           courtTop + (ref.dy / 600) * courtHeight,
@@ -2221,7 +2236,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final tokenRadius = _currentSlot == 'P1' ? radius * 1.1 : radius;
     final courtHeight = courtWidth / 2;
     final courtLeft = (constraints.maxWidth - courtWidth) / 2;
-    final courtTop = (constraints.maxHeight - courtHeight) / 2;
+    final courtTop = _kCourtTopMargin;
     final refPos = _displayPosition(_attackPosition('P1', roleLabels));
     final cx = courtLeft + (refPos.dx / 1200) * courtWidth;
     final cy = courtTop + (refPos.dy / 600) * courtHeight;

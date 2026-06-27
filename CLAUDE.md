@@ -902,9 +902,26 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 - Area sotto la barra: `LayoutBuilder` + `Stack` con due immagini PNG
   (`assets/images/`):
   - `double_court_bg.png` (campo doppio, rapporto 1200:600): centrato
-    orizzontalmente con margine sinistro/destro pari al **15%** della
-    larghezza disponibile (occupa il 70% restante), dimensionato con
-    `AspectRatio` — si scala con lo schermo, nessuna dimensione fissa in px.
+    orizzontalmente con margine sinistro/destro pari al **21%** della
+    larghezza disponibile (occupa il 58% restante — rimpicciolito da 70%/15%
+    di margine su richiesta, vedi sotto), **ancorato in alto** (non più
+    centrato verticalmente nello spazio rimanente) con margine fisso
+    `_kCourtTopMargin = 16.0` (`Positioned(top: _kCourtTopMargin, left: 0,
+    right: 0, child: Center(...))` — il `Center` interno mantiene la
+    centratura orizzontale). Stesso valore riusato come `courtTop` in
+    `_buildLiberoSwapTokens`/`_buildBattitoreTapCatcher` (Stack esterno,
+    coordinate schermo assolute): deve restare identico, altrimenti
+    libero/battitore fuori campo si disallineano dal campo disegnato.
+    Dimensionato con `AspectRatio` — si
+    scala con lo schermo, nessuna dimensione fissa in px. **Cambiare questa
+    percentuale è sempre sicuro**: tutte le posizioni dei token (attacco,
+    ricezione, battitore fuori campo) sono coordinate di riferimento nello
+    spazio 1200×600, convertite a runtime in base alla dimensione reale del
+    campo (`cw`/`ch`) — e il raggio dei token è `ch/20 × _kTokenSizeScale`,
+    quindi anch'esso proporzionale. Nessuna tabella di posizioni va toccata
+    quando si ridimensiona il campo. La mini-map e i suoi margini sono
+    invece percentuali indipendenti dello schermo (non del campo), quindi
+    non seguono questo ridimensionamento a meno di cambiarle a parte.
     Avvolto in un `LayoutBuilder` interno che espone la dimensione renderizzata
     reale (`cw`/`ch`), usata per scalare le posizioni dei token giocatore.
   - `small_court.png` (campo singolo piccolo, overlay in alto a sinistra):
