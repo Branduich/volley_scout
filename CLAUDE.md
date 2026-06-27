@@ -18,6 +18,16 @@ repo/package Dart resta `volley_scout` (codename interno, non cambia: niente
 rinomina del package, che richiederebbe toccare ogni `import
 'package:volley_scout/...'`).
 
+**Icona app**: generata con `flutter_launcher_icons` (config in `pubspec.yaml`)
+da due varianti dello stesso logo (pallone + torre degli scacchi) in
+`assets/icon/`: `icon_foreground.png` (originale, sfondo trasparente — usato
+come `adaptive_icon_foreground` per le icone adattive Android 8+, composto
+sopra `adaptive_icon_background: "#FFFFFF"`) e `icon.png` (stessa immagine
+appiattita su sfondo bianco opaco — usata come `image_path` per le icone
+legacy e iOS, che non supporta trasparenza nelle icone: `remove_alpha_ios:
+true` nel config). Rigenerare con `dart run flutter_launcher_icons` se il
+logo cambia.
+
 Sviluppatore: esperto di Unity, relativamente nuovo a Flutter/Dart. Preferisce
 procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 
@@ -1243,6 +1253,12 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   invasivo applicato indistintamente. L'unica eccezione è il **libero**, che
   usa il colore invertito (non scurito) per richiamare la maglia diversa —
   vedi sopra.
+- **Lista giocatori in `TeamFormScreen`** (`_PlayersSection`): stesso
+  trattamento di ingrandimento applicato altrove dopo test su tablet fisico
+  — avatar raggio 24, numero 20px, nome/cognome 20px bold, ruolo 16px,
+  chevron 28px. Avatar del **libero** con colore invertito (`_invertedColor()`,
+  stessa funzione duplicata anche qui) invece del colore squadra raw — unica
+  eccezione, coerente con `lineup_screen`/`scout_screen`.
 - L'unica logica presente finora è l'**avvio del set** (dialog "Chi serve per
   primo?", creazione `MatchSet`/`Rotation` iniziale — vedi sezione Modello
   dati). Nessuna registrazione di azioni di scout vere e proprie: il resto di

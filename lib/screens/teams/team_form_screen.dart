@@ -6,6 +6,17 @@ import '../../data/database.dart';
 import '../../providers/database_provider.dart';
 import 'player_form_screen.dart';
 
+// Colore invertito (canale per canale) rispetto al colore squadra, usato per
+// l'avatar del libero — in pallavolo il libero indossa sempre una maglia di
+// colore diverso dai compagni. Stessa logica duplicata in lineup_screen.dart
+// e scout_screen.dart.
+Color _invertedColor(Color color) => Color.from(
+      alpha: color.a,
+      red: 1.0 - color.r,
+      green: 1.0 - color.g,
+      blue: 1.0 - color.b,
+    );
+
 class TeamFormScreen extends ConsumerStatefulWidget {
   final Team? team; // null = nuova squadra, valorizzato = modifica
   const TeamFormScreen({super.key, this.team});
@@ -240,20 +251,34 @@ class _PlayersSection extends ConsumerWidget {
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, i) {
                   final p = players[i];
+                  final avatarColor = p.ruolo == Ruolo.libero
+                      ? _invertedColor(jerseyColor)
+                      : jerseyColor;
                   return ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
-                      backgroundColor: jerseyColor,
+                      radius: 24,
+                      backgroundColor: avatarColor,
                       child: Text(
                         '${p.numero}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
+                          fontSize: 20,
                         ),
                       ),
                     ),
-                    title: Text('${p.cognome} ${p.nome}'),
-                    subtitle: Text(p.ruolo.label),
-                    trailing: const Icon(Icons.chevron_right),
+                    title: Text(
+                      '${p.cognome} ${p.nome}',
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      p.ruolo.label,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 28),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
