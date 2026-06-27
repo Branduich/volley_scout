@@ -983,9 +983,9 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `clipBehavior: Clip.none`: il default (`Clip.hardEdge`) taglierebbe via
     il token del battitore, che essendo a X negativa cade fuori dai confini
     dello `Stack` stesso.
-    - **Posizioni di attacco per RUOLO e FASE** (IMPLEMENTATO, solo variante
-      "libero sui centrali" — le altre due, senza libero e libero sugli
-      schiacciatori, restano da fare e ricadono sulla logica generica sopra):
+    - **Posizioni di attacco per RUOLO e FASE** (IMPLEMENTATO, variante
+      "libero sui centrali" + "senza libero" derivata — "libero sugli
+      schiacciatori" resta da fare e ricade sulla logica generica sopra):
       `_kAttackBattutaCentrali`/`_kAttackDopoBattutaCentrali`/
       `_kAttackDopoRicezioneCentrali`, stesso formato delle tabelle di
       ricezione (`slot palleggiatore (P1..P6) -> ruolo -> Offset`). A
@@ -1008,9 +1008,24 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         stiamo servendo e non `_faseDopo`, `_kAttackDopoBattutaCentrali` se
         stiamo servendo e `_faseDopo`, `_kAttackDopoRicezioneCentrali` se
         servono loro e `_faseDopo` (in ricezione, prima di `_faseDopo`,
-        comanda `_activeDefenseMap`, non questa). Torna `null` se
-        `widget.ruoloCambiLibero != Ruolo.centrale` (variante non ancora
-        supportata).
+        comanda `_activeDefenseMap`, non questa). Torna `null` se non c'è
+        libero in formazione **e** `widget.ruoloCambiLibero != Ruolo.centrale`
+        (variante "libero sugli schiacciatori", non ancora supportata).
+      - **Variante "senza libero"** (`!widget.assignments.containsKey('L1')`):
+        nessuna tabella dedicata — derivata al volo dalle tabelle "libero sui
+        centrali" tramite `_kAttackSenzaLiberoDaCentrali(tabella, slot)`, che
+        sostituisce la chiave `'Libero'` (se presente — durante l'eccezione
+        del servizio la tabella è già completa, nessuna sostituzione) con il
+        centrale reale di `_kRuoloSostituitoCentrali[slot]` (P1/P2/P6→C2,
+        P3/P4/P5→C1 — quale dei due verrebbe sostituito dal libero, dato
+        dallo sviluppatore), stessa coordinata: senza libero quel centrale
+        gioca semplicemente lui stesso, nella posizione tattica che avrebbe
+        occupato il libero. Nessun dato duplicato a mano.
+        `_buildLiberoSwapTokens` non entra in gioco in questo caso (esce
+        subito, `widget.assignments['L1'] == null`): tutti e 6 i giocatori
+        passano dal ciclo normale di `_buildCourtTokens`, che non esclude
+        nessuno slot (`_slotCentraleSecondaLinea` torna `null` se
+        `widget.ruoloCambiLibero == null`).
       - **`_attackPosition(slot, roleLabels)`**: la funzione che `_buildCourtTokens`/
         `_buildLiberoSwapTokens`/`_buildBattitoreTapCatcher` chiamano davvero
         per ottenere la posizione di un giocatore in fase di attacco — risolve

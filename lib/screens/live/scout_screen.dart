@@ -236,6 +236,35 @@ const Map<String, Map<String, Offset>> _kAttackDopoRicezioneCentrali = {
   },
 };
 
+// Per rotazione, quale centrale verrebbe sostituito dal libero (l'altro è
+// sempre quello "fisso" già presente nelle tabelle sopra) — usata per
+// derivare le tabelle "senza libero" dalle tabelle "libero sui centrali"
+// senza duplicare i dati: in campo senza libero quel centrale gioca
+// semplicemente lui stesso, nella stessa posizione tattica che avrebbe
+// occupato il libero.
+const Map<String, String> _kRuoloSostituitoCentrali = {
+  'P1': 'C2',
+  'P2': 'C2',
+  'P3': 'C1',
+  'P4': 'C1',
+  'P5': 'C1',
+  'P6': 'C2',
+};
+
+// Deriva la tabella "senza libero" da una delle tabelle centrali sopra:
+// sostituisce la chiave 'Libero' (se presente — durante l'eccezione del
+// servizio non c'è, la tabella è già completa) con il centrale reale di
+// _kRuoloSostituitoCentrali, stessa Offset.
+Map<String, Offset>? _kAttackSenzaLiberoDaCentrali(
+    Map<String, Map<String, Offset>> tabellaCentrali, String slot) {
+  final mappa = tabellaCentrali[slot];
+  if (mappa == null) return null;
+  final posizioneLibero = mappa['Libero'];
+  if (posizioneLibero == null) return mappa; // già completa
+  final ruoloSostituito = _kRuoloSostituitoCentrali[slot]!;
+  return {...mappa, ruoloSostituito: posizioneLibero}..remove('Libero');
+}
+
 // Posizioni di ricezione (battuta avversaria), per rotazione (chiave = slot
 // del palleggiatore, come _currentSlot) e per RUOLO (non per slot fisso —
 // stessi codici di _roleLabelsFor: P, O, S1, S2, C1, C2). Caso "libero sui
@@ -625,22 +654,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   // Tabella di attacco attiva per rotazione/RUOLO nella fase corrente
-  // (Battuta/DopoBattuta/DopoRicezione) — solo per la variante "libero sui
-  // centrali", l'unica con dati per ora (vedi _kAttackBattutaCentrali e
-  // tabelle gemelle). Null per le altre due varianti (senza libero, libero
-  // sugli schiacciatori — da fare) o durante la ricezione in corso (gestita
-  // da _activeDefenseMap): in entrambi i casi si ricade su _refPositionFor
-  // (logica generica per zona fissa, non per ruolo) — vedi _attackPosition.
+  // (Battuta/DopoBattuta/DopoRicezione). Due varianti coperte: "libero sui
+  // centrali" (dati diretti, vedi _kAttackBattutaCentrali e tabelle
+  // gemelle) e "senza libero" (derivata dalle stesse tabelle al volo, vedi
+  // _kAttackSenzaLiberoDaCentrali — il centrale altrimenti sostituito gioca
+  // semplicemente lui stesso). Null per "libero sugli schiacciatori" (da
+  // fare) o durante la ricezione in corso (gestita da _activeDefenseMap):
+  // in entrambi i casi si ricade su _refPositionFor (logica generica per
+  // zona fissa, non per ruolo) — vedi _attackPosition.
   Map<String, Offset>? get _activeAttackMap {
-    if (widget.ruoloCambiLibero != Ruolo.centrale) return null;
+    final senzaLibero = !widget.assignments.containsKey('L1');
+    if (!senzaLibero && widget.ruoloCambiLibero != Ruolo.centrale) {
+      return null;
+    }
     final rotazione = _currentSlot;
+    Map<String, Offset>? risolvi(Map<String, Map<String, Offset>> tabella) =>
+        senzaLibero
+            ? _kAttackSenzaLiberoDaCentrali(tabella, rotazione)
+            : tabella[rotazione];
     if (_squadraAlServizio == Squadra.nostra) {
       return !_faseDopo
-          ? _kAttackBattutaCentrali[rotazione]
-          : _kAttackDopoBattutaCentrali[rotazione];
+          ? risolvi(_kAttackBattutaCentrali)
+          : risolvi(_kAttackDopoBattutaCentrali);
     }
     if (_squadraAlServizio == Squadra.avversari && _faseDopo) {
-      return _kAttackDopoRicezioneCentrali[rotazione];
+      return risolvi(_kAttackDopoRicezioneCentrali);
     }
     return null;
   }
