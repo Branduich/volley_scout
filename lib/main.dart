@@ -21,7 +21,7 @@ class VolleyScoutApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Volley Scout',
+      title: 'Volley Stratego',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: const HomeScreen(),
@@ -35,7 +35,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Volley Scout')),
+      appBar: AppBar(title: const Text('Volley Stratego')),
       body: Row(
         children: [
           // Area principale vuota (per ora)

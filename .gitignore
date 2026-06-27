@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release signing (chiave stabile per gli aggiornamenti — mai nel repo)
+android/key.properties
+*.jks
+*.keystore

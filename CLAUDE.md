@@ -12,6 +12,12 @@ di pallavolo**: si registrano le azioni di gioco (battuta, ricezione, attacco,
 ecc.) con un voto e, per alcuni fondamentali, una traiettoria, per poi produrre
 statistiche esportabili in PDF.
 
+**Nome visualizzato dell'app: "Volley Stratego"** (label Android, titolo
+`MaterialApp`/`HomeScreen`, `CFBundleDisplayName` iOS) — il nome del progetto/
+repo/package Dart resta `volley_scout` (codename interno, non cambia: niente
+rinomina del package, che richiederebbe toccare ogni `import
+'package:volley_scout/...'`).
+
 Sviluppatore: esperto di Unity, relativamente nuovo a Flutter/Dart. Preferisce
 procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 
