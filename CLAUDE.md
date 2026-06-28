@@ -114,13 +114,17 @@ lib/
 │   │   ├── match_form_screen.dart     (crea/modifica/elimina partita)
 │   │   └── team_selection_screen.dart (scelta squadra prima dello scout;
 │   │                                   label dinamica casa/trasferta, crea al volo)
-│   └── live/
-│       ├── lineup_screen.dart            (selezione formazione di partenza: griglia 3×2 +
-│       │                                  libero, assegnazione giocatori, conferma)
-│       ├── formation_config_screen.dart  (sistema di gioco + conferma palleggiatore/
-│       │                                  cambi del libero, vedi sezione navigazione)
-│       └── scout_screen.dart             (setup grafico Fase 3 in corso: sfondo, barra
-│                                          top, campo doppio + campo piccolo)
+│   ├── live/
+│   │   ├── lineup_screen.dart            (selezione formazione di partenza: griglia 3×2 +
+│   │   │                                  libero, assegnazione giocatori, conferma)
+│   │   ├── formation_config_screen.dart  (sistema di gioco + conferma palleggiatore/
+│   │   │                                  cambi del libero, vedi sezione navigazione)
+│   │   ├── scout_screen.dart             (setup grafico Fase 3 in corso: sfondo, barra
+│   │   │                                  top, campo doppio + campo piccolo)
+│   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
+│   └── report/
+│       └── match_report_screen.dart      (Fase 4: dati partita, punteggio finale,
+│                                          punteggio per set — raggiunta da MatchesScreen)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -1503,17 +1507,76 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         `match.stato != inCorso` lo riporta a `inCorso` (solo "Fine
         Partita" lo rimette a `terminata`): `terminata` deve sempre voler
         dire "scout non in corso ora", mai uno stato ibrido.
-        **Bottone "Apri report" non incluso**: la schermata report è Fase 4,
-        non ancora costruita — niente a cui linkare oggi.
+        **Bottone "Apri report"**: presente solo per le partite `terminata`
+        (icona `Icons.bar_chart`, `OutlinedButton` accanto a "Riprendi") —
+        apre `MatchReportScreen` (vedi Fase 4).
         **Punteggi/statistiche per il report**: nessuna nuova colonna
         necessaria — ogni `MatchSet` resta congelato con le sue
         `ScoutAction` una volta passati al set successivo, quindi il
         punteggio finale di ogni set (e il vincitore) si ricalcola in
         qualsiasi momento rigiocandole con `ricalcolaStato()`, esattamente
-        come già avviene a runtime in `ScoutScreen`. Il report di Fase 4
-        farà lo stesso replay per ogni set della partita.
+        come già avviene a runtime in `ScoutScreen`.
 
-- **Fase 4 — Statistiche ed export PDF** + condivisione.
+- **Fase 4 — Statistiche ed export PDF + condivisione** (IN CORSO)
+  - [x] **`MatchReportScreen`** (`lib/screens/report/match_report_screen.dart`,
+        raggiunta dal bottone "Report" in `MatchesScreen` — solo partite
+        `terminata`). Pagina 1, scope deciso con lo sviluppatore (niente
+        traiettorie né statistiche per giocatore per ora — si scout una sola
+        squadra, non ancora entrambe):
+        - **Dati partita**: nome nostra squadra (da `Team`, letto una volta
+          via `TeamRepository.getTeam`) – nome avversario (o "Avversari" se
+          non impostato, stessa convenzione di `ScoutScreen._matchTitle`);
+          sotto, il **nome della gara** (`VolleyMatch.nome`, es. "Torneo
+          estivo" — riga propria, sopra data/ora); poi data/ora, palestra se
+          presente.
+        - **Punteggio finale**: set vinti da ciascuna squadra (non punti
+          totali) — confronto `nostro`/`avversario` per ogni set.
+        - **Punteggio per set**: una riga per `MatchSet` (in ordine di
+          `numero`) col punteggio finale di quel set.
+        - **`MatchSetRepository.caricaSetsPartita(matchId)`**: tutti i
+          `MatchSet` di una partita, ordinati per `numero`.
+        - **`MatchSetRepository.calcolaStatoFinale(set)`**: stesso pattern di
+          `ScoutScreen._statoSetReale` ma come query one-shot (non stream) —
+          legge `Rotations` (per la rotazione iniziale, necessaria a
+          `ricalcolaStato()` per non lanciare un null-check su un sideout,
+          anche se il report non usa il campo `rotazione` del risultato) e
+          `ScoutActions` del set, richiama la funzione pura. **Non include**
+          la correzione manuale del punteggio — il chiamante (la schermata)
+          deve sommare `correzionePuntiNostri`/`correzionePuntiAvversari` a
+          parte, esattamente come fa `ScoutScreen._punteggioNostro`/
+          `_punteggioAvversario` (dettaglio facile da dimenticare, visto che
+          la correzione vive fuori dal log eventi — vedi sopra).
+  - [x] **Bug corretto: `teamId` perso a fine partita**. Testando il report
+        su una partita giocata per intero (non solo "TEST RIPRESA", risalente
+        a prima di questa fase), il titolo mostrava il placeholder "Nostra
+        squadra" invece del nome reale, nonostante la squadra fosse stata
+        selezionata normalmente. Causa:
+        `TeamSelectionScreen._onTeamSelected` salvava `teamId` su DB ma
+        passava avanti a `LineupScreen` il **vecchio** oggetto `match` (con
+        `teamId` ancora `null` in memoria) — `LineupScreen`,
+        `FormationConfigScreen`, `ScoutScreen` ed `EndSetScreen` si limitano
+        a passarsi `widget.match` di mano in mano senza ricaricarlo dal DB,
+        quindi ogni `updateMatch(match.copyWith(...))` successivo (in
+        `ScoutScreen._iniziaSet()` per `stato: inCorso`, in
+        `EndSetScreen._finePartita()`/`_prossimoSet()`) faceva un
+        `replace()` dell'intera riga usando quel `match` ancora con `teamId:
+        null` — sovrascrivendo il valore appena salvato. **Fix**:
+        `_onTeamSelected` ora costruisce `aggiornato =
+        match.copyWith(teamId: Value(team.id))` e lo passa a `LineupScreen`
+        invece del `match` originale — da lì in avanti ogni `copyWith` parte
+        da un oggetto con `teamId` già corretto, quindi resta corretto per
+        tutta la catena (anche su più set con "Prossimo Set").
+        **Recupero per le partite già giocate prima del fix** (rimaste con
+        `teamId == null` per sempre, dato che il dato corretto non è più
+        nel DB): `MatchSetRepository.inferisciSquadraDaRotazioni(matchId)`
+        risale a un `giocatoreId` da una qualunque `Rotation` già
+        persistita per quella partita e da lì al suo `Team` — usata da
+        `MatchReportScreen._carica` come fallback solo se `team` risulta
+        `null` dopo il lookup diretto su `teamId`. Funziona solo se è stato
+        confermato almeno un set (altrimenti nessuna `Rotation` esiste);
+        non riscrive `VolleyMatch.teamId`, serve solo a visualizzare il
+        nome corretto nel report.
+  - [ ] Statistiche per giocatore/fondamentale, export PDF, condivisione.
 
 ---
 

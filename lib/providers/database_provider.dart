@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
+import '../logic/ricalcola_stato.dart';
 import '../models/enums.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -260,6 +261,76 @@ class MatchSetRepository {
         );
     return (_db.select(_db.matchSets)..where((s) => s.id.equals(setId)))
         .getSingle();
+  }
+
+  /// Tutti i set di una partita, in ordine di numero — usata dal report per
+  /// ricostruire il punteggio finale di ciascuno (vedi calcolaStatoFinale).
+  Future<List<MatchSet>> caricaSetsPartita(int matchId) {
+    return (_db.select(_db.matchSets)
+          ..where((s) => s.matchId.equals(matchId))
+          ..orderBy([(s) => OrderingTerm.asc(s.numero)]))
+        .get();
+  }
+
+  /// Stato finale di un set, rigiocando le sue `ScoutAction` con
+  /// `ricalcolaStato()` — stesso pattern di `ScoutScreen._statoSetReale`,
+  /// ma come query one-shot (non stream) per il report. **Non include**
+  /// `correzionePuntiNostri`/`correzionePuntiAvversari`: il chiamante deve
+  /// sommarli a parte, come fa `ScoutScreen._punteggioNostro`/
+  /// `_punteggioAvversario` — qui si ritorna solo il punteggio derivato
+  /// dagli eventi. La `Rotation` persistita serve come rotazione iniziale
+  /// (necessaria a `ricalcolaStato()` per non lanciare un null-check su un
+  /// sideout, anche se il report non usa il campo `rotazione` del risultato).
+  Future<StatoSet> calcolaStatoFinale(MatchSet set) async {
+    final righeRotazione = await (_db.select(_db.rotations)
+          ..where((r) => r.setId.equals(set.id)))
+        .get();
+    final rotazioneIniziale = {
+      for (final r in righeRotazione) r.posizione: r.giocatoreId,
+    };
+    final righeAzioni = await (_db.select(_db.scoutActions)
+          ..where((a) => a.setId.equals(set.id))
+          ..orderBy([(a) => OrderingTerm.asc(a.ordine)]))
+        .get();
+    final azioni = [
+      for (final a in righeAzioni) (ordine: a.ordine, esitoPunto: a.esitoPunto),
+    ];
+    return ricalcolaStato(
+      azioni: azioni,
+      servizioIniziale: set.squadraServizioIniziale,
+      rotazioneIniziale: rotazioneIniziale,
+    );
+  }
+
+  /// Risale alla squadra di una partita quando `VolleyMatch.teamId` è
+  /// `null` per il bug corretto in `TeamSelectionScreen._onTeamSelected`
+  /// (prima del fix, ogni `updateMatch(match.copyWith(...))` successivo —
+  /// in `ScoutScreen`/`EndSetScreen` — sovrascriveva il teamId appena
+  /// salvato di nuovo a `null`, quindi le partite già giocate prima del fix
+  /// restano con `teamId == null` anche se la squadra è stata davvero
+  /// selezionata). Recupera un `giocatoreId` da una qualunque `Rotation`
+  /// già persistita per questa partita e risale al suo `Team` — funziona
+  /// solo se è stato confermato almeno un set (altrimenti nessuna
+  /// `Rotation` esiste e si ritorna `null`, nessun modo di recuperare il
+  /// dato). Usata solo per la visualizzazione nel report: non riscrive
+  /// `VolleyMatch.teamId` nel DB.
+  Future<Team?> inferisciSquadraDaRotazioni(int matchId) async {
+    final sets = await caricaSetsPartita(matchId);
+    if (sets.isEmpty) return null;
+    for (final set in sets) {
+      final riga = await (_db.select(_db.rotations)
+            ..where((r) => r.setId.equals(set.id))
+            ..limit(1))
+          .getSingleOrNull();
+      if (riga == null) continue;
+      final player = await (_db.select(_db.players)
+            ..where((p) => p.id.equals(riga.giocatoreId)))
+          .getSingleOrNull();
+      if (player == null) continue;
+      return (_db.select(_db.teams)..where((t) => t.id.equals(player.teamId)))
+          .getSingleOrNull();
+    }
+    return null;
   }
 }
 

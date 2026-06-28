@@ -5,6 +5,7 @@ import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../live/scout_screen.dart';
+import '../report/match_report_screen.dart';
 import 'match_form_screen.dart';
 import 'team_selection_screen.dart';
 
@@ -99,6 +100,14 @@ class MatchesScreen extends ConsumerWidget {
                   ),
                 ),
                 onStart: () => _avviaOContinua(context, ref, match),
+                onOpenReport: match.stato == StatoPartita.terminata
+                    ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MatchReportScreen(match: match),
+                          ),
+                        )
+                    : null,
               );
 
           return ListView(
@@ -150,8 +159,15 @@ class _MatchCard extends StatelessWidget {
   final VolleyMatch match;
   final VoidCallback onTap;
   final VoidCallback onStart;
+  // Non null solo per le partite terminate — apre MatchReportScreen.
+  final VoidCallback? onOpenReport;
 
-  const _MatchCard({required this.match, required this.onTap, required this.onStart});
+  const _MatchCard({
+    required this.match,
+    required this.onTap,
+    required this.onStart,
+    this.onOpenReport,
+  });
 
   String _pad(int n) => n.toString().padLeft(2, '0');
 
@@ -177,6 +193,14 @@ class _MatchCard extends StatelessWidget {
           children: [
             _CasaBadge(inCasa: match.inCasa),
             const SizedBox(width: 12),
+            if (onOpenReport != null) ...[
+              OutlinedButton.icon(
+                onPressed: onOpenReport,
+                icon: const Icon(Icons.bar_chart),
+                label: const Text('Report'),
+              ),
+              const SizedBox(width: 8),
+            ],
             FilledButton.icon(
               onPressed: onStart,
               icon: Icon(terminata ? Icons.replay : Icons.play_arrow),

@@ -17,14 +17,20 @@ class TeamSelectionScreen extends ConsumerWidget {
 
   Future<void> _onTeamSelected(
       BuildContext context, WidgetRef ref, Team team) async {
-    await ref.read(matchRepositoryProvider).updateMatch(
-          match.copyWith(teamId: Value(team.id)),
-        );
+    // Importante passare avanti il match AGGIORNATO (con teamId impostato),
+    // non il vecchio `match` del costruttore: Lineup/FormationConfig/
+    // ScoutScreen/EndSetScreen lo passano semplicemente di mano in mano e,
+    // più avanti, lo risalvano con `copyWith` (es. stato/setCorrente) — se
+    // partissero dalla versione con teamId ancora null, ogni risalvataggio
+    // lo sovrascriverebbe di nuovo a null (bug reale riscontrato: la
+    // squadra scompariva dal report a fine partita).
+    final aggiornato = match.copyWith(teamId: Value(team.id));
+    await ref.read(matchRepositoryProvider).updateMatch(aggiornato);
     if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => LineupScreen(match: match, team: team),
+        builder: (_) => LineupScreen(match: aggiornato, team: team),
       ),
     );
   }
