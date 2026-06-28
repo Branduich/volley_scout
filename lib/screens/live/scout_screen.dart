@@ -1885,7 +1885,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       children: [
         for (final f in opzioni) ...[
           _buildFondamentaleButton(f),
-          if (f != opzioni.last) const SizedBox(height: 8),
+          if (f != opzioni.last) const SizedBox(height: 10),
         ],
       ],
     );
@@ -1895,8 +1895,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return GestureDetector(
       onTap: () => _sceglieFondamentale(fondamentale),
       child: Container(
-        width: 110,
-        height: 40,
+        width: 150,
+        height: 60,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.brandPrimary,
@@ -1914,7 +1914,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: 14,
+            fontSize: 18,
           ),
         ),
       ),

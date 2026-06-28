@@ -760,7 +760,8 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     ellissi se non ci sta) sempre visibile, poi **due possibili corpi** in
     base a `_votoInCorso.fondamentale`:
     - **`null` (fase libera)**: `_buildSceltaFondamentale()` — 4 bottoni
-      rettangolari verticali (110×40, `AppColors.brandPrimary`), uno per
+      rettangolari verticali (150×60, `AppColors.brandPrimary` — ingranditi
+      da 110×40 dopo feedback "troppo piccoli sul device vero"), uno per
       Alzata/Attacco/Muro/Difesa. Tap → `_sceglieFondamentale(f)`: aggiorna
       `_votoInCorso` con quel fondamentale (stesso record, ora con
       `fondamentale` non nullo) — il pannello si ridisegna mostrando il
@@ -1377,6 +1378,16 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         Riga di chip col tipo di attacco (Forte/Piazzata/Pallonetto), stessa
         meccanica "armata per giocatore" della battuta. Vedi "Interfaccia di
         scout" → "Voto battuta/ricezione/altri fondamentali".
+  - [ ] **Nice to have, non in programma ora**: griglia unica 20 bottoni
+        (4 colonne Alzata/Attacco/Muro/Difesa × 5 righe Voto) per registrare
+        fondamentale+voto in un solo tocco invece dei due passaggi attuali
+        ("scegli fondamentale" → "scegli voto"). Richiederebbe spostare
+        l'azzeramento di `_tipoAttaccoSelezionato` (oggi in
+        `_sceglieFondamentale`) al momento dell'apertura del pannello per un
+        nuovo giocatore, dato che non ci sarebbe più un passaggio
+        "fondamentale" separato da cui farlo scattare. Per ora si è scelto
+        di tenere il flusso a due passi, solo con i bottoni fondamentale
+        ingranditi (vedi sopra).
   - [ ] **PROSSIMO**: `CustomPainter` campo intero per le traiettorie
         (battuta/attacco) via drag; rendere modificabile l'esito automatico
         prima di confermare l'azione (idea annotata nel Modello dati, non
