@@ -461,14 +461,26 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   - Da `TeamSelectionScreen` si può creare una squadra al volo; la lista si aggiorna
     automaticamente via stream al ritorno.
   - `LineupScreen`: layout landscape con sfondo blu scuro; sinistra = campo fisso
-    520×520dp (**ingrandito da 460×460 dopo test su tablet fisico** — su
-    schermo reale le card risultavano troppo piccole) con sfondo da PNG asset
-    (`assets/images/court_bg.png`, dichiarato in `pubspec.yaml`) — le linee
-    del campo sono nell'immagine, non più disegnate a codice. Griglia 3×2
-    sovrapposta (P1–P6 in senso antiorario), card ~140×140 (margini
-    `EdgeInsets.fromLTRB(16, 12, 16, 108)`, ancora asimmetrici/vicine al top
-    della cella) + slot libero sotto (L1, opzionalmente L2 con checkbox
-    "Doppio libero", stessa dimensione delle P — 152×152).
+    **460×460dp** (era stato ingrandito a 520×520 dopo un test su tablet
+    fisico per card troppo piccole, poi **riportato a 460×460** — stessa
+    dimensione del campo di `FormationConfigScreen` — perché a 520 col
+    libero sotto l'altezza totale sbordava su schermi più bassi) con sfondo
+    da PNG asset (`assets/images/court_bg.png`, dichiarato in
+    `pubspec.yaml`) — le linee del campo sono nell'immagine, non più
+    disegnate a codice. Griglia 3×2 sovrapposta (P1–P6 in senso antiorario),
+    card ~140×140 (margini `EdgeInsets.fromLTRB(16, 12, 16, 108)`, ancora
+    asimmetrici/vicine al top della cella) + slot libero **di fianco a
+    destra** del campo, non più sotto (`_buildLiberoColumn`, `Row` invece di
+    `Column` in `_buildCourtSection` — stessa motivazione: l'altezza totale
+    ora è quella del solo campo, non campo+libero). **Stessa dimensione
+    esatta di una cella della griglia** (460/3 × 460/2, stesso margine di
+    default di `_buildSlot`) — non più una misura "circa uguale" (152×152
+    con margine diverso): card libero pixel-identica alle card P. **Ancorato
+    in basso** (`Column(mainAxisAlignment: MainAxisAlignment.end)` +
+    `crossAxisAlignment: CrossAxisAlignment.end` sulla `Row` esterna)
+    invece che centrato verticalmente sull'intero campo — così si allinea
+    con la riga di fondo (P5-P6-P1, la rete è in alto). L1, opzionalmente
+    L2 con checkbox "Doppio libero" impilati verticalmente sopra L1.
     Colonna sinistra centrata e scrollabile (`SingleChildScrollView`) per evitare
     overflow su schermi piccoli. Destra = lista giocatori della squadra (grayed
     out + ✓ quando assegnati, "Aggiungi" per crearne uno al volo). Slot

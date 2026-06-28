@@ -149,10 +149,23 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
         children: [
           _buildDoppiLiberoCheckbox(),
           const SizedBox(height: 8),
-          SizedBox(width: 520, height: 520, child: _buildCourtGrid()),
-          const SizedBox(height: 14),
-          _buildLiberoRow(),
-          const SizedBox(height: 4),
+          // Stessa dimensione del campo di FormationConfigScreen (460×460,
+          // era 520×520) — su schermi più bassi il campo grande + la riga
+          // del libero sotto non ci stavano (sbordava). Il libero va di
+          // fianco a destra invece che sotto, così l'altezza totale resta
+          // quella del solo campo.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            // .end (non .center): il libero si ancora in basso, così si
+            // allinea con la riga di fondo del campo (P5-P6-P1 — la rete è
+            // in alto, vedi _buildCourtGrid).
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              SizedBox(width: 460, height: 460, child: _buildCourtGrid()),
+              const SizedBox(width: 14),
+              _buildLiberoColumn(),
+            ],
+          ),
         ],
       ),
     );
@@ -230,24 +243,27 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     );
   }
 
-  Widget _buildLiberoRow() {
-    // Card libero stessa dimensione visiva delle P (~140×140) con margine uniforme
-    const slotSize = 152.0;
-    const liberoMargin = EdgeInsets.all(12);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildLiberoColumn() {
+    // Stessa dimensione esatta di una cella della griglia 3×2 del campo
+    // (460/3 × 460/2) con lo stesso margine di default di _buildSlot —
+    // card libero pixel-identica alle card P, non solo "circa" della
+    // stessa misura.
+    const cellWidth = 460 / 3;
+    const cellHeight = 460 / 2;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         SizedBox(
-          width: slotSize,
-          height: slotSize,
-          child: _buildSlot('L1', margin: liberoMargin),
+          width: cellWidth,
+          height: cellHeight,
+          child: _buildSlot('L1'),
         ),
         if (_doppiLibero) ...[
-          const SizedBox(width: 12),
+          const SizedBox(height: 12),
           SizedBox(
-            width: slotSize,
-            height: slotSize,
-            child: _buildSlot('L2', margin: liberoMargin),
+            width: cellWidth,
+            height: cellHeight,
+            child: _buildSlot('L2'),
           ),
         ],
       ],
