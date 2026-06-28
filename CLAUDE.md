@@ -124,7 +124,8 @@ lib/
 │   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
 │   └── report/
 │       ├── match_report_screen.dart      (Fase 4: dati partita, punteggio finale,
-│       │                                  punteggio per set — raggiunta da MatchesScreen)
+│       │                                  punteggio per set, riepilogo fondamentali —
+│       │                                  raggiunta da MatchesScreen)
 │       └── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
 │                                          set per set — raggiunta dal drawer di ScoutScreen)
 ├── theme/
@@ -1570,6 +1571,44 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           parte, esattamente come fa `ScoutScreen._punteggioNostro`/
           `_punteggioAvversario` (dettaglio facile da dimenticare, visto che
           la correzione vive fuori dal log eventi — vedi sopra).
+  - [x] **Riepilogo fondamentali** (sotto "Punteggio per set" in
+        `MatchReportScreen`, stesso stile tabella di `PlayerStatsScreen` —
+        `Table`/`TableRow`, header `AppColors.surfaceDim`, righe alternate
+        bianco/`AppColors.surface`, voto colorato con
+        `CourtStyle.votoColor()`). A differenza del riepilogo per
+        giocatore, qui le righe sono **fondamentali** (non giocatori), in
+        ordine fisso: Battuta, Ricezione, Difesa, Attacco, Attacco su
+        ricezione, Attacco su Difesa, Muro, Alzata — colonne = 5 `Voto` +
+        "TOT". Selettore "Set" (`DropdownButtonFormField<int?>` — "Partita
+        intera" di default, o un set specifico) sopra la tabella, stesso
+        pattern di `PlayerStatsScreen`: `MatchReportScreen` è diventata
+        `ConsumerStatefulWidget` per questo (prima era `ConsumerWidget` con
+        `FutureBuilder` one-shot — i dati ora si caricano una volta in
+        `initState`/`_carica()` e si ricalcolano solo in memoria ad ogni
+        cambio di selettore, stesso schema di `PlayerStatsScreen`).
+        - **"Attacco" è il totale di tutti gli attacchi** (`fondamentale ==
+          attacco`, senza condizioni). **"Attacco su ricezione"/"Attacco su
+          Difesa" sono una partizione binaria dedotta**, non un campo
+          salvato — ragionamento per **fasi**, non per fondamentale (scelta
+          esplicita dello sviluppatore dopo aver verificato che il
+          conteggio per "ultimo fondamentale tra ricezione/difesa
+          incontrato" lasciava alcuni attacchi non classificati, es. dopo
+          una nostra battuta senza una difesa esplicitamente registrata sul
+          rinvio avversario — la somma dei due sottogruppi non tornava
+          uguale al totale). Regola attuale: **"su ricezione" è sempre il
+          primo attacco dopo un voto di ricezione nello stesso scambio**
+          (`rallyId`, scoped al set — `ultimoTipo` resettato a `null` ad
+          ogni cambio di `rallyId`); **tutti gli altri attacchi** (dopo una
+          difesa, dopo un altro attacco nello stesso scambio, o senza alcun
+          contesto registrato) **finiscono in "su Difesa"** — partizione
+          binaria, quindi la somma dei due torna sempre uguale al totale
+          "Attacco". `ultimoTipo` traccia ancora `difesa` (serve comunque
+          al conteggio della riga "Difesa" a sé stante), ma per la
+          classifica dell'attacco conta solo se l'ultimo è `ricezione` o no.
+        - **Nessuna riga "Totale" in fondo** (a differenza di
+          `PlayerStatsScreen`): qui ogni riga è già un aggregato per
+          fondamentale, sommare le righe tra loro (battuta + ricezione +
+          attacco + ...) non avrebbe un significato utile.
   - [x] **Bug corretto: `teamId` perso a fine partita**. Testando il report
         su una partita giocata per intero (non solo "TEST RIPRESA", risalente
         a prima di questa fase), il titolo mostrava il placeholder "Nostra
