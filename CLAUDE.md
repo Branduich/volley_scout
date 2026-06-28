@@ -1576,7 +1576,22 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         confermato almeno un set (altrimenti nessuna `Rotation` esiste);
         non riscrive `VolleyMatch.teamId`, serve solo a visualizzare il
         nome corretto nel report.
-  - [ ] Statistiche per giocatore/fondamentale, export PDF, condivisione.
+  - [ ] **Statistiche per giocatore/fondamentale** — non solo a fine
+        partita: deve essere consultabile **anche durante una partita in
+        corso**, tramite un bottone nel drawer di utilità di `ScoutScreen`
+        (stesso drawer di "Cambia campo"/"Fine"/"Indietro") che apre una
+        pagina dedicata. Contenuto: **set per set**, la tabella degli
+        atleti che hanno registrato almeno un voto, con le statistiche per
+        ciascun fondamentale (battuta/ricezione/alzata/attacco/muro/difesa).
+        Dettagli ancora da decidere quando si implementa: quali colonne
+        esatte per fondamentale (conteggio per voto? percentuale di
+        efficienza?), se la pagina è la stessa di `MatchReportScreen` o una
+        nuova condivisa tra le due situazioni (partita in corso vs
+        terminata) — durante una partita in corso si dovrebbe poter
+        comunque leggere lo stato dei set già chiusi più quello del set
+        corrente (che si aggiorna live, a differenza del report di fine
+        partita su dati congelati).
+  - [ ] Export PDF, condivisione.
 
 ---
 
