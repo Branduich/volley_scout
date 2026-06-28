@@ -171,12 +171,38 @@ class _MatchCard extends StatelessWidget {
 
   String _pad(int n) => n.toString().padLeft(2, '0');
 
+  // Inizia (mai cominciata) / Continua (in corso o sospesa) / Riprendi
+  // (terminata, vedi "MatchesScreen a due sezioni" in CLAUDE.md) — stesso
+  // bottone/onStart per tutti e tre, solo label e icona cambiano.
+  String _labelBottone() {
+    switch (match.stato) {
+      case StatoPartita.terminata:
+        return 'Riprendi';
+      case StatoPartita.configurazione:
+        return 'Inizia';
+      case StatoPartita.inCorso:
+      case StatoPartita.sospesa:
+        return 'Continua';
+    }
+  }
+
+  IconData _iconaBottone() {
+    switch (match.stato) {
+      case StatoPartita.terminata:
+        return Icons.replay;
+      case StatoPartita.configurazione:
+        return Icons.play_arrow;
+      case StatoPartita.inCorso:
+      case StatoPartita.sospesa:
+        return Icons.play_circle_fill;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dt = match.dataOra;
     final dateStr =
         '${_pad(dt.day)}/${_pad(dt.month)}/${dt.year}  ${_pad(dt.hour)}:${_pad(dt.minute)}';
-    final terminata = match.stato == StatoPartita.terminata;
 
     return Card(
       child: ListTile(
@@ -203,8 +229,8 @@ class _MatchCard extends StatelessWidget {
             ],
             FilledButton.icon(
               onPressed: onStart,
-              icon: Icon(terminata ? Icons.replay : Icons.play_arrow),
-              label: Text(terminata ? 'Riprendi' : 'Inizia'),
+              icon: Icon(_iconaBottone()),
+              label: Text(_labelBottone()),
             ),
           ],
         ),

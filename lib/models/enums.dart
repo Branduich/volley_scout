@@ -84,6 +84,22 @@ enum Fondamentale {
 /// (giocatore + fondamentale + voto); gli altri due sono i bottoni rapidi.
 enum TipoAzione { scout, puntoManuale, erroreGenerico }
 
+/// Motivo di un `TipoAzione.erroreGenerico` dell'avversario — salvato nella
+/// stessa colonna polimorfica `tipoEsecuzione` usata da TipoBattuta/
+/// TipoAttacco (qui per `tipo == erroreGenerico` invece che per un
+/// fondamentale). Tap singolo sul bottone "Errore avversario" registra
+/// `generico` (percorso veloce, invariato); pressione prolungata apre un
+/// menu con gli altri motivi — vedi ScoutScreen._buildBottoniAvversario().
+enum MotivoErrore {
+  generico('Generico'),
+  battuta('Battuta'),
+  falloDiPosizione('Fallo di posizione'),
+  invasione('Invasione');
+
+  final String label;
+  const MotivoErrore(this.label);
+}
+
 /// Tipo di esecuzione di un attacco — contestuale, opzionale, default
 /// `nonSpecificato` per non bloccare il flusso veloce.
 enum TipoAttacco {

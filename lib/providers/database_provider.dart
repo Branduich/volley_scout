@@ -392,17 +392,23 @@ class ScoutActionRepository {
 
   /// Registra un'azione dei bottoni rapidi (+1 Noi/+1 Loro/Errore): nessun
   /// giocatore/fondamentale/voto, solo squadra + tipo + esito.
+  /// `tipoEsecuzione` qui porta il `.name` di un `MotivoErrore` quando
+  /// `tipo == erroreGenerico` (stessa colonna polimorfica di
+  /// TipoBattuta/TipoAttacco, vedi enums.dart) — 'nonSpecificato' di
+  /// default per gli altri tipi (+1 Noi/+1 Loro), che non hanno un motivo.
   Future<void> registraAzioneRapida({
     required int setId,
     required Squadra squadra,
     required TipoAzione tipo,
     required EsitoPunto esitoPunto,
+    String tipoEsecuzione = 'nonSpecificato',
   }) {
     return _registraAzione(
       setId: setId,
       squadra: squadra,
       tipo: tipo,
       esitoPunto: esitoPunto,
+      tipoEsecuzione: tipoEsecuzione,
     );
   }
 

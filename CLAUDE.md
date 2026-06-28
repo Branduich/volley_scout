@@ -681,6 +681,19 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   - **Gruppo avversario** (`_buildBottoniAvversario`), ordine invertito per
     simmetria visiva: "Punto avversario" (verde, check) + "Errore avversario"
     (rosso, X) — stessi tipi/esiti specchiati (`Squadra.avversari`).
+  - **Motivo dell'errore avversario** (IMPLEMENTATO, esperimento — se funziona
+    bene si estende lo stesso meccanismo ad altri bottoni rapidi): enum
+    `MotivoErrore` (`generico`/`battuta`/`falloDiPosizione`/`invasione`,
+    `enums.dart`) salvato nella stessa colonna polimorfica `tipoEsecuzione`
+    già usata da `TipoBattuta`/`TipoAttacco` — nessuna nuova colonna a DB.
+    Tap singolo su "Errore avversario" registra subito `generico` (percorso
+    veloce invariato); **pressione prolungata**
+    (`onLongPressStart` su `_buildQuickActionButton`, nuovo parametro
+    opzionale) apre `_scegliMotivoErroreAvversario()` — un `showMenu` nativo
+    ancorato al punto del tap con i 4 motivi — e registra quello scelto.
+    `ScoutActionRepository.registraAzioneRapida()` accetta ora anche
+    `tipoEsecuzione` (default `'nonSpecificato'`, usato per gli altri
+    bottoni rapidi che non hanno un motivo).
   - **Colori**: rosso `Colors.red` (errore) e verde `AppColors.success`
     (punto — non blu: un punto generico è semanticamente più vicino al voto
     "perfetto" che a "positivo", quindi stesso colore di quello, vedi
@@ -895,12 +908,18 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       superfluo ora che il voto non condivide lo stile del resto della
       riga. Colorato come il voto (`CourtStyle.votoColor()`).
     - `TipoAzione.puntoManuale`/`erroreGenerico` (bottoni rapidi, nessun
-      giocatore): solo l'etichetta, `voto = null` — `"Punto nostro"`/
-      `"Punto avversario"` (verde, `AppColors.success`) o `"Errore nostro"`/
-      `"Errore avversario"` (rosso, `Colors.red` letterale) — stessi colori
-      dei bottoni che le generano (`_buildQuickActionButton`) e di
-      `CourtStyle.votoColor()` per perfetto/errore (vedi sopra): stesso
-      significato, stesso colore in tutti e tre i posti.
+      giocatore): solo l'etichetta, `voto = null` — `"Punto [nome
+      squadra]"`/`"Punto avversario"` (verde, `AppColors.success`) o
+      `"Errore [nome squadra]"`/`"Errore avversario"` (rosso, `Colors.red`
+      letterale). Per la nostra squadra si usa il nome reale (`widget.team.
+      nome`, es. "Punto Nettunia") invece del generico "nostro" — per
+      l'avversario resta "avversario" (il nome può non essere impostato,
+      vedi `_matchTitle`). Stessi colori dei bottoni che le generano
+      (`_buildQuickActionButton`) e di `CourtStyle.votoColor()` per
+      perfetto/errore (vedi sopra): stesso significato, stesso colore in
+      tutti e tre i posti. Stesso testo riusato anche dal dialog di
+      conferma undo (`_confermaAnnullaUltimaAzione`), che richiama questa
+      stessa funzione.
     - **`_buildBannerUltimaAzione`** usa `Text.rich`/`TextSpan` per
       ingrandire **solo il simbolo del voto** (fontSize 20, bold) rispetto
       al resto della riga (fontSize 13, w600) — più leggibile a colpo
@@ -1499,10 +1518,13 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         in corso" (`configurazione`/`inCorso`/`sospesa`) e "Terminate"
         (`terminata`) — sezione nascosta se vuota, ordine cronologico
         invariato (`watchMatches()` ordina già per `dataOra` desc)
-        all'interno di ciascuna. Stesso bottone, label/icona dinamiche:
-        "Inizia" (`Icons.play_arrow`) per le prime, "Riprendi"
-        (`Icons.replay`) per le terminate — stesso `onStart`, stesso flusso
-        (`TeamSelectionScreen` → ... → `ScoutScreen`).
+        all'interno di ciascuna. Stesso bottone (`onStart`), label/icona
+        dinamiche in base a `match.stato` (`_MatchCard._labelBottone()`/
+        `_iconaBottone()`): "Inizia" (`Icons.play_arrow`) se
+        `configurazione` (mai cominciata), "Continua"
+        (`Icons.play_circle_fill`) se `inCorso`/`sospesa` (set già aperto),
+        "Riprendi" (`Icons.replay`) se `terminata` — stesso flusso in tutti
+        i casi (`TeamSelectionScreen` → ... → `ScoutScreen`).
         **Riprendere una partita `terminata`**: voluto esplicitamente (es.
         per correggere un'azione dopo aver chiuso per errore) — quando
         `ScoutScreen._avviaOCaricaSet()` trova il set già esistente, se

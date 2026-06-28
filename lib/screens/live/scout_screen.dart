@@ -1118,7 +1118,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   Future<void> _registraAzioneRapida(
-      Squadra squadra, TipoAzione tipo, EsitoPunto esito) async {
+      Squadra squadra, TipoAzione tipo, EsitoPunto esito,
+      {String tipoEsecuzione = 'nonSpecificato'}) async {
     final set = _setCorrente;
     if (set == null) return;
     await ref.read(scoutActionRepositoryProvider).registraAzioneRapida(
@@ -1126,6 +1127,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           squadra: squadra,
           tipo: tipo,
           esitoPunto: esito,
+          tipoEsecuzione: tipoEsecuzione,
         );
     if (!mounted) return;
     setState(() {
@@ -1602,7 +1604,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         colore: CourtStyle.votoColor(voto),
       );
     }
-    final squadraLabel = azione.squadra == Squadra.nostra ? 'nostro' : 'avversario';
+    // Per la nostra squadra si usa il nome reale (es. "Punto Nettunia")
+    // invece del generico "nostro" — stesso testo sia nel banner ultima
+    // azione sia nel dialog di conferma undo (entrambi riusano questa
+    // funzione). Per l'avversario resta "avversario": il nome può non
+    // essere impostato (vedi _matchTitle), quindi non c'è un equivalente
+    // sempre disponibile.
+    final squadraLabel =
+        azione.squadra == Squadra.nostra ? widget.team.nome : 'avversario';
     final isPunto = azione.tipo == TipoAzione.puntoManuale;
     return (
       testo: '${isPunto ? "Punto" : "Errore"} $squadraLabel',
@@ -1756,21 +1765,47 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           color: Colors.red,
           onTap: _bottoniRapidiAttivi
               ? () => _registraAzioneRapida(Squadra.avversari,
-                  TipoAzione.erroreGenerico, EsitoPunto.puntoNostro)
+                  TipoAzione.erroreGenerico, EsitoPunto.puntoNostro,
+                  tipoEsecuzione: MotivoErrore.generico.name)
+              : null,
+          // Pressione prolungata: scegli il motivo dell'errore (Battuta/
+          // Fallo di posizione/Invasione) invece del default "Generico"
+          // del tap singolo — vedi MotivoErrore in enums.dart. Se va bene,
+          // si può estendere lo stesso meccanismo ad altri bottoni rapidi.
+          onLongPressStart: _bottoniRapidiAttivi
+              ? (details) => _scegliMotivoErroreAvversario(details.globalPosition)
               : null,
         ),
       ],
     );
   }
 
+  Future<void> _scegliMotivoErroreAvversario(Offset posizione) async {
+    final scelto = await showMenu<MotivoErrore>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+          posizione.dx, posizione.dy, posizione.dx, posizione.dy),
+      items: [
+        for (final motivo in MotivoErrore.values)
+          PopupMenuItem(value: motivo, child: Text(motivo.label)),
+      ],
+    );
+    if (scelto == null) return;
+    _registraAzioneRapida(Squadra.avversari, TipoAzione.erroreGenerico,
+        EsitoPunto.puntoNostro,
+        tipoEsecuzione: scelto.name);
+  }
+
   Widget _buildQuickActionButton({
     required IconData icon,
     required Color color,
     required VoidCallback? onTap,
+    void Function(LongPressStartDetails)? onLongPressStart,
   }) {
     final abilitato = onTap != null;
     return GestureDetector(
       onTap: onTap,
+      onLongPressStart: onLongPressStart,
       child: Container(
         width: 44,
         height: 44,
