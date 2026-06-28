@@ -192,7 +192,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
           decoration: const BoxDecoration(color: AppColors.surfaceDim),
           children: [
             _headerCell('Giocatori', allineaSinistra: true),
-            for (final v in voti) _headerCell(v.simbolo, fontSize: 22),
+            for (final v in voti) _headerCell(v.simbolo, fontSize: 28),
             _headerCell('TOT'),
           ],
         ),
@@ -209,7 +209,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
             ],
           ),
         TableRow(
-          decoration: BoxDecoration(color: Colors.lightBlue.shade100),
+          decoration: BoxDecoration(color: const Color.fromARGB(255, 213, 242, 255)),
           children: [
             _headerCell('Totale', allineaSinistra: true),
             for (final v in voti)
