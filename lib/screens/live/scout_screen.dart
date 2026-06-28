@@ -8,6 +8,7 @@ import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../report/player_stats_screen.dart';
 import 'end_set_screen.dart';
 
 const _kBg = Color(0xFF143E59);
@@ -1462,6 +1463,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               activeTrackColor: const Color(0xFF00008A),
               inactiveThumbColor: Colors.white70,
               inactiveTrackColor: Colors.white24,
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart, color: Colors.white),
+              title: const Text('Statistiche',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PlayerStatsScreen(
+                        match: widget.match, team: widget.team),
+                  ),
+                );
+              },
             ),
             const Divider(color: Colors.white24, height: 1),
             SwitchListTile(

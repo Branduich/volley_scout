@@ -50,6 +50,16 @@ class TeamRepository {
         .watch();
   }
 
+  /// Stessi giocatori di `watchPlayersForTeam`, come query one-shot (non
+  /// stream) — usata da `PlayerStatsScreen`, che carica i dati una volta e
+  /// poi filtra/raggruppa solo in memoria ad ogni cambio di set/fondamentale.
+  Future<List<Player>> getPlayersForTeam(int teamId) {
+    return (_db.select(_db.players)
+          ..where((p) => p.teamId.equals(teamId))
+          ..orderBy([(p) => OrderingTerm.asc(p.numero)]))
+        .get();
+  }
+
   Future<int> addPlayer(PlayersCompanion player) {
     return _db.into(_db.players).insert(player);
   }
@@ -349,6 +359,16 @@ class ScoutActionRepository {
           ..where((a) => a.setId.equals(setId))
           ..orderBy([(a) => OrderingTerm.asc(a.ordine)]))
         .watch();
+  }
+
+  /// Stesse azioni di `watchAzioni`, come query one-shot — usata da
+  /// `PlayerStatsScreen` per caricare tutti i set una volta sola e poi
+  /// filtrare/raggruppare in memoria ad ogni cambio di selettore.
+  Future<List<ScoutAction>> caricaAzioni(int setId) {
+    return (_db.select(_db.scoutActions)
+          ..where((a) => a.setId.equals(setId))
+          ..orderBy([(a) => OrderingTerm.asc(a.ordine)]))
+        .get();
   }
 
   /// Azione con `ordine` massimo del set, o null se non ce ne sono ancora.

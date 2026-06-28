@@ -123,8 +123,10 @@ lib/
 │   │   │                                  top, campo doppio + campo piccolo)
 │   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
 │   └── report/
-│       └── match_report_screen.dart      (Fase 4: dati partita, punteggio finale,
-│                                          punteggio per set — raggiunta da MatchesScreen)
+│       ├── match_report_screen.dart      (Fase 4: dati partita, punteggio finale,
+│       │                                  punteggio per set — raggiunta da MatchesScreen)
+│       └── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
+│                                          set per set — raggiunta dal drawer di ScoutScreen)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -1578,19 +1580,40 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         nome corretto nel report.
   - [ ] **Statistiche per giocatore/fondamentale** — non solo a fine
         partita: deve essere consultabile **anche durante una partita in
-        corso**, tramite un bottone nel drawer di utilità di `ScoutScreen`
-        (stesso drawer di "Cambia campo"/"Fine"/"Indietro") che apre una
-        pagina dedicata. Contenuto: **set per set**, la tabella degli
-        atleti che hanno registrato almeno un voto, con le statistiche per
-        ciascun fondamentale (battuta/ricezione/alzata/attacco/muro/difesa).
-        Dettagli ancora da decidere quando si implementa: quali colonne
-        esatte per fondamentale (conteggio per voto? percentuale di
-        efficienza?), se la pagina è la stessa di `MatchReportScreen` o una
-        nuova condivisa tra le due situazioni (partita in corso vs
-        terminata) — durante una partita in corso si dovrebbe poter
-        comunque leggere lo stato dei set già chiusi più quello del set
-        corrente (che si aggiorna live, a differenza del report di fine
-        partita su dati congelati).
+        corso** — **IMPLEMENTATO**: `PlayerStatsScreen`
+        (`lib/screens/report/player_stats_screen.dart`), raggiunta da una
+        nuova voce "Statistiche" (icona `Icons.bar_chart`) nel drawer di
+        utilità di `ScoutScreen` (sopra il divider di "Modalità test"), e
+        riusabile in futuro anche da `MatchesScreen` per le partite
+        terminate (oggi raggiunta solo dallo scout live). Schermata
+        `ConsumerStatefulWidget`: carica **una volta** (one-shot, niente
+        stream) tutti i `MatchSet` della partita + le `ScoutAction` di
+        ciascuno + il roster squadra, poi ogni cambio di selettore
+        ricalcola solo in memoria (`_righe` filtra/raggruppa senza nuove
+        query) — adatto sia a una partita terminata (tutti i set congelati)
+        sia in corso (i dati si rileggono da capo ogni volta che si riapre
+        la pagina, nessun bisogno di uno stream live dato che non si può
+        scoutare e guardare le statistiche contemporaneamente).
+        - **Due selettori** in alto: "Set" (`DropdownButtonFormField<int?>`
+          — opzioni "Partita intera" (`null`) + un set per ogni `MatchSet`
+          esistente, **default l'ultimo** — il set corrente se la partita è
+          in corso) e "Fondamentale" (`DropdownButtonFormField<Fondamentale>`
+          — tutti tranne `errore`, **default battuta**).
+        - **Tabella**: una riga per giocatore che ha registrato almeno un
+          voto nel fondamentale/set selezionato (righe senza voti
+          nascoste); colonne = numero+cognome+ruolo, poi una colonna per
+          ciascuno dei 5 `Voto` (simbolo, colorata con
+          `CourtStyle.votoColor()` per coerenza col resto dell'app — non i
+          colori arancioni di un mockup di riferimento), conteggio +
+          percentuale sul totale del giocatore, poi "Tot." (somma).
+          Costruita con `Table`/`TableRow` (non `DataTable`, per controllo
+          pieno su righe a due linee per cella) con righe a colori
+          alternati (`Colors.white`/`AppColors.surface`) e header
+          `AppColors.surfaceDim`.
+        - **`TeamRepository.getPlayersForTeam`** e
+          **`ScoutActionRepository.caricaAzioni`**: equivalenti one-shot
+          (non stream) di `watchPlayersForTeam`/`watchAzioni`, aggiunti per
+          questo caricamento one-shot.
   - [ ] Export PDF, condivisione.
 
 ---
