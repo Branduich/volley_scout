@@ -1084,14 +1084,36 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       implicita nei dati di `_kAttackBattutaCentrali`: quando il centrale di
       seconda linea sta per servire, la tabella mostra lui stesso (es. 'C2')
       invece di 'Libero' — nessuna logica extra in Dart per quel caso.
+      - **Variante "libero sugli schiacciatori"** (IMPLEMENTATA):
+        `_kAttackBattutaSchiacciatori`/`_kAttackDopoBattutaSchiacciatori`/
+        `_kAttackDopoRicezioneSchiacciatori`, stesso formato — qui entrambi i
+        centrali restano in campo, il libero sostituisce lo schiacciatore di
+        seconda linea. **P3 e P6 non hanno `'Libero'` in Battuta e
+        Dopo_Battuta** (a differenza di Dopo_Ricezione, dove ce l'hanno
+        tutte e 6): in quelle due rotazioni lo schiacciatore che il libero
+        sostituirebbe è proprio quello che deve servire in quel turno —
+        stesso pattern già presente per i centrali in `_kAttackBattutaCentrali`/
+        `_kAttackDopoBattutaCentrali` alla rotazione P2 (dove serve C2): per
+        tutta la durata di quel turno di servizio il libero resta fuori, non
+        solo per l'istante della battuta — e quindi anche in Dopo_Battuta
+        compaiono entrambi gli schiacciatori reali invece di uno + `Libero`.
+        Dati forniti dallo sviluppatore (CSV per rotazione/fase, stesso
+        schema della variante "centrali") — **verificato un valore diverso
+        nel CSV di Ricezione di P3** (palleggiatore 498,314 contro 470,314
+        già presente sia in `_kDefensePositionsCentrali` che in
+        `_kDefensePositionsSchiacciatori` per quella rotazione): tenuto il
+        valore già a codice, le altre 35 coordinate fornite coincidevano
+        esattamente con `_kDefensePositionsSchiacciatori` già esistente.
       - **`_activeAttackMap`** (getter): sceglie la tabella giusta per
-        rotazione (`_currentSlot`) e fase — `_kAttackBattutaCentrali` se
-        stiamo servendo e non `_faseDopo`, `_kAttackDopoBattutaCentrali` se
-        stiamo servendo e `_faseDopo`, `_kAttackDopoRicezioneCentrali` se
-        servono loro e `_faseDopo` (in ricezione, prima di `_faseDopo`,
-        comanda `_activeDefenseMap`, non questa). Torna `null` se non c'è
-        libero in formazione **e** `widget.ruoloCambiLibero != Ruolo.centrale`
-        (variante "libero sugli schiacciatori", non ancora supportata).
+        rotazione (`_currentSlot`), fase e variante (`widget.ruoloCambiLibero`
+        — `centrale` o `schiacciatore`) — tabella Battuta se stiamo servendo
+        e non `_faseDopo`, Dopo_Battuta se stiamo servendo e `_faseDopo`,
+        Dopo_Ricezione se servono loro e `_faseDopo` (in ricezione, prima di
+        `_faseDopo`, comanda `_activeDefenseMap`, non questa). La
+        derivazione "senza libero" (sotto) usa sempre le tabelle "centrali"
+        come base, indipendentemente da quale variante si applicherebbe se
+        ci fosse un libero — non c'è alcuna sostituzione da scegliere quando
+        il libero non è in formazione, quindi è equivalente.
       - **Variante "senza libero"** (`!widget.assignments.containsKey('L1')`):
         nessuna tabella dedicata — derivata al volo dalle tabelle "libero sui
         centrali" tramite `_kAttackSenzaLiberoDaCentrali(tabella, slot)`, che
