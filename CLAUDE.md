@@ -1341,7 +1341,23 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
   freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
   punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/
-  `trajectoryWidth` (già definiti, prima mai usati in UI). L'azione si
+  `trajectoryWidth` (già definiti, prima mai usati in UI). **Drag
+  catturabile anche fuori dal riquadro del campo** (es. il battitore dietro
+  la linea di fondo per la battuta): `GestureDetector` sullo Stack
+  **esterno** (coordinate assolute dell'area sotto banner, non del solo
+  riquadro 1200×600) — stessa tecnica di
+  `ScoutScreen._buildBattitoreTapCatcher`. Le coordinate normalizzate si
+  calcolano sottraendo `courtLeft`/`courtTop` e dividendo per
+  `courtWidth`/`courtHeight` (il riquadro del campo), **non clampate**: un
+  punto fuori dal campo produce valori `<0` o `>1`, coerente con
+  `_kBattutaP1Position` (X negativa) usata altrove per lo stesso scopo.
+  **`behavior: HitTestBehavior.opaque`** sul `GestureDetector` (bug
+  riscontrato: senza, il default `deferToChild` cattura il gesto solo se
+  un figlio occupa quel punto — fuori dal riquadro campo non c'è nessun
+  figlio lì, quindi un drag poteva **continuare** fuori una volta già
+  agganciato, ma non **iniziare** da fuori: l'utente lo ha notato subito
+  provandolo).
+  L'azione si
   registra **una sola volta** in `ScoutScreen` al ritorno da questa
   schermata (con le coordinate se fornite, altrimenti `null` su tutte e
   quattro) — mai un insert-poi-update separato. Conseguenza gratuita:

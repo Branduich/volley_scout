@@ -64,15 +64,24 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     setState(() => _attuale = details.localPosition);
   }
 
-  void _onPanEnd(DragEndDetails details, Size campoSize) {
+  // `inizio`/`attuale` sono in coordinate assolute dello Stack esterno
+  // (vedi build) — qui si convertono in normalizzate rispetto al
+  // RIQUADRO del campo (courtLeft/courtTop/courtWidth/courtHeight), non
+  // rispetto allo schermo intero. Risultato volutamente **non clampato**:
+  // un drag iniziato fuori dal campo (es. il battitore dietro la linea di
+  // fondo) produce coordinate <0 o >1, esattamente come
+  // ScoutScreen._kBattutaP1Position rappresenta il battitore con X
+  // negativa.
+  void _onPanEnd(DragEndDetails details, double courtLeft, double courtTop,
+      double courtWidth, double courtHeight) {
     final inizio = _inizio;
     final fine = _attuale;
     if (inizio == null || fine == null) return;
     final risultato = (
-      x1: inizio.dx / campoSize.width,
-      y1: inizio.dy / campoSize.height,
-      x2: fine.dx / campoSize.width,
-      y2: fine.dy / campoSize.height,
+      x1: (inizio.dx - courtLeft) / courtWidth,
+      y1: (inizio.dy - courtTop) / courtHeight,
+      x2: (fine.dx - courtLeft) / courtWidth,
+      y2: (fine.dy - courtTop) / courtHeight,
     );
     Navigator.pop(context, risultato);
   }
@@ -180,45 +189,51 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
               builder: (context, screenConstraints) {
                 final courtWidth =
                     screenConstraints.maxWidth * _kCourtWidthFraction;
-                return Stack(
-                  children: [
-                    Positioned(
-                      top: _kCourtTopMargin,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: SizedBox(
-                          width: courtWidth,
-                          child: AspectRatio(
-                            aspectRatio: 1200 / 600,
-                            child: LayoutBuilder(
-                              builder: (context, courtConstraints) {
-                                final campoSize = courtConstraints.biggest;
-                                return GestureDetector(
-                                  onPanStart: _onPanStart,
-                                  onPanUpdate: _onPanUpdate,
-                                  onPanEnd: (details) =>
-                                      _onPanEnd(details, campoSize),
-                                  child: Stack(
-                                    children: [
-                                      Image.asset(_kCourtImage,
-                                          fit: BoxFit.contain),
-                                      if (_inizio != null && _attuale != null)
-                                        CustomPaint(
-                                          size: campoSize,
-                                          painter: _FrecciaTraiettoriaPainter(
-                                              _inizio!, _attuale!),
-                                        ),
-                                    ],
-                                  ),
-                                );
-                              },
+                final courtHeight = courtWidth / 2; // aspect ratio 1200/600
+                final courtLeft =
+                    (screenConstraints.maxWidth - courtWidth) / 2;
+                const courtTop = _kCourtTopMargin;
+                // GestureDetector sullo Stack ESTERNO (coordinate assolute
+                // di questa area, non del solo riquadro campo): un drag che
+                // parte fuori dal campo viene comunque catturato — stessa
+                // tecnica di ScoutScreen._buildBattitoreTapCatcher per il
+                // battitore fuori campo in battuta.
+                return GestureDetector(
+                  // Senza `opaque`, il default (deferToChild) cattura il
+                  // gesto solo se un figlio occupa quel punto — fuori dal
+                  // riquadro del campo non c'è nessun figlio lì, quindi un
+                  // drag non potrebbe mai INIZIARE da fuori (avrebbe potuto
+                  // solo continuare, una volta già agganciato altrove).
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: _onPanStart,
+                  onPanUpdate: _onPanUpdate,
+                  onPanEnd: (details) => _onPanEnd(
+                      details, courtLeft, courtTop, courtWidth, courtHeight),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: courtTop,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: SizedBox(
+                            width: courtWidth,
+                            child: AspectRatio(
+                              aspectRatio: 1200 / 600,
+                              child:
+                                  Image.asset(_kCourtImage, fit: BoxFit.contain),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      if (_inizio != null && _attuale != null)
+                        CustomPaint(
+                          size: screenConstraints.biggest,
+                          painter:
+                              _FrecciaTraiettoriaPainter(_inizio!, _attuale!),
+                        ),
+                    ],
+                  ),
                 );
               },
             ),
