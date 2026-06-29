@@ -883,6 +883,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           traiettoriaY1: traiettoria?.y1,
           traiettoriaX2: traiettoria?.x2,
           traiettoriaY2: traiettoria?.y2,
+          traiettoriaMuroX: traiettoria?.muroX,
+          traiettoriaMuroY: traiettoria?.muroY,
         );
     if (!mounted) return;
     setState(() {

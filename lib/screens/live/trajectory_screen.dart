@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -19,10 +20,26 @@ const _kTopBarBg = Color(0xFF0D2738);
 const double _kCourtWidthFraction = 0.58;
 const double _kCourtTopMargin = 16.0;
 
+// Tocco a muro (solo attacco): quanto vicino alla rete (px) per considerarsi
+// "a rete", e per quanto tempo bisogna restare in quella fascia prima che
+// scatti il tocco — un attraversamento veloce (un attacco normale che passa
+// sopra la rete) non deve attivarlo, solo una sosta deliberata.
+const double _kToleranzaRete = 24.0;
+const Duration _kSoffermamentoRete = Duration(milliseconds: 400);
+
 /// Coordinate normalizzate (0.0-1.0) di una traiettoria, rispetto al campo
 /// intero (rete a x=0.5) — stesso spazio di riferimento usato altrove in
-/// ScoutScreen per le posizioni dei token.
-typedef Traiettoria = ({double x1, double y1, double x2, double y2});
+/// ScoutScreen per le posizioni dei token. `muroX`/`muroY` solo per attacco,
+/// `null` se il drag non ha incrociato la rete (nessun tocco a muro
+/// simulato) — vedi _TrajectoryScreenState._onPanUpdate.
+typedef Traiettoria = ({
+  double x1,
+  double y1,
+  double x2,
+  double y2,
+  double? muroX,
+  double? muroY,
+});
 
 /// Schermata dedicata per registrare la traiettoria di una battuta/attacco
 /// (Fase 3, "PROSSIMO" in CLAUDE.md) — campo vuoto, drag dal punto di
@@ -51,21 +68,66 @@ class TrajectoryScreen extends StatefulWidget {
 
 class _TrajectoryScreenState extends State<TrajectoryScreen> {
   Offset? _inizio;
+  // Punto (fisso, una volta rilevato) in cui il drag si è soffermato sulla
+  // rete — solo per attacco, simula un tocco a muro che cambia direzione.
+  // Una volta impostato non si azzera più finché non riparte un nuovo drag.
+  Offset? _puntoMuro;
   Offset? _attuale;
 
+  // true mentre il dito è dentro la fascia di tolleranza attorno alla rete
+  // (vedi _kToleranzaRete) — usato solo per sapere quando far partire/
+  // annullare il timer di soffermamento, non per il disegno.
+  bool _inZonaRete = false;
+  Timer? _timerMuro;
+
+  bool get _muroConsentito => widget.fondamentale == Fondamentale.attacco;
+
+  @override
+  void dispose() {
+    _timerMuro?.cancel();
+    super.dispose();
+  }
+
   void _onPanStart(DragStartDetails details) {
+    _timerMuro?.cancel();
     setState(() {
       _inizio = details.localPosition;
+      _puntoMuro = null;
       _attuale = details.localPosition;
+      _inZonaRete = false;
     });
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
-    setState(() => _attuale = details.localPosition);
+  // Non basta attraversare la rete: bisogna restare nella fascia di
+  // tolleranza attorno a x=xNet per _kSoffermamentoRete prima che scatti il
+  // tocco a muro — un passaggio veloce (un attacco normale che la
+  // attraversa) non lo attiva. Il dwell-time non può basarsi solo sugli
+  // eventi di onPanUpdate (che non arrivano se il dito resta fermo): si usa
+  // un Timer avviato all'ingresso nella fascia e annullato se se ne esce
+  // prima che scada. Solo per attacco — per la battuta attraversare la
+  // rete è normale, non un tocco a muro.
+  void _onPanUpdate(DragUpdateDetails details, double xNet) {
+    final nuovo = details.localPosition;
+    if (_muroConsentito && _puntoMuro == null) {
+      final dentroFascia = (nuovo.dx - xNet).abs() <= _kToleranzaRete;
+      if (dentroFascia && !_inZonaRete) {
+        _inZonaRete = true;
+        _timerMuro = Timer(_kSoffermamentoRete, () {
+          if (!mounted || _puntoMuro != null) return;
+          setState(() {
+            _puntoMuro = Offset(xNet, _attuale?.dy ?? nuovo.dy);
+          });
+        });
+      } else if (!dentroFascia && _inZonaRete) {
+        _inZonaRete = false;
+        _timerMuro?.cancel();
+      }
+    }
+    setState(() => _attuale = nuovo);
   }
 
-  // `inizio`/`attuale` sono in coordinate assolute dello Stack esterno
-  // (vedi build) — qui si convertono in normalizzate rispetto al
+  // `inizio`/`attuale`/`puntoMuro` sono in coordinate assolute dello Stack
+  // esterno (vedi build) — qui si convertono in normalizzate rispetto al
   // RIQUADRO del campo (courtLeft/courtTop/courtWidth/courtHeight), non
   // rispetto allo schermo intero. Risultato volutamente **non clampato**:
   // un drag iniziato fuori dal campo (es. il battitore dietro la linea di
@@ -74,14 +136,18 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
   // negativa.
   void _onPanEnd(DragEndDetails details, double courtLeft, double courtTop,
       double courtWidth, double courtHeight) {
+    _timerMuro?.cancel();
     final inizio = _inizio;
     final fine = _attuale;
     if (inizio == null || fine == null) return;
+    final muro = _puntoMuro;
     final risultato = (
       x1: (inizio.dx - courtLeft) / courtWidth,
       y1: (inizio.dy - courtTop) / courtHeight,
       x2: (fine.dx - courtLeft) / courtWidth,
       y2: (fine.dy - courtTop) / courtHeight,
+      muroX: muro == null ? null : (muro.dx - courtLeft) / courtWidth,
+      muroY: muro == null ? null : (muro.dy - courtTop) / courtHeight,
     );
     Navigator.pop(context, risultato);
   }
@@ -193,6 +259,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                 final courtLeft =
                     (screenConstraints.maxWidth - courtWidth) / 2;
                 const courtTop = _kCourtTopMargin;
+                final xNet = courtLeft + courtWidth / 2;
                 // GestureDetector sullo Stack ESTERNO (coordinate assolute
                 // di questa area, non del solo riquadro campo): un drag che
                 // parte fuori dal campo viene comunque catturato — stessa
@@ -206,7 +273,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                   // solo continuare, una volta già agganciato altrove).
                   behavior: HitTestBehavior.opaque,
                   onPanStart: _onPanStart,
-                  onPanUpdate: _onPanUpdate,
+                  onPanUpdate: (details) => _onPanUpdate(details, xNet),
                   onPanEnd: (details) => _onPanEnd(
                       details, courtLeft, courtTop, courtWidth, courtHeight),
                   child: Stack(
@@ -226,11 +293,26 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                           ),
                         ),
                       ),
+                      // Feedback visivo: appena il dito entra nella fascia
+                      // di tolleranza attorno alla rete, una linea gialla
+                      // la evidenzia — sparisce se se ne esce prima dei
+                      // _kSoffermamentoRete, o appena il tocco scatta (da
+                      // lì in poi lo snodo della freccia parla da sé).
+                      if (_inZonaRete && _puntoMuro == null)
+                        Positioned(
+                          left: xNet - 5,
+                          top: courtTop,
+                          child: Container(
+                            width: 10,
+                            height: courtHeight,
+                            color: Colors.yellow,
+                          ),
+                        ),
                       if (_inizio != null && _attuale != null)
                         CustomPaint(
                           size: screenConstraints.biggest,
-                          painter:
-                              _FrecciaTraiettoriaPainter(_inizio!, _attuale!),
+                          painter: _FrecciaTraiettoriaPainter(
+                              _inizio!, _attuale!, _puntoMuro),
                         ),
                     ],
                   ),
@@ -247,8 +329,12 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
 class _FrecciaTraiettoriaPainter extends CustomPainter {
   final Offset inizio;
   final Offset fine;
+  // Punto di tocco a muro (solo attacco) — se non null, la freccia si
+  // disegna a due segmenti (inizio→muro, muro→fine) con uno snodo lì,
+  // invece di una linea unica dritta.
+  final Offset? puntoMuro;
 
-  _FrecciaTraiettoriaPainter(this.inizio, this.fine);
+  _FrecciaTraiettoriaPainter(this.inizio, this.fine, this.puntoMuro);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -257,11 +343,20 @@ class _FrecciaTraiettoriaPainter extends CustomPainter {
       ..strokeWidth = CourtStyle.trajectoryWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(inizio, fine, paint);
+    final muro = puntoMuro;
+    if (muro != null) {
+      canvas.drawLine(inizio, muro, paint);
+      canvas.drawLine(muro, fine, paint);
+      final muroPaint = Paint()..color = CourtStyle.trajectoryArrow;
+      canvas.drawCircle(muro, 5, muroPaint);
+    } else {
+      canvas.drawLine(inizio, fine, paint);
+    }
 
     // Punta della freccia: due segmenti corti angolati rispetto alla
-    // direzione della linea, ancorati al punto di arrivo.
-    final direzione = fine - inizio;
+    // direzione dell'ULTIMO segmento (muro→fine se c'è stato un tocco a
+    // muro, altrimenti inizio→fine), ancorati al punto di arrivo.
+    final direzione = fine - (muro ?? inizio);
     if (direzione.distance < 1) return;
     final angolo = direzione.direction;
     const lunghezzaPunta = 16.0;
@@ -285,5 +380,7 @@ class _FrecciaTraiettoriaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FrecciaTraiettoriaPainter oldDelegate) =>
-      oldDelegate.inizio != inizio || oldDelegate.fine != fine;
+      oldDelegate.inizio != inizio ||
+      oldDelegate.fine != fine ||
+      oldDelegate.puntoMuro != puntoMuro;
 }

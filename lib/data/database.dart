@@ -180,6 +180,10 @@ class ScoutActions extends Table {
   RealColumn get traiettoriaY1 => real().nullable()();
   RealColumn get traiettoriaX2 => real().nullable()();
   RealColumn get traiettoriaY2 => real().nullable()();
+  // Punto di tocco a muro (solo attacco, opzionale — null se la traiettoria
+  // non ha incrociato la rete durante il drag) — vedi TrajectoryScreen.
+  RealColumn get traiettoriaMuroX => real().nullable()();
+  RealColumn get traiettoriaMuroY => real().nullable()();
   IntColumn get puntiCasaAlMomento => integer().nullable()();
   IntColumn get puntiOspitiAlMomento => integer().nullable()();
 }
@@ -197,7 +201,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -293,6 +297,16 @@ class AppDatabase extends _$AppDatabase {
               await customStatement(
                   'ALTER TABLE match_sets ADD COLUMN '
                   'correzione_punti_avversari INTEGER NOT NULL DEFAULT 0');
+            }
+          }
+          if (from < 10) {
+            if (!await _hasColumn('scout_actions', 'traiettoria_muro_x')) {
+              await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                  'traiettoria_muro_x REAL');
+            }
+            if (!await _hasColumn('scout_actions', 'traiettoria_muro_y')) {
+              await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                  'traiettoria_muro_y REAL');
             }
           }
         },

@@ -2625,6 +2625,28 @@ class $ScoutActionsTable extends ScoutActions
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _traiettoriaMuroXMeta = const VerificationMeta(
+    'traiettoriaMuroX',
+  );
+  @override
+  late final GeneratedColumn<double> traiettoriaMuroX = GeneratedColumn<double>(
+    'traiettoria_muro_x',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _traiettoriaMuroYMeta = const VerificationMeta(
+    'traiettoriaMuroY',
+  );
+  @override
+  late final GeneratedColumn<double> traiettoriaMuroY = GeneratedColumn<double>(
+    'traiettoria_muro_y',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _puntiCasaAlMomentoMeta =
       const VerificationMeta('puntiCasaAlMomento');
   @override
@@ -2663,6 +2685,8 @@ class $ScoutActionsTable extends ScoutActions
     traiettoriaY1,
     traiettoriaX2,
     traiettoriaY2,
+    traiettoriaMuroX,
+    traiettoriaMuroY,
     puntiCasaAlMomento,
     puntiOspitiAlMomento,
   ];
@@ -2767,6 +2791,24 @@ class $ScoutActionsTable extends ScoutActions
         ),
       );
     }
+    if (data.containsKey('traiettoria_muro_x')) {
+      context.handle(
+        _traiettoriaMuroXMeta,
+        traiettoriaMuroX.isAcceptableOrUnknown(
+          data['traiettoria_muro_x']!,
+          _traiettoriaMuroXMeta,
+        ),
+      );
+    }
+    if (data.containsKey('traiettoria_muro_y')) {
+      context.handle(
+        _traiettoriaMuroYMeta,
+        traiettoriaMuroY.isAcceptableOrUnknown(
+          data['traiettoria_muro_y']!,
+          _traiettoriaMuroYMeta,
+        ),
+      );
+    }
     if (data.containsKey('punti_casa_al_momento')) {
       context.handle(
         _puntiCasaAlMomentoMeta,
@@ -2868,6 +2910,14 @@ class $ScoutActionsTable extends ScoutActions
         DriftSqlType.double,
         data['${effectivePrefix}traiettoria_y2'],
       ),
+      traiettoriaMuroX: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}traiettoria_muro_x'],
+      ),
+      traiettoriaMuroY: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}traiettoria_muro_y'],
+      ),
       puntiCasaAlMomento: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}punti_casa_al_momento'],
@@ -2916,6 +2966,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
   final double? traiettoriaY1;
   final double? traiettoriaX2;
   final double? traiettoriaY2;
+  final double? traiettoriaMuroX;
+  final double? traiettoriaMuroY;
   final int? puntiCasaAlMomento;
   final int? puntiOspitiAlMomento;
   const ScoutAction({
@@ -2935,6 +2987,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     this.traiettoriaY1,
     this.traiettoriaX2,
     this.traiettoriaY2,
+    this.traiettoriaMuroX,
+    this.traiettoriaMuroY,
     this.puntiCasaAlMomento,
     this.puntiOspitiAlMomento,
   });
@@ -2987,6 +3041,12 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     if (!nullToAbsent || traiettoriaY2 != null) {
       map['traiettoria_y2'] = Variable<double>(traiettoriaY2);
     }
+    if (!nullToAbsent || traiettoriaMuroX != null) {
+      map['traiettoria_muro_x'] = Variable<double>(traiettoriaMuroX);
+    }
+    if (!nullToAbsent || traiettoriaMuroY != null) {
+      map['traiettoria_muro_y'] = Variable<double>(traiettoriaMuroY);
+    }
     if (!nullToAbsent || puntiCasaAlMomento != null) {
       map['punti_casa_al_momento'] = Variable<int>(puntiCasaAlMomento);
     }
@@ -3026,6 +3086,12 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       traiettoriaY2: traiettoriaY2 == null && nullToAbsent
           ? const Value.absent()
           : Value(traiettoriaY2),
+      traiettoriaMuroX: traiettoriaMuroX == null && nullToAbsent
+          ? const Value.absent()
+          : Value(traiettoriaMuroX),
+      traiettoriaMuroY: traiettoriaMuroY == null && nullToAbsent
+          ? const Value.absent()
+          : Value(traiettoriaMuroY),
       puntiCasaAlMomento: puntiCasaAlMomento == null && nullToAbsent
           ? const Value.absent()
           : Value(puntiCasaAlMomento),
@@ -3057,6 +3123,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       traiettoriaY1: serializer.fromJson<double?>(json['traiettoriaY1']),
       traiettoriaX2: serializer.fromJson<double?>(json['traiettoriaX2']),
       traiettoriaY2: serializer.fromJson<double?>(json['traiettoriaY2']),
+      traiettoriaMuroX: serializer.fromJson<double?>(json['traiettoriaMuroX']),
+      traiettoriaMuroY: serializer.fromJson<double?>(json['traiettoriaMuroY']),
       puntiCasaAlMomento: serializer.fromJson<int?>(json['puntiCasaAlMomento']),
       puntiOspitiAlMomento: serializer.fromJson<int?>(
         json['puntiOspitiAlMomento'],
@@ -3083,6 +3151,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       'traiettoriaY1': serializer.toJson<double?>(traiettoriaY1),
       'traiettoriaX2': serializer.toJson<double?>(traiettoriaX2),
       'traiettoriaY2': serializer.toJson<double?>(traiettoriaY2),
+      'traiettoriaMuroX': serializer.toJson<double?>(traiettoriaMuroX),
+      'traiettoriaMuroY': serializer.toJson<double?>(traiettoriaMuroY),
       'puntiCasaAlMomento': serializer.toJson<int?>(puntiCasaAlMomento),
       'puntiOspitiAlMomento': serializer.toJson<int?>(puntiOspitiAlMomento),
     };
@@ -3105,6 +3175,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     Value<double?> traiettoriaY1 = const Value.absent(),
     Value<double?> traiettoriaX2 = const Value.absent(),
     Value<double?> traiettoriaY2 = const Value.absent(),
+    Value<double?> traiettoriaMuroX = const Value.absent(),
+    Value<double?> traiettoriaMuroY = const Value.absent(),
     Value<int?> puntiCasaAlMomento = const Value.absent(),
     Value<int?> puntiOspitiAlMomento = const Value.absent(),
   }) => ScoutAction(
@@ -3132,6 +3204,12 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     traiettoriaY2: traiettoriaY2.present
         ? traiettoriaY2.value
         : this.traiettoriaY2,
+    traiettoriaMuroX: traiettoriaMuroX.present
+        ? traiettoriaMuroX.value
+        : this.traiettoriaMuroX,
+    traiettoriaMuroY: traiettoriaMuroY.present
+        ? traiettoriaMuroY.value
+        : this.traiettoriaMuroY,
     puntiCasaAlMomento: puntiCasaAlMomento.present
         ? puntiCasaAlMomento.value
         : this.puntiCasaAlMomento,
@@ -3173,6 +3251,12 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       traiettoriaY2: data.traiettoriaY2.present
           ? data.traiettoriaY2.value
           : this.traiettoriaY2,
+      traiettoriaMuroX: data.traiettoriaMuroX.present
+          ? data.traiettoriaMuroX.value
+          : this.traiettoriaMuroX,
+      traiettoriaMuroY: data.traiettoriaMuroY.present
+          ? data.traiettoriaMuroY.value
+          : this.traiettoriaMuroY,
       puntiCasaAlMomento: data.puntiCasaAlMomento.present
           ? data.puntiCasaAlMomento.value
           : this.puntiCasaAlMomento,
@@ -3201,6 +3285,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
           ..write('traiettoriaY1: $traiettoriaY1, ')
           ..write('traiettoriaX2: $traiettoriaX2, ')
           ..write('traiettoriaY2: $traiettoriaY2, ')
+          ..write('traiettoriaMuroX: $traiettoriaMuroX, ')
+          ..write('traiettoriaMuroY: $traiettoriaMuroY, ')
           ..write('puntiCasaAlMomento: $puntiCasaAlMomento, ')
           ..write('puntiOspitiAlMomento: $puntiOspitiAlMomento')
           ..write(')'))
@@ -3225,6 +3311,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     traiettoriaY1,
     traiettoriaX2,
     traiettoriaY2,
+    traiettoriaMuroX,
+    traiettoriaMuroY,
     puntiCasaAlMomento,
     puntiOspitiAlMomento,
   );
@@ -3248,6 +3336,8 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
           other.traiettoriaY1 == this.traiettoriaY1 &&
           other.traiettoriaX2 == this.traiettoriaX2 &&
           other.traiettoriaY2 == this.traiettoriaY2 &&
+          other.traiettoriaMuroX == this.traiettoriaMuroX &&
+          other.traiettoriaMuroY == this.traiettoriaMuroY &&
           other.puntiCasaAlMomento == this.puntiCasaAlMomento &&
           other.puntiOspitiAlMomento == this.puntiOspitiAlMomento);
 }
@@ -3269,6 +3359,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
   final Value<double?> traiettoriaY1;
   final Value<double?> traiettoriaX2;
   final Value<double?> traiettoriaY2;
+  final Value<double?> traiettoriaMuroX;
+  final Value<double?> traiettoriaMuroY;
   final Value<int?> puntiCasaAlMomento;
   final Value<int?> puntiOspitiAlMomento;
   const ScoutActionsCompanion({
@@ -3288,6 +3380,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     this.traiettoriaY1 = const Value.absent(),
     this.traiettoriaX2 = const Value.absent(),
     this.traiettoriaY2 = const Value.absent(),
+    this.traiettoriaMuroX = const Value.absent(),
+    this.traiettoriaMuroY = const Value.absent(),
     this.puntiCasaAlMomento = const Value.absent(),
     this.puntiOspitiAlMomento = const Value.absent(),
   });
@@ -3308,6 +3402,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     this.traiettoriaY1 = const Value.absent(),
     this.traiettoriaX2 = const Value.absent(),
     this.traiettoriaY2 = const Value.absent(),
+    this.traiettoriaMuroX = const Value.absent(),
+    this.traiettoriaMuroY = const Value.absent(),
     this.puntiCasaAlMomento = const Value.absent(),
     this.puntiOspitiAlMomento = const Value.absent(),
   }) : setId = Value(setId),
@@ -3334,6 +3430,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     Expression<double>? traiettoriaY1,
     Expression<double>? traiettoriaX2,
     Expression<double>? traiettoriaY2,
+    Expression<double>? traiettoriaMuroX,
+    Expression<double>? traiettoriaMuroY,
     Expression<int>? puntiCasaAlMomento,
     Expression<int>? puntiOspitiAlMomento,
   }) {
@@ -3354,6 +3452,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
       if (traiettoriaY1 != null) 'traiettoria_y1': traiettoriaY1,
       if (traiettoriaX2 != null) 'traiettoria_x2': traiettoriaX2,
       if (traiettoriaY2 != null) 'traiettoria_y2': traiettoriaY2,
+      if (traiettoriaMuroX != null) 'traiettoria_muro_x': traiettoriaMuroX,
+      if (traiettoriaMuroY != null) 'traiettoria_muro_y': traiettoriaMuroY,
       if (puntiCasaAlMomento != null)
         'punti_casa_al_momento': puntiCasaAlMomento,
       if (puntiOspitiAlMomento != null)
@@ -3378,6 +3478,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     Value<double?>? traiettoriaY1,
     Value<double?>? traiettoriaX2,
     Value<double?>? traiettoriaY2,
+    Value<double?>? traiettoriaMuroX,
+    Value<double?>? traiettoriaMuroY,
     Value<int?>? puntiCasaAlMomento,
     Value<int?>? puntiOspitiAlMomento,
   }) {
@@ -3398,6 +3500,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
       traiettoriaY1: traiettoriaY1 ?? this.traiettoriaY1,
       traiettoriaX2: traiettoriaX2 ?? this.traiettoriaX2,
       traiettoriaY2: traiettoriaY2 ?? this.traiettoriaY2,
+      traiettoriaMuroX: traiettoriaMuroX ?? this.traiettoriaMuroX,
+      traiettoriaMuroY: traiettoriaMuroY ?? this.traiettoriaMuroY,
       puntiCasaAlMomento: puntiCasaAlMomento ?? this.puntiCasaAlMomento,
       puntiOspitiAlMomento: puntiOspitiAlMomento ?? this.puntiOspitiAlMomento,
     );
@@ -3464,6 +3568,12 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     if (traiettoriaY2.present) {
       map['traiettoria_y2'] = Variable<double>(traiettoriaY2.value);
     }
+    if (traiettoriaMuroX.present) {
+      map['traiettoria_muro_x'] = Variable<double>(traiettoriaMuroX.value);
+    }
+    if (traiettoriaMuroY.present) {
+      map['traiettoria_muro_y'] = Variable<double>(traiettoriaMuroY.value);
+    }
     if (puntiCasaAlMomento.present) {
       map['punti_casa_al_momento'] = Variable<int>(puntiCasaAlMomento.value);
     }
@@ -3494,6 +3604,8 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
           ..write('traiettoriaY1: $traiettoriaY1, ')
           ..write('traiettoriaX2: $traiettoriaX2, ')
           ..write('traiettoriaY2: $traiettoriaY2, ')
+          ..write('traiettoriaMuroX: $traiettoriaMuroX, ')
+          ..write('traiettoriaMuroY: $traiettoriaMuroY, ')
           ..write('puntiCasaAlMomento: $puntiCasaAlMomento, ')
           ..write('puntiOspitiAlMomento: $puntiOspitiAlMomento')
           ..write(')'))
@@ -6420,6 +6532,8 @@ typedef $$ScoutActionsTableCreateCompanionBuilder =
       Value<double?> traiettoriaY1,
       Value<double?> traiettoriaX2,
       Value<double?> traiettoriaY2,
+      Value<double?> traiettoriaMuroX,
+      Value<double?> traiettoriaMuroY,
       Value<int?> puntiCasaAlMomento,
       Value<int?> puntiOspitiAlMomento,
     });
@@ -6441,6 +6555,8 @@ typedef $$ScoutActionsTableUpdateCompanionBuilder =
       Value<double?> traiettoriaY1,
       Value<double?> traiettoriaX2,
       Value<double?> traiettoriaY2,
+      Value<double?> traiettoriaMuroX,
+      Value<double?> traiettoriaMuroY,
       Value<int?> puntiCasaAlMomento,
       Value<int?> puntiOspitiAlMomento,
     });
@@ -6565,6 +6681,16 @@ class $$ScoutActionsTableFilterComposer
 
   ColumnFilters<double> get traiettoriaY2 => $composableBuilder(
     column: $table.traiettoriaY2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get traiettoriaMuroX => $composableBuilder(
+    column: $table.traiettoriaMuroX,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get traiettoriaMuroY => $composableBuilder(
+    column: $table.traiettoriaMuroY,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6704,6 +6830,16 @@ class $$ScoutActionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get traiettoriaMuroX => $composableBuilder(
+    column: $table.traiettoriaMuroX,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get traiettoriaMuroY => $composableBuilder(
+    column: $table.traiettoriaMuroY,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get puntiCasaAlMomento => $composableBuilder(
     column: $table.puntiCasaAlMomento,
     builder: (column) => ColumnOrderings(column),
@@ -6828,6 +6964,16 @@ class $$ScoutActionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get traiettoriaMuroX => $composableBuilder(
+    column: $table.traiettoriaMuroX,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get traiettoriaMuroY => $composableBuilder(
+    column: $table.traiettoriaMuroY,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get puntiCasaAlMomento => $composableBuilder(
     column: $table.puntiCasaAlMomento,
     builder: (column) => column,
@@ -6929,6 +7075,8 @@ class $$ScoutActionsTableTableManager
                 Value<double?> traiettoriaY1 = const Value.absent(),
                 Value<double?> traiettoriaX2 = const Value.absent(),
                 Value<double?> traiettoriaY2 = const Value.absent(),
+                Value<double?> traiettoriaMuroX = const Value.absent(),
+                Value<double?> traiettoriaMuroY = const Value.absent(),
                 Value<int?> puntiCasaAlMomento = const Value.absent(),
                 Value<int?> puntiOspitiAlMomento = const Value.absent(),
               }) => ScoutActionsCompanion(
@@ -6948,6 +7096,8 @@ class $$ScoutActionsTableTableManager
                 traiettoriaY1: traiettoriaY1,
                 traiettoriaX2: traiettoriaX2,
                 traiettoriaY2: traiettoriaY2,
+                traiettoriaMuroX: traiettoriaMuroX,
+                traiettoriaMuroY: traiettoriaMuroY,
                 puntiCasaAlMomento: puntiCasaAlMomento,
                 puntiOspitiAlMomento: puntiOspitiAlMomento,
               ),
@@ -6969,6 +7119,8 @@ class $$ScoutActionsTableTableManager
                 Value<double?> traiettoriaY1 = const Value.absent(),
                 Value<double?> traiettoriaX2 = const Value.absent(),
                 Value<double?> traiettoriaY2 = const Value.absent(),
+                Value<double?> traiettoriaMuroX = const Value.absent(),
+                Value<double?> traiettoriaMuroY = const Value.absent(),
                 Value<int?> puntiCasaAlMomento = const Value.absent(),
                 Value<int?> puntiOspitiAlMomento = const Value.absent(),
               }) => ScoutActionsCompanion.insert(
@@ -6988,6 +7140,8 @@ class $$ScoutActionsTableTableManager
                 traiettoriaY1: traiettoriaY1,
                 traiettoriaX2: traiettoriaX2,
                 traiettoriaY2: traiettoriaY2,
+                traiettoriaMuroX: traiettoriaMuroX,
+                traiettoriaMuroY: traiettoriaMuroY,
                 puntiCasaAlMomento: puntiCasaAlMomento,
                 puntiOspitiAlMomento: puntiOspitiAlMomento,
               ),

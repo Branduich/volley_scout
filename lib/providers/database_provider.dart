@@ -419,6 +419,8 @@ class ScoutActionRepository {
   /// `traiettoria*` (coordinate normalizzate 0.0-1.0) solo per
   /// battuta/attacco — vedi `Fondamentale.richiedeTraiettoria` e
   /// `TrajectoryScreen`; `null` se l'utente ha saltato la traiettoria.
+  /// `traiettoriaMuro*` solo per attacco, `null` se la traiettoria non ha
+  /// incrociato la rete durante il drag (nessun tocco a muro simulato).
   Future<void> registraAzioneScout({
     required int setId,
     required Squadra squadra,
@@ -431,6 +433,8 @@ class ScoutActionRepository {
     double? traiettoriaY1,
     double? traiettoriaX2,
     double? traiettoriaY2,
+    double? traiettoriaMuroX,
+    double? traiettoriaMuroY,
   }) {
     return _registraAzione(
       setId: setId,
@@ -445,6 +449,8 @@ class ScoutActionRepository {
       traiettoriaY1: traiettoriaY1,
       traiettoriaX2: traiettoriaX2,
       traiettoriaY2: traiettoriaY2,
+      traiettoriaMuroX: traiettoriaMuroX,
+      traiettoriaMuroY: traiettoriaMuroY,
     );
   }
 
@@ -461,6 +467,8 @@ class ScoutActionRepository {
     double? traiettoriaY1,
     double? traiettoriaX2,
     double? traiettoriaY2,
+    double? traiettoriaMuroX,
+    double? traiettoriaMuroY,
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -494,6 +502,8 @@ class ScoutActionRepository {
             traiettoriaY1: Value(traiettoriaY1),
             traiettoriaX2: Value(traiettoriaX2),
             traiettoriaY2: Value(traiettoriaY2),
+            traiettoriaMuroX: Value(traiettoriaMuroX),
+            traiettoriaMuroY: Value(traiettoriaMuroY),
           ),
         );
   }

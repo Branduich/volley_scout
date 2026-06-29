@@ -215,11 +215,12 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v9** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v10** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
-  `MatchSets.correzionePuntiNostri`/`correzionePuntiAvversari`).
+  `MatchSets.correzionePuntiNostri`/`correzionePuntiAvversari`; v10 ha
+  aggiunto `ScoutActions.traiettoriaMuroX`/`traiettoriaMuroY`).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 
@@ -388,7 +389,9 @@ undo), timestamp, squadra (enum Squadra), tipo (enum TipoAzione), giocatoreId
 (enum Fondamentale, nullable), voto (enum Voto, nullable), tipoEsecuzione
 (text, default `'nonSpecificato'` — colonna polimorfica, vedi sotto),
 esitoPunto (enum EsitoPunto), traiettoriaX1/Y1/X2/Y2 (double, nullable — solo
-battuta/attacco), puntiCasaAlMomento/puntiOspitiAlMomento (int, nullable —
+battuta/attacco), traiettoriaMuroX/MuroY (double, nullable, schema v10 —
+solo attacco, punto di tocco a muro se il drag ha incrociato la rete, vedi
+TrajectoryScreen), puntiCasaAlMomento/puntiOspitiAlMomento (int, nullable —
 snapshot opzionale/debug, non sostituisce il ricalcolo).
 
 **Enum TipoAzione** (in `enums.dart`): `scout` (giocatore + fondamentale +
@@ -1364,6 +1367,33 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   l'**undo** esistente (`annullaUltimaAzione`, elimina la riga con
   `ordine` massimo) cancella già azione e traiettoria insieme, sono la
   stessa riga `ScoutAction` — nessun codice in più necessario.
+- **Tocco a muro simulato durante il drag** (solo attacco — schema v10,
+  aggiunge `ScoutActions.traiettoriaMuroX`/`traiettoriaMuroY`, nullable):
+  se il drag si **sofferma** sulla rete (fascia di tolleranza
+  `_kToleranzaRete = 24px` attorno a x normalizzata 0.5, qualunque y —
+  "tutta la linea a metà campo" — per almeno `_kSoffermamentoRete = 300ms`),
+  si fissa quel punto come `_puntoMuro` e la freccia continua da lì fino al
+  rilascio, con uno snodo visibile (due segmenti invece di una linea
+  dritta). **Richiede una sosta deliberata, non un semplice
+  attraversamento** (un attacco normale che passa sopra la rete durante un
+  drag continuo non deve attivarlo) — il dwell-time non può basarsi solo
+  sugli eventi `onPanUpdate` (che non arrivano se il dito resta fermo: zero
+  movimento = zero eventi), quindi si usa un `Timer` avviato quando il dito
+  entra nella fascia di tolleranza (`_inZonaRete` passa a `true`) e
+  annullato se ne esce prima che scada (`_timerMuro?.cancel()`, anche in
+  `_onPanEnd`/`dispose`); se il timer arriva a scadenza, scatta il tocco.
+  **Feedback visivo**: appena `_inZonaRete` diventa `true` (e finché
+  `_puntoMuro` resta `null`), una linea gialla (10px, ingrandita da 3px —
+  troppo sottile per notarla) sovrapposta alla rete, alta come il campo,
+  segnala che il dito è nella fascia —
+  sparisce se si esce dalla fascia in tempo o appena il tocco scatta (da lì
+  in poi lo snodo della freccia parla da sé). **Solo per
+  `Fondamentale.attacco`** (`_muroConsentito`): per la battuta
+  attraversare la rete è normale (ogni servizio legale la attraversa),
+  quindi lì non si attiva nessuna logica di "tocco". Il punto del muro è
+  **salvato** (non solo un aiuto visivo) — `Traiettoria` ora porta anche
+  `muroX`/`muroY` (nullable), passati a `registraAzioneScout()` come
+  `traiettoriaMuroX`/`traiettoriaMuroY`.
 - **Refactoring colori (importante)**: il colore squadra è mostrato **sempre
   raw** (`Color(team.coloreDivisa)`), in ogni schermata che lo usa —
   `teams_screen`, `team_selection_screen`, `team_form_screen` (incluso il
