@@ -193,7 +193,17 @@ date picker in `PlayerFormScreen`).
 primaDivisione, serieD, serieC, serieB, serieB1, serieB2, serieA1, serieA2, serieA3.
 
 **jerseyPalette**: lista fissa di JerseyColor (nome + Color): Rosso, Blu, Verde,
-Giallo, Arancione, Viola, Nero.
+Giallo, Arancione, Viola, Nero, Bianco. Nello stesso file,
+**`contrastingTextColor(Color)`**: nero se lo sfondo è chiaro
+(`computeLuminance() > 0.6`, non un controllo esplicito solo sul bianco —
+resta corretto anche per il colore invertito del libero, che può diventare
+chiaro se il colore squadra originale è scuro), altrimenti bianco. Usata
+ovunque un numero/etichetta si disegna sopra al colore squadra (raw o
+invertito) invece del precedente `Colors.white` fisso — altrimenti, scelto
+il bianco come colore squadra, il numero diventerebbe invisibile: lista
+giocatori in `TeamFormScreen`/`LineupScreen`, badge di rotazione/token su
+campo/token libero in `ScoutScreen` (`_buildRotationBadge`,
+`_buildAbsoluteToken`, `_buildPlayerToken`, `_buildLiberoToken`).
 
 **Enum SistemaGioco** (in `enums.dart`, usato in `FormationConfigScreen`):
 palleggiatoreUnico ("Palleggiatore unico (5-1)"), doppioPalleggiatore
@@ -1464,7 +1474,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   globale via `AppColors.darken()` ma annullato su richiesta: troppo
   invasivo applicato indistintamente. L'unica eccezione è il **libero**, che
   usa il colore invertito (non scurito) per richiamare la maglia diversa —
-  vedi sopra.
+  vedi sopra. Il colore di **sfondo** resta sempre raw/invertito senza
+  eccezioni; solo il colore del **testo/numero sopra** quello sfondo usa
+  `contrastingTextColor()` (vedi Modello dati → `jerseyPalette`) invece di
+  un bianco fisso, da quando il bianco è stato aggiunto alla palette
+  (altrimenti un numero bianco su sfondo bianco sarebbe invisibile).
 - **Lista giocatori in `TeamFormScreen`** (`_PlayersSection`): stesso
   trattamento di ingrandimento applicato altrove dopo test su tablet fisico
   — avatar raggio 24, numero 20px, nome/cognome 20px bold, ruolo 16px,

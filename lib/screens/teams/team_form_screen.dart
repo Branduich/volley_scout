@@ -262,8 +262,8 @@ class _PlayersSection extends ConsumerWidget {
                       backgroundColor: avatarColor,
                       child: Text(
                         '${p.numero}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: contrastingTextColor(avatarColor),
                           fontWeight: FontWeight.bold,
                           fontSize: 20,
                         ),

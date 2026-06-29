@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
+import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_spacing.dart';
 import '../teams/player_form_screen.dart';
@@ -458,6 +459,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                           assigned ? Colors.grey.shade300 : Colors.white;
                       final avatarColor =
                           assigned ? baseColor.withAlpha(120) : baseColor;
+                      final avatarTextColor = contrastingTextColor(baseColor);
                       return Material(
                         color: cardColor,
                         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -471,8 +473,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                             child: Text(
                               '${p.numero}',
                               style: TextStyle(
-                                color:
-                                    assigned ? Colors.white70 : Colors.white,
+                                color: assigned
+                                    ? avatarTextColor.withAlpha(179)
+                                    : avatarTextColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20,
                               ),

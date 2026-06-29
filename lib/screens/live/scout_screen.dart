@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../logic/ricalcola_stato.dart';
 import '../../models/enums.dart';
+import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
@@ -1751,7 +1752,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           child: Text(
             _currentSlot,
             style: TextStyle(
-              color: Colors.white,
+              color: contrastingTextColor(Color(widget.team.coloreDivisa)),
               fontWeight: FontWeight.bold,
               fontSize: badgeHeight * 0.5,
             ),
@@ -2438,7 +2439,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white,
+          color: contrastingTextColor(fillColor),
           fontWeight: FontWeight.bold,
           fontSize: radius * 0.7,
         ),
@@ -2476,7 +2477,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final text = Text(
       label,
       style: TextStyle(
-        color: Colors.white,
+        color: contrastingTextColor(fillColor),
         fontWeight: FontWeight.bold,
         fontSize: radius * 0.7,
       ),
@@ -2591,7 +2592,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white,
+          color: contrastingTextColor(color),
           fontWeight: FontWeight.bold,
           fontSize: size * 0.4,
         ),
