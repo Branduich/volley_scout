@@ -833,19 +833,23 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         `_tipoAttaccoSelezionato.name` se `== attacco`, altrimenti
         `'nonSpecificato'` (ricezione/alzata/muro/difesa non hanno un proprio
         tipo di esecuzione — vedi Modello dati).
-    - **Riga tipo attacco** (IMPLEMENTATA, opzionale — "Forte"/"Piazzata"/
-      "Pallonetto" in un'unica riga, solo 3 chip quindi non serve la griglia
-      2×2 della battuta): `_tipoAttaccoSelezionato` (`TipoAttacco`, default
-      `nonSpecificato`). **Non resta mai "armata"** tra un attacco e l'altro
-      (a differenza della battuta, di solito eseguita sempre nello stesso
-      modo dallo stesso giocatore): `_sceglieFondamentale` la azzera
-      incondizionatamente ogni volta che si scegli `Fondamentale.attacco`,
-      anche per lo stesso giocatore — varia troppo spesso colpo su colpo per
-      assumere che resti la stessa.
-    - **`_buildTipoChip`**: chip generica (64×38, stesso stile
-      selezionato/non selezionato) condivisa da entrambe le righe/griglie —
-      parametrizzata su label/selezionato/onTap, non più una versione per
-      `TipoBattuta` e una per `TipoAttacco`.
+    - **Tipo attacco** (IMPLEMENTATO, opzionale — "Forte"/"Piazzata"/
+      "Pallonetto" in un'unica riga): scelto anche questo su
+      **`TrajectoryScreen`** (non più nel pannello voto), riga orizzontale
+      di 3 chip sotto al campo — stessa posizione della riga tipo battuta
+      (mai entrambe insieme, sono mutuamente esclusive sullo stesso
+      `widget.fondamentale`). **Non resta mai "armato"** tra un attacco e
+      l'altro (a differenza della battuta, di solito eseguita sempre nello
+      stesso modo dallo stesso giocatore): a differenza del tipo battuta,
+      qui `TrajectoryScreen` non riceve né passa indietro un valore
+      "iniziale" — parte sempre da `nonSpecificato` a ogni apertura della
+      schermata, varia troppo spesso colpo su colpo per assumere che resti
+      lo stesso anche per lo stesso giocatore.
+    - **`_buildTipoChip`** (in `TrajectoryScreen`, duplicata da
+      `ScoutScreen` con lo stesso stile — non più condivisa tra due righe
+      nella stessa schermata, dato che entrambe le righe sono migrate
+      insieme): chip generica (92×52, stesso stile selezionato/non
+      selezionato) parametrizzata su label/selezionato/onTap.
     - **Annulla = tap fuori dal pannello**, non un bottone dedicato.
       `_buildPannelloVoto` ritorna **due** widget nello Stack esterno: uno
       sfondo `Positioned.fill` con `GestureDetector(behavior: opaque)` che
@@ -1372,18 +1376,25 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   bottoni 44 + 8 = 60px) — senza questo spacer banner e campo
   risulterebbero più in alto rispetto a `ScoutScreen`, a parità di
   margine interno del campo (stesso `_kCourtTopMargin`).
-  **Tipo battuta** (solo `Fondamentale.battuta` — `_mostraTipoBattuta`):
-  riga orizzontale di 4 chip (`_buildRigaTipoBattuta`/`_buildTipoChip`,
-  duplicata da `ScoutScreen` con lo stesso stile) ancorata subito sotto al
-  campo (`top: courtTop + courtHeight + 24`, dentro lo stesso Stack —
-  c'è spazio perché il campo, largo il 58% dello schermo, è molto più
-  basso dell'area disponibile). Stato locale `_tipoBattuta`, inizializzato
-  da `widget.tipoBattutaIniziale` (il valore "armato" corrente letto da
-  `ScoutScreen`); il valore finale (eventualmente cambiato) torna nel
-  campo `tipoBattuta` del risultato, sia dal drag (`_onPanEnd`) sia dal
-  back (`_onBack`) — così la scelta non si perde nemmeno saltando la
-  traiettoria. Spostata qui da `ScoutScreen` (era una griglia 2×2 nel
-  pannello voto) per sgombrare quel pannello, già pieno.
+  **Tipo battuta/attacco** (`_mostraTipoBattuta`/`_mostraTipoAttacco`, mai
+  entrambe — dipendono dallo stesso `widget.fondamentale`): riga
+  orizzontale di chip (4 per la battuta, 3 per l'attacco —
+  `_buildRigaTipoBattuta`/`_buildRigaTipoAttacco`, entrambe su
+  `_buildTipoChip`) ancorata subito sotto al campo (`top: courtTop +
+  courtHeight + 24`, dentro lo stesso Stack — c'è spazio perché il campo,
+  largo il 58% dello schermo, è molto più basso dell'area disponibile).
+  Per la battuta, stato locale `_tipoBattuta` inizializzato da
+  `widget.tipoBattutaIniziale` (il valore "armato" corrente letto da
+  `ScoutScreen`) e il valore finale torna nel campo `tipoBattuta` del
+  risultato (sia da `_onPanEnd` sia da `_onBack`) — così la scelta non si
+  perde nemmeno saltando la traiettoria, e resta "armata" per il prossimo
+  battitore uguale. Per l'attacco, stato locale `_tipoAttacco` **senza**
+  un valore iniziale da `ScoutScreen` (parte sempre da `nonSpecificato`,
+  mai "armato" — vedi sopra), ma torna comunque nel campo `tipoAttacco`
+  del risultato per lo stesso motivo (non perderlo se si salta la
+  traiettoria dopo averlo scelto). Entrambi spostati qui da `ScoutScreen`
+  (erano griglie/righe nel pannello voto) per sgombrare quel pannello,
+  già pieno.
   `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
   freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
   punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/

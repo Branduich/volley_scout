@@ -959,12 +959,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (inCorso == null) return;
     setState(() {
       _votoInCorso = (giocatore: inCorso.giocatore, fondamentale: fondamentale);
-      // A differenza della battuta (di solito eseguita sempre nello stesso
-      // modo dallo stesso giocatore), il tipo di attacco varia spesso colpo
-      // su colpo: si azzera sempre, mai "armato" tra un attacco e l'altro.
-      if (fondamentale == Fondamentale.attacco) {
-        _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
-      }
     });
   }
 
@@ -975,20 +969,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // per il flusso veloce. Vedi _tapHandlerPerGiocatore per quando si azzera.
   TipoBattuta _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
   int? _giocatoreTipoBattutaArmato;
-
-  // Tipo di attacco opzionale (chips "Forte"/"Piazzata"/"Pallonetto" nel
-  // pannello voto, solo per fondamentale == attacco) — a differenza della
-  // battuta non resta mai "armato" tra un'azione e l'altra (vedi
-  // _sceglieFondamentale): il tipo di attacco varia spesso da un colpo
-  // all'altro, anche per lo stesso giocatore.
-  TipoAttacco _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
-
-  void _toggleTipoAttacco(TipoAttacco tipo) {
-    setState(() {
-      _tipoAttaccoSelezionato =
-          _tipoAttaccoSelezionato == tipo ? TipoAttacco.nonSpecificato : tipo;
-    });
-  }
 
   // Esito automatico del voto, generale per tutti i fondamentali: qualunque
   // fondamentale con voto "errore" → punto avversario (battuta in rete/
@@ -1047,7 +1027,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
     final tipoEsecuzione = switch (fondamentale) {
       Fondamentale.battuta => _tipoBattutaSelezionato.name,
-      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
+      Fondamentale.attacco =>
+        (traiettoria?.tipoAttacco ?? TipoAttacco.nonSpecificato).name,
       _ => 'nonSpecificato',
     };
 
@@ -2035,66 +2016,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Riga unica con le 3 chips del tipo di attacco (opzionale — vedi
-  // _tipoAttaccoSelezionato), stessa meccanica/stile della griglia battuta.
-  Widget _buildGrigliaTipoAttacco() {
-    const tipi = [
-      TipoAttacco.forte,
-      TipoAttacco.piazzata,
-      TipoAttacco.pallonetto,
-    ];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final tipo in tipi) ...[
-          _buildTipoChip(
-            label: tipo.label,
-            selezionato: _tipoAttaccoSelezionato == tipo,
-            onTap: () => _toggleTipoAttacco(tipo),
-          ),
-          if (tipo != tipi.last) const SizedBox(width: 6),
-        ],
-      ],
-    );
-  }
-
-  // Chip generica usata sia dalla griglia tipo battuta sia da quella tipo
-  // attacco — stesso stile, stato di selezione e callback parametrici.
-  Widget _buildTipoChip({
-    required String label,
-    required bool selezionato,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 92,
-        height: 52,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: selezionato ? AppColors.brandAccent : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selezionato ? AppColors.brandAccent : Colors.white38,
-            width: selezionato ? 2 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
   // Bottoni di scelta del fondamentale (Alzata/Attacco/Muro/Difesa), mostrati
   // nel pannello voto quando _votoInCorso.fondamentale è ancora null (fase
   // "libera", dopo che battuta/ricezione sono già state giudicate in questo
@@ -2223,10 +2144,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       style: const TextStyle(
                           color: Colors.white54, fontSize: 12),
                     ),
-                    if (inCorso.fondamentale == Fondamentale.attacco) ...[
-                      const SizedBox(height: 8),
-                      _buildGrigliaTipoAttacco(),
-                    ],
                     const SizedBox(height: 12),
                     for (final voto in Voto.values) ...[
                       GestureDetector(

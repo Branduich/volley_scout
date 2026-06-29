@@ -33,9 +33,9 @@ const Duration _kSoffermamentoRete = Duration(milliseconds: 400);
 /// ScoutScreen per le posizioni dei token. `x1`/`y1`/`x2`/`y2`/`muroX`/
 /// `muroY` sono `null` quando si è saltata la traiettoria (back senza
 /// disegnare) — il record torna comunque sempre non-null, perché porta
-/// anche `tipoBattuta` (vedi sotto). `muroX`/`muroY` inoltre solo per
-/// attacco, `null` se il drag non ha incrociato la rete (nessun tocco a
-/// muro simulato) — vedi _TrajectoryScreenState._onPanUpdate.
+/// anche `tipoBattuta`/`tipoAttacco` (vedi sotto). `muroX`/`muroY` inoltre
+/// solo per attacco, `null` se il drag non ha incrociato la rete (nessun
+/// tocco a muro simulato) — vedi _TrajectoryScreenState._onPanUpdate.
 typedef Traiettoria = ({
   double? x1,
   double? y1,
@@ -44,14 +44,16 @@ typedef Traiettoria = ({
   double? muroX,
   double? muroY,
   TipoBattuta tipoBattuta,
+  TipoAttacco tipoAttacco,
 });
 
 /// Schermata dedicata per registrare la traiettoria di una battuta/attacco
 /// (Fase 3) — campo vuoto, drag dal punto di partenza a quello di arrivo.
-/// Per la battuta mostra anche la scelta del tipo (riga di chip sotto al
-/// campo, spostata qui da ScoutScreen per sgombrare il pannello voto).
+/// Mostra anche la scelta del tipo di esecuzione (riga di chip sotto al
+/// campo, spostata qui da ScoutScreen per sgombrare il pannello voto) — tipo
+/// battuta per la battuta, tipo attacco per l'attacco, mai entrambi.
 /// Nessun bottone "Salta"/"Conferma": il back chiude la schermata senza
-/// traiettoria (ma porta comunque il tipo battuta scelto, se cambiato — vedi
+/// traiettoria (ma porta comunque il tipo scelto, se cambiato — vedi
 /// `Traiettoria`), il rilascio del drag la conferma subito
 /// (`Navigator.pop(context, risultato)`).
 class TrajectoryScreen extends StatefulWidget {
@@ -64,6 +66,9 @@ class TrajectoryScreen extends StatefulWidget {
   // Valore "armato" attuale in ScoutScreen (vedi _tipoBattutaSelezionato
   // là) — null se fondamentale != battuta (chip non mostrate). Il risultato
   // della navigazione riporta il valore finale, eventualmente cambiato.
+  // Il tipo attacco non ha un equivalente "iniziale": non resta mai
+  // "armato" tra un attacco e l'altro (vedi CLAUDE.md), parte sempre da
+  // nonSpecificato.
   final TipoBattuta? tipoBattutaIniziale;
 
   const TrajectoryScreen({
@@ -102,6 +107,19 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
   void _toggleTipoBattuta(TipoBattuta tipo) {
     setState(() {
       _tipoBattuta = _tipoBattuta == tipo ? TipoBattuta.nonSpecificato : tipo;
+    });
+  }
+
+  // Tipo di attacco scelto qui (riga di chip sotto al campo) — a differenza
+  // della battuta non resta mai "armato" tra un attacco e l'altro (varia
+  // spesso colpo su colpo, anche per lo stesso giocatore): parte sempre da
+  // nonSpecificato, nessun valore iniziale da ScoutScreen.
+  TipoAttacco _tipoAttacco = TipoAttacco.nonSpecificato;
+  bool get _mostraTipoAttacco => widget.fondamentale == Fondamentale.attacco;
+
+  void _toggleTipoAttacco(TipoAttacco tipo) {
+    setState(() {
+      _tipoAttacco = _tipoAttacco == tipo ? TipoAttacco.nonSpecificato : tipo;
     });
   }
 
@@ -180,12 +198,13 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
       muroX: muro == null ? null : (muro.dx - courtLeft) / courtWidth,
       muroY: muro == null ? null : (muro.dy - courtTop) / courtHeight,
       tipoBattuta: _tipoBattuta,
+      tipoAttacco: _tipoAttacco,
     );
     Navigator.pop(context, risultato);
   }
 
   // Back: salta la traiettoria (coordinate tutte null) ma porta comunque
-  // il tipo battuta scelto qui, se diverso da quello iniziale — altrimenti
+  // il tipo scelto qui (battuta o attacco), se cambiato — altrimenti
   // andrebbe perso (vedi ScoutScreen._registraVoto).
   void _onBack() {
     Navigator.pop<Traiettoria>(context, (
@@ -196,6 +215,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
       muroX: null,
       muroY: null,
       tipoBattuta: _tipoBattuta,
+      tipoAttacco: _tipoAttacco,
     ));
   }
 
@@ -246,16 +266,45 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
   // torna a nonSpecificato). Non blocca il flusso: ignorarla e disegnare/
   // saltare la traiettoria registra "nonSpecificato" come sempre.
   Widget _buildRigaTipoBattuta() {
+    const tipi = [
+      TipoBattuta.dalBasso,
+      TipoBattuta.float,
+      TipoBattuta.salto,
+      TipoBattuta.saltoFloat,
+    ];
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final tipo in TipoBattuta.values) ...[
+        for (final tipo in tipi) ...[
           _buildTipoChip(
             label: tipo.label,
             selezionato: _tipoBattuta == tipo,
             onTap: () => _toggleTipoBattuta(tipo),
           ),
-          if (tipo != TipoBattuta.values.last) const SizedBox(width: 6),
+          if (tipo != tipi.last) const SizedBox(width: 6),
+        ],
+      ],
+    );
+  }
+
+  // Riga unica con le 3 chip del tipo di attacco (opzionale — vedi
+  // _tipoAttacco), stessa meccanica/stile della riga battuta.
+  Widget _buildRigaTipoAttacco() {
+    const tipi = [
+      TipoAttacco.forte,
+      TipoAttacco.piazzata,
+      TipoAttacco.pallonetto,
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final tipo in tipi) ...[
+          _buildTipoChip(
+            label: tipo.label,
+            selezionato: _tipoAttacco == tipo,
+            onTap: () => _toggleTipoAttacco(tipo),
+          ),
+          if (tipo != tipi.last) const SizedBox(width: 6),
         ],
       ],
     );
@@ -419,15 +468,21 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                           painter: _FrecciaTraiettoriaPainter(
                               _inizio!, _attuale!, _puntoMuro),
                         ),
-                      // Tipo battuta: riga orizzontale subito sotto al
-                      // campo (spostata qui da ScoutScreen) — solo per
-                      // fondamentale == battuta.
-                      if (_mostraTipoBattuta)
+                      // Tipo battuta/attacco: riga orizzontale subito sotto
+                      // al campo (spostata qui da ScoutScreen) — mai
+                      // entrambe insieme (mostraTipoBattuta/mostraTipoAttacco
+                      // sono mutuamente esclusive, dipendono dallo stesso
+                      // widget.fondamentale).
+                      if (_mostraTipoBattuta || _mostraTipoAttacco)
                         Positioned(
                           top: courtTop + courtHeight + 24,
                           left: 0,
                           right: 0,
-                          child: Center(child: _buildRigaTipoBattuta()),
+                          child: Center(
+                            child: _mostraTipoBattuta
+                                ? _buildRigaTipoBattuta()
+                                : _buildRigaTipoAttacco(),
+                          ),
                         ),
                     ],
                   ),
