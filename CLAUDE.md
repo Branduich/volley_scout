@@ -1394,6 +1394,15 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   **salvato** (non solo un aiuto visivo) — `Traiettoria` ora porta anche
   `muroX`/`muroY` (nullable), passati a `registraAzioneScout()` come
   `traiettoriaMuroX`/`traiettoriaMuroY`.
+  - **Da provare in futuro (non ancora deciso)**: lo sviluppatore non è
+    sicuro che il dwell-time (sosta col dito fermo) sia comodo da usare.
+    Alternativa proposta da testare: **stacco e ripresa del dito** invece
+    di sosta — si comincia il drag, si stacca il dito vicino alla rete
+    (quello fissa il punto di rottura, niente timer), poi si ricomincia un
+    nuovo drag che continua dal punto di rottura fino al rilascio finale.
+    Richiederebbe ripensare il ciclo di vita del gesto (oggi un solo
+    `onPanStart`/`onPanEnd` per tutta la traiettoria, qui ce ne vorrebbero
+    due collegati dallo stato `_puntoMuro` già esistente).
 - **Refactoring colori (importante)**: il colore squadra è mostrato **sempre
   raw** (`Color(team.coloreDivisa)`), in ogni schermata che lo usa —
   `teams_screen`, `team_selection_screen`, `team_form_screen` (incluso il
