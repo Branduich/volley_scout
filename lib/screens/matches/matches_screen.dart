@@ -227,10 +227,16 @@ class _MatchCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            FilledButton.icon(
-              onPressed: onStart,
-              icon: Icon(_iconaBottone()),
-              label: Text(_labelBottone()),
+            // Larghezza fissa (non solo "circa uguale"): altrimenti il
+            // bottone si restringe per "Inizia" rispetto a "Continua"/
+            // "Riprendi", più lunghe — stessa larghezza per tutte le label.
+            SizedBox(
+              width: 160,
+              child: FilledButton.icon(
+                onPressed: onStart,
+                icon: Icon(_iconaBottone()),
+                label: Text(_labelBottone()),
+              ),
             ),
           ],
         ),

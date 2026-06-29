@@ -1692,7 +1692,9 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         `configurazione` (mai cominciata), "Continua"
         (`Icons.play_circle_fill`) se `inCorso`/`sospesa` (set già aperto),
         "Riprendi" (`Icons.replay`) se `terminata` — stesso flusso in tutti
-        i casi (`TeamSelectionScreen` → ... → `ScoutScreen`).
+        i casi (`TeamSelectionScreen` → ... → `ScoutScreen`). Larghezza
+        **fissa** (`SizedBox(width: 160)`): senza, il bottone si restringe
+        per "Inizia" (più corta) rispetto a "Continua"/"Riprendi".
         **Riprendere una partita `terminata`**: voluto esplicitamente (es.
         per correggere un'azione dopo aver chiuso per errore) — quando
         `ScoutScreen._avviaOCaricaSet()` trova il set già esistente, se
