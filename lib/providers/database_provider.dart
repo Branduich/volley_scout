@@ -416,6 +416,9 @@ class ScoutActionRepository {
   /// ricezione). `tipoEsecuzione` è il .name di TipoBattuta/TipoAttacco in
   /// base al fondamentale (colonna polimorfica, vedi Modello dati) —
   /// 'nonSpecificato' di default, non bloccante per il flusso veloce.
+  /// `traiettoria*` (coordinate normalizzate 0.0-1.0) solo per
+  /// battuta/attacco — vedi `Fondamentale.richiedeTraiettoria` e
+  /// `TrajectoryScreen`; `null` se l'utente ha saltato la traiettoria.
   Future<void> registraAzioneScout({
     required int setId,
     required Squadra squadra,
@@ -424,6 +427,10 @@ class ScoutActionRepository {
     required Voto voto,
     required EsitoPunto esitoPunto,
     String tipoEsecuzione = 'nonSpecificato',
+    double? traiettoriaX1,
+    double? traiettoriaY1,
+    double? traiettoriaX2,
+    double? traiettoriaY2,
   }) {
     return _registraAzione(
       setId: setId,
@@ -434,6 +441,10 @@ class ScoutActionRepository {
       fondamentale: fondamentale,
       voto: voto,
       tipoEsecuzione: tipoEsecuzione,
+      traiettoriaX1: traiettoriaX1,
+      traiettoriaY1: traiettoriaY1,
+      traiettoriaX2: traiettoriaX2,
+      traiettoriaY2: traiettoriaY2,
     );
   }
 
@@ -446,6 +457,10 @@ class ScoutActionRepository {
     Fondamentale? fondamentale,
     Voto? voto,
     String tipoEsecuzione = 'nonSpecificato',
+    double? traiettoriaX1,
+    double? traiettoriaY1,
+    double? traiettoriaX2,
+    double? traiettoriaY2,
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -475,6 +490,10 @@ class ScoutActionRepository {
             fondamentale: Value(fondamentale),
             voto: Value(voto),
             tipoEsecuzione: Value(tipoEsecuzione),
+            traiettoriaX1: Value(traiettoriaX1),
+            traiettoriaY1: Value(traiettoriaY1),
+            traiettoriaX2: Value(traiettoriaX2),
+            traiettoriaY2: Value(traiettoriaY2),
           ),
         );
   }

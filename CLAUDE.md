@@ -1301,6 +1301,53 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   funzione duplicata in `lineup_screen.dart`), bordo e testo bianchi (stesso
   stile degli altri token, non più bordo/testo neri). Etichetta: numero di
   maglia se `_showJerseyNumbers`, altrimenti "L1"/"L2".
+- **Traiettoria battuta/attacco** (IMPLEMENTATA): `TrajectoryScreen`
+  (`lib/screens/live/trajectory_screen.dart`) — solo per
+  `Fondamentale.richiedeTraiettoria` (battuta/attacco), qualunque voto
+  (anche `errore`: ha senso vedere dove è finita una battuta in rete/fuori).
+  Aperta da `ScoutScreen._registraVoto` **dopo** la scelta del voto e
+  **prima** di registrare l'azione — `Navigator.push<Traiettoria>` (typedef
+  `({double x1, y1, x2, y2})`, coordinate normalizzate 0.0-1.0 rispetto al
+  campo intero, stesso spazio di riferimento 1200×600 usato altrove).
+  **Nessun bottone "Salta"/"Conferma"**: niente `AppBar` nativa — stessa
+  barra superiore custom di `ScoutScreen` (`Container` 60dp,
+  `Color(0xFF0D2738)`, titolo "Imposta traiettoria" bianco bold 16px
+  ancorato vicino al bordo inferiore della barra), con solo un bottone
+  back a sinistra (niente menu/undo/punteggio, non pertinenti qui) — tap
+  sul back senza aver disegnato nulla = `Navigator.pop` con `null` (salta,
+  azione registrata comunque senza traiettoria); un **drag**
+  (`onPanStart/Update/End`) dal punto di partenza a quello di arrivo
+  conferma subito al rilascio (`Navigator.pop(context, risultato)`),
+  niente tocco aggiuntivo. Sfondo schermo `Color(0xFF143E59)`, stesso di
+  `ScoutScreen` (`_kBg`/`_kTopBarBg` duplicati qui per coerenza visiva,
+  stesso pattern di altre costanti duplicate tra schermate). **Stessa
+  dimensione/posizionamento del campo di `ScoutScreen`** (58% della
+  larghezza disponibile, ancorato in alto con margine fisso 16px — non
+  centrato verticalmente, stesse costanti duplicate qui per coerenza
+  visiva tra le due schermate), `double_court_bg.png` (`BoxFit.contain`).
+  **Banner azione** (`_buildBanner`, tra la barra superiore e il campo,
+  stessa altezza fissa 36 di `ScoutScreen`): stesso testo/stile/colore di
+  `ScoutScreen._descrizioneAzione` per il caso `TipoAzione.scout`
+  ("Numero - Cognome - Fondamentale" + simbolo voto più grande), ma qui
+  sull'azione **in corso** (passata a `TrajectoryScreen` come
+  `giocatore`/`fondamentale`/`voto` — non è ancora un `ScoutAction`
+  salvato a questo punto del flusso, quindi si formatta direttamente dai
+  tre parametri invece che da una riga DB). **Spacer di 60px** tra barra
+  superiore e banner (`SizedBox(height: 60)`, prima del banner): qui non
+  c'è la riga dei bottoni rapidi di `ScoutScreen` (padding verticale 8 +
+  bottoni 44 + 8 = 60px) — senza questo spacer banner e campo
+  risulterebbero più in alto rispetto a `ScoutScreen`, a parità di
+  margine interno del campo (stesso `_kCourtTopMargin`).
+  `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
+  freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
+  punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/
+  `trajectoryWidth` (già definiti, prima mai usati in UI). L'azione si
+  registra **una sola volta** in `ScoutScreen` al ritorno da questa
+  schermata (con le coordinate se fornite, altrimenti `null` su tutte e
+  quattro) — mai un insert-poi-update separato. Conseguenza gratuita:
+  l'**undo** esistente (`annullaUltimaAzione`, elimina la riga con
+  `ordine` massimo) cancella già azione e traiettoria insieme, sono la
+  stessa riga `ScoutAction` — nessun codice in più necessario.
 - **Refactoring colori (importante)**: il colore squadra è mostrato **sempre
   raw** (`Color(team.coloreDivisa)`), in ogni schermata che lo usa —
   `teams_screen`, `team_selection_screen`, `team_form_screen` (incluso il
@@ -1317,25 +1364,8 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   eccezione, coerente con `lineup_screen`/`scout_screen`.
 - L'unica logica presente finora è l'**avvio del set** (dialog "Chi serve per
   primo?", creazione `MatchSet`/`Rotation` iniziale — vedi sezione Modello
-  dati). Nessuna registrazione di azioni di scout vere e proprie: il resto di
-  questa sezione descrive il design deciso ma non ancora implementato.
-
-### Design deciso, da implementare
-
-- Campo intero disegnato (entrambe le metà, rete al centro), i 6 giocatori della
-  propria squadra come token toccabili.
-- **Flusso a 3 tocchi**: giocatore -> fondamentale -> voto. L'azione viene
-  registrata e tutto si resetta per la successiva.
-- **Contestualità**: quando la squadra è al servizio, il giocatore in zona 1 e il
-  fondamentale "battuta" sono pre-selezionati (restano solo voto + traiettoria).
-- **Traiettoria**: solo per battuta e attacco. Dopo il voto si apre una seconda
-  schermata col campo vuoto, dove si inserisce la traiettoria con un **drag**
-  (pan): si trascina dal punto di partenza a quello di arrivo, la freccia si
-  disegna in tempo reale. Possibilità di "salta traiettoria". Coordinate salvate
-  normalizzate.
-- In Flutter: `CustomPainter` per il campo + `GestureDetector`/`Listener`
-  (onPanStart/Update/End) con `touch-action: none` equivalente. Convertire
-  `localPosition` in coordinate normalizzate.
+  dati) e il flusso a 3 tocchi giocatore→fondamentale→voto con traiettoria
+  per battuta/attacco — vedi le voci IMPLEMENTATE sopra.
 
 ---
 
@@ -1426,10 +1456,12 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         "fondamentale" separato da cui farlo scattare. Per ora si è scelto
         di tenere il flusso a due passi, solo con i bottoni fondamentale
         ingranditi (vedi sopra).
-  - [ ] **PROSSIMO**: `CustomPainter` campo intero per le traiettorie
-        (battuta/attacco) via drag; rendere modificabile l'esito automatico
-        prima di confermare l'azione (idea annotata nel Modello dati, non
-        ancora in UI).
+  - [x] Traiettoria battuta/attacco: `TrajectoryScreen` dedicata, drag per
+        disegnare la freccia, back per saltare — vedi "Interfaccia di
+        scout" per i dettagli.
+  - [ ] **PROSSIMO**: rendere modificabile l'esito automatico prima di
+        confermare l'azione (idea annotata nel Modello dati, non ancora in
+        UI).
   - [x] Override manuale punteggio: bottoni "+"/"-" (`Icons.add`/
         `Icons.remove`, 22×22) accanto a ciascun numero in barra superiore,
         dentro `_buildScoreDisplay` (ora prende anche `Squadra` per sapere
@@ -1693,26 +1725,27 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 
 ## Stato attuale
 
-**Fase 1 completata. Fase 2 completata. Fase 3 in corso.**
+**Fase 1 completata. Fase 2 completata. Fase 3 completata. Fase 4 in corso.**
 
-Il flusso è navigabile end-to-end: lista partite → "Inizia" → selezione squadra →
-selezione formazione (`LineupScreen`) → configurazione formazione
-(`FormationConfigScreen`: sistema di gioco, conferma palleggiatore e cambi del
-libero) → `ScoutScreen` (setup grafico completo + bottoni rapidi funzionanti +
-flusso a 3 tocchi su tutti i fondamentali tranne `errore` — battuta/ricezione
-forzati dalla fase di gioco, alzata/attacco/muro/difesa a scelta libera dopo:
-punteggio, chi serve e rotazione sono derivati in tempo reale dagli eventi
-`ScoutAction` persistiti, vedi Modello dati) → drawer "Fine" → `EndSetScreen`
-("Prossimo Set" ripristina la scelta formazione da zero per il set
-successivo, "Fine Partita" torna a `MatchesScreen`, ora a due sezioni
-"Da iniziare/in corso" / "Terminate" — da queste ultime si può "Riprendere"
-lo scout, che riporta `stato` a `inCorso` e salta `LineupScreen`/
-`FormationConfigScreen` ricostruendo la formazione già salvata). Nessuna
-nuova colonna serve per i punteggi: ogni set congelato si ricalcola sempre
-con `ricalcolaStato()`, manca solo la schermata report (Fase 4) che farà
-questo replay.
-Il prossimo passo è il `CustomPainter` per le traiettorie (battuta/attacco)
-via drag.
+Il flusso è navigabile end-to-end: lista partite → "Inizia"/"Continua"/
+"Riprendi" → selezione squadra → selezione formazione (`LineupScreen`) →
+configurazione formazione (`FormationConfigScreen`: sistema di gioco,
+conferma palleggiatore e cambi del libero) → `ScoutScreen` (setup grafico
+completo + bottoni rapidi + flusso a 3 tocchi su tutti i fondamentali
+tranne `errore`, con traiettoria per battuta/attacco via `TrajectoryScreen`
+— punteggio, chi serve e rotazione derivati in tempo reale dagli eventi
+`ScoutAction`, vedi Modello dati) → drawer ("Statistiche" apre
+`PlayerStatsScreen` anche a partita in corso; "Fine" apre `EndSetScreen`:
+"Prossimo Set" ripristina la scelta formazione da zero per il set
+successivo, "Fine Partita" torna a `MatchesScreen`, a due sezioni
+"Da iniziare/in corso" / "Terminate" — da queste ultime si può
+"Riprendere" lo scout, o aprire `MatchReportScreen` per il report
+completo). Bypass automatico di `TeamSelectionScreen`/`LineupScreen`/
+`FormationConfigScreen` quando si riprende un set già iniziato.
+Fase 4: `MatchReportScreen` (dati partita, punteggio finale/per set,
+riepilogo fondamentali) e `PlayerStatsScreen` (statistiche per giocatore/
+fondamentale, set per set) sono pronte; manca l'export PDF e la
+condivisione.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout

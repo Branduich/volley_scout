@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 import '../report/player_stats_screen.dart';
 import 'end_set_screen.dart';
+import 'trajectory_screen.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -849,6 +850,27 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       Fondamentale.attacco => _tipoAttaccoSelezionato.name,
       _ => 'nonSpecificato',
     };
+
+    // Solo battuta/attacco chiedono la traiettoria — schermata dedicata,
+    // niente bottoni "salta"/"conferma": il back la salta (Navigator.pop
+    // senza valore), il rilascio del drag la conferma subito (vedi
+    // TrajectoryScreen). L'azione si registra una sola volta, qui sotto,
+    // con o senza le coordinate.
+    Traiettoria? traiettoria;
+    if (fondamentale.richiedeTraiettoria) {
+      traiettoria = await Navigator.push<Traiettoria>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TrajectoryScreen(
+            giocatore: inCorso.giocatore,
+            fondamentale: fondamentale,
+            voto: voto,
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
+
     await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
@@ -857,6 +879,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
+          traiettoriaX1: traiettoria?.x1,
+          traiettoriaY1: traiettoria?.y1,
+          traiettoriaX2: traiettoria?.x2,
+          traiettoriaY2: traiettoria?.y2,
         );
     if (!mounted) return;
     setState(() {
