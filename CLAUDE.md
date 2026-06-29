@@ -806,24 +806,28 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       tipo attacco (vedi sotto) + 5 bottoni quadrati verticali, uno per
       `Voto` (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
       `CourtStyle.votoColor()` (vedi sotto).
-    - **Griglia tipo battuta** (IMPLEMENTATA, opzionale — "Dal basso"/
-      "Float" sopra, "Salto"/"Salto float" sotto, 2×2 invece di una riga di
-      4 per avere chip abbastanza grandi da toccare con precisione):
-      `_tipoBattutaSelezionato` (`TipoBattuta`, default `nonSpecificato`).
+    - **Tipo battuta** (IMPLEMENTATO, opzionale — "Dal basso"/"Float"/
+      "Salto"/"Salto float"): scelto su **`TrajectoryScreen`**, non più nel
+      pannello voto qui — riga orizzontale di 4 chip subito sotto al campo
+      (spostata via per sgombrare il pannello voto, già pieno; vedi
+      "Traiettoria battuta/attacco" più sotto per i dettagli della
+      schermata e del meccanismo di passaggio/ritorno del valore "armato").
       Tap su un chip → lo seleziona (sfondo/bordo `AppColors.brandAccent`);
       tap di nuovo sullo stesso chip → lo deseleziona (torna a
       `nonSpecificato`). **Non blocca il flusso veloce**: ignorarlo e
-      toccare subito un voto registra comunque l'azione, con
+      saltare/disegnare la traiettoria registra comunque l'azione, con
       `tipoEsecuzione = 'nonSpecificato'` come sempre.
       - **Resta "armato" tra una battuta e l'altra dello STESSO giocatore**
         (spesso batte sempre nello stesso modo) — cambia battitore e si
-        azzera (non si assume che batta uguale). Gestito in
-        `_tapHandlerPerGiocatore`: confronta `player.id` con
-        `_giocatoreTipoBattutaArmato` quando si apre il pannello con
-        `fondamentale` già forzato a battuta; se diverso, resetta
-        `_tipoBattutaSelezionato` a `nonSpecificato` e aggiorna
-        `_giocatoreTipoBattutaArmato`. `_registraVoto` non lo resetta mai
-        esplicitamente (resta quello che è finché non cambia battitore).
+        azzera (non si assume che batta uguale). `_giocatoreTipoBattutaArmato`
+        e `_tipoBattutaSelezionato` restano in `ScoutScreen` (unica istanza
+        persistente tra una `TrajectoryScreen` e la successiva): la prima
+        traccia il `player.id` per cui il valore è valido (resettato a
+        `nonSpecificato` in `_tapHandlerPerGiocatore` quando cambia
+        battitore), la seconda viene passata come `tipoBattutaIniziale` alla
+        navigazione e riletta dal campo `tipoBattuta` del risultato al
+        ritorno — `_registraVoto` non la resetta mai esplicitamente (resta
+        quella che è finché non cambia battitore).
       - `_registraVoto` passa `tipoEsecuzione: _tipoBattutaSelezionato.name`
         a `registraAzioneScout()` solo se `fondamentale == battuta`,
         `_tipoAttaccoSelezionato.name` se `== attacco`, altrimenti
@@ -1332,18 +1336,23 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   (anche `errore`: ha senso vedere dove è finita una battuta in rete/fuori).
   Aperta da `ScoutScreen._registraVoto` **dopo** la scelta del voto e
   **prima** di registrare l'azione — `Navigator.push<Traiettoria>` (typedef
-  `({double x1, y1, x2, y2})`, coordinate normalizzate 0.0-1.0 rispetto al
-  campo intero, stesso spazio di riferimento 1200×600 usato altrove).
+  `({double? x1, y1, x2, y2, muroX, muroY, required TipoBattuta
+  tipoBattuta})`, coordinate normalizzate 0.0-1.0 rispetto al campo intero,
+  stesso spazio di riferimento 1200×600 usato altrove). Il record tornato
+  da `Navigator.pop` **non è mai `null`** (a differenza di prima): porta
+  sempre almeno `tipoBattuta` (vedi sotto), con le coordinate a `null`
+  quando si è saltata la traiettoria.
   **Nessun bottone "Salta"/"Conferma"**: niente `AppBar` nativa — stessa
   barra superiore custom di `ScoutScreen` (`Container` 60dp,
   `Color(0xFF0D2738)`, titolo "Imposta traiettoria" bianco bold 16px
   ancorato vicino al bordo inferiore della barra), con solo un bottone
   back a sinistra (niente menu/undo/punteggio, non pertinenti qui) — tap
-  sul back senza aver disegnato nulla = `Navigator.pop` con `null` (salta,
-  azione registrata comunque senza traiettoria); un **drag**
-  (`onPanStart/Update/End`) dal punto di partenza a quello di arrivo
-  conferma subito al rilascio (`Navigator.pop(context, risultato)`),
-  niente tocco aggiuntivo. Sfondo schermo `Color(0xFF143E59)`, stesso di
+  sul back senza aver disegnato nulla (`_onBack`) = pop con coordinate
+  `null` ma `tipoBattuta` valorizzato (salta la traiettoria, non il tipo
+  battuta); un **drag** (`onPanStart/Update/End`) dal punto di partenza a
+  quello di arrivo conferma subito al rilascio
+  (`Navigator.pop(context, risultato)`), niente tocco aggiuntivo. Sfondo
+  schermo `Color(0xFF143E59)`, stesso di
   `ScoutScreen` (`_kBg`/`_kTopBarBg` duplicati qui per coerenza visiva,
   stesso pattern di altre costanti duplicate tra schermate). **Stessa
   dimensione/posizionamento del campo di `ScoutScreen`** (58% della
@@ -1363,6 +1372,18 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   bottoni 44 + 8 = 60px) — senza questo spacer banner e campo
   risulterebbero più in alto rispetto a `ScoutScreen`, a parità di
   margine interno del campo (stesso `_kCourtTopMargin`).
+  **Tipo battuta** (solo `Fondamentale.battuta` — `_mostraTipoBattuta`):
+  riga orizzontale di 4 chip (`_buildRigaTipoBattuta`/`_buildTipoChip`,
+  duplicata da `ScoutScreen` con lo stesso stile) ancorata subito sotto al
+  campo (`top: courtTop + courtHeight + 24`, dentro lo stesso Stack —
+  c'è spazio perché il campo, largo il 58% dello schermo, è molto più
+  basso dell'area disponibile). Stato locale `_tipoBattuta`, inizializzato
+  da `widget.tipoBattutaIniziale` (il valore "armato" corrente letto da
+  `ScoutScreen`); il valore finale (eventualmente cambiato) torna nel
+  campo `tipoBattuta` del risultato, sia dal drag (`_onPanEnd`) sia dal
+  back (`_onBack`) — così la scelta non si perde nemmeno saltando la
+  traiettoria. Spostata qui da `ScoutScreen` (era una griglia 2×2 nel
+  pannello voto) per sgombrare quel pannello, già pieno.
   `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
   freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
   punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/

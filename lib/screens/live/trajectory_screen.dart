@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 
 const _kCourtImage = 'assets/images/double_court_bg.png';
@@ -29,24 +30,30 @@ const Duration _kSoffermamentoRete = Duration(milliseconds: 400);
 
 /// Coordinate normalizzate (0.0-1.0) di una traiettoria, rispetto al campo
 /// intero (rete a x=0.5) — stesso spazio di riferimento usato altrove in
-/// ScoutScreen per le posizioni dei token. `muroX`/`muroY` solo per attacco,
-/// `null` se il drag non ha incrociato la rete (nessun tocco a muro
-/// simulato) — vedi _TrajectoryScreenState._onPanUpdate.
+/// ScoutScreen per le posizioni dei token. `x1`/`y1`/`x2`/`y2`/`muroX`/
+/// `muroY` sono `null` quando si è saltata la traiettoria (back senza
+/// disegnare) — il record torna comunque sempre non-null, perché porta
+/// anche `tipoBattuta` (vedi sotto). `muroX`/`muroY` inoltre solo per
+/// attacco, `null` se il drag non ha incrociato la rete (nessun tocco a
+/// muro simulato) — vedi _TrajectoryScreenState._onPanUpdate.
 typedef Traiettoria = ({
-  double x1,
-  double y1,
-  double x2,
-  double y2,
+  double? x1,
+  double? y1,
+  double? x2,
+  double? y2,
   double? muroX,
   double? muroY,
+  TipoBattuta tipoBattuta,
 });
 
 /// Schermata dedicata per registrare la traiettoria di una battuta/attacco
-/// (Fase 3, "PROSSIMO" in CLAUDE.md) — campo vuoto, drag dal punto di
-/// partenza a quello di arrivo. Nessun bottone "Salta"/"Conferma": il back
-/// (automatico, AppBar) chiude la schermata senza traiettoria
-/// (`Navigator.pop` con `null` di default — "salta"), il rilascio del drag
-/// la conferma subito (`Navigator.pop(context, risultato)`).
+/// (Fase 3) — campo vuoto, drag dal punto di partenza a quello di arrivo.
+/// Per la battuta mostra anche la scelta del tipo (riga di chip sotto al
+/// campo, spostata qui da ScoutScreen per sgombrare il pannello voto).
+/// Nessun bottone "Salta"/"Conferma": il back chiude la schermata senza
+/// traiettoria (ma porta comunque il tipo battuta scelto, se cambiato — vedi
+/// `Traiettoria`), il rilascio del drag la conferma subito
+/// (`Navigator.pop(context, risultato)`).
 class TrajectoryScreen extends StatefulWidget {
   // Giocatore/fondamentale/voto dell'azione in corso (non ancora
   // registrata — vedi ScoutScreen._registraVoto), solo per mostrare lo
@@ -54,12 +61,17 @@ class TrajectoryScreen extends StatefulWidget {
   final Player giocatore;
   final Fondamentale fondamentale;
   final Voto voto;
+  // Valore "armato" attuale in ScoutScreen (vedi _tipoBattutaSelezionato
+  // là) — null se fondamentale != battuta (chip non mostrate). Il risultato
+  // della navigazione riporta il valore finale, eventualmente cambiato.
+  final TipoBattuta? tipoBattutaIniziale;
 
   const TrajectoryScreen({
     super.key,
     required this.giocatore,
     required this.fondamentale,
     required this.voto,
+    this.tipoBattutaIniziale,
   });
 
   @override
@@ -73,6 +85,25 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
   // Una volta impostato non si azzera più finché non riparte un nuovo drag.
   Offset? _puntoMuro;
   Offset? _attuale;
+
+  // Tipo di battuta scelto qui (riga di chip sotto al campo) — inizializzato
+  // dal valore "armato" passato da ScoutScreen, riportato indietro nel
+  // risultato della navigazione (vedi Traiettoria). Mostrato solo se
+  // fondamentale == battuta.
+  late TipoBattuta _tipoBattuta;
+  bool get _mostraTipoBattuta => widget.fondamentale == Fondamentale.battuta;
+
+  @override
+  void initState() {
+    super.initState();
+    _tipoBattuta = widget.tipoBattutaIniziale ?? TipoBattuta.nonSpecificato;
+  }
+
+  void _toggleTipoBattuta(TipoBattuta tipo) {
+    setState(() {
+      _tipoBattuta = _tipoBattuta == tipo ? TipoBattuta.nonSpecificato : tipo;
+    });
+  }
 
   // true mentre il dito è dentro la fascia di tolleranza attorno alla rete
   // (vedi _kToleranzaRete) — usato solo per sapere quando far partire/
@@ -148,8 +179,24 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
       y2: (fine.dy - courtTop) / courtHeight,
       muroX: muro == null ? null : (muro.dx - courtLeft) / courtWidth,
       muroY: muro == null ? null : (muro.dy - courtTop) / courtHeight,
+      tipoBattuta: _tipoBattuta,
     );
     Navigator.pop(context, risultato);
+  }
+
+  // Back: salta la traiettoria (coordinate tutte null) ma porta comunque
+  // il tipo battuta scelto qui, se diverso da quello iniziale — altrimenti
+  // andrebbe perso (vedi ScoutScreen._registraVoto).
+  void _onBack() {
+    Navigator.pop<Traiettoria>(context, (
+      x1: null,
+      y1: null,
+      x2: null,
+      y2: null,
+      muroX: null,
+      muroY: null,
+      tipoBattuta: _tipoBattuta,
+    ));
   }
 
   // Stesso testo/stile/colore di ScoutScreen._descrizioneAzione per il caso
@@ -194,6 +241,64 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     );
   }
 
+  // Riga unica con le 4 chip del tipo di battuta (opzionale — vedi
+  // _tipoBattuta): tap = seleziona (tap di nuovo sulla stessa = deseleziona,
+  // torna a nonSpecificato). Non blocca il flusso: ignorarla e disegnare/
+  // saltare la traiettoria registra "nonSpecificato" come sempre.
+  Widget _buildRigaTipoBattuta() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final tipo in TipoBattuta.values) ...[
+          _buildTipoChip(
+            label: tipo.label,
+            selezionato: _tipoBattuta == tipo,
+            onTap: () => _toggleTipoBattuta(tipo),
+          ),
+          if (tipo != TipoBattuta.values.last) const SizedBox(width: 6),
+        ],
+      ],
+    );
+  }
+
+  // Stesso stile/stato di selezione della chip in ScoutScreen
+  // (_buildTipoChip lì, duplicata qui — stesso pattern di altre piccole
+  // utility condivise tra le due schermate).
+  Widget _buildTipoChip({
+    required String label,
+    required bool selezionato,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 92,
+        height: 52,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: selezionato ? AppColors.brandAccent : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selezionato ? AppColors.brandAccent : Colors.white38,
+            width: selezionato ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,7 +336,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                   bottom: 0,
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _onBack,
                   ),
                 ),
               ],
@@ -313,6 +418,16 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                           size: screenConstraints.biggest,
                           painter: _FrecciaTraiettoriaPainter(
                               _inizio!, _attuale!, _puntoMuro),
+                        ),
+                      // Tipo battuta: riga orizzontale subito sotto al
+                      // campo (spostata qui da ScoutScreen) — solo per
+                      // fondamentale == battuta.
+                      if (_mostraTipoBattuta)
+                        Positioned(
+                          top: courtTop + courtHeight + 24,
+                          left: 0,
+                          right: 0,
+                          child: Center(child: _buildRigaTipoBattuta()),
                         ),
                     ],
                   ),

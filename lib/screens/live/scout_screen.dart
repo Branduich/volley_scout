@@ -968,19 +968,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     });
   }
 
-  // Tipo di battuta opzionale selezionato nel pannello voto (griglia 2×2,
-  // solo per fondamentale == battuta) — nonSpecificato di default, non
-  // bloccante per il flusso veloce. Vedi _tapHandlerPerGiocatore per quando
-  // si azzera.
+  // Tipo di battuta opzionale, scelto su TrajectoryScreen (riga di chip
+  // orizzontale sotto al campo, non più nel pannello voto qui) — passato
+  // come valore iniziale alla navigazione e riletto dal risultato al
+  // ritorno (vedi _registraVoto). nonSpecificato di default, non bloccante
+  // per il flusso veloce. Vedi _tapHandlerPerGiocatore per quando si azzera.
   TipoBattuta _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
   int? _giocatoreTipoBattutaArmato;
-
-  void _toggleTipoBattuta(TipoBattuta tipo) {
-    setState(() {
-      _tipoBattutaSelezionato =
-          _tipoBattutaSelezionato == tipo ? TipoBattuta.nonSpecificato : tipo;
-    });
-  }
 
   // Tipo di attacco opzionale (chips "Forte"/"Piazzata"/"Pallonetto" nel
   // pannello voto, solo per fondamentale == attacco) — a differenza della
@@ -1021,17 +1015,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final fondamentale = inCorso?.fondamentale;
     if (set == null || inCorso == null || fondamentale == null) return;
     final esito = _esitoVoto(fondamentale, voto);
-    final tipoEsecuzione = switch (fondamentale) {
-      Fondamentale.battuta => _tipoBattutaSelezionato.name,
-      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
-      _ => 'nonSpecificato',
-    };
 
     // Solo battuta/attacco chiedono la traiettoria — schermata dedicata,
-    // niente bottoni "salta"/"conferma": il back la salta (Navigator.pop
-    // senza valore), il rilascio del drag la conferma subito (vedi
-    // TrajectoryScreen). L'azione si registra una sola volta, qui sotto,
-    // con o senza le coordinate.
+    // niente bottoni "salta"/"conferma": il back la salta (registra
+    // comunque un risultato, solo senza coordinate — vedi TrajectoryScreen),
+    // il rilascio del drag la conferma subito. Per la battuta,
+    // TrajectoryScreen mostra anche la scelta del tipo (sotto al campo,
+    // spostata qui dal pannello voto): si passa il valore "armato" attuale
+    // come iniziale e si rilegge quello (eventualmente cambiato) dal
+    // risultato, per restare "armato" anche tra una traiettoria e l'altra.
     Traiettoria? traiettoria;
     if (fondamentale.richiedeTraiettoria) {
       traiettoria = await Navigator.push<Traiettoria>(
@@ -1041,11 +1033,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             giocatore: inCorso.giocatore,
             fondamentale: fondamentale,
             voto: voto,
+            tipoBattutaIniziale: fondamentale == Fondamentale.battuta
+                ? _tipoBattutaSelezionato
+                : null,
           ),
         ),
       );
       if (!mounted) return;
+      if (fondamentale == Fondamentale.battuta && traiettoria != null) {
+        _tipoBattutaSelezionato = traiettoria.tipoBattuta;
+      }
     }
+
+    final tipoEsecuzione = switch (fondamentale) {
+      Fondamentale.battuta => _tipoBattutaSelezionato.name,
+      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
+      _ => 'nonSpecificato',
+    };
 
     await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
           setId: set.id,
@@ -2031,39 +2035,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Griglia 2×2 col tipo di battuta (opzionale — vedi _tipoBattutaSelezionato):
-  // "Dal basso"/"Float" sopra, "Salto"/"Salto float" sotto. Tap = seleziona
-  // (tap di nuovo sulla stessa = deseleziona, torna a nonSpecificato). Non
-  // blocca il flusso: ignorarla e toccare subito un voto registra
-  // "nonSpecificato" come sempre.
-  Widget _buildGrigliaTipoBattuta() {
-    const righe = [
-      [TipoBattuta.dalBasso, TipoBattuta.float],
-      [TipoBattuta.salto, TipoBattuta.saltoFloat],
-    ];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final riga in righe) ...[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final tipo in riga) ...[
-                _buildTipoChip(
-                  label: tipo.label,
-                  selezionato: _tipoBattutaSelezionato == tipo,
-                  onTap: () => _toggleTipoBattuta(tipo),
-                ),
-                if (tipo != riga.last) const SizedBox(width: 6),
-              ],
-            ],
-          ),
-          if (riga != righe.last) const SizedBox(height: 6),
-        ],
-      ],
-    );
-  }
-
   // Riga unica con le 3 chips del tipo di attacco (opzionale — vedi
   // _tipoAttaccoSelezionato), stessa meccanica/stile della griglia battuta.
   Widget _buildGrigliaTipoAttacco() {
@@ -2252,10 +2223,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       style: const TextStyle(
                           color: Colors.white54, fontSize: 12),
                     ),
-                    if (inCorso.fondamentale == Fondamentale.battuta) ...[
-                      const SizedBox(height: 8),
-                      _buildGrigliaTipoBattuta(),
-                    ],
                     if (inCorso.fondamentale == Fondamentale.attacco) ...[
                       const SizedBox(height: 8),
                       _buildGrigliaTipoAttacco(),
