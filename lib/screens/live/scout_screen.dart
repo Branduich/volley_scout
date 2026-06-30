@@ -10,6 +10,7 @@ import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 import '../report/player_stats_screen.dart';
+import '../report/trajectory_report_screen.dart';
 import 'end_set_screen.dart';
 import 'trajectory_screen.dart';
 
@@ -1666,6 +1667,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => PlayerStatsScreen(
+                        match: widget.match, team: widget.team),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.arrow_forward, color: Colors.white),
+              title: const Text('Traiettorie battute',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TrajectoryReportScreen(
                         match: widget.match, team: widget.team),
                   ),
                 );

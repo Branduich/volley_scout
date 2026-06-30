@@ -14,6 +14,9 @@ class CourtStyle {
   // Traiettoria
   static const Color trajectoryArrow = AppColors.brandAccent;
   static const double trajectoryWidth = 2.5;
+  // Verde brillante per le frecce di battuta/attacco vincenti (ace, punto) —
+  // più saturo di AppColors.success per risaltare sul campo scuro.
+  static const Color trajectoryAce = Color(0xFF00FF08);
 
   // Colore associato a ciascun voto (#, +, !, -, =). Mezzo punto e negativo
   // condividono un colore neutro (non richiesto un trattamento dedicato).
