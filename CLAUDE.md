@@ -1305,9 +1305,18 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       della fila (stessa size/gap) a L1 e posiziona L2 nel secondo. L2 resta
       fisso in basso, non entra mai in campo (alternanza L1/L2 non
       modellata).
-    - **Backlog non implementato**: gestione doppio libero (oggi sempre
-      `L1` può entrare in campo, mai `L2`); unit test della logica libero su
+    - **Backlog non implementato**: unit test della logica libero su
       tutte e 6 le rotazioni.
+    - **PROSSIMO — Doppio libero attivo**: L1 entra in ricezione (avversari
+      al servizio), L2 in servizio (noi al servizio) — auto-switch ad ogni
+      cambio di fase. Stato `_liberoOverride` (String?, default `null`):
+      quando `null` vale la convenzione automatica; tap sul libero in panchina
+      → `_liberoOverride` si valorizza con quel libero e la convenzione si
+      disattiva per il resto del set (il tappato gioca fisso, l'altro resta in
+      panchina — ulteriore tap lo rimpiazza). Reset a `null` all'inizio del
+      set successivo. Entrambi i liberi sempre affiancati in basso (lato
+      secondo `_isRightSide`); il libero in panchina è tappabile. UX di
+      comunicazione del meccanismo da decidere.
   - **Animazione di rotazione**: il rendering itera per **giocatore**
     (`currentAssignments.entries`, non più per slot fisso), e ogni token è
     un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —
