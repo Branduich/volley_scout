@@ -1682,7 +1682,28 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => TrajectoryReportScreen(
-                        match: widget.match, team: widget.team),
+                      match: widget.match,
+                      team: widget.team,
+                      fondamentale: Fondamentale.battuta,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.trending_up, color: Colors.white),
+              title: const Text('Traiettorie attacco',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TrajectoryReportScreen(
+                      match: widget.match,
+                      team: widget.team,
+                      fondamentale: Fondamentale.attacco,
+                    ),
                   ),
                 );
               },

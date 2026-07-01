@@ -126,8 +126,11 @@ lib/
 │       ├── match_report_screen.dart      (Fase 4: dati partita, punteggio finale,
 │       │                                  punteggio per set, riepilogo fondamentali —
 │       │                                  raggiunta da MatchesScreen)
-│       └── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
-│                                          set per set — raggiunta dal drawer di ScoutScreen)
+│       ├── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
+│       │                                  set per set — raggiunta dal drawer di ScoutScreen)
+│       └── trajectory_report_screen.dart (Fase 4: traiettorie battute/attacco con filtri
+│                                          set/giocatore e, per attacco, rotazione P1-P6 —
+│                                          raggiunta dal drawer di ScoutScreen)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -1844,6 +1847,35 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           **`ScoutActionRepository.caricaAzioni`**: equivalenti one-shot
           (non stream) di `watchPlayersForTeam`/`watchAzioni`, aggiunti per
           questo caricamento one-shot.
+  - [x] **Traiettorie battute/attacco** (`lib/screens/report/trajectory_report_screen.dart`,
+        `TrajectoryReportScreen` parametrizzata su `fondamentale: Fondamentale`):
+        raggiunta da due voci del drawer di `ScoutScreen` — "Traiettorie battute"
+        (`Icons.arrow_forward`) e "Traiettorie attacco" (`Icons.trending_up`).
+        Stessa schermata parametrizzata per entrambi: stesso layout di
+        `TrajectoryScreen` (58% larghezza, `double_court_bg.png`, margine top 16).
+        - **Filtri**: set (default set corrente) + giocatore (lista dinamica —
+          solo chi ha azioni nel fondamentale per il set/rotazione selezionati,
+          con auto-reset al cambio di filtro tramite `_validaFiltri()` che usa
+          `_giocatoriFiltrati` già aggiornato per evitare eccezioni dropdown).
+          Per l'attacco: filtro rotazione aggiuntivo ("Tutte le rotazioni" /
+          "Rotazione P1".."Rotazione P6" — slot del palleggiatore al momento
+          dell'azione).
+        - **Normalizzazione direzione**: traiettorie sempre sx→dx (x1 > 0.5 →
+          mirror attorno al centro: x'=1−x, y'=1−y).
+        - **Colori frecce**: `CourtStyle.trajectoryAce` (verde brillante,
+          `0xFF00FF08`) per voto `perfetto`; rosso per `errore`; bianco per
+          il resto (in campo) — tutte alpha 220.
+        - **Mini-tabella** sotto al campo: celle con sfondo solido (verde
+          `AppColors.success` / grigio / rosso), testo bianco. Label:
+          "Ace  #"/"Punto  #" (battuta/attacco), "In campo", "Errore  =" +
+          riga totale con conteggio "con traiettoria".
+        - **`_computeRotazioni()`** (solo attacco): per ogni set carica
+          `caricaFormazione(setId)` per ottenere la rotazione iniziale e
+          l'id del palleggiatore; scorre le azioni in ordine O(n) tracciando
+          la rotazione corrente con la stessa logica di `_ruotata` di
+          `ricalcola_stato.dart` (replicata file-privata); registra lo slot
+          del palleggiatore per ogni azione di attacco PRIMA di applicare
+          l'esito — risultato: `Map<int, String>` actionId→slotLabel.
   - [ ] Export PDF, condivisione.
 
 ---
@@ -1868,9 +1900,10 @@ successivo, "Fine Partita" torna a `MatchesScreen`, a due sezioni
 completo). Bypass automatico di `TeamSelectionScreen`/`LineupScreen`/
 `FormationConfigScreen` quando si riprende un set già iniziato.
 Fase 4: `MatchReportScreen` (dati partita, punteggio finale/per set,
-riepilogo fondamentali) e `PlayerStatsScreen` (statistiche per giocatore/
-fondamentale, set per set) sono pronte; manca l'export PDF e la
-condivisione.
+riepilogo fondamentali), `PlayerStatsScreen` (statistiche per giocatore/
+fondamentale, set per set) e `TrajectoryReportScreen` (traiettorie battute/
+attacco con filtri set/giocatore/rotazione, normalizzazione sx→dx, colori
+ace/in-campo/errore) sono pronte; manca l'export PDF e la condivisione.
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout

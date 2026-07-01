@@ -15,21 +15,41 @@ const _kTopBarBg = Color(0xFF0D2738);
 const double _kCourtWidthFraction = 0.58;
 const double _kCourtTopMargin = 16.0;
 
+const _kSlots = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
+
+// Stessa logica di _ruotata in ricalcola_stato.dart (privata lì) — chi era
+// in posizione p+1 si sposta in posizione p al momento di un sideout.
+Map<int, int> _ruotata(Map<int, int> rot) =>
+    {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
+
 class _TrajData {
   final double x1, y1, x2, y2;
   final Color color;
   const _TrajData(this.x1, this.y1, this.x2, this.y2, this.color);
 }
 
+/// Schermata di visualizzazione traiettorie per un singolo fondamentale
+/// (battuta o attacco). Per l'attacco aggiunge il filtro rotazione
+/// (slot del palleggiatore al momento dell'azione).
 class TrajectoryReportScreen extends ConsumerStatefulWidget {
   final VolleyMatch match;
   final Team team;
+  final Fondamentale fondamentale;
 
   const TrajectoryReportScreen({
     super.key,
     required this.match,
     required this.team,
+    required this.fondamentale,
   });
+
+  String get _title => fondamentale == Fondamentale.battuta
+      ? 'Traiettorie battute'
+      : 'Traiettorie attacco';
+
+  // Etichetta per la cella "vincente" della mini-tabella.
+  String get _labelVincente =>
+      fondamentale == Fondamentale.battuta ? 'Ace  #' : 'Punto  #';
 
   @override
   ConsumerState<TrajectoryReportScreen> createState() =>
@@ -43,10 +63,12 @@ class _TrajectoryReportScreenState
   List<Player> _players = [];
   bool _loading = true;
 
-  // null = partita intera
-  MatchSet? _setFiltro;
-  // null = tutti i giocatori
-  Player? _playerFiltro;
+  MatchSet? _setFiltro;     // null = partita intera
+  Player? _playerFiltro;    // null = tutti i giocatori
+  String? _rotazioneFiltro; // null = tutte; 'P1'..'P6' — solo attacco
+
+  // actionId → slot del palleggiatore al momento dell'azione (solo attacco).
+  Map<int, String> _slotPerAzioneId = {};
 
   @override
   void initState() {
@@ -66,12 +88,19 @@ class _TrajectoryReportScreenState
       azioniPerSet[s.id] = await actionRepo.caricaAzioni(s.id);
     }
 
+    // Per l'attacco: calcola in quale rotazione era la squadra al momento
+    // di ogni azione (O(n) per set, identico a ricalcolaStato).
+    Map<int, String> slotPerAzioneId = {};
+    if (widget.fondamentale == Fondamentale.attacco) {
+      slotPerAzioneId = await _computeRotazioni(sets, azioniPerSet);
+    }
+
     if (!mounted) return;
     setState(() {
       _sets = sets;
       _players = players;
       _azioniPerSet = azioniPerSet;
-      // Default: set corrente (o l'ultimo se non trovato, o null se nessun set)
+      _slotPerAzioneId = slotPerAzioneId;
       if (sets.isNotEmpty) {
         _setFiltro = sets.firstWhere(
           (s) => s.numero == widget.match.setCorrente,
@@ -82,21 +111,82 @@ class _TrajectoryReportScreenState
     });
   }
 
-  // Tutte le azioni di tipo "battuta scout" che rispettano i filtri correnti.
-  List<ScoutAction> get _battuteFiltrate {
+  // Per ogni ScoutAction di attacco: determina lo slot del palleggiatore
+  // al momento dell'azione, ricalcolando lo stato in O(n) per set con la
+  // stessa logica di ricalcolaStato() — ma azione per azione invece che
+  // solo al termine, per poter associare ogni attacco alla sua rotazione.
+  Future<Map<int, String>> _computeRotazioni(
+      List<MatchSet> sets, Map<int, List<ScoutAction>> azioniPerSet) async {
+    final setRepo = ref.read(matchSetRepositoryProvider);
+    final Map<int, String> result = {};
+
+    for (final set in sets) {
+      final formazione = await setRepo.caricaFormazione(set.id);
+      if (formazione == null) continue;
+
+      // Rotazione iniziale: posizione (1-6) → giocatoreId.
+      final rotazioneIniziale = <int, int>{};
+      for (final e in formazione.assignments.entries) {
+        if (!e.key.startsWith('P')) continue;
+        final pos = int.tryParse(e.key.substring(1));
+        if (pos != null) rotazioneIniziale[pos] = e.value.id;
+      }
+
+      final setterPlayerId =
+          formazione.assignments[formazione.palleggiatoreSlot]?.id;
+      if (setterPlayerId == null) continue;
+
+      final azioni = azioniPerSet[set.id] ?? [];
+      final ordinate = [...azioni]
+        ..sort((a, b) => a.ordine.compareTo(b.ordine));
+
+      var rotazione = Map<int, int>.from(rotazioneIniziale);
+      var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
+
+      for (final a in ordinate) {
+        // Registra la rotazione corrente PRIMA di applicare l'esito
+        // dell'azione — l'attacco avviene durante il rally, prima della
+        // rotazione causata dall'eventuale punto.
+        if (a.fondamentale == Fondamentale.attacco &&
+            a.tipo == TipoAzione.scout) {
+          final setterEntry = rotazione.entries
+              .where((e) => e.value == setterPlayerId)
+              .firstOrNull;
+          if (setterEntry != null) result[a.id] = 'P${setterEntry.key}';
+        }
+
+        // Applica l'effetto sul servizio/rotazione (identico a ricalcolaStato).
+        if (a.esitoPunto == EsitoPunto.puntoNostro && !nostraAlServizio) {
+          rotazione = _ruotata(rotazione);
+          nostraAlServizio = true;
+        } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
+          nostraAlServizio = true;
+        } else if (a.esitoPunto == EsitoPunto.puntoAvversario) {
+          nostraAlServizio = false;
+        }
+      }
+    }
+    return result;
+  }
+
+  // ── Getter filtrati ──────────────────────────────────────────────────────────
+
+  List<ScoutAction> get _azioniFiltrate {
     return _azioniPerSet.entries
         .where((e) => _setFiltro == null || e.key == _setFiltro!.id)
         .expand((e) => e.value)
         .where((a) =>
-            a.fondamentale == Fondamentale.battuta &&
+            a.fondamentale == widget.fondamentale &&
             a.tipo == TipoAzione.scout)
         .where((a) =>
             _playerFiltro == null || a.giocatoreId == _playerFiltro!.id)
+        .where((a) =>
+            _rotazioneFiltro == null ||
+            _slotPerAzioneId[a.id] == _rotazioneFiltro)
         .toList();
   }
 
-  // Battute con traiettoria completa registrata.
-  List<ScoutAction> get _battuteConTraj => _battuteFiltrate
+  List<ScoutAction> get _azioniConTraj => _azioniFiltrate
       .where((a) =>
           a.traiettoriaX1 != null &&
           a.traiettoriaY1 != null &&
@@ -104,26 +194,27 @@ class _TrajectoryReportScreenState
           a.traiettoriaY2 != null)
       .toList();
 
-  // Giocatori che hanno almeno una battuta nel set selezionato (o in tutti
-  // i set se _setFiltro == null). La lista si restringe al cambio di set.
-  List<Player> get _giocatoriConBattute {
+  // Giocatori con almeno un'azione nel set/rotazione correnti — si
+  // restringe al cambio di filtro.
+  List<Player> get _giocatoriFiltrati {
     final ids = _azioniPerSet.entries
         .where((e) => _setFiltro == null || e.key == _setFiltro!.id)
         .expand((e) => e.value)
         .where((a) =>
-            a.fondamentale == Fondamentale.battuta &&
+            a.fondamentale == widget.fondamentale &&
             a.tipo == TipoAzione.scout)
+        .where((a) =>
+            _rotazioneFiltro == null ||
+            _slotPerAzioneId[a.id] == _rotazioneFiltro)
         .map((a) => a.giocatoreId)
         .whereType<int>()
         .toSet();
     return _players.where((p) => ids.contains(p.id)).toList();
   }
 
-  // Normalizza la traiettoria in modo che la battuta vada sempre da
-  // sinistra verso destra (x1 < 0.5 = battitore sul lato sinistro).
-  // Il battitore è dietro la linea di fondo, quindi x1 ≈ −0.06 (lato
-  // sinistro) o x1 ≈ 1.06 (lato destro): se x1 > 0.5 si specchia
-  // attorno al centro del campo (x'=1−x, y'=1−y per entrambi i punti).
+  // Normalizza: partenza sempre da sinistra (x1 < 0.5). Verde brillante
+  // per le azioni vincenti (#), rosso per gli errori (=), bianco per il
+  // resto (in campo — nessuna distinzione ulteriore in questa vista).
   _TrajData _buildTrajData(ScoutAction a) {
     var x1 = a.traiettoriaX1!;
     var y1 = a.traiettoriaY1!;
@@ -135,9 +226,6 @@ class _TrajectoryReportScreenState
       x2 = 1.0 - x2;
       y2 = 1.0 - y2;
     }
-    // Verde = ace (#), rosso = errore (=), bianco = tutto il resto
-    // (positivo/mezzoPunto/negativo: la palla è in gioco, nessuna
-    // distinzione ulteriore in questa vista).
     final Color color;
     if (a.voto == Voto.perfetto) {
       color = CourtStyle.trajectoryAce;
@@ -179,13 +267,13 @@ class _TrajectoryReportScreenState
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          const Positioned(
+          Positioned(
             left: 56,
             right: 56,
             bottom: 4,
             child: Text(
-              'Traiettorie battute',
-              style: TextStyle(
+              widget._title,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
@@ -208,72 +296,82 @@ class _TrajectoryReportScreenState
     );
   }
 
+  // Azzera _playerFiltro se non è più presente in _giocatoriFiltrati con i
+  // filtri correnti. Va chiamato DOPO aver aggiornato _setFiltro /
+  // _rotazioneFiltro, così il getter usa già i valori nuovi.
+  void _validaFiltri() {
+    if (_playerFiltro != null &&
+        !_giocatoriFiltrati.any((p) => p.id == _playerFiltro!.id)) {
+      _playerFiltro = null;
+    }
+  }
+
   Widget _buildFilterRow() {
-    final giocatori = _giocatoriConBattute;
+    final isAttacco = widget.fondamentale == Fondamentale.attacco;
     return Container(
       color: _kTopBarBg,
       padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
       child: Row(
         children: [
           Expanded(
-            child: DropdownButton<MatchSet?>(
+            child: _buildDropdown<MatchSet?>(
               value: _setFiltro,
-              dropdownColor: _kTopBarBg,
-              style: const TextStyle(color: Colors.white),
-              iconEnabledColor: Colors.white,
-              underline: Container(height: 1, color: Colors.white38),
-              isExpanded: true,
               items: [
                 const DropdownMenuItem(
-                  value: null,
-                  child: Text('Partita intera'),
-                ),
-                ..._sets.map(
-                  (s) => DropdownMenuItem(
-                    value: s,
-                    child: Text('Set ${s.numero}'),
-                  ),
-                ),
+                    value: null, child: Text('Partita intera')),
+                ..._sets.map((s) => DropdownMenuItem(
+                    value: s, child: Text('Set ${s.numero}'))),
               ],
               onChanged: (v) {
                 setState(() {
                   _setFiltro = v;
-                  // Azzera il filtro giocatore se non ha battute nel nuovo set
-                  final player = _playerFiltro;
-                  if (player != null) {
-                    final hasBattute = _azioniPerSet.entries
+                  // Azzera rotazione se non ha attacchi nel nuovo set.
+                  if (isAttacco && _rotazioneFiltro != null) {
+                    final ok = _azioniPerSet.entries
                         .where((e) => v == null || e.key == v.id)
                         .expand((e) => e.value)
                         .any((a) =>
-                            a.fondamentale == Fondamentale.battuta &&
+                            a.fondamentale == widget.fondamentale &&
                             a.tipo == TipoAzione.scout &&
-                            a.giocatoreId == player.id);
-                    if (!hasBattute) _playerFiltro = null;
+                            _slotPerAzioneId[a.id] == _rotazioneFiltro);
+                    if (!ok) _rotazioneFiltro = null;
                   }
+                  // Azzera giocatore se non è più in _giocatoriFiltrati
+                  // (tiene conto di set e rotazione già aggiornati sopra).
+                  _validaFiltri();
                 });
               },
             ),
           ),
-          const SizedBox(width: 24),
+          if (isAttacco) ...[
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildDropdown<String?>(
+                value: _rotazioneFiltro,
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('Tutte le rotazioni')),
+                  ..._kSlots.map((s) => DropdownMenuItem(
+                      value: s, child: Text('Rotazione $s'))),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _rotazioneFiltro = v;
+                    _validaFiltri();
+                  });
+                },
+              ),
+            ),
+          ],
+          const SizedBox(width: 16),
           Expanded(
-            child: DropdownButton<Player?>(
+            child: _buildDropdown<Player?>(
               value: _playerFiltro,
-              dropdownColor: _kTopBarBg,
-              style: const TextStyle(color: Colors.white),
-              iconEnabledColor: Colors.white,
-              underline: Container(height: 1, color: Colors.white38),
-              isExpanded: true,
               items: [
                 const DropdownMenuItem(
-                  value: null,
-                  child: Text('Tutti i giocatori'),
-                ),
-                ...giocatori.map(
-                  (p) => DropdownMenuItem(
-                    value: p,
-                    child: Text('${p.numero}  ${p.cognome}'),
-                  ),
-                ),
+                    value: null, child: Text('Tutti i giocatori')),
+                ..._giocatoriFiltrati.map((p) => DropdownMenuItem(
+                    value: p, child: Text('${p.numero}  ${p.cognome}'))),
               ],
               onChanged: (v) => setState(() => _playerFiltro = v),
             ),
@@ -283,14 +381,31 @@ class _TrajectoryReportScreenState
     );
   }
 
+  Widget _buildDropdown<T>({
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required void Function(T?) onChanged,
+  }) {
+    return DropdownButton<T>(
+      value: value,
+      dropdownColor: _kTopBarBg,
+      style: const TextStyle(color: Colors.white),
+      iconEnabledColor: Colors.white,
+      underline: Container(height: 1, color: Colors.white38),
+      isExpanded: true,
+      items: items,
+      onChanged: onChanged,
+    );
+  }
+
   Widget _buildBody() {
-    final tutte = _battuteFiltrate;
-    final conTraj = _battuteConTraj;
+    final tutte = _azioniFiltrate;
+    final conTraj = _azioniConTraj;
     final trajectories = conTraj.map(_buildTrajData).toList();
 
     return LayoutBuilder(builder: (context, constraints) {
       final courtWidth = constraints.maxWidth * _kCourtWidthFraction;
-      final courtHeight = courtWidth / 2; // aspect ratio 1200/600
+      final courtHeight = courtWidth / 2;
       final courtLeft = (constraints.maxWidth - courtWidth) / 2;
       const courtTop = _kCourtTopMargin;
 
@@ -328,7 +443,7 @@ class _TrajectoryReportScreenState
               right: 0,
               child: const Center(
                 child: Text(
-                  'Nessuna battuta registrata per i filtri selezionati.',
+                  'Nessuna azione registrata per i filtri selezionati.',
                   style: TextStyle(color: Colors.white54, fontSize: 13),
                   textAlign: TextAlign.center,
                 ),
@@ -347,7 +462,7 @@ class _TrajectoryReportScreenState
   }
 
   Widget _buildMiniTable(List<ScoutAction> tutte, int conTraj) {
-    final ace = tutte.where((a) => a.voto == Voto.perfetto).length;
+    final vincenti = tutte.where((a) => a.voto == Voto.perfetto).length;
     final normali = tutte
         .where((a) =>
             a.voto == Voto.positivo ||
@@ -362,7 +477,7 @@ class _TrajectoryReportScreenState
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildStatCell('Ace  #', ace, AppColors.success),
+            _buildStatCell(widget._labelVincente, vincenti, AppColors.success),
             const SizedBox(width: 12),
             _buildStatCell('In campo', normali, Colors.grey.shade600),
             const SizedBox(width: 12),
@@ -459,7 +574,6 @@ class _MultiTrajectoryPainter extends CustomPainter {
         canvas.drawLine(fine, p2, paint);
       }
 
-      // Pallino di partenza
       canvas.drawCircle(inizio, 4, Paint()..color = t.color.withAlpha(220));
     }
   }
