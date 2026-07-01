@@ -67,18 +67,37 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     final player = widget.assignments[slot];
     if (player == null || slot == _palleggiatoreSlot) return;
     final ruolo = player.ruolo;
-    if (ruolo != Ruolo.centrale && ruolo != Ruolo.schiacciatore) return;
+    if (ruolo != Ruolo.centrale &&
+        ruolo != Ruolo.schiacciatore &&
+        ruolo != Ruolo.undefined) {
+      return;
+    }
 
     setState(() {
       if (_centraliSlots.contains(slot)) {
-        // Tap sulla coppia già selezionata → deseleziona tutta la coppia
         _centraliSlots.clear();
       } else {
-        // Tap su ruolo diverso → seleziona tutta la coppia di quel ruolo
         _centraliSlots.clear();
-        for (final e in widget.assignments.entries) {
-          if (e.value.ruolo == ruolo && e.key != _palleggiatoreSlot) {
-            _centraliSlots.add(e.key);
+        if (ruolo == Ruolo.undefined) {
+          // Per undefined: pairing posizionale (i due che si alternano in
+          // seconda linea sono sempre 3 posizioni di distanza nel ring).
+          const opposites = {
+            'P1': 'P4', 'P4': 'P1',
+            'P2': 'P5', 'P5': 'P2',
+            'P3': 'P6', 'P6': 'P3',
+          };
+          _centraliSlots.add(slot);
+          final opp = opposites[slot];
+          if (opp != null &&
+              widget.assignments.containsKey(opp) &&
+              opp != _palleggiatoreSlot) {
+            _centraliSlots.add(opp);
+          }
+        } else {
+          for (final e in widget.assignments.entries) {
+            if (e.value.ruolo == ruolo && e.key != _palleggiatoreSlot) {
+              _centraliSlots.add(e.key);
+            }
           }
         }
       }
@@ -201,7 +220,8 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                               ?_palleggiatoreSlot,
                               for (final e in widget.assignments.entries)
                                 if (e.value.ruolo != Ruolo.centrale &&
-                                    e.value.ruolo != Ruolo.schiacciatore)
+                                    e.value.ruolo != Ruolo.schiacciatore &&
+                                    e.value.ruolo != Ruolo.undefined)
                                   e.key,
                             },
                             onSlotTap: _onCentraleSlotTap,

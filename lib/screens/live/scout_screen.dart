@@ -611,6 +611,7 @@ Map<String, String> _roleLabelsFor(
       case Ruolo.schiacciatore:
         schiacciatori.add(slot);
       case Ruolo.centrale:
+      case Ruolo.undefined:
         centrali.add(slot);
       default:
         break;
@@ -1082,7 +1083,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final Map<String, Map<String, Offset>> tabella;
     final List<String> coppiaSostituita;
     final List<String> coppiaFissa;
-    if (ruolo == Ruolo.centrale) {
+    if (ruolo == Ruolo.centrale || ruolo == Ruolo.undefined) {
       tabella = _kDefensePositionsCentrali;
       coppiaSostituita = const ['C1', 'C2'];
       coppiaFissa = const ['S1', 'S2'];
@@ -2257,8 +2258,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   String? _slotCentraleSecondaLinea(Map<String, String> roleLabels) {
     final ruolo = widget.ruoloCambiLibero;
     if (ruolo == null) return null;
-    final etichette =
-        ruolo == Ruolo.centrale ? const {'C1', 'C2'} : const {'S1', 'S2'};
+    final etichette = (ruolo == Ruolo.centrale || ruolo == Ruolo.undefined)
+        ? const {'C1', 'C2'}
+        : const {'S1', 'S2'};
     const secondaLinea = {'P5', 'P6', 'P1'};
     for (final entry in roleLabels.entries) {
       if (secondaLinea.contains(entry.key) &&
