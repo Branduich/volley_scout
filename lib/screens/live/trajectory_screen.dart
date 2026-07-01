@@ -359,7 +359,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
           // pertinenti su questa schermata), stesso ancoraggio in basso del
           // titolo.
           Container(
-            height: 60,
+            height: 80,
             color: _kTopBarBg,
             child: Stack(
               alignment: Alignment.bottomCenter,
