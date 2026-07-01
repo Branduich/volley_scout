@@ -466,7 +466,9 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                         CustomPaint(
                           size: screenConstraints.biggest,
                           painter: _FrecciaTraiettoriaPainter(
-                              _inizio!, _attuale!, _puntoMuro),
+                              _inizio!, _attuale!, _puntoMuro,
+                              isPallonetto:
+                                  _tipoAttacco == TipoAttacco.pallonetto),
                         ),
                       // Tipo battuta/attacco: riga orizzontale subito sotto
                       // al campo (spostata qui da ScoutScreen) — mai
@@ -503,8 +505,14 @@ class _FrecciaTraiettoriaPainter extends CustomPainter {
   // disegna a due segmenti (inizio→muro, muro→fine) con uno snodo lì,
   // invece di una linea unica dritta.
   final Offset? puntoMuro;
+  // Se true, la freccia viene disegnata come arco (bezier quadratica) —
+  // solo quando non c'è un muro (i due segmenti del muro prevalgono).
+  final bool isPallonetto;
 
-  _FrecciaTraiettoriaPainter(this.inizio, this.fine, this.puntoMuro);
+  _FrecciaTraiettoriaPainter(this.inizio, this.fine, this.puntoMuro,
+      {this.isPallonetto = false});
+
+  static const _kArcOffset = 40.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -514,23 +522,40 @@ class _FrecciaTraiettoriaPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final muro = puntoMuro;
+
+    // Direzione per la punta della freccia: calcolata dopo aver scelto
+    // come disegnare il corpo (linea, arco o due segmenti col muro).
+    final Offset arrowDir;
+
     if (muro != null) {
+      // Muro: due segmenti dritti, l'arco non si applica.
       canvas.drawLine(inizio, muro, paint);
       canvas.drawLine(muro, fine, paint);
-      final muroPaint = Paint()..color = CourtStyle.trajectoryArrow;
-      canvas.drawCircle(muro, 5, muroPaint);
+      canvas.drawCircle(muro, 5, Paint()..color = CourtStyle.trajectoryArrow);
+      arrowDir = fine - muro;
+    } else if (isPallonetto) {
+      // Pallonetto: arco con bezier quadratica, punto di controllo alzato
+      // al centro della traiettoria.
+      final ctrl = Offset(
+        (inizio.dx + fine.dx) / 2,
+        (inizio.dy + fine.dy) / 2 - _kArcOffset,
+      );
+      final path = Path()
+        ..moveTo(inizio.dx, inizio.dy)
+        ..quadraticBezierTo(ctrl.dx, ctrl.dy, fine.dx, fine.dy);
+      canvas.drawPath(path, paint);
+      arrowDir = fine - ctrl; // tangente in t=1
     } else {
       canvas.drawLine(inizio, fine, paint);
+      arrowDir = fine - inizio;
     }
 
-    // Punta della freccia: due segmenti corti angolati rispetto alla
-    // direzione dell'ULTIMO segmento (muro→fine se c'è stato un tocco a
-    // muro, altrimenti inizio→fine), ancorati al punto di arrivo.
-    final direzione = fine - (muro ?? inizio);
-    if (direzione.distance < 1) return;
-    final angolo = direzione.direction;
+    // Punta della freccia ancorata al punto di arrivo, nella direzione
+    // dell'ultimo segmento (o della tangente della curva per il pallonetto).
+    if (arrowDir.distance < 1) return;
+    final angolo = arrowDir.direction;
     const lunghezzaPunta = 16.0;
-    const apertura = 0.45; // radianti
+    const apertura = 0.45;
     final p1 = fine -
         Offset(
           lunghezzaPunta * math.cos(angolo - apertura),
@@ -544,13 +569,13 @@ class _FrecciaTraiettoriaPainter extends CustomPainter {
     canvas.drawLine(fine, p1, paint);
     canvas.drawLine(fine, p2, paint);
 
-    final puntoPaint = Paint()..color = CourtStyle.trajectoryArrow;
-    canvas.drawCircle(inizio, 5, puntoPaint);
+    canvas.drawCircle(inizio, 5, Paint()..color = CourtStyle.trajectoryArrow);
   }
 
   @override
   bool shouldRepaint(covariant _FrecciaTraiettoriaPainter oldDelegate) =>
       oldDelegate.inizio != inizio ||
       oldDelegate.fine != fine ||
-      oldDelegate.puntoMuro != puntoMuro;
+      oldDelegate.puntoMuro != puntoMuro ||
+      oldDelegate.isPallonetto != isPallonetto;
 }

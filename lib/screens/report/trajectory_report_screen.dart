@@ -22,10 +22,16 @@ const _kSlots = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 Map<int, int> _ruotata(Map<int, int> rot) =>
     {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
 
+// Alzata del punto di controllo per l'arco del pallonetto (px schermo).
+const _kPallonettoArcOffset = 40.0;
+
 class _TrajData {
   final double x1, y1, x2, y2;
+  final double? muroX, muroY; // coordinate normalizzate del tocco a muro
   final Color color;
-  const _TrajData(this.x1, this.y1, this.x2, this.y2, this.color);
+  final bool isPallonetto;
+  const _TrajData(this.x1, this.y1, this.x2, this.y2, this.color,
+      {this.muroX, this.muroY, this.isPallonetto = false});
 }
 
 /// Schermata di visualizzazione traiettorie per un singolo fondamentale
@@ -220,11 +226,19 @@ class _TrajectoryReportScreenState
     var y1 = a.traiettoriaY1!;
     var x2 = a.traiettoriaX2!;
     var y2 = a.traiettoriaY2!;
-    if (x1 > 0.5) {
+    final shouldMirror = x1 > 0.5;
+    if (shouldMirror) {
       x1 = 1.0 - x1;
       y1 = 1.0 - y1;
       x2 = 1.0 - x2;
       y2 = 1.0 - y2;
+    }
+    // Il tocco a muro va specchiato come il resto della traiettoria.
+    double? muroX = a.traiettoriaMuroX;
+    double? muroY = a.traiettoriaMuroY;
+    if (shouldMirror && muroX != null && muroY != null) {
+      muroX = 1.0 - muroX;
+      muroY = 1.0 - muroY;
     }
     final Color color;
     if (a.voto == Voto.perfetto) {
@@ -234,7 +248,9 @@ class _TrajectoryReportScreenState
     } else {
       color = Colors.white;
     }
-    return _TrajData(x1, y1, x2, y2, color);
+    final isPallonetto = a.tipoEsecuzione == TipoAttacco.pallonetto.name;
+    return _TrajData(x1, y1, x2, y2, color,
+        muroX: muroX, muroY: muroY, isPallonetto: isPallonetto);
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -553,11 +569,38 @@ class _MultiTrajectoryPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
 
-      canvas.drawLine(inizio, fine, paint);
+      final Offset arrowDir;
+      final muroScreen = (t.muroX != null && t.muroY != null)
+          ? _toScreen(t.muroX!, t.muroY!)
+          : null;
 
-      final direzione = fine - inizio;
-      if (direzione.distance >= 4) {
-        final angolo = direzione.direction;
+      if (muroScreen != null) {
+        // Tocco a muro: due segmenti dritti con pallino sullo snodo.
+        canvas.drawLine(inizio, muroScreen, paint);
+        canvas.drawLine(muroScreen, fine, paint);
+        canvas.drawCircle(
+            muroScreen, 5, Paint()..color = t.color.withAlpha(220));
+        arrowDir = fine - muroScreen;
+      } else if (t.isPallonetto) {
+        // Pallonetto: arco con bezier quadratica. Punto di controllo = punto
+        // medio della traiettoria alzato di un offset fisso verso l'alto.
+        // La freccia finale segue la tangente della curva in t=1 (fine−ctrl).
+        final ctrl = Offset(
+          (inizio.dx + fine.dx) / 2,
+          (inizio.dy + fine.dy) / 2 - _kPallonettoArcOffset,
+        );
+        final path = Path()
+          ..moveTo(inizio.dx, inizio.dy)
+          ..quadraticBezierTo(ctrl.dx, ctrl.dy, fine.dx, fine.dy);
+        canvas.drawPath(path, paint);
+        arrowDir = fine - ctrl;
+      } else {
+        canvas.drawLine(inizio, fine, paint);
+        arrowDir = fine - inizio;
+      }
+
+      if (arrowDir.distance >= 4) {
+        final angolo = arrowDir.direction;
         const lunghezza = 10.0;
         const apertura = 0.45;
         final p1 = fine -

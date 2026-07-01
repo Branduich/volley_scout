@@ -1411,6 +1411,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
   freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
   punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/
+  `trajectoryWidth`. **Pallonetto**: se `_tipoAttacco == TipoAttacco.pallonetto`,
+  il drag viene disegnato come arco bezier quadratica (stesso offset 40px e
+  stessa logica di tangente del painter del report) — muro prevale sull'arco
+  se presente. **Tocco a muro**: due segmenti dritti con pallino sullo snodo
+  (invariato). Stessa costante `_kArcOffset = 40.0` locale al painter./
   `trajectoryWidth` (già definiti, prima mai usati in UI). **Drag
   catturabile anche fuori dal riquadro del campo** (es. il battitore dietro
   la linea di fondo per la battuta): `GestureDetector` sullo Stack
@@ -1861,10 +1866,18 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           "Rotazione P1".."Rotazione P6" — slot del palleggiatore al momento
           dell'azione).
         - **Normalizzazione direzione**: traiettorie sempre sx→dx (x1 > 0.5 →
-          mirror attorno al centro: x'=1−x, y'=1−y).
+          mirror attorno al centro: x'=1−x, y'=1−y — applicato anche a
+          `traiettoriaMuroX/Y` se presente).
         - **Colori frecce**: `CourtStyle.trajectoryAce` (verde brillante,
           `0xFF00FF08`) per voto `perfetto`; rosso per `errore`; bianco per
           il resto (in campo) — tutte alpha 220.
+        - **Rendering traiettoria** (`_MultiTrajectoryPainter`): tre casi in
+          ordine di priorità — (1) **tocco a muro** (`traiettoriaMuroX/Y` non
+          null): due segmenti dritti con pallino sullo snodo, freccia nella
+          direzione `fine−muro`; (2) **pallonetto** (`tipoEsecuzione ==
+          'pallonetto'`): arco bezier quadratica, punto di controllo = punto
+          medio alzato di `_kPallonettoArcOffset = 40px`, freccia nella
+          tangente `fine−ctrl`; (3) **linea retta** per tutto il resto.
         - **Mini-tabella** sotto al campo: celle con sfondo solido (verde
           `AppColors.success` / grigio / rosso), testo bianco. Label:
           "Ace  #"/"Punto  #" (battuta/attacco), "In campo", "Errore  =" +
