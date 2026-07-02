@@ -257,14 +257,15 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
         SizedBox(
           width: cellWidth,
           height: cellHeight,
-          child: _buildSlot('L1'),
+          child: _buildSlot('L1',
+              phaseLabel: _doppiLibero ? 'Ricezione' : null),
         ),
         if (_doppiLibero) ...[
           const SizedBox(height: 12),
           SizedBox(
             width: cellWidth,
             height: cellHeight,
-            child: _buildSlot('L2'),
+            child: _buildSlot('L2', phaseLabel: 'Difesa'),
           ),
         ],
       ],
@@ -272,7 +273,8 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   }
 
   Widget _buildSlot(String slot,
-      {EdgeInsets margin = const EdgeInsets.fromLTRB(16, 12, 16, 108)}) {
+      {EdgeInsets margin = const EdgeInsets.fromLTRB(16, 12, 16, 108),
+      String? phaseLabel}) {
     final player = _assignments[slot];
     final isSelected = _selectedSlot == slot;
 
@@ -302,7 +304,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                       ]
                     : null,
               ),
-              child: player == null ? _slotLabel(slot) : _slotPlayer(player),
+              child: player == null
+                  ? _slotLabel(slot, phaseLabel: phaseLabel)
+                  : _slotPlayer(player, phaseLabel: phaseLabel),
             ),
           ),
         ),
@@ -331,20 +335,32 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     );
   }
 
-  Widget _slotLabel(String slot) {
-    return Center(
-      child: Text(
-        slot,
-        style: const TextStyle(
-          fontSize: 26,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
+  Widget _slotLabel(String slot, {String? phaseLabel}) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          slot,
+          style: const TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
-      ),
+        if (phaseLabel != null)
+          Text(
+            phaseLabel,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.black54,
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _slotPlayer(Player player) {
+  Widget _slotPlayer(Player player, {String? phaseLabel}) {
     const nameRoleStyle = TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
@@ -387,7 +403,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
             left: 0,
             right: 0,
             child: Text(
-              player.ruolo.label,
+              phaseLabel ?? player.ruolo.label,
               style: nameRoleStyle,
               textAlign: TextAlign.center,
               maxLines: 1,
