@@ -378,12 +378,15 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Text(
-            '${player.numero}',
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          Align(
+            alignment: const Alignment(0, 0.4),
+            child: Text(
+              '${player.numero}',
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
           ),
           Positioned(
