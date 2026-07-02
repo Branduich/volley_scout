@@ -145,8 +145,14 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
                             border: OutlineInputBorder(),
                           ),
                           items: [
-                            for (final f in Fondamentale.values
-                                .where((f) => f != Fondamentale.errore))
+                            for (final f in const [
+                              Fondamentale.battuta,
+                              Fondamentale.ricezione,
+                              Fondamentale.difesa,
+                              Fondamentale.attacco,
+                              Fondamentale.muro,
+                              Fondamentale.alzata,
+                            ])
                               DropdownMenuItem(value: f, child: Text(f.label)),
                           ],
                           onChanged: (v) =>

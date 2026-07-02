@@ -1307,16 +1307,18 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       modellata).
     - **Backlog non implementato**: unit test della logica libero su
       tutte e 6 le rotazioni.
-    - **PROSSIMO — Doppio libero attivo**: L1 entra in ricezione (avversari
+    - **Doppio libero attivo (IMPLEMENTATO)**: L1 entra in ricezione (avversari
       al servizio), L2 in servizio (noi al servizio) — auto-switch ad ogni
-      cambio di fase. Stato `_liberoOverride` (String?, default `null`):
-      quando `null` vale la convenzione automatica; tap sul libero in panchina
-      → `_liberoOverride` si valorizza con quel libero e la convenzione si
-      disattiva per il resto del set (il tappato gioca fisso, l'altro resta in
-      panchina — ulteriore tap lo rimpiazza). Reset a `null` all'inizio del
-      set successivo. Entrambi i liberi sempre affiancati in basso (lato
-      secondo `_isRightSide`); il libero in panchina è tappabile. UX di
-      comunicazione del meccanismo da decidere.
+      cambio di fase (`_liberoAttivoKey` getter: legge `_squadraAlServizio`).
+      Stato `_liberoOverride` (String?, default `null`): quando `null` vale la
+      convenzione automatica; tap sul libero in panchina → `_liberoOverride`
+      si valorizza con quel libero e la convenzione si disattiva per il resto
+      del set (il tappato gioca fisso, l'altro resta in panchina — ulteriore
+      tap lo rimpiazza). Reset a `null` all'inizio del set successivo (nuova
+      istanza `ScoutScreen`). Entrambi i liberi sempre affiancati in basso
+      (lato secondo `_isRightSide`): slot 0 = libero attivo (gestito da
+      `_buildLiberoSwapTokens`), slot 1 = libero inattivo tappabile (gestito
+      da `_buildLiberoTokens`, `key: 'libero-inattivo'`).
   - **Animazione di rotazione**: il rendering itera per **giocatore**
     (`currentAssignments.entries`, non più per slot fisso), e ogni token è
     un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —

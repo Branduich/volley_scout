@@ -76,9 +76,9 @@ const Map<String, Offset> _kAttackPositions = {
 const Offset _kBattutaP1Position = Offset(-70, 470);
 
 // Fattore di scala applicato al raggio "base" (ch/20) di tutti i token
-// giocatore — token su campo (_buildPlayerToken), libero in campo/panchina
-// e battitore fuori campo (_swapTokenRadius, stesso Stack esterno) e L2
-// fisso ad angolo (_buildLiberoTokens). Le tre formule derivano tutte dallo
+// giocatore — token su campo (_buildPlayerToken), libero attivo/inattivo
+// e battitore fuori campo (_swapTokenRadius, stesso Stack esterno, tutti
+// via _buildLiberoSwapTokens). Le tre formule derivano tutte dallo
 // stesso raggio "base" e vanno scalate insieme, altrimenti i token
 // finiscono disallineati in dimensione tra Stack interno ed esterno.
 // Aumentato da 1.0 dopo test su tablet fisico (token troppo piccoli).
@@ -780,6 +780,22 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   bool get _faseDopo =>
       _testModeEnabled ? _testDopo : _fondamentaleGiudicatoRallyCorrente;
 
+  // Chiave del libero attivo (in campo o diretto verso il campo). Segue la
+  // convenzione automatica (L1 in ricezione, L2 in servizio) finché non c'è
+  // un override manuale da _liberoOverride.
+  String get _liberoAttivoKey {
+    if (widget.assignments['L2'] == null) return 'L1';
+    if (_liberoOverride != null) return _liberoOverride!;
+    return _squadraAlServizio == Squadra.avversari ? 'L1' : 'L2';
+  }
+
+  // Chiave del libero inattivo (in panchina fissa, tappabile). Null se non
+  // c'è doppio libero.
+  String? get _liberoInattivoKey {
+    if (widget.assignments['L2'] == null) return null;
+    return _liberoAttivoKey == 'L1' ? 'L2' : 'L1';
+  }
+
   // --- Modalità test (solo per provare a video tutte le combinazioni
   // rotazione × chi serve, senza dover passare dal flusso reale di gioco) ---
   bool _testModeEnabled = false;
@@ -1242,6 +1258,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // in alto a destra. Coordinate di riferimento 1200×600.
   bool _isRightSide = false;
 
+  // null = convenzione automatica (L1 in ricezione, L2 in servizio);
+  // 'L1' o 'L2' = libero bloccato per il resto del set (tap manuale).
+  // Si resetta automaticamente al set successivo (nuova istanza ScoutScreen).
+  String? _liberoOverride;
+
   void _toggleSide() => setState(() => _isRightSide = !_isRightSide);
 
   Offset _displayPosition(Offset refPos) => _isRightSide
@@ -1603,7 +1624,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                           ],
                         ),
                       ),
-                    ..._buildLiberoTokens(constraints, courtWidth),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                     ..._buildBattitoreTapCatcher(constraints, courtWidth),
                     ..._buildPannelloVoto(),
@@ -2323,22 +2343,41 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // interno del campo grande. Stessa key (player.id) sia in campo sia in
   // panchina: AnimatedPositioned anima il movimento in entrambi i casi.
   List<Widget> _buildLiberoSwapTokens(BoxConstraints constraints, double courtWidth) {
-    final libero = widget.assignments['L1'];
+    final liberoKey = _liberoAttivoKey;
+    final libero = widget.assignments[liberoKey];
     if (libero == null) return const [];
 
     final radius = _swapTokenRadius(courtWidth);
-    final benchPos = _benchScreenPos(constraints, radius);
+    final bench0 = _benchScreenPos(constraints, radius);
+    final bench1 = _bench1ScreenPos(constraints, radius);
+
+    // Libero inattivo (slot 1): sempre in panchina fissa, tappabile.
+    // Usa ValueKey(player.id) come tutti i token: Flutter può così animare
+    // il movimento quando attivo e inattivo si scambiano (stesso key, nuova
+    // posizione → AnimatedPositioned interpola fluidamente tra le due).
+    final inattivoKey = _liberoInattivoKey;
+    final inattivo = inattivoKey != null ? widget.assignments[inattivoKey] : null;
+    final bench1Token = inattivo != null
+        ? _buildAbsoluteToken(inattivoKey!, inattivo, bench1, radius,
+            isLibero: true,
+            onTap: () => setState(() => _liberoOverride = inattivoKey))
+        : null;
 
     final currentAssignments = _currentAssignments;
     final roleLabels = _roleLabelsFor(_currentSlot, currentAssignments);
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
     if (slotCentrale == null) {
       // Nessuna coppia di cambio derivabile (formazione incompleta): il
-      // libero resta semplicemente in panchina.
-      return [_buildAbsoluteToken('L1', libero, benchPos, radius, isLibero: true)];
+      // libero attivo resta in panchina (slot 0).
+      return [
+        _buildAbsoluteToken(liberoKey, libero, bench0, radius, isLibero: true),
+        ?bench1Token,
+      ];
     }
     final giocatoreCoppia = currentAssignments[slotCentrale];
-    if (giocatoreCoppia == null) return const [];
+    if (giocatoreCoppia == null) {
+      return [if (bench1Token != null) bench1Token];
+    }
 
     final defenseMap = _activeDefenseMap;
     // L'eccezione del servizio (libero in panchina) vale SOLO quando stiamo
@@ -2365,17 +2404,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           ? defenseMap['Libero']!
           : (_activeAttackMap?['Libero'] ?? _refPositionFor(slotCentrale));
       return [
-        _buildAbsoluteToken('L1', libero, toScreen(_displayPosition(liberoRef)),
-            radius,
+        _buildAbsoluteToken(liberoKey, libero,
+            toScreen(_displayPosition(liberoRef)), radius,
             isLibero: true, onTap: _tapHandlerPerGiocatore(libero)),
-        // Il sostituito è in panchina: non tappabile, non gioca questo scambio.
+        // Il sostituito è in panchina (slot 0): non tappabile.
         _buildAbsoluteToken(roleLabels[slotCentrale] ?? slotCentrale,
-            giocatoreCoppia, benchPos, radius),
+            giocatoreCoppia, bench0, radius),
+        ?bench1Token,
       ];
     }
     // Eccezione del servizio (P1): il sostituito resta in campo (tappabile:
     // è il battitore in battuta, un ricevitore normale in ricezione), il
-    // libero va in panchina (non tappabile, non gioca questo scambio).
+    // libero attivo va in panchina (slot 0, non tappabile).
     return [
       _buildAbsoluteToken(
           roleLabels[slotCentrale] ?? slotCentrale,
@@ -2383,7 +2423,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           toScreen(_displayPosition(_attackPosition(slotCentrale, roleLabels))),
           radius,
           onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale)),
-      _buildAbsoluteToken('L1', libero, benchPos, radius, isLibero: true),
+      _buildAbsoluteToken(liberoKey, libero, bench0, radius, isLibero: true),
+      if (bench1Token != null) bench1Token,
     ];
   }
 
@@ -2440,6 +2481,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Stessa posizione/dimensione della vecchia card fissa ad angolo: margine
   // 3% dai bordi reali dello schermo, ancorata in basso (a destra col cambio
   // campo) — non al riquadro del campo, che è centrato con margini propri.
+  // Ritorna il CENTRO del token (usato da _buildAbsoluteToken con top/left).
   Offset _benchScreenPos(BoxConstraints constraints, double radius) {
     final margin = constraints.maxWidth * 0.03;
     final size = radius * 2;
@@ -2447,6 +2489,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         _isRightSide ? constraints.maxWidth - size - margin : margin;
     final top = constraints.maxHeight - margin - size;
     return Offset(left + radius, top + radius);
+  }
+
+  // Centro del secondo slot in panchina (libero inattivo), affiancato al
+  // primo. Su lato sinistro: slot 1 è a destra di slot 0; su lato destro: a
+  // sinistra — stessa logica del lato per mini-map e bottoni di rotazione.
+  Offset _bench1ScreenPos(BoxConstraints constraints, double radius) {
+    final bench0 = _benchScreenPos(constraints, radius);
+    final step = (radius * 2 + 8.0) * (_isRightSide ? -1.0 : 1.0);
+    return Offset(bench0.dx + step, bench0.dy);
   }
 
   // Token "assoluto": stesso stile di _buildPlayerToken (cerchio, colore
@@ -2561,81 +2612,4 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
-  // Token del secondo libero (L2, doppio libero): non ruota con P1-P6,
-  // resta ancorato in basso a sinistra (a destra col cambio campo). L1 è
-  // sempre gestito da _buildLiberoSwapTokens (in campo o in panchina, nello
-  // Stack esterno, per poter animare il movimento anche verso/da la
-  // panchina ancorata allo schermo) — l'alternanza L1/L2 tra rotazioni non
-  // è ancora modellata, quindi L2 resta qui fisso, mai sul campo. Per non
-  // sovrapporsi al token di L1 (gestito altrove ma nello stesso angolo),
-  // occupa il secondo "slot" della fila (vedi offset sotto).
-  List<Widget> _buildLiberoTokens(BoxConstraints constraints, double courtWidth) {
-    final entries = <MapEntry<String, Player>>[];
-    final l2 = widget.assignments['L2'];
-    if (l2 != null) entries.add(MapEntry('L2', l2));
-    if (entries.isEmpty) return const [];
-
-    final size = courtWidth / 20 * _kTokenSizeScale;
-    const gap = 8.0;
-    final margin = constraints.maxWidth * 0.03;
-    // Riserva il primo "slot" (size+gap) per L1, gestito da
-    // _buildLiberoSwapTokens nello stesso angolo (stessa size, stesso
-    // margine) ma con un meccanismo di animazione separato.
-    final offset = size + gap;
-    // Solo `left` (mai `right`), come per la mini-map: un valore costante
-    // toggling left/right non si anima fluidamente con AnimatedPositioned.
-    final rowWidth = entries.length * size + (entries.length - 1) * gap;
-    final liberoLeft = _isRightSide
-        ? constraints.maxWidth - rowWidth - margin - offset
-        : margin + offset;
-
-    return [
-      AnimatedPositioned(
-        key: const ValueKey('libero-row'),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-        bottom: margin,
-        left: liberoLeft,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < entries.length; i++) ...[
-              if (i > 0) const SizedBox(width: gap),
-              _buildLiberoToken(entries[i].key, entries[i].value, size),
-            ],
-          ],
-        ),
-      ),
-    ];
-  }
-
-  Widget _buildLiberoToken(String slotLabel, Player player, double size) {
-    final label = _showJerseyNumbers ? '${player.numero}' : slotLabel;
-    final color = _invertedColor(Color(widget.team.coloreDivisa));
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(120),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: contrastingTextColor(color),
-          fontWeight: FontWeight.bold,
-          fontSize: size * 0.4,
-        ),
-      ),
-    );
-  }
 }
