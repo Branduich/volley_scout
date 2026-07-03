@@ -740,7 +740,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final azioniAsync = ref.watch(scoutAzioniStreamProvider(set.id));
     final righe = azioniAsync.value ?? const <ScoutAction>[];
     final azioni = [
-      for (final r in righe) (ordine: r.ordine, esitoPunto: r.esitoPunto),
+      for (final r in righe)
+        AzioneScout(ordine: r.ordine, esitoPunto: r.esitoPunto),
     ];
     return ricalcolaStato(
       azioni: azioni,

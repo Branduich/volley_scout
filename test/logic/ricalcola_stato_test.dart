@@ -8,7 +8,9 @@ void main() {
   group('_ruotata (tramite ricalcolaStato)', () {
     test('un sideout ruota la formazione in senso orario', () {
       final stato = ricalcolaStato(
-        azioni: const [(ordine: 1, esitoPunto: EsitoPunto.puntoNostro)],
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        ],
         servizioIniziale: Squadra.avversari,
         rotazioneIniziale: rotazioneIniziale,
       );
@@ -34,8 +36,8 @@ void main() {
     test('azioni con esito "nessuno" non toccano punteggio o rotazione', () {
       final stato = ricalcolaStato(
         azioni: const [
-          (ordine: 1, esitoPunto: EsitoPunto.nessuno),
-          (ordine: 2, esitoPunto: EsitoPunto.nessuno),
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.nessuno),
+          AzioneScout(ordine: 2, esitoPunto: EsitoPunto.nessuno),
         ],
         servizioIniziale: Squadra.nostra,
         rotazioneIniziale: rotazioneIniziale,
@@ -49,7 +51,9 @@ void main() {
 
     test('punto nostro mentre eravamo già al servizio: niente rotazione', () {
       final stato = ricalcolaStato(
-        azioni: const [(ordine: 1, esitoPunto: EsitoPunto.puntoNostro)],
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        ],
         servizioIniziale: Squadra.nostra,
         rotazioneIniziale: rotazioneIniziale,
       );
@@ -63,7 +67,9 @@ void main() {
     test('punto nostro in ricezione (sideout): ruota e prendiamo il servizio',
         () {
       final stato = ricalcolaStato(
-        azioni: const [(ordine: 1, esitoPunto: EsitoPunto.puntoNostro)],
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        ],
         servizioIniziale: Squadra.avversari,
         rotazioneIniziale: rotazioneIniziale,
       );
@@ -76,7 +82,9 @@ void main() {
     test('punto avversario mentre servivamo noi: sideout per loro, '
         'nessuna rotazione nostra', () {
       final stato = ricalcolaStato(
-        azioni: const [(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario)],
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        ],
         servizioIniziale: Squadra.nostra,
         rotazioneIniziale: rotazioneIniziale,
       );
@@ -91,7 +99,9 @@ void main() {
     test('punto avversario mentre servivano già loro: nessun cambiamento '
         'di servizio o rotazione', () {
       final stato = ricalcolaStato(
-        azioni: const [(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario)],
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        ],
         servizioIniziale: Squadra.avversari,
         rotazioneIniziale: rotazioneIniziale,
       );
@@ -108,8 +118,10 @@ void main() {
       // (sideout nostro): ci aspettiamo esattamente una rotazione nostra.
       final stato = ricalcolaStato(
         azioni: const [
-          (ordine: 1, esitoPunto: EsitoPunto.puntoAvversario), // sideout loro
-          (ordine: 2, esitoPunto: EsitoPunto.puntoNostro), // sideout nostro
+          AzioneScout(
+              ordine: 1, esitoPunto: EsitoPunto.puntoAvversario), // sideout loro
+          AzioneScout(
+              ordine: 2, esitoPunto: EsitoPunto.puntoNostro), // sideout nostro
         ],
         servizioIniziale: Squadra.nostra,
         rotazioneIniziale: rotazioneIniziale,
@@ -124,9 +136,9 @@ void main() {
     test('punti consecutivi della squadra al servizio non ruotano mai', () {
       final stato = ricalcolaStato(
         azioni: const [
-          (ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
-          (ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
-          (ordine: 3, esitoPunto: EsitoPunto.puntoNostro),
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+          AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
+          AzioneScout(ordine: 3, esitoPunto: EsitoPunto.puntoNostro),
         ],
         servizioIniziale: Squadra.nostra,
         rotazioneIniziale: rotazioneIniziale,
@@ -139,9 +151,9 @@ void main() {
 
     test('è indifferente all\'ordine di inserimento, conta "ordine"', () {
       const azioni = [
-        (ordine: 3, esitoPunto: EsitoPunto.puntoNostro),
-        (ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
-        (ordine: 2, esitoPunto: EsitoPunto.puntoAvversario),
+        AzioneScout(ordine: 3, esitoPunto: EsitoPunto.puntoNostro),
+        AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoAvversario),
       ];
 
       final statoInOrdine = ricalcolaStato(
@@ -163,9 +175,9 @@ void main() {
 
     test('undo = ricalcolare senza l\'ultima azione (per ordine)', () {
       const tutte = [
-        (ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
-        (ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
-        (ordine: 3, esitoPunto: EsitoPunto.puntoNostro),
+        AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
+        AzioneScout(ordine: 3, esitoPunto: EsitoPunto.puntoNostro),
       ];
 
       final statoCompleto = ricalcolaStato(
@@ -185,6 +197,165 @@ void main() {
       expect(statoDopoUndo.punteggioNostro, 1);
       expect(statoDopoUndo.punteggioAvversario, 1);
       expect(statoDopoUndo.squadraAlServizio, Squadra.nostra);
+    });
+  });
+
+  group('ricalcolaStato — cambio giocatore', () {
+    test('il cambio sostituisce il giocatore alla sua posizione, '
+        'rotazione altrimenti intatta', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 30, entraId: 99),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione, {1: 10, 2: 20, 3: 99, 4: 40, 5: 50, 6: 60});
+      expect(stato.punteggioNostro, 0);
+      expect(stato.punteggioAvversario, 0);
+      expect(stato.squadraAlServizio, Squadra.nostra);
+    });
+
+    test('un sideout DOPO il cambio ruota il subentrante insieme agli altri',
+        () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 20, entraId: 99),
+          ),
+          // Serviamo in ricezione: punto nostro = sideout, ruotiamo.
+          AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      // Dopo il cambio: {1:10, 2:99, 3:30, ...}. Dopo la rotazione il
+      // subentrante (in 2) passa in 1.
+      expect(stato.rotazione, {1: 99, 2: 30, 3: 40, 4: 50, 5: 60, 6: 10});
+    });
+
+    test('l\'ordine cambia il risultato: sideout PRIMA del cambio', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+          AzioneScout(
+            ordine: 2,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 20, entraId: 99),
+          ),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      // Prima ruota ({1:20, 2:30, ...}), poi il 20 (ora in posizione 1)
+      // viene sostituito dal 99.
+      expect(stato.rotazione, {1: 99, 2: 30, 3: 40, 4: 50, 5: 60, 6: 10});
+    });
+
+    test('uscente non in campo: no-op, nessuna eccezione', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 999, entraId: 99),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    test('palleggiatoreId e ruoloCambiLibero seguono gli override del cambio',
+        () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(
+              esceId: 10,
+              entraId: 99,
+              nuovoPalleggiatoreId: 99,
+              nuovoRuoloCambiLibero: Ruolo.schiacciatore,
+            ),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreInizialeId: 10,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.palleggiatoreId, 99);
+      expect(stato.ruoloCambiLibero, Ruolo.schiacciatore);
+      expect(stato.rotazione, {1: 99, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60});
+    });
+
+    test('override null: configurazione invariata dopo un cambio semplice',
+        () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 20, entraId: 99),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreInizialeId: 10,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.palleggiatoreId, 10);
+      expect(stato.ruoloCambiLibero, Ruolo.centrale);
+    });
+
+    test('undo del cambio (drop ultima azione) riporta allo stato precedente',
+        () {
+      const tutte = [
+        AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        AzioneScout(
+          ordine: 2,
+          esitoPunto: EsitoPunto.nessuno,
+          sostituzione: SostituzioneGiocatore(
+            esceId: 20,
+            entraId: 99,
+            nuovoPalleggiatoreId: 99,
+          ),
+        ),
+      ];
+
+      final statoConCambio = ricalcolaStato(
+        azioni: tutte,
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreInizialeId: 10,
+      );
+      expect(statoConCambio.palleggiatoreId, 99);
+      expect(statoConCambio.rotazione[2], 99);
+
+      final statoDopoUndo = ricalcolaStato(
+        azioni: tutte.where((a) => a.ordine != 2).toList(),
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreInizialeId: 10,
+      );
+
+      expect(statoDopoUndo.palleggiatoreId, 10);
+      expect(statoDopoUndo.rotazione, rotazioneIniziale);
     });
   });
 
@@ -219,6 +390,25 @@ void main() {
         punteggioAvversario: 0,
         squadraAlServizio: Squadra.nostra,
         rotazione: {1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 10},
+      );
+
+      expect(a, isNot(b));
+    });
+
+    test('palleggiatoreId diverso rende gli StatoSet diversi', () {
+      const a = StatoSet(
+        punteggioNostro: 0,
+        punteggioAvversario: 0,
+        squadraAlServizio: Squadra.nostra,
+        rotazione: {1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60},
+        palleggiatoreId: 10,
+      );
+      const b = StatoSet(
+        punteggioNostro: 0,
+        punteggioAvversario: 0,
+        squadraAlServizio: Squadra.nostra,
+        rotazione: {1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60},
+        palleggiatoreId: 99,
       );
 
       expect(a, isNot(b));

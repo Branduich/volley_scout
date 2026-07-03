@@ -303,7 +303,8 @@ class MatchSetRepository {
           ..orderBy([(a) => OrderingTerm.asc(a.ordine)]))
         .get();
     final azioni = [
-      for (final a in righeAzioni) (ordine: a.ordine, esitoPunto: a.esitoPunto),
+      for (final a in righeAzioni)
+        AzioneScout(ordine: a.ordine, esitoPunto: a.esitoPunto),
     ];
     return ricalcolaStato(
       azioni: azioni,

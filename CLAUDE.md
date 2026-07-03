@@ -1633,6 +1633,47 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         cambia solo come effetto derivato di un sideout su `esitoPunto`).
         Dettagli di schema (nuovo `TipoAzione`? campo dedicato?) da
         decidere.
+  - [ ] **IN CORSO — Sostituzione giocatore a set in corso ("cambio
+        giocatore")**: piano completo approvato in
+        `C:\Users\Brand\.claude\plans\mossy-swimming-newell.md` (6 step,
+        rileggerlo prima di proseguire). Architettura decisa: evento
+        `ScoutAction` con nuovo `TipoAzione.cambioGiocatore` (una sola riga
+        per cambio, scritta a flusso completato — `giocatoreId` = chi entra,
+        `esitoPunto = nessuno`); il subentrante prende ESATTAMENTE la
+        posizione di rotazione dell'uscente (il cambio NON altera mai la
+        rotazione — vincolo confermato dallo sviluppatore); gli override di
+        configurazione (nuovo palleggiatore designato, nuova coppia
+        cambi-libero) viaggiano nello stesso evento, null = invariato. UI:
+        voce "Sostituzione" nel drawer → dialog "Chi esce?" → "Chi entra?"
+        → dialog configurazione SOLO se i ruoli cambiano. Conteggio cambi
+        (6, presto 8 per set) rimandato — derivabile contando le righe
+        `cambioGiocatore`.
+    - [x] Step 1 — logica pura: `AzioneScout` da record typedef a classe
+          const con campo opzionale `sostituzione` (`SostituzioneGiocatore`:
+          esceId/entraId/nuovoPalleggiatoreId?/nuovoRuoloCambiLibero?);
+          `StatoSet` con `palleggiatoreId`/`ruoloCambiLibero` effettivi
+          (`==`/`hashCode` aggiornati); `ricalcolaStato()` con parametri
+          opzionali `palleggiatoreInizialeId`/`ruoloCambiLiberoIniziale` e
+          regola di replay (uscente non in campo → no-op, mai crash). I due
+          punti di costruzione (`calcolaStatoFinale`, `_statoSetReale`)
+          avvolti in `AzioneScout(...)`. 21 test verdi (14 convertiti + 7
+          nuovi sul cambio).
+    - [ ] Step 2 — schema v11: `TipoAzione.cambioGiocatore` + 3 colonne su
+          `ScoutActions` (`giocatoreUscenteId` FK setNull con
+          `@ReferenceName`, `nuovoPalleggiatoreId` FK setNull,
+          `nuovoRuoloCambiLibero` RuoloConverter nullable) + build_runner.
+    - [ ] Step 3 — repository + derivazioni ScoutScreen (refactor a
+          comportamento invariato): mapper `azioneScoutDaRiga` nei due
+          replay, `registraSostituzione()`, `_rosterById` (roster stream
+          fuso sopra `widget.assignments`), `_currentSlot` via
+          `stato.palleggiatoreId`, `_currentAssignments` via `_rosterById`,
+          `_ruoloCambiLiberoEffettivo`, fix flag undo (`tipo == scout`),
+          ramo banner per `cambioGiocatore`, euristica `_roleLabelsFor`
+          per due palleggiatori in campo.
+    - [ ] Step 4 — voce drawer + flusso dialog (la feature vera).
+    - [ ] Step 5 — report: `_computeRotazioni` in
+          `trajectory_report_screen.dart` (replay duplicato a mano).
+    - [ ] Step 6 — aggiornare questa documentazione a feature finita.
   - [x] Undo: bottone (icona `Icons.undo`) nella barra superiore di
         `ScoutScreen`, al posto del bottone "indietro" (spostato nel drawer
         di utilità, vedi "Interfaccia di scout" — libera quella posizione
