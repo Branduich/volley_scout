@@ -1966,7 +1966,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             SwitchListTile(
               value: _showActionLog,
               onChanged: (v) => setState(() => _showActionLog = v),
-              title: const Text('Log azioni (debug)',
+              title: const Text('Log azioni',
                   style: TextStyle(color: Colors.white)),
               subtitle: const Text(
                 'Lista delle azioni del set corrente',
