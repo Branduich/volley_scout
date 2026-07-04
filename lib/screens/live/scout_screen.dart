@@ -1340,6 +1340,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // mostrano il ruolo.
   bool _showJerseyNumbers = true;
 
+  // Log azioni di debug (toggle nel drawer): pannello scrollabile ancorato
+  // al bordo destro con tutte le ScoutAction del SET CORRENTE, più recente
+  // in alto, aggiornato in tempo reale dallo stesso stream di
+  // _statoSetReale. Nascosto mentre il pannello voto è aperto (occupa la
+  // stessa zona dello schermo).
+  bool _showActionLog = false;
+
   // Punteggio del set in corso, derivato da _statoSetReale (eventi reali) +
   // l'eventuale correzione manuale persistita su MatchSet (vedi
   // _correggiPunteggio — override diretto del valore mostrato, NON loggato
@@ -1839,6 +1846,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                     ..._buildBattitoreTapCatcher(constraints, courtWidth),
+                    ..._buildActionLog(),
                     ..._buildPannelloVoto(),
                   ],
                 );
@@ -1975,6 +1983,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               inactiveThumbColor: Colors.white70,
               inactiveTrackColor: Colors.white24,
             ),
+            SwitchListTile(
+              value: _showActionLog,
+              onChanged: (v) => setState(() => _showActionLog = v),
+              title: const Text('Log azioni (debug)',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text(
+                'Lista delle azioni del set corrente',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              activeThumbColor: Colors.white,
+              activeTrackColor: const Color(0xFF00008A),
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white24,
+            ),
             const Divider(color: Colors.white24, height: 1),
             ListTile(
               leading: const Icon(Icons.flag, color: Colors.white),
@@ -2056,6 +2078,113 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // _rosterById (non widget.assignments): un subentrato da cambio
     // giocatore parte dalla panchina, non è nella formazione iniziale.
     return _rosterById[id];
+  }
+
+  // Pannello di debug col log delle azioni del SET CORRENTE (vedi
+  // _showActionLog): una riga per ScoutAction — "ordine·rally  descrizione
+  // voto" (stesso testo/colori di _descrizioneAzione) — più recente in
+  // alto. Vive nello Stack esterno, ancorato al bordo destro; nascosto
+  // quando il pannello voto è aperto (stessa zona).
+  List<Widget> _buildActionLog() {
+    if (!_showActionLog || _votoInCorso != null) return const [];
+    final set = _setCorrente;
+    if (set == null) return const [];
+    final righe =
+        ref.watch(scoutAzioniStreamProvider(set.id)).value ??
+            const <ScoutAction>[];
+    // Punteggio parziale dopo ogni azione che chiude un rally (esito non
+    // "nessuno"): replay leggero dei soli esiti, in ordine. Non include le
+    // correzioni manuali del punteggio (vivono su MatchSet, non nel log).
+    final parziali = <int, String>{}; // ScoutAction.id -> "n–a"
+    var nostro = 0, avversario = 0;
+    for (final r in righe) {
+      switch (r.esitoPunto) {
+        case EsitoPunto.puntoNostro:
+          nostro++;
+        case EsitoPunto.puntoAvversario:
+          avversario++;
+        case EsitoPunto.nessuno:
+          continue;
+      }
+      parziali[r.id] = '$nostro–$avversario';
+    }
+    return [
+      Positioned(
+        top: 8,
+        bottom: 8,
+        right: 8,
+        width: 240,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _kTopBarBg.withAlpha(235),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: righe.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Nessuna azione',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: righe.length,
+                  itemBuilder: (context, i) {
+                    final a = righe[righe.length - 1 - i]; // recente in alto
+                    final desc = _descrizioneAzione(a);
+                    // Il blu brand del "Cambio" è illeggibile sul fondo
+                    // scuro del pannello: solo qui si schiarisce.
+                    final coloreTesto = desc.colore == AppColors.brandPrimary
+                        ? Colors.lightBlueAccent
+                        : desc.colore;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                            text: '${a.ordine}·r${a.rallyId}  ',
+                            style: const TextStyle(
+                                color: Colors.white38, fontSize: 13),
+                          ),
+                          TextSpan(
+                            text: desc.testo,
+                            style: TextStyle(
+                              // Per punto/errore/cambio (voto assente) il
+                              // colore semantico va sul testo; per i voti
+                              // resta sul solo simbolo, più leggibile.
+                              color: desc.voto == null
+                                  ? coloreTesto
+                                  : Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (desc.voto != null)
+                            TextSpan(
+                              text: '  ${desc.voto}',
+                              style: TextStyle(
+                                color: coloreTesto,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          if (parziali[a.id] != null)
+                            TextSpan(
+                              text: '  ${parziali[a.id]}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ]),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ),
+    ];
   }
 
   // Testo + colore per il banner "ultima azione". Azione di scout (voto su

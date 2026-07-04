@@ -118,7 +118,12 @@ lib/
 │   │   ├── lineup_screen.dart            (selezione formazione di partenza: griglia 3×2 +
 │   │   │                                  libero, assegnazione giocatori, conferma)
 │   │   ├── formation_config_screen.dart  (sistema di gioco + conferma palleggiatore/
-│   │   │                                  cambi del libero, vedi sezione navigazione)
+│   │   │                                  cambi del libero; riusata in "modalità
+│   │   │                                  conferma" dal flusso di sostituzione — vedi
+│   │   │                                  sezione navigazione e "cambio giocatore")
+│   │   ├── sostituzione_screen.dart      (cambio giocatore a set in corso: campo con
+│   │   │                                  rotazione corrente + panchina, N cambi in una
+│   │   │                                  visita — vedi "cambio giocatore" in Fase 3)
 │   │   ├── scout_screen.dart             (setup grafico Fase 3 in corso: sfondo, barra
 │   │   │                                  top, campo doppio + campo piccolo)
 │   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
@@ -138,7 +143,11 @@ lib/
 │   ├── app_theme.dart             (AppTheme.light — ThemeData principale, usa i file sopra)
 │   └── court_style.dart           (CourtStyle — costanti grafiche campo: colori linee,
 │                                   rete, token giocatore, traiettoria, votoColor(Voto))
-└── widgets/                       (vuota per ora)
+└── widgets/
+    └── court_view.dart            (CourtView + LabeledCourt: campo 3×2 con card
+                                    giocatori, estratti da formation_config_screen —
+                                    condivisi con sostituzione_screen; CourtView ha
+                                    anche badge ✕ opzionali per-slot)
 
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
@@ -147,7 +156,7 @@ assets/
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
 └── logic/
-    └── ricalcola_stato_test.dart  (14 test su ricalcolaStato(), `flutter test`)
+    └── ricalcola_stato_test.dart  (23 test su ricalcolaStato(), `flutter test`)
 ```
 
 ---
@@ -228,12 +237,16 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v10** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v12** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
   `MatchSets.correzionePuntiNostri`/`correzionePuntiAvversari`; v10 ha
-  aggiunto `ScoutActions.traiettoriaMuroX`/`traiettoriaMuroY`).
+  aggiunto `ScoutActions.traiettoriaMuroX`/`traiettoriaMuroY`; v11 ha
+  aggiunto `ScoutActions.giocatoreUscenteId`/`nuovoPalleggiatoreId`/
+  `nuovoRuoloCambiLibero` per il cambio giocatore; v12 ha aggiunto
+  `ScoutActions.gruppoCambio` per l'undo atomico dei cambi confermati
+  insieme — vedi "cambio giocatore" in Fase 3).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 
@@ -314,17 +327,22 @@ rigiocando la sequenza ordinata di `ScoutAction` di un set (event sourcing
 leggero).
 
 **`ricalcolaStato()` (IMPLEMENTATA, isolata dal resto)**: `lib/logic/ricalcola_stato.dart`,
-testata in `test/logic/ricalcola_stato_test.dart` (14 test, tutti verdi).
-Deliberatamente **disaccoppiata da Drift/DB**: non usa la futura tabella
-`ScoutActions` ma un typedef minimale `AzioneScout = ({int ordine, EsitoPunto
-esitoPunto})` — gli unici due campi che servono a questo calcolo (giocatore,
-fondamentale, voto, traiettoria non influenzano punteggio/rotazione). Quando
-esisterà la tabella reale, il repository estrarrà questi due campi dalle righe
-DB prima di chiamare la funzione.
+testata in `test/logic/ricalcola_stato_test.dart` (23 test, tutti verdi).
+Deliberatamente **disaccoppiata da Drift/DB**: non usa la tabella
+`ScoutActions` ma una classe minimale `AzioneScout` (const: `ordine`,
+`esitoPunto`, `sostituzione` opzionale — era un record typedef, promossa a
+classe per il campo opzionale del cambio giocatore) — giocatore,
+fondamentale, voto, traiettoria non influenzano punteggio/rotazione e non
+compaiono qui. La conversione riga DB → evento è centralizzata in
+`azioneScoutDaRiga()` (database_provider.dart), usata da ENTRAMBI i replay
+(`ScoutScreen._statoSetReale` e `MatchSetRepository.calcolaStatoFinale`)
+così restano sempre allineati.
 - Firma: `StatoSet ricalcolaStato({required List<AzioneScout> azioni,
-  required Squadra servizioIniziale, required Map<int,int> rotazioneIniziale})`.
+  required Squadra servizioIniziale, required Map<int,int> rotazioneIniziale,
+  int? palleggiatoreInizialeId, Ruolo? ruoloCambiLiberoIniziale})`.
   Stato iniziale passato come parametro (non letto da DB): la funzione resta
-  pura e testabile senza mock.
+  pura e testabile senza mock. Gli ultimi due parametri sono opzionali (i
+  chiamanti che vogliono solo il punteggio possono ometterli).
 - Ordina le azioni per `ordine` prima di rigiocarle (resiliente a input non
   ordinato).
 - Logica: `puntoNostro` mentre il servizio non era nostro → sideout, ruota
@@ -333,9 +351,23 @@ DB prima di chiamare la funzione.
   servizio (punteggio + cambio `squadraAlServizio`), ma **nessuna rotazione
   nostra** (è il loro sideout, e non tracciamo il loro roster). `nessuno` →
   no-op.
+- **Cambio giocatore** (`AzioneScout.sostituzione`, classe
+  `SostituzioneGiocatore`: esceId/entraId/nuovoPalleggiatoreId?/
+  nuovoRuoloCambiLibero?): il subentrante prende ESATTAMENTE la posizione
+  di rotazione dell'uscente — il cambio non altera mai la rotazione, solo
+  chi occupa una posizione; gli override di configurazione (null =
+  invariato) aggiornano `palleggiatoreId`/`ruoloCambiLibero` dello stato.
+  **Guardie sui dati incoerenti (mai lanciare durante un replay)**: uscente
+  non in campo → no-op; subentrante GIÀ in campo (con esceId ≠ entraId) →
+  no-op COMPLETO, override compresi (applicarlo duplicherebbe lo stesso
+  giocatore su due posizioni → ValueKey duplicate in UI, bug reale
+  riscontrato). Eccezione legittima: `esceId == entraId` è la riga "no-op"
+  usata per una riconfigurazione senza cambi (porta solo gli override).
 - `StatoSet` (risultato): punteggio nostro/avversario, `squadraAlServizio`,
-  `rotazione` (Map posizione→giocatoreId). `==`/`hashCode` ridefiniti per
-  confrontare il contenuto della mappa nei test, non l'identità.
+  `rotazione` (Map posizione→giocatoreId), `palleggiatoreId` e
+  `ruoloCambiLibero` EFFETTIVI (seguono gli override dei cambi). `==`/
+  `hashCode` ridefiniti per confrontare il contenuto della mappa nei test,
+  non l'identità.
 - Enum `Squadra` ed `EsitoPunto` aggiunti a `enums.dart` (servivano comunque
   alla futura tabella `ScoutActions`, quindi vivono lì e non in `logic/`).
 
@@ -409,7 +441,13 @@ snapshot opzionale/debug, non sostituisce il ricalcolo).
 
 **Enum TipoAzione** (in `enums.dart`): `scout` (giocatore + fondamentale +
 voto), `puntoManuale` (bottoni rapidi "+1 Noi"/"+1 Loro", nessun giocatore),
-`erroreGenerico` (punto all'altra squadra per errore non dettagliato).
+`erroreGenerico` (punto all'altra squadra per errore non dettagliato),
+`cambioGiocatore` (sostituzione a set in corso — "cambio" e non
+"sostituzione" perché quel termine è già usato per la meccanica del libero;
+`giocatoreId` = chi entra, `esitoPunto = nessuno`, più le colonne dedicate
+`giocatoreUscenteId`/`nuovoPalleggiatoreId`/`nuovoRuoloCambiLibero` (v11,
+`@ReferenceName` sulle due FK verso Players) e `gruppoCambio` (v12) — vedi
+la voce in Fase 3).
 
 **Enum EsitoPunto**: `nessuno` (azione interna allo scambio, non chiude il
 punto), `puntoNostro`, `puntoAvversario`. Calcolato in automatico in base a
@@ -613,6 +651,11 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
   l'area sopra il campo. Sfondo `_kBg` per coerenza col tema scuro.
   - **"Cambia campo"** (`ListTile`, icona `Icons.swap_horiz`): chiama
     `_toggleSide()` e chiude il drawer.
+  - **"Sostituzione"** (`ListTile`, icona `Icons.swap_vert`, subito sotto
+    "Cambia campo", `enabled: _bottoniRapidiAttivi` — set iniziato e fuori
+    dalla modalità test): apre il flusso di cambio giocatore
+    (`SostituzioneScreen` → `FormationConfigScreen` in modalità conferma)
+    — vedi la voce dedicata in "Fasi di sviluppo" Fase 3.
   - **Toggle "Mostra numeri/ruoli"** (`SwitchListTile`): stato
     `_showJerseyNumbers`, **default `true`** (numeri di maglia visibili
     appena apri lo scout). Label dinamica che descrive l'azione del tap, non
@@ -1633,47 +1676,71 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
         cambia solo come effetto derivato di un sideout su `esitoPunto`).
         Dettagli di schema (nuovo `TipoAzione`? campo dedicato?) da
         decidere.
-  - [ ] **IN CORSO — Sostituzione giocatore a set in corso ("cambio
-        giocatore")**: piano completo approvato in
-        `C:\Users\Brand\.claude\plans\mossy-swimming-newell.md` (6 step,
-        rileggerlo prima di proseguire). Architettura decisa: evento
-        `ScoutAction` con nuovo `TipoAzione.cambioGiocatore` (una sola riga
-        per cambio, scritta a flusso completato — `giocatoreId` = chi entra,
-        `esitoPunto = nessuno`); il subentrante prende ESATTAMENTE la
-        posizione di rotazione dell'uscente (il cambio NON altera mai la
-        rotazione — vincolo confermato dallo sviluppatore); gli override di
-        configurazione (nuovo palleggiatore designato, nuova coppia
-        cambi-libero) viaggiano nello stesso evento, null = invariato. UI:
-        voce "Sostituzione" nel drawer → dialog "Chi esce?" → "Chi entra?"
-        → dialog configurazione SOLO se i ruoli cambiano. Conteggio cambi
-        (6, presto 8 per set) rimandato — derivabile contando le righe
-        `cambioGiocatore`.
-    - [x] Step 1 — logica pura: `AzioneScout` da record typedef a classe
-          const con campo opzionale `sostituzione` (`SostituzioneGiocatore`:
-          esceId/entraId/nuovoPalleggiatoreId?/nuovoRuoloCambiLibero?);
-          `StatoSet` con `palleggiatoreId`/`ruoloCambiLibero` effettivi
-          (`==`/`hashCode` aggiornati); `ricalcolaStato()` con parametri
-          opzionali `palleggiatoreInizialeId`/`ruoloCambiLiberoIniziale` e
-          regola di replay (uscente non in campo → no-op, mai crash). I due
-          punti di costruzione (`calcolaStatoFinale`, `_statoSetReale`)
-          avvolti in `AzioneScout(...)`. 21 test verdi (14 convertiti + 7
-          nuovi sul cambio).
-    - [ ] Step 2 — schema v11: `TipoAzione.cambioGiocatore` + 3 colonne su
-          `ScoutActions` (`giocatoreUscenteId` FK setNull con
-          `@ReferenceName`, `nuovoPalleggiatoreId` FK setNull,
-          `nuovoRuoloCambiLibero` RuoloConverter nullable) + build_runner.
-    - [ ] Step 3 — repository + derivazioni ScoutScreen (refactor a
-          comportamento invariato): mapper `azioneScoutDaRiga` nei due
-          replay, `registraSostituzione()`, `_rosterById` (roster stream
-          fuso sopra `widget.assignments`), `_currentSlot` via
-          `stato.palleggiatoreId`, `_currentAssignments` via `_rosterById`,
-          `_ruoloCambiLiberoEffettivo`, fix flag undo (`tipo == scout`),
-          ramo banner per `cambioGiocatore`, euristica `_roleLabelsFor`
-          per due palleggiatori in campo.
-    - [ ] Step 4 — voce drawer + flusso dialog (la feature vera).
-    - [ ] Step 5 — report: `_computeRotazioni` in
-          `trajectory_report_screen.dart` (replay duplicato a mano).
-    - [ ] Step 6 — aggiornare questa documentazione a feature finita.
+  - [x] **Sostituzione giocatore a set in corso ("cambio giocatore")** —
+        IMPLEMENTATA (evento `TipoAzione.cambioGiocatore`, schema v11+v12).
+        Vincolo chiave confermato dallo sviluppatore: il cambio NON altera
+        mai la rotazione — il subentrante prende ESATTAMENTE la posizione
+        di rotazione dell'uscente e ruota da lì in poi. Conteggio cambi
+        (6, presto 8 per set) rimandato — derivabile contando i gruppi
+        `gruppoCambio` distinti (o le righe `cambioGiocatore`).
+    - **Flusso UI** (rivisto durante lo sviluppo: i dialog sequenziali
+      della prima versione erano scomodi per i cambi multipli — il doppio
+      cambio è due sostituzioni insieme): voce "Sostituzione" nel drawer
+      (`Icons.swap_vert`, `enabled: _bottoniRapidiAttivi`) →
+      `SostituzioneScreen` (campo `CourtView` con la rotazione CORRENTE +
+      lista panchina a destra, replica l'esperienza di inizio partita; tap
+      card = chi esce, tap panchina = chi entra al suo posto, N cambi
+      pending in una visita, badge ✕ per annullare un cambio pending) →
+      "Avanti" → `FormationConfigScreen` in **modalità conferma**
+      (parametri opzionali `modalitaConferma`/`palleggiatoreSlotIniziale`/
+      `ruoloCambiLiberoIniziale`: SEMPRE mostrata, precompilata coi valori
+      effettivi — nessun rilevamento automatico "serve il prompt?", scelta
+      esplicita dell'utente; il bottone fa pop col record
+      `ConfigurazioneFormazione` invece di push verso ScoutScreen; il
+      flusso di inizio partita resta invariato coi default) → al ritorno
+      `ScoutScreen._avviaSostituzione()` calcola il **diff posizione per
+      posizione** e scrive una riga `registraSostituzione` per ogni cambio
+      (override di configurazione sull'ULTIMA riga; caso "0 cambi ma
+      configurazione cambiata" → riga no-op con esceId == entraId che
+      porta solo gli override). Back a metà flusso = nessuna riga scritta.
+    - **Undo atomico** (`gruppoCambio`, v12): i cambi confermati insieme
+      condividono lo stesso `gruppoCambio` (timestamp ms del blocco) —
+      `annullaUltimaAzione()` elimina l'INTERO gruppo se l'ultima riga è
+      un cambio con gruppo (annullare solo metà di un doppio cambio non ha
+      senso pallavolistico); il dialog di conferma undo avvisa "verranno
+      annullati tutti i N cambi confermati insieme"
+      (`contaGruppoCambio()`).
+    - **Regole anti-duplicazione** (bug reale: stesso giocatore in due
+      posizioni → ValueKey duplicate, crash a ogni rebuild): (1) in
+      `SostituzioneScreen` gli USCITI pending restano in panchina ma
+      disabilitati/grigi — chi esce non può rientrare in un'altra
+      posizione, si annulla il suo cambio col ✕ (che a sua volta rifiuta
+      se il titolare originale è rientrato altrove); (2)
+      `_avviaSostituzione` rifiuta di scrivere se i sei finali hanno id
+      duplicati; (3) `ricalcolaStato()` e `_computeRotazioni` rigiocano
+      come no-op le righe che duplicherebbero (ripara retroattivamente
+      anche i set già corrotti, senza toccare il DB).
+    - **Derivazioni in ScoutScreen** (regola "valore effettivo vs
+      widget."): `_rosterById` (roster stream fuso SOPRA
+      `widget.assignments` — i subentrati partono dalla panchina e non
+      sono nella formazione iniziale; il fallback copre i primi frame
+      prima che lo stream emetta), `_currentSlot` via
+      `stato.palleggiatoreId`, `_currentAssignments`/`_playerPerId` via
+      `_rosterById`, `_ruoloCambiLiberoEffettivo`
+      (`_statoSetReale?.ruoloCambiLibero ?? widget.ruoloCambiLibero`) al
+      posto delle letture dirette di `widget.ruoloCambiLibero` — che resta
+      solo in `_iniziaSet` (persiste il valore INIZIALE del set) e come
+      fallback. `caricaFormazione()` NON è cambiata: ricostruisce la
+      formazione iniziale, i cambi si riapplicano da soli col replay.
+    - **Dettagli collegati**: flag undo `_fondamentaleGiudicatoRallyCorrente`
+      richiede `tipo == scout` (un cambio ha esito `nessuno` ma non
+      giudica nulla); banner/dialog undo con ramo "Cambio: esce N Cognome,
+      entra N Cognome" (colore neutro `AppColors.brandPrimary`);
+      `_roleLabelsFor` gestisce un secondo palleggiatore in campo (gioca
+      da opposto se la 'O' è libera, altrimenti da schiacciatore —
+      euristica per il doppio cambio); `_computeRotazioni`
+      (trajectory_report_screen) replica la regola del cambio nel suo
+      replay duplicato, palleggiatore effettivo compreso.
   - [x] Undo: bottone (icona `Icons.undo`) nella barra superiore di
         `ScoutScreen`, al posto del bottone "indietro" (spostato nel drawer
         di utilità, vedi "Interfaccia di scout" — libera quella posizione
@@ -1956,8 +2023,10 @@ conferma palleggiatore e cambi del libero) → `ScoutScreen` (setup grafico
 completo + bottoni rapidi + flusso a 3 tocchi su tutti i fondamentali
 tranne `errore`, con traiettoria per battuta/attacco via `TrajectoryScreen`
 — punteggio, chi serve e rotazione derivati in tempo reale dagli eventi
-`ScoutAction`, vedi Modello dati) → drawer ("Statistiche" apre
-`PlayerStatsScreen` anche a partita in corso; "Fine" apre `EndSetScreen`:
+`ScoutAction`, vedi Modello dati) → drawer ("Sostituzione" apre il flusso
+di cambio giocatore a set in corso — `SostituzioneScreen` +
+`FormationConfigScreen` in modalità conferma, vedi Fase 3; "Statistiche"
+apre `PlayerStatsScreen` anche a partita in corso; "Fine" apre `EndSetScreen`:
 "Prossimo Set" ripristina la scelta formazione da zero per il set
 successivo, "Fine Partita" torna a `MatchesScreen`, a due sezioni
 "Da iniziare/in corso" / "Terminate" — da queste ultime si può
