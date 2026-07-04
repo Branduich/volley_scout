@@ -12,6 +12,7 @@ import '../../theme/court_style.dart';
 import '../report/player_stats_screen.dart';
 import '../report/trajectory_report_screen.dart';
 import 'end_set_screen.dart';
+import 'sostituzione_screen.dart';
 import 'trajectory_screen.dart';
 
 const _kBg = Color(0xFF143E59);
@@ -601,6 +602,11 @@ Map<String, String> _roleLabelsFor(
 
   final schiacciatori = <String>[];
   final centrali = <String>[];
+  // Palleggiatori NON designati (doppio cambio: un secondo palleggiatore in
+  // campo al posto di un altro ruolo) — raccolti a parte e assegnati DOPO
+  // il ciclo, così non rubano la 'O' all'opposto vero se compaiono prima
+  // di lui nell'ordine degli slot.
+  final palleggiatoriExtra = <String>[];
   String? opposto;
 
   for (final slot in _kSlotOrder) {
@@ -613,8 +619,20 @@ Map<String, String> _roleLabelsFor(
       case Ruolo.centrale:
       case Ruolo.undefined:
         centrali.add(slot);
+      case Ruolo.palleggiatore:
+        palleggiatoriExtra.add(slot);
       default:
         break;
+    }
+  }
+  // Euristica per il palleggiatore extra: gioca da opposto se la 'O' è
+  // libera (il caso reale del doppio cambio: P entra per O), altrimenti
+  // conta come schiacciatore — degradazione accettabile, mai senza label.
+  for (final slot in palleggiatoriExtra) {
+    if (opposto == null) {
+      opposto = slot;
+    } else {
+      schiacciatori.add(slot);
     }
   }
   schiacciatori.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
@@ -739,16 +757,42 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (set == null) return null;
     final azioniAsync = ref.watch(scoutAzioniStreamProvider(set.id));
     final righe = azioniAsync.value ?? const <ScoutAction>[];
-    final azioni = [
-      for (final r in righe)
-        AzioneScout(ordine: r.ordine, esitoPunto: r.esitoPunto),
-    ];
+    final azioni = [for (final r in righe) azioneScoutDaRiga(r)];
     return ricalcolaStato(
       azioni: azioni,
       servizioIniziale: set.squadraServizioIniziale,
       rotazioneIniziale: _rotazioneInizialeMap,
+      palleggiatoreInizialeId:
+          widget.assignments[widget.palleggiatoreSlot]?.id,
+      ruoloCambiLiberoIniziale: widget.ruoloCambiLibero,
     );
   }
+
+  // Roster completo della squadra (id -> Player), per risolvere i
+  // giocatoreId della rotazione derivata: dopo un cambio giocatore la
+  // rotazione può contenere id NON presenti in widget.assignments (il
+  // subentrante partiva dalla panchina). Lo stream del roster è fuso SOPRA
+  // widget.assignments: il fallback copre i primi frame prima che lo stream
+  // emetta (evita token vuoti alla ripresa).
+  Map<int, Player> get _rosterById {
+    final map = {for (final p in widget.assignments.values) p.id: p};
+    final roster =
+        ref.watch(playersStreamProvider(widget.team.id)).value;
+    if (roster != null) {
+      for (final p in roster) {
+        map[p.id] = p;
+      }
+    }
+    return map;
+  }
+
+  // Coppia cambi-libero effettiva: può cambiare a set in corso con un
+  // cambio giocatore (override nel medesimo evento) — widget.ruoloCambiLibero
+  // resta il valore INIZIALE del set (usato da _iniziaSet per persisterlo).
+  // In modalità test non ci sono eventi reali: vale il valore iniziale.
+  Ruolo? get _ruoloCambiLiberoEffettivo => _testModeEnabled
+      ? widget.ruoloCambiLibero
+      : (_statoSetReale?.ruoloCambiLibero ?? widget.ruoloCambiLibero);
 
   // Ultima azione registrata nel set (stessa riga che alimenterà in futuro
   // le statistiche/report — vedi Modello dati), per il banner "ultima
@@ -864,7 +908,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Map<String, Offset>? get _activeAttackMap {
     final senzaLibero = !widget.assignments.containsKey('L1');
     final usaSchiacciatori =
-        !senzaLibero && widget.ruoloCambiLibero == Ruolo.schiacciatore;
+        !senzaLibero && _ruoloCambiLiberoEffettivo == Ruolo.schiacciatore;
     final rotazione = _currentSlot;
     Map<String, Offset>? risolvi(
       Map<String, Map<String, Offset>> tabellaCentrali,
@@ -1086,7 +1130,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // formazione: stessa "forma" difensiva ma con le posizioni REALI di tutti
   // i 6 ruoli, nessuna sostituzione (vedi _kDefensePositionsComplete). Con
   // libero: la tabella e la coppia sostituita dipendono da
-  // widget.ruoloCambiLibero — se centrali, deve restare un solo C1/C2
+  // _ruoloCambiLiberoEffettivo — se centrali, deve restare un solo C1/C2
   // (l'altro è il libero) e S1/S2 entrambi presenti; se schiacciatori, il
   // contrario. In modalità test segue _testDopo (vedi _testAvanza) invece
   // dei voti reali.
@@ -1096,7 +1140,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (!widget.assignments.containsKey('L1')) {
       return _kDefensePositionsComplete(_currentSlot);
     }
-    final ruolo = widget.ruoloCambiLibero;
+    final ruolo = _ruoloCambiLiberoEffettivo;
     final Map<String, Map<String, Offset>> tabella;
     final List<String> coppiaSostituita;
     final List<String> coppiaFissa;
@@ -1218,7 +1262,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   String get _currentSlot {
     final stato = _testModeEnabled ? null : _statoSetReale;
     if (stato != null) {
-      final palleggiatoreId = widget.assignments[widget.palleggiatoreSlot]?.id;
+      // Il palleggiatore designato EFFETTIVO viene dallo stato derivato
+      // (può cambiare con un cambio giocatore, override nell'evento) — il
+      // fallback su widget copre solo stato senza palleggiatoreId.
+      final palleggiatoreId = stato.palleggiatoreId ??
+          widget.assignments[widget.palleggiatoreSlot]?.id;
       for (final entry in stato.rotazione.entries) {
         if (entry.value == palleggiatoreId) return 'P${entry.key}';
       }
@@ -1231,7 +1279,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Map<String, Player> get _currentAssignments {
     final stato = _testModeEnabled ? null : _statoSetReale;
     if (stato != null) {
-      final idToPlayer = {for (final p in widget.assignments.values) p.id: p};
+      // _rosterById (non widget.assignments): dopo un cambio giocatore la
+      // rotazione può contenere il subentrante, che partiva dalla panchina.
+      final idToPlayer = _rosterById;
       final result = <String, Player>{};
       for (final entry in stato.rotazione.entries) {
         final player = idToPlayer[entry.value];
@@ -1366,9 +1416,24 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final azione = _ultimaAzione;
     if (azione == null) return;
     final descrizione = _descrizioneAzione(azione);
-    final testoAzione = descrizione.voto == null
+    var testoAzione = descrizione.voto == null
         ? descrizione.testo
         : '${descrizione.testo} ${descrizione.voto}';
+    // Un blocco di cambi (es. doppio cambio) si annulla per intero:
+    // avvisare se l'undo eliminerà più di una riga.
+    final gruppo = azione.gruppoCambio;
+    if (azione.tipo == TipoAzione.cambioGiocatore &&
+        gruppo != null &&
+        _setCorrente != null) {
+      final n = await ref
+          .read(scoutActionRepositoryProvider)
+          .contaGruppoCambio(_setCorrente!.id, gruppo);
+      if (n > 1) {
+        testoAzione = '$testoAzione\n(verranno annullati tutti '
+            'i $n cambi confermati insieme)';
+      }
+      if (!mounted) return;
+    }
     final confermato = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1412,9 +1477,156 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (!mounted) return;
     setState(() {
       _votoInCorso = null;
-      _fondamentaleGiudicatoRallyCorrente =
-          nuovaUltima?.esitoPunto == EsitoPunto.nessuno;
+      // Solo un VOTO non terminale (tipo scout) significa "palla in gioco":
+      // un cambio giocatore ha anch'esso esito `nessuno`, ma non giudica
+      // alcun fondamentale — senza il check sul tipo, l'undo fino a una
+      // riga cambio segnerebbe erroneamente la fase libera.
+      _fondamentaleGiudicatoRallyCorrente = nuovaUltima != null &&
+          nuovaUltima.tipo == TipoAzione.scout &&
+          nuovaUltima.esitoPunto == EsitoPunto.nessuno;
     });
+  }
+
+  // --- Sostituzione (cambio giocatore) ---
+  //
+  // Flusso dalla voce "Sostituzione" del drawer: push di SostituzioneScreen
+  // (campo con la rotazione CORRENTE + panchina, N cambi pending in una
+  // visita — replica l'esperienza di inizio partita) → FormationConfigScreen
+  // in modalità conferma (SEMPRE mostrata, precompilata coi valori
+  // effettivi: nessun rilevamento automatico) → al ritorno, diff posizione
+  // per posizione e UNA riga registraSostituzione per ogni cambio (gli
+  // override di configurazione sull'ultima). Back a metà flusso = nessuna
+  // riga scritta.
+  Future<void> _avviaSostituzione() async {
+    final set = _setCorrente;
+    if (set == null || _testModeEnabled) return;
+
+    final currentAssignments = _currentAssignments;
+    final seiCorrenti = <String, Player>{
+      for (final slot in _kSlotOrder)
+        if (currentAssignments[slot] != null)
+          slot: currentAssignments[slot]!,
+    };
+    if (seiCorrenti.length != 6) return; // dato incoerente, niente cambio
+    final palleggiatoreSlotCorrente = _currentSlot;
+
+    // Panchina: roster meno i 6 in campo, meno i liberi (L1/L2 e chiunque
+    // abbia ruolo libero: il libero non entra mai con un cambio).
+    final liberi = <String, Player>{
+      if (widget.assignments['L1'] != null) 'L1': widget.assignments['L1']!,
+      if (widget.assignments['L2'] != null) 'L2': widget.assignments['L2']!,
+    };
+    final idsInCampo = {for (final p in seiCorrenti.values) p.id};
+    final idsLiberi = {for (final p in liberi.values) p.id};
+    final panchina = [
+      for (final p in _rosterById.values)
+        if (!idsInCampo.contains(p.id) &&
+            !idsLiberi.contains(p.id) &&
+            p.ruolo != Ruolo.libero)
+          p,
+    ];
+
+    final risultato = await Navigator.push<RisultatoSostituzione>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SostituzioneScreen(
+          match: widget.match,
+          team: widget.team,
+          seiCorrenti: seiCorrenti,
+          panchina: panchina,
+          liberi: liberi,
+          palleggiatoreSlotCorrente: palleggiatoreSlotCorrente,
+          ruoloCambiLiberoCorrente: _ruoloCambiLiberoEffettivo,
+        ),
+      ),
+    );
+    if (risultato == null || !mounted) return;
+
+    // Difesa in profondità: mai scrivere eventi che metterebbero lo stesso
+    // giocatore in due posizioni (dati corrotti, ValueKey duplicate in UI).
+    final idsFinali = {for (final p in risultato.seiFinali.values) p.id};
+    if (idsFinali.length != risultato.seiFinali.length) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Sostituzione non valida: un giocatore comparirebbe due '
+              'volte in campo')));
+      return;
+    }
+
+    // Diff posizione per posizione: originale ≠ finale → un cambio.
+    final cambi = <({int esceId, int entraId})>[];
+    for (final slot in _kSlotOrder) {
+      final originale = seiCorrenti[slot];
+      final finale = risultato.seiFinali[slot];
+      if (originale != null &&
+          finale != null &&
+          originale.id != finale.id) {
+        cambi.add((esceId: originale.id, entraId: finale.id));
+      }
+    }
+
+    // Override di configurazione: solo se diversi dai valori effettivi
+    // correnti (null = invariato, la riga evento resta minimale).
+    final setterIdCorrente = _statoSetReale?.palleggiatoreId ??
+        widget.assignments[widget.palleggiatoreSlot]?.id;
+    final nuovoPalleggiatore =
+        risultato.seiFinali[risultato.palleggiatoreSlot];
+    final overridePalleggiatore =
+        (nuovoPalleggiatore != null && nuovoPalleggiatore.id != setterIdCorrente)
+            ? nuovoPalleggiatore.id
+            : null;
+    final ruoloCambiCorrente = _ruoloCambiLiberoEffettivo;
+    final overrideRuoloCambi =
+        risultato.ruoloCambiLibero != ruoloCambiCorrente
+            ? risultato.ruoloCambiLibero
+            : null;
+
+    if (cambi.isEmpty &&
+        overridePalleggiatore == null &&
+        overrideRuoloCambi == null) {
+      return; // niente da registrare
+    }
+
+    final repo = ref.read(scoutActionRepositoryProvider);
+    // Tutte le righe di questo blocco condividono lo stesso gruppoCambio:
+    // l'undo le elimina insieme (annullare solo metà di un doppio cambio
+    // non ha senso pallavolistico). Un timestamp è unico a sufficienza tra
+    // blocchi diversi dello stesso set.
+    final gruppoCambio = DateTime.now().millisecondsSinceEpoch;
+    if (cambi.isEmpty) {
+      // Solo riconfigurazione (nessun cambio di giocatori): una riga
+      // no-op con esceId == entraId che porta solo gli override —
+      // ricalcolaStato la rigioca senza toccare la rotazione.
+      final ancoraId = nuovoPalleggiatore?.id ?? seiCorrenti['P1']!.id;
+      await repo.registraSostituzione(
+        setId: set.id,
+        entraId: ancoraId,
+        esceId: ancoraId,
+        nuovoPalleggiatoreId: overridePalleggiatore,
+        nuovoRuoloCambiLibero: overrideRuoloCambi,
+        gruppoCambio: gruppoCambio,
+      );
+    } else {
+      for (var i = 0; i < cambi.length; i++) {
+        final ultimo = i == cambi.length - 1;
+        await repo.registraSostituzione(
+          setId: set.id,
+          entraId: cambi[i].entraId,
+          esceId: cambi[i].esceId,
+          // Gli override viaggiano sull'ULTIMA riga: applicati quando
+          // tutti i cambi del blocco sono già in campo.
+          nuovoPalleggiatoreId: ultimo ? overridePalleggiatore : null,
+          nuovoRuoloCambiLibero: ultimo ? overrideRuoloCambi : null,
+          gruppoCambio: gruppoCambio,
+        );
+      }
+    }
+    if (!mounted) return;
+    // Palla morta: un eventuale pannello voto aperto non ha più senso.
+    // _fondamentaleGiudicatoRallyCorrente NON si tocca: il cambio non
+    // chiude lo scambio (si può sostituire tra un punto e l'altro senza
+    // alterare la fase di gioco).
+    setState(() => _votoInCorso = null);
   }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -1668,6 +1880,24 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 _scaffoldKey.currentState?.closeDrawer();
               },
             ),
+            // Sostituzione (cambio giocatore) — stessa condizione dei
+            // bottoni rapidi: set iniziato e fuori dalla modalità test (il
+            // cambio scrive un evento reale).
+            ListTile(
+              enabled: _bottoniRapidiAttivi,
+              leading: Icon(Icons.swap_vert,
+                  color:
+                      _bottoniRapidiAttivi ? Colors.white : Colors.white38),
+              title: Text('Sostituzione',
+                  style: TextStyle(
+                      color: _bottoniRapidiAttivi
+                          ? Colors.white
+                          : Colors.white38)),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                _avviaSostituzione();
+              },
+            ),
             SwitchListTile(
               value: _showJerseyNumbers,
               onChanged: (v) => setState(() => _showJerseyNumbers = v),
@@ -1823,10 +2053,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   Player? _playerPerId(int? id) {
     if (id == null) return null;
-    for (final p in widget.assignments.values) {
-      if (p.id == id) return p;
-    }
-    return null;
+    // _rosterById (non widget.assignments): un subentrato da cambio
+    // giocatore parte dalla panchina, non è nella formazione iniziale.
+    return _rosterById[id];
   }
 
   // Testo + colore per il banner "ultima azione". Azione di scout (voto su
@@ -1851,6 +2080,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         testo: '${player.numero} - ${player.cognome} - ${fondamentale.label}',
         voto: voto.simbolo,
         colore: CourtStyle.votoColor(voto),
+      );
+    }
+    // Cambio giocatore: giocatoreId = chi entra, giocatoreUscenteId = chi
+    // esce. Colore neutro (nessun punto per nessuno). Se un giocatore è
+    // stato eliminato dopo il cambio (FK setNull), si mostra "?" — la riga
+    // resta comunque leggibile.
+    if (azione.tipo == TipoAzione.cambioGiocatore) {
+      final esce = _playerPerId(azione.giocatoreUscenteId);
+      String etichetta(Player? p) =>
+          p == null ? '?' : '${p.numero} ${p.cognome}';
+      return (
+        testo: 'Cambio: esce ${etichetta(esce)}, entra ${etichetta(player)}',
+        voto: null,
+        colore: AppColors.brandPrimary,
       );
     }
     // Per la nostra squadra si usa il nome reale (es. "Punto Nettunia")
@@ -2271,13 +2514,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   // Slot occupato dal giocatore di SECONDA LINEA (P5, P6 o P1) che il libero
   // sostituisce — la coppia è quella scelta in FormationConfigScreen
-  // (`widget.ruoloCambiLibero`: centrali o schiacciatori, mai una
+  // (`_ruoloCambiLiberoEffettivo`: centrali o schiacciatori, mai una
   // combinazione). I due della coppia sono sempre opposti nella rotazione (3
   // posizioni di distanza), quindi ce n'è sempre esattamente uno in seconda
   // linea. Null se non c'è libero in formazione, o se per qualche motivo
   // nessuno dei due ruoli della coppia è assegnato (formazione incompleta).
   String? _slotCentraleSecondaLinea(Map<String, String> roleLabels) {
-    final ruolo = widget.ruoloCambiLibero;
+    final ruolo = _ruoloCambiLiberoEffettivo;
     if (ruolo == null) return null;
     final etichette = (ruolo == Ruolo.centrale || ruolo == Ruolo.undefined)
         ? const {'C1', 'C2'}
@@ -2377,7 +2620,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     }
     final giocatoreCoppia = currentAssignments[slotCentrale];
     if (giocatoreCoppia == null) {
-      return [if (bench1Token != null) bench1Token];
+      return [?bench1Token];
     }
 
     final defenseMap = _activeDefenseMap;
@@ -2425,7 +2668,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           radius,
           onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale)),
       _buildAbsoluteToken(liberoKey, libero, bench0, radius, isLibero: true),
-      if (bench1Token != null) bench1Token,
+      ?bench1Token,
     ];
   }
 

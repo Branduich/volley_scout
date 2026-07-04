@@ -10,6 +10,28 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
+/// Mappa una riga `ScoutAction` nell'evento minimale che serve a
+/// `ricalcolaStato()` — unico punto di conversione riga→evento, usato sia
+/// da `ScoutScreen._statoSetReale` (stream) sia da
+/// `MatchSetRepository.calcolaStatoFinale` (one-shot): i due replay restano
+/// così sempre allineati. Il campo `sostituzione` si valorizza solo per
+/// `tipo == cambioGiocatore` con entrambi i giocatori presenti (una riga
+/// degradata da FK setNull — giocatore eliminato — diventa un no-op).
+AzioneScout azioneScoutDaRiga(ScoutAction a) => AzioneScout(
+      ordine: a.ordine,
+      esitoPunto: a.esitoPunto,
+      sostituzione: (a.tipo == TipoAzione.cambioGiocatore &&
+              a.giocatoreId != null &&
+              a.giocatoreUscenteId != null)
+          ? SostituzioneGiocatore(
+              esceId: a.giocatoreUscenteId!,
+              entraId: a.giocatoreId!,
+              nuovoPalleggiatoreId: a.nuovoPalleggiatoreId,
+              nuovoRuoloCambiLibero: a.nuovoRuoloCambiLibero,
+            )
+          : null,
+    );
+
 class TeamRepository {
   TeamRepository(this._db);
 
@@ -302,10 +324,7 @@ class MatchSetRepository {
           ..where((a) => a.setId.equals(set.id))
           ..orderBy([(a) => OrderingTerm.asc(a.ordine)]))
         .get();
-    final azioni = [
-      for (final a in righeAzioni)
-        AzioneScout(ordine: a.ordine, esitoPunto: a.esitoPunto),
-    ];
+    final azioni = [for (final a in righeAzioni) azioneScoutDaRiga(a)];
     return ricalcolaStato(
       azioni: azioni,
       servizioIniziale: set.squadraServizioIniziale,
@@ -384,11 +403,34 @@ class ScoutActionRepository {
   /// Undo: elimina l'azione con `ordine` massimo nel set. Punteggio/
   /// rotazione si ricalcolano da soli (derivati dagli eventi rimanenti via
   /// ricalcolaStato()) — nessuna logica di "inversione" manuale.
+  /// Se l'ultima azione è un cambio giocatore con `gruppoCambio`, elimina
+  /// l'INTERO gruppo (i cambi confermati insieme, es. doppio cambio, si
+  /// annullano insieme — annullarne solo metà non ha senso pallavolistico).
   Future<void> annullaUltimaAzione(int setId) async {
     final ultima = await ultimaAzione(setId);
     if (ultima == null) return;
+    final gruppo = ultima.gruppoCambio;
+    if (ultima.tipo == TipoAzione.cambioGiocatore && gruppo != null) {
+      await (_db.delete(_db.scoutActions)
+            ..where(
+                (a) => a.setId.equals(setId) & a.gruppoCambio.equals(gruppo)))
+          .go();
+      return;
+    }
     await (_db.delete(_db.scoutActions)..where((a) => a.id.equals(ultima.id)))
         .go();
+  }
+
+  /// Quante righe appartengono a un gruppo di cambi (per il testo del
+  /// dialog di conferma undo: "verranno annullati N cambi").
+  Future<int> contaGruppoCambio(int setId, int gruppoCambio) async {
+    final count = _db.scoutActions.id.count();
+    final row = await (_db.selectOnly(_db.scoutActions)
+          ..addColumns([count])
+          ..where(_db.scoutActions.setId.equals(setId) &
+              _db.scoutActions.gruppoCambio.equals(gruppoCambio)))
+        .getSingle();
+    return row.read(count) ?? 0;
   }
 
   /// Registra un'azione dei bottoni rapidi (+1 Noi/+1 Loro/Errore): nessun
@@ -455,6 +497,36 @@ class ScoutActionRepository {
     );
   }
 
+  /// Registra un cambio giocatore (sostituzione a set in corso) — UNA sola
+  /// riga per cambio, scritta a flusso completato (dialog di configurazione
+  /// compreso): l'undo esistente (elimina la riga con `ordine` massimo)
+  /// riporta così l'intero cambio indietro in un colpo solo.
+  /// `giocatoreId` = chi entra, `giocatoreUscenteId` = chi esce;
+  /// `nuovoPalleggiatoreId`/`nuovoRuoloCambiLibero` sono gli override di
+  /// configurazione decisi col cambio (null = invariato). `esitoPunto` è
+  /// sempre `nessuno`: il cambio non tocca punteggio né rotazione (il
+  /// subentrante prende la posizione dell'uscente — vedi ricalcolaStato()).
+  Future<void> registraSostituzione({
+    required int setId,
+    required int entraId,
+    required int esceId,
+    int? nuovoPalleggiatoreId,
+    Ruolo? nuovoRuoloCambiLibero,
+    int? gruppoCambio,
+  }) {
+    return _registraAzione(
+      setId: setId,
+      squadra: Squadra.nostra,
+      tipo: TipoAzione.cambioGiocatore,
+      esitoPunto: EsitoPunto.nessuno,
+      giocatoreId: entraId,
+      giocatoreUscenteId: esceId,
+      nuovoPalleggiatoreId: nuovoPalleggiatoreId,
+      nuovoRuoloCambiLibero: nuovoRuoloCambiLibero,
+      gruppoCambio: gruppoCambio,
+    );
+  }
+
   Future<void> _registraAzione({
     required int setId,
     required Squadra squadra,
@@ -470,6 +542,10 @@ class ScoutActionRepository {
     double? traiettoriaY2,
     double? traiettoriaMuroX,
     double? traiettoriaMuroY,
+    int? giocatoreUscenteId,
+    int? nuovoPalleggiatoreId,
+    Ruolo? nuovoRuoloCambiLibero,
+    int? gruppoCambio,
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -505,6 +581,10 @@ class ScoutActionRepository {
             traiettoriaY2: Value(traiettoriaY2),
             traiettoriaMuroX: Value(traiettoriaMuroX),
             traiettoriaMuroY: Value(traiettoriaMuroY),
+            giocatoreUscenteId: Value(giocatoreUscenteId),
+            nuovoPalleggiatoreId: Value(nuovoPalleggiatoreId),
+            nuovoRuoloCambiLibero: Value(nuovoRuoloCambiLibero),
+            gruppoCambio: Value(gruppoCambio),
           ),
         );
   }

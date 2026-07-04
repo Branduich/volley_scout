@@ -186,6 +186,25 @@ class ScoutActions extends Table {
   RealColumn get traiettoriaMuroY => real().nullable()();
   IntColumn get puntiCasaAlMomento => integer().nullable()();
   IntColumn get puntiOspitiAlMomento => integer().nullable()();
+  // Solo per tipo == cambioGiocatore (sostituzione a set in corso, schema
+  // v11): chi esce (giocatoreId = chi entra) + gli override di
+  // configurazione decisi col cambio — null = invariato. @ReferenceName per
+  // il clash di nome sulla relazione inversa (più FK verso Players, stesso
+  // trucco di liberoId/libero2Id su MatchSets).
+  @ReferenceName('scoutActionsComeUscente')
+  IntColumn get giocatoreUscenteId => integer()
+      .nullable()
+      .references(Players, #id, onDelete: KeyAction.setNull)();
+  @ReferenceName('scoutActionsComeNuovoPalleggiatore')
+  IntColumn get nuovoPalleggiatoreId => integer()
+      .nullable()
+      .references(Players, #id, onDelete: KeyAction.setNull)();
+  TextColumn get nuovoRuoloCambiLibero =>
+      text().nullable().map(const RuoloConverter())();
+  // Cambi confermati INSIEME (es. doppio cambio) condividono lo stesso
+  // valore (schema v12): l'undo di una riga cambio elimina l'intero gruppo
+  // — annullare solo metà di un doppio cambio non ha senso pallavolistico.
+  IntColumn get gruppoCambio => integer().nullable()();
 }
 
 // --- Database ---
@@ -201,7 +220,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 12;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -308,6 +327,27 @@ class AppDatabase extends _$AppDatabase {
               await customStatement('ALTER TABLE scout_actions ADD COLUMN '
                   'traiettoria_muro_y REAL');
             }
+          }
+          if (from < 11) {
+            if (!await _hasColumn('scout_actions', 'giocatore_uscente_id')) {
+              await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                  'giocatore_uscente_id INTEGER REFERENCES players (id)');
+            }
+            if (!await _hasColumn(
+                'scout_actions', 'nuovo_palleggiatore_id')) {
+              await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                  'nuovo_palleggiatore_id INTEGER REFERENCES players (id)');
+            }
+            if (!await _hasColumn(
+                'scout_actions', 'nuovo_ruolo_cambi_libero')) {
+              await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                  'nuovo_ruolo_cambi_libero TEXT');
+            }
+          }
+          if (from < 12 &&
+              !await _hasColumn('scout_actions', 'gruppo_cambio')) {
+            await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                'gruppo_cambio INTEGER');
           }
         },
         beforeOpen: (details) async {

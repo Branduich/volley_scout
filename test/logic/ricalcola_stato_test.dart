@@ -277,6 +277,55 @@ void main() {
       expect(stato.rotazione, rotazioneIniziale);
     });
 
+    test('subentrante già in campo: riga incoerente, no-op completo '
+        '(nessuna posizione duplicata)', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            // 20 è già in posizione 2: applicare il cambio lo
+            // duplicherebbe in campo.
+            sostituzione: SostituzioneGiocatore(
+              esceId: 30,
+              entraId: 20,
+              nuovoPalleggiatoreId: 20,
+            ),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreInizialeId: 10,
+      );
+
+      expect(stato.rotazione, rotazioneIniziale);
+      // Anche gli override della riga incoerente vengono ignorati.
+      expect(stato.palleggiatoreId, 10);
+    });
+
+    test('riga no-op legittima (esceId == entraId): porta solo gli override',
+        () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(
+              esceId: 20,
+              entraId: 20,
+              nuovoPalleggiatoreId: 20,
+            ),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreInizialeId: 10,
+      );
+
+      expect(stato.rotazione, rotazioneIniziale);
+      expect(stato.palleggiatoreId, 20);
+    });
+
     test('palleggiatoreId e ruoloCambiLibero seguono gli override del cambio',
         () {
       final stato = ricalcolaStato(

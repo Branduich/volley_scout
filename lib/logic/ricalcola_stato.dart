@@ -128,17 +128,27 @@ StatoSet ricalcolaStato({
     final sostituzione = azione.sostituzione;
     if (sostituzione != null) {
       // Il subentrante prende la posizione dell'uscente, la rotazione non
-      // cambia. Se l'uscente non è in campo (dato incoerente), no-op: mai
-      // lanciare durante un replay.
-      rotazione = {
-        for (final entry in rotazione.entries)
-          entry.key: entry.value == sostituzione.esceId
-              ? sostituzione.entraId
-              : entry.value,
-      };
-      palleggiatoreId = sostituzione.nuovoPalleggiatoreId ?? palleggiatoreId;
-      ruoloCambiLibero =
-          sostituzione.nuovoRuoloCambiLibero ?? ruoloCambiLibero;
+      // cambia. Righe incoerenti → no-op, mai lanciare durante un replay:
+      // uscente non in campo (la sostituzione non tocca nessuna posizione)
+      // o subentrante GIÀ in campo (applicarla duplicherebbe lo stesso
+      // giocatore su due posizioni — ValueKey duplicate in UI, dati
+      // corrotti). Eccezione: esceId == entraId è la riga "no-op" legittima
+      // usata per una riconfigurazione senza cambi (porta solo gli
+      // override).
+      final duplicherebbe = sostituzione.esceId != sostituzione.entraId &&
+          rotazione.containsValue(sostituzione.entraId);
+      if (!duplicherebbe) {
+        rotazione = {
+          for (final entry in rotazione.entries)
+            entry.key: entry.value == sostituzione.esceId
+                ? sostituzione.entraId
+                : entry.value,
+        };
+        palleggiatoreId =
+            sostituzione.nuovoPalleggiatoreId ?? palleggiatoreId;
+        ruoloCambiLibero =
+            sostituzione.nuovoRuoloCambiLibero ?? ruoloCambiLibero;
+      }
     }
 
     switch (azione.esitoPunto) {

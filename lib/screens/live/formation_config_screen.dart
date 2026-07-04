@@ -1,21 +1,44 @@
 import 'package:flutter/material.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
+import '../../widgets/court_view.dart';
 import 'scout_screen.dart';
 
 const _kBg = Color(0xFF0F172A);
-const _kCourtImage = 'assets/images/court_bg.png';
+
+/// Risultato della modalità conferma (vedi `modalitaConferma`): la scelta
+/// di palleggiatore e coppia cambi-libero, restituita al chiamante con un
+/// pop invece di navigare avanti verso ScoutScreen.
+typedef ConfigurazioneFormazione = ({
+  String palleggiatoreSlot,
+  Ruolo? ruoloCambiLibero,
+});
 
 class FormationConfigScreen extends StatefulWidget {
   final VolleyMatch match;
   final Team team;
   final Map<String, Player> assignments;
 
+  /// Preselezioni esplicite (usate dal flusso di sostituzione con i valori
+  /// EFFETTIVI correnti del set): se null, initState ricade sullo scan per
+  /// ruolo come a inizio partita.
+  final String? palleggiatoreSlotIniziale;
+  final Ruolo? ruoloCambiLiberoIniziale;
+
+  /// Modalità conferma (flusso di sostituzione): il bottone diventa
+  /// "Conferma" e fa `Navigator.pop` con un [ConfigurazioneFormazione]
+  /// invece di push verso ScoutScreen. Il flusso di inizio partita resta
+  /// invariato col default false.
+  final bool modalitaConferma;
+
   const FormationConfigScreen({
     super.key,
     required this.match,
     required this.team,
     required this.assignments,
+    this.palleggiatoreSlotIniziale,
+    this.ruoloCambiLiberoIniziale,
+    this.modalitaConferma = false,
   });
 
   @override
@@ -30,15 +53,29 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-seleziona il palleggiatore e i centrali in base al ruolo assegnato
-    for (final entry in widget.assignments.entries) {
-      if (entry.value.ruolo == Ruolo.palleggiatore &&
-          _palleggiatoreSlot == null) {
-        _palleggiatoreSlot = entry.key;
+    // Palleggiatore: preselezione esplicita (flusso sostituzione, valore
+    // effettivo del set) o scan per ruolo (inizio partita).
+    if (widget.palleggiatoreSlotIniziale != null &&
+        widget.assignments.containsKey(widget.palleggiatoreSlotIniziale)) {
+      _palleggiatoreSlot = widget.palleggiatoreSlotIniziale;
+    } else {
+      for (final entry in widget.assignments.entries) {
+        if (entry.value.ruolo == Ruolo.palleggiatore &&
+            _palleggiatoreSlot == null) {
+          _palleggiatoreSlot = entry.key;
+        }
       }
     }
+    // Coppia cambi-libero: preseleziona i giocatori col ruolo della coppia
+    // effettiva se fornito, altrimenti i centrali come a inizio partita.
+    // Solo slot P1..P6 (assignments contiene anche L1/L2) e mai il
+    // palleggiatore designato.
+    final ruoloCoppia = widget.ruoloCambiLiberoIniziale ?? Ruolo.centrale;
     for (final entry in widget.assignments.entries) {
-      if (entry.value.ruolo == Ruolo.centrale && _centraliSlots.length < 2) {
+      if (entry.value.ruolo == ruoloCoppia &&
+          entry.key != _palleggiatoreSlot &&
+          entry.key.startsWith('P') &&
+          _centraliSlots.length < 2) {
         _centraliSlots.add(entry.key);
       }
     }
@@ -112,6 +149,15 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     final ruoloCambiLibero = _hasLibero && _centraliSlots.isNotEmpty
         ? widget.assignments[_centraliSlots.first]?.ruolo
         : null;
+    if (widget.modalitaConferma) {
+      // Flusso sostituzione: la scelta torna al chiamante (che scriverà
+      // gli eventi di cambio) — nessuna navigazione avanti.
+      Navigator.pop<ConfigurazioneFormazione>(context, (
+        palleggiatoreSlot: _palleggiatoreSlot!,
+        ruoloCambiLibero: ruoloCambiLibero,
+      ));
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -139,7 +185,8 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton(
               onPressed: _canConfirm ? _onAvanti : null,
-              child: const Text('Inizia scout'),
+              child: Text(
+                  widget.modalitaConferma ? 'Conferma' : 'Inizia scout'),
             ),
           ),
         ],
@@ -190,11 +237,11 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _LabeledCourt(
+                      LabeledCourt(
                         title: 'Palleggiatore',
                         subtitle: 'Conferma il palleggiatore',
                         subtitleColor: Colors.white54,
-                        child: _CourtView(
+                        child: CourtView(
                           assignments: widget.assignments,
                           selectedSlots: _palleggiatoreSlot != null
                               ? {_palleggiatoreSlot!}
@@ -205,14 +252,14 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                       ),
                       if (_hasLibero) ...[
                         const SizedBox(width: 24),
-                        _LabeledCourt(
+                        LabeledCourt(
                           title: 'Cambi del libero',
                           subtitle:
                               'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
                           subtitleColor: _centraliSlots.length == 2
                               ? Colors.lightBlue
                               : Colors.white54,
-                          child: _CourtView(
+                          child: CourtView(
                             assignments: widget.assignments,
                             selectedSlots: _centraliSlots,
                             selectionColor: const Color(0xFF00008A),
@@ -235,210 +282,6 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Widget etichetta + campo ─────────────────────────────────────────────────
-
-class _LabeledCourt extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color subtitleColor;
-  final Widget child;
-
-  const _LabeledCourt({
-    required this.title,
-    required this.subtitle,
-    required this.subtitleColor,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          style: TextStyle(fontSize: 12, color: subtitleColor),
-        ),
-        const SizedBox(height: 6),
-        SizedBox(width: 460, height: 460, child: child),
-      ],
-    );
-  }
-}
-
-// ── Visualizzazione campo (read-only o interattivo) ──────────────────────────
-
-class _CourtView extends StatelessWidget {
-  final Map<String, Player> assignments;
-  final Set<String> selectedSlots;
-  final Set<String> disabledSlots;
-  final Color selectionColor;
-  final void Function(String slot)? onSlotTap;
-
-  const _CourtView({
-    required this.assignments,
-    this.selectedSlots = const {},
-    this.disabledSlots = const {},
-    this.selectionColor = Colors.amber,
-    this.onSlotTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white, width: 2),
-        borderRadius: BorderRadius.circular(8),
-        image: const DecorationImage(
-          image: AssetImage(_kCourtImage),
-          fit: BoxFit.fill,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Column(
-          children: [
-            // Fila frontale (lato rete): P4 | P3 | P2
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: _buildSlot('P4')),
-                  Expanded(child: _buildSlot('P3')),
-                  Expanded(child: _buildSlot('P2')),
-                ],
-              ),
-            ),
-            // Fila posteriore: P5 | P6 | P1
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: _buildSlot('P5')),
-                  Expanded(child: _buildSlot('P6')),
-                  Expanded(child: _buildSlot('P1')),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSlot(String slot) {
-    final player = assignments[slot];
-    final isSelected = selectedSlots.contains(slot);
-    final isDisabled = disabledSlots.contains(slot);
-    final canTap = onSlotTap != null && player != null && !isDisabled;
-
-    final card = Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 104),
-      decoration: BoxDecoration(
-        color: isDisabled
-            ? Colors.grey.shade300
-            : (player == null ? Colors.lightBlueAccent : Colors.white),
-        borderRadius: BorderRadius.circular(12),
-        border: isSelected
-            ? Border.all(color: selectionColor, width: 3)
-            : null,
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: selectionColor.withAlpha(100),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                )
-              ]
-            : null,
-      ),
-      child: player == null ? _slotLabel(slot) : _slotPlayer(player, isDisabled),
-    );
-
-    if (canTap) {
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onSlotTap!(slot),
-        child: card,
-      );
-    }
-    return card;
-  }
-
-  Widget _slotLabel(String slot) {
-    return Center(
-      child: Text(
-        slot,
-        style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
-
-  Widget _slotPlayer(Player player, bool dimmed) {
-    final color = dimmed ? Colors.black38 : Colors.black87;
-    final subColor = dimmed ? Colors.black26 : Colors.black54;
-    const nameStyle = TextStyle(
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      height: 1.0,
-    );
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            '${player.numero}',
-            style: TextStyle(
-              fontSize: 31,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Text(
-              '${player.cognome} ${player.nome}',
-              style: nameStyle.copyWith(color: subColor),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Text(
-              player.ruolo.label,
-              style: nameStyle.copyWith(
-                  color: subColor, fontWeight: FontWeight.normal),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
       ),
     );
   }

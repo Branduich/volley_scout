@@ -138,9 +138,12 @@ class _TrajectoryReportScreenState
         if (pos != null) rotazioneIniziale[pos] = e.value.id;
       }
 
-      final setterPlayerId =
+      final setterIniziale =
           formazione.assignments[formazione.palleggiatoreSlot]?.id;
-      if (setterPlayerId == null) continue;
+      if (setterIniziale == null) continue;
+      // Palleggiatore designato EFFETTIVO: può cambiare a set in corso con
+      // un cambio giocatore (override nell'evento) — vedi ricalcolaStato().
+      var setterPlayerId = setterIniziale;
 
       final azioni = azioniPerSet[set.id] ?? [];
       final ordinate = [...azioni]
@@ -150,6 +153,26 @@ class _TrajectoryReportScreenState
       var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
 
       for (final a in ordinate) {
+        // Cambio giocatore: il subentrante prende la posizione dell'uscente,
+        // la rotazione non cambia — stessa regola (e stesse guardie sui
+        // dati incoerenti) di ricalcolaStato() in ricalcola_stato.dart:
+        // uscente non in campo o subentrante già in campo → no-op.
+        if (a.tipo == TipoAzione.cambioGiocatore &&
+            a.giocatoreId != null &&
+            a.giocatoreUscenteId != null) {
+          final entra = a.giocatoreId!;
+          final esce = a.giocatoreUscenteId!;
+          final duplicherebbe =
+              esce != entra && rotazione.containsValue(entra);
+          if (!duplicherebbe) {
+            rotazione = {
+              for (final e in rotazione.entries)
+                e.key: e.value == esce ? entra : e.value,
+            };
+            setterPlayerId = a.nuovoPalleggiatoreId ?? setterPlayerId;
+          }
+        }
+
         // Registra la rotazione corrente PRIMA di applicare l'esito
         // dell'azione — l'attacco avviene durante il rally, prima della
         // rotazione causata dall'eventuale punto.

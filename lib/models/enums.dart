@@ -81,8 +81,12 @@ enum Fondamentale {
 }
 
 /// Tipo di un'azione registrata nello scout. `scout` = percorso normale
-/// (giocatore + fondamentale + voto); gli altri due sono i bottoni rapidi.
-enum TipoAzione { scout, puntoManuale, erroreGenerico }
+/// (giocatore + fondamentale + voto); `puntoManuale`/`erroreGenerico` sono i
+/// bottoni rapidi. `cambioGiocatore` = sostituzione a set in corso
+/// ("cambio", non "sostituzione": quel termine è già usato per la meccanica
+/// del libero) — `giocatoreId` = chi entra, `esitoPunto = nessuno`, più le
+/// colonne dedicate su ScoutActions (uscente + override di configurazione).
+enum TipoAzione { scout, puntoManuale, erroreGenerico, cambioGiocatore }
 
 /// Motivo di un `TipoAzione.erroreGenerico` dell'avversario — salvato nella
 /// stessa colonna polimorfica `tipoEsecuzione` usata da TipoBattuta/

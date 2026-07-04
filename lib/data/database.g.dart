@@ -2667,6 +2667,52 @@ class $ScoutActionsTable extends ScoutActions
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _giocatoreUscenteIdMeta =
+      const VerificationMeta('giocatoreUscenteId');
+  @override
+  late final GeneratedColumn<int> giocatoreUscenteId = GeneratedColumn<int>(
+    'giocatore_uscente_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE SET NULL',
+    ),
+  );
+  static const VerificationMeta _nuovoPalleggiatoreIdMeta =
+      const VerificationMeta('nuovoPalleggiatoreId');
+  @override
+  late final GeneratedColumn<int> nuovoPalleggiatoreId = GeneratedColumn<int>(
+    'nuovo_palleggiatore_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES players (id) ON DELETE SET NULL',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<Ruolo?, String>
+  nuovoRuoloCambiLibero = GeneratedColumn<String>(
+    'nuovo_ruolo_cambi_libero',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<Ruolo?>($ScoutActionsTable.$converternuovoRuoloCambiLiberon);
+  static const VerificationMeta _gruppoCambioMeta = const VerificationMeta(
+    'gruppoCambio',
+  );
+  @override
+  late final GeneratedColumn<int> gruppoCambio = GeneratedColumn<int>(
+    'gruppo_cambio',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2689,6 +2735,10 @@ class $ScoutActionsTable extends ScoutActions
     traiettoriaMuroY,
     puntiCasaAlMomento,
     puntiOspitiAlMomento,
+    giocatoreUscenteId,
+    nuovoPalleggiatoreId,
+    nuovoRuoloCambiLibero,
+    gruppoCambio,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2827,6 +2877,33 @@ class $ScoutActionsTable extends ScoutActions
         ),
       );
     }
+    if (data.containsKey('giocatore_uscente_id')) {
+      context.handle(
+        _giocatoreUscenteIdMeta,
+        giocatoreUscenteId.isAcceptableOrUnknown(
+          data['giocatore_uscente_id']!,
+          _giocatoreUscenteIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nuovo_palleggiatore_id')) {
+      context.handle(
+        _nuovoPalleggiatoreIdMeta,
+        nuovoPalleggiatoreId.isAcceptableOrUnknown(
+          data['nuovo_palleggiatore_id']!,
+          _nuovoPalleggiatoreIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('gruppo_cambio')) {
+      context.handle(
+        _gruppoCambioMeta,
+        gruppoCambio.isAcceptableOrUnknown(
+          data['gruppo_cambio']!,
+          _gruppoCambioMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2926,6 +3003,25 @@ class $ScoutActionsTable extends ScoutActions
         DriftSqlType.int,
         data['${effectivePrefix}punti_ospiti_al_momento'],
       ),
+      giocatoreUscenteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}giocatore_uscente_id'],
+      ),
+      nuovoPalleggiatoreId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}nuovo_palleggiatore_id'],
+      ),
+      nuovoRuoloCambiLibero: $ScoutActionsTable.$converternuovoRuoloCambiLiberon
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}nuovo_ruolo_cambi_libero'],
+            ),
+          ),
+      gruppoCambio: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}gruppo_cambio'],
+      ),
     );
   }
 
@@ -2947,6 +3043,10 @@ class $ScoutActionsTable extends ScoutActions
       NullAwareTypeConverter.wrap($convertervoto);
   static TypeConverter<EsitoPunto, String> $converteresitoPunto =
       const EsitoPuntoConverter();
+  static TypeConverter<Ruolo, String> $converternuovoRuoloCambiLibero =
+      const RuoloConverter();
+  static TypeConverter<Ruolo?, String?> $converternuovoRuoloCambiLiberon =
+      NullAwareTypeConverter.wrap($converternuovoRuoloCambiLibero);
 }
 
 class ScoutAction extends DataClass implements Insertable<ScoutAction> {
@@ -2970,6 +3070,10 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
   final double? traiettoriaMuroY;
   final int? puntiCasaAlMomento;
   final int? puntiOspitiAlMomento;
+  final int? giocatoreUscenteId;
+  final int? nuovoPalleggiatoreId;
+  final Ruolo? nuovoRuoloCambiLibero;
+  final int? gruppoCambio;
   const ScoutAction({
     required this.id,
     required this.setId,
@@ -2991,6 +3095,10 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     this.traiettoriaMuroY,
     this.puntiCasaAlMomento,
     this.puntiOspitiAlMomento,
+    this.giocatoreUscenteId,
+    this.nuovoPalleggiatoreId,
+    this.nuovoRuoloCambiLibero,
+    this.gruppoCambio,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3053,6 +3161,22 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     if (!nullToAbsent || puntiOspitiAlMomento != null) {
       map['punti_ospiti_al_momento'] = Variable<int>(puntiOspitiAlMomento);
     }
+    if (!nullToAbsent || giocatoreUscenteId != null) {
+      map['giocatore_uscente_id'] = Variable<int>(giocatoreUscenteId);
+    }
+    if (!nullToAbsent || nuovoPalleggiatoreId != null) {
+      map['nuovo_palleggiatore_id'] = Variable<int>(nuovoPalleggiatoreId);
+    }
+    if (!nullToAbsent || nuovoRuoloCambiLibero != null) {
+      map['nuovo_ruolo_cambi_libero'] = Variable<String>(
+        $ScoutActionsTable.$converternuovoRuoloCambiLiberon.toSql(
+          nuovoRuoloCambiLibero,
+        ),
+      );
+    }
+    if (!nullToAbsent || gruppoCambio != null) {
+      map['gruppo_cambio'] = Variable<int>(gruppoCambio);
+    }
     return map;
   }
 
@@ -3098,6 +3222,18 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       puntiOspitiAlMomento: puntiOspitiAlMomento == null && nullToAbsent
           ? const Value.absent()
           : Value(puntiOspitiAlMomento),
+      giocatoreUscenteId: giocatoreUscenteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(giocatoreUscenteId),
+      nuovoPalleggiatoreId: nuovoPalleggiatoreId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nuovoPalleggiatoreId),
+      nuovoRuoloCambiLibero: nuovoRuoloCambiLibero == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nuovoRuoloCambiLibero),
+      gruppoCambio: gruppoCambio == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gruppoCambio),
     );
   }
 
@@ -3129,6 +3265,14 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       puntiOspitiAlMomento: serializer.fromJson<int?>(
         json['puntiOspitiAlMomento'],
       ),
+      giocatoreUscenteId: serializer.fromJson<int?>(json['giocatoreUscenteId']),
+      nuovoPalleggiatoreId: serializer.fromJson<int?>(
+        json['nuovoPalleggiatoreId'],
+      ),
+      nuovoRuoloCambiLibero: serializer.fromJson<Ruolo?>(
+        json['nuovoRuoloCambiLibero'],
+      ),
+      gruppoCambio: serializer.fromJson<int?>(json['gruppoCambio']),
     );
   }
   @override
@@ -3155,6 +3299,10 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       'traiettoriaMuroY': serializer.toJson<double?>(traiettoriaMuroY),
       'puntiCasaAlMomento': serializer.toJson<int?>(puntiCasaAlMomento),
       'puntiOspitiAlMomento': serializer.toJson<int?>(puntiOspitiAlMomento),
+      'giocatoreUscenteId': serializer.toJson<int?>(giocatoreUscenteId),
+      'nuovoPalleggiatoreId': serializer.toJson<int?>(nuovoPalleggiatoreId),
+      'nuovoRuoloCambiLibero': serializer.toJson<Ruolo?>(nuovoRuoloCambiLibero),
+      'gruppoCambio': serializer.toJson<int?>(gruppoCambio),
     };
   }
 
@@ -3179,6 +3327,10 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     Value<double?> traiettoriaMuroY = const Value.absent(),
     Value<int?> puntiCasaAlMomento = const Value.absent(),
     Value<int?> puntiOspitiAlMomento = const Value.absent(),
+    Value<int?> giocatoreUscenteId = const Value.absent(),
+    Value<int?> nuovoPalleggiatoreId = const Value.absent(),
+    Value<Ruolo?> nuovoRuoloCambiLibero = const Value.absent(),
+    Value<int?> gruppoCambio = const Value.absent(),
   }) => ScoutAction(
     id: id ?? this.id,
     setId: setId ?? this.setId,
@@ -3216,6 +3368,16 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     puntiOspitiAlMomento: puntiOspitiAlMomento.present
         ? puntiOspitiAlMomento.value
         : this.puntiOspitiAlMomento,
+    giocatoreUscenteId: giocatoreUscenteId.present
+        ? giocatoreUscenteId.value
+        : this.giocatoreUscenteId,
+    nuovoPalleggiatoreId: nuovoPalleggiatoreId.present
+        ? nuovoPalleggiatoreId.value
+        : this.nuovoPalleggiatoreId,
+    nuovoRuoloCambiLibero: nuovoRuoloCambiLibero.present
+        ? nuovoRuoloCambiLibero.value
+        : this.nuovoRuoloCambiLibero,
+    gruppoCambio: gruppoCambio.present ? gruppoCambio.value : this.gruppoCambio,
   );
   ScoutAction copyWithCompanion(ScoutActionsCompanion data) {
     return ScoutAction(
@@ -3263,6 +3425,18 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       puntiOspitiAlMomento: data.puntiOspitiAlMomento.present
           ? data.puntiOspitiAlMomento.value
           : this.puntiOspitiAlMomento,
+      giocatoreUscenteId: data.giocatoreUscenteId.present
+          ? data.giocatoreUscenteId.value
+          : this.giocatoreUscenteId,
+      nuovoPalleggiatoreId: data.nuovoPalleggiatoreId.present
+          ? data.nuovoPalleggiatoreId.value
+          : this.nuovoPalleggiatoreId,
+      nuovoRuoloCambiLibero: data.nuovoRuoloCambiLibero.present
+          ? data.nuovoRuoloCambiLibero.value
+          : this.nuovoRuoloCambiLibero,
+      gruppoCambio: data.gruppoCambio.present
+          ? data.gruppoCambio.value
+          : this.gruppoCambio,
     );
   }
 
@@ -3288,13 +3462,17 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
           ..write('traiettoriaMuroX: $traiettoriaMuroX, ')
           ..write('traiettoriaMuroY: $traiettoriaMuroY, ')
           ..write('puntiCasaAlMomento: $puntiCasaAlMomento, ')
-          ..write('puntiOspitiAlMomento: $puntiOspitiAlMomento')
+          ..write('puntiOspitiAlMomento: $puntiOspitiAlMomento, ')
+          ..write('giocatoreUscenteId: $giocatoreUscenteId, ')
+          ..write('nuovoPalleggiatoreId: $nuovoPalleggiatoreId, ')
+          ..write('nuovoRuoloCambiLibero: $nuovoRuoloCambiLibero, ')
+          ..write('gruppoCambio: $gruppoCambio')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     setId,
     rallyId,
@@ -3315,7 +3493,11 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     traiettoriaMuroY,
     puntiCasaAlMomento,
     puntiOspitiAlMomento,
-  );
+    giocatoreUscenteId,
+    nuovoPalleggiatoreId,
+    nuovoRuoloCambiLibero,
+    gruppoCambio,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3339,7 +3521,11 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
           other.traiettoriaMuroX == this.traiettoriaMuroX &&
           other.traiettoriaMuroY == this.traiettoriaMuroY &&
           other.puntiCasaAlMomento == this.puntiCasaAlMomento &&
-          other.puntiOspitiAlMomento == this.puntiOspitiAlMomento);
+          other.puntiOspitiAlMomento == this.puntiOspitiAlMomento &&
+          other.giocatoreUscenteId == this.giocatoreUscenteId &&
+          other.nuovoPalleggiatoreId == this.nuovoPalleggiatoreId &&
+          other.nuovoRuoloCambiLibero == this.nuovoRuoloCambiLibero &&
+          other.gruppoCambio == this.gruppoCambio);
 }
 
 class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
@@ -3363,6 +3549,10 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
   final Value<double?> traiettoriaMuroY;
   final Value<int?> puntiCasaAlMomento;
   final Value<int?> puntiOspitiAlMomento;
+  final Value<int?> giocatoreUscenteId;
+  final Value<int?> nuovoPalleggiatoreId;
+  final Value<Ruolo?> nuovoRuoloCambiLibero;
+  final Value<int?> gruppoCambio;
   const ScoutActionsCompanion({
     this.id = const Value.absent(),
     this.setId = const Value.absent(),
@@ -3384,6 +3574,10 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     this.traiettoriaMuroY = const Value.absent(),
     this.puntiCasaAlMomento = const Value.absent(),
     this.puntiOspitiAlMomento = const Value.absent(),
+    this.giocatoreUscenteId = const Value.absent(),
+    this.nuovoPalleggiatoreId = const Value.absent(),
+    this.nuovoRuoloCambiLibero = const Value.absent(),
+    this.gruppoCambio = const Value.absent(),
   });
   ScoutActionsCompanion.insert({
     this.id = const Value.absent(),
@@ -3406,6 +3600,10 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     this.traiettoriaMuroY = const Value.absent(),
     this.puntiCasaAlMomento = const Value.absent(),
     this.puntiOspitiAlMomento = const Value.absent(),
+    this.giocatoreUscenteId = const Value.absent(),
+    this.nuovoPalleggiatoreId = const Value.absent(),
+    this.nuovoRuoloCambiLibero = const Value.absent(),
+    this.gruppoCambio = const Value.absent(),
   }) : setId = Value(setId),
        rallyId = Value(rallyId),
        ordine = Value(ordine),
@@ -3434,6 +3632,10 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     Expression<double>? traiettoriaMuroY,
     Expression<int>? puntiCasaAlMomento,
     Expression<int>? puntiOspitiAlMomento,
+    Expression<int>? giocatoreUscenteId,
+    Expression<int>? nuovoPalleggiatoreId,
+    Expression<String>? nuovoRuoloCambiLibero,
+    Expression<int>? gruppoCambio,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3458,6 +3660,13 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
         'punti_casa_al_momento': puntiCasaAlMomento,
       if (puntiOspitiAlMomento != null)
         'punti_ospiti_al_momento': puntiOspitiAlMomento,
+      if (giocatoreUscenteId != null)
+        'giocatore_uscente_id': giocatoreUscenteId,
+      if (nuovoPalleggiatoreId != null)
+        'nuovo_palleggiatore_id': nuovoPalleggiatoreId,
+      if (nuovoRuoloCambiLibero != null)
+        'nuovo_ruolo_cambi_libero': nuovoRuoloCambiLibero,
+      if (gruppoCambio != null) 'gruppo_cambio': gruppoCambio,
     });
   }
 
@@ -3482,6 +3691,10 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     Value<double?>? traiettoriaMuroY,
     Value<int?>? puntiCasaAlMomento,
     Value<int?>? puntiOspitiAlMomento,
+    Value<int?>? giocatoreUscenteId,
+    Value<int?>? nuovoPalleggiatoreId,
+    Value<Ruolo?>? nuovoRuoloCambiLibero,
+    Value<int?>? gruppoCambio,
   }) {
     return ScoutActionsCompanion(
       id: id ?? this.id,
@@ -3504,6 +3717,11 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
       traiettoriaMuroY: traiettoriaMuroY ?? this.traiettoriaMuroY,
       puntiCasaAlMomento: puntiCasaAlMomento ?? this.puntiCasaAlMomento,
       puntiOspitiAlMomento: puntiOspitiAlMomento ?? this.puntiOspitiAlMomento,
+      giocatoreUscenteId: giocatoreUscenteId ?? this.giocatoreUscenteId,
+      nuovoPalleggiatoreId: nuovoPalleggiatoreId ?? this.nuovoPalleggiatoreId,
+      nuovoRuoloCambiLibero:
+          nuovoRuoloCambiLibero ?? this.nuovoRuoloCambiLibero,
+      gruppoCambio: gruppoCambio ?? this.gruppoCambio,
     );
   }
 
@@ -3582,6 +3800,22 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
         puntiOspitiAlMomento.value,
       );
     }
+    if (giocatoreUscenteId.present) {
+      map['giocatore_uscente_id'] = Variable<int>(giocatoreUscenteId.value);
+    }
+    if (nuovoPalleggiatoreId.present) {
+      map['nuovo_palleggiatore_id'] = Variable<int>(nuovoPalleggiatoreId.value);
+    }
+    if (nuovoRuoloCambiLibero.present) {
+      map['nuovo_ruolo_cambi_libero'] = Variable<String>(
+        $ScoutActionsTable.$converternuovoRuoloCambiLiberon.toSql(
+          nuovoRuoloCambiLibero.value,
+        ),
+      );
+    }
+    if (gruppoCambio.present) {
+      map['gruppo_cambio'] = Variable<int>(gruppoCambio.value);
+    }
     return map;
   }
 
@@ -3607,7 +3841,11 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
           ..write('traiettoriaMuroX: $traiettoriaMuroX, ')
           ..write('traiettoriaMuroY: $traiettoriaMuroY, ')
           ..write('puntiCasaAlMomento: $puntiCasaAlMomento, ')
-          ..write('puntiOspitiAlMomento: $puntiOspitiAlMomento')
+          ..write('puntiOspitiAlMomento: $puntiOspitiAlMomento, ')
+          ..write('giocatoreUscenteId: $giocatoreUscenteId, ')
+          ..write('nuovoPalleggiatoreId: $nuovoPalleggiatoreId, ')
+          ..write('nuovoRuoloCambiLibero: $nuovoRuoloCambiLibero, ')
+          ..write('gruppoCambio: $gruppoCambio')
           ..write(')'))
         .toString();
   }
@@ -3691,6 +3929,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('scout_actions', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('scout_actions', kind: UpdateKind.update)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'players',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('scout_actions', kind: UpdateKind.update)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -4183,6 +4435,49 @@ final class $$PlayersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$ScoutActionsTable, List<ScoutAction>>
+  _scoutActionsComeUscenteTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.scoutActions,
+        aliasName: 'players__id__scout_actions__giocatore_uscente_id',
+      );
+
+  $$ScoutActionsTableProcessedTableManager get scoutActionsComeUscente {
+    final manager = $$ScoutActionsTableTableManager($_db, $_db.scoutActions)
+        .filter(
+          (f) => f.giocatoreUscenteId.id.sqlEquals($_itemColumn<int>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _scoutActionsComeUscenteTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ScoutActionsTable, List<ScoutAction>>
+  _scoutActionsComeNuovoPalleggiatoreTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.scoutActions,
+        aliasName: 'players__id__scout_actions__nuovo_palleggiatore_id',
+      );
+
+  $$ScoutActionsTableProcessedTableManager
+  get scoutActionsComeNuovoPalleggiatore {
+    final manager = $$ScoutActionsTableTableManager($_db, $_db.scoutActions)
+        .filter(
+          (f) => f.nuovoPalleggiatoreId.id.sqlEquals($_itemColumn<int>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _scoutActionsComeNuovoPalleggiatoreTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$PlayersTableFilterComposer
@@ -4331,6 +4626,56 @@ class $$PlayersTableFilterComposer
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.scoutActions,
       getReferencedColumn: (t) => t.giocatoreId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ScoutActionsTableFilterComposer(
+            $db: $db,
+            $table: $db.scoutActions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> scoutActionsComeUscente(
+    Expression<bool> Function($$ScoutActionsTableFilterComposer f) f,
+  ) {
+    final $$ScoutActionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.scoutActions,
+      getReferencedColumn: (t) => t.giocatoreUscenteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ScoutActionsTableFilterComposer(
+            $db: $db,
+            $table: $db.scoutActions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> scoutActionsComeNuovoPalleggiatore(
+    Expression<bool> Function($$ScoutActionsTableFilterComposer f) f,
+  ) {
+    final $$ScoutActionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.scoutActions,
+      getReferencedColumn: (t) => t.nuovoPalleggiatoreId,
       builder:
           (
             joinBuilder, {
@@ -4563,6 +4908,56 @@ class $$PlayersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> scoutActionsComeUscente<T extends Object>(
+    Expression<T> Function($$ScoutActionsTableAnnotationComposer a) f,
+  ) {
+    final $$ScoutActionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.scoutActions,
+      getReferencedColumn: (t) => t.giocatoreUscenteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ScoutActionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.scoutActions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> scoutActionsComeNuovoPalleggiatore<T extends Object>(
+    Expression<T> Function($$ScoutActionsTableAnnotationComposer a) f,
+  ) {
+    final $$ScoutActionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.scoutActions,
+      getReferencedColumn: (t) => t.nuovoPalleggiatoreId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ScoutActionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.scoutActions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PlayersTableTableManager
@@ -4584,6 +4979,8 @@ class $$PlayersTableTableManager
             bool matchSetsComeLibero2,
             bool rotationsRefs,
             bool scoutActionsRefs,
+            bool scoutActionsComeUscente,
+            bool scoutActionsComeNuovoPalleggiatore,
           })
         > {
   $$PlayersTableTableManager(_$AppDatabase db, $PlayersTable table)
@@ -4648,6 +5045,8 @@ class $$PlayersTableTableManager
                 matchSetsComeLibero2 = false,
                 rotationsRefs = false,
                 scoutActionsRefs = false,
+                scoutActionsComeUscente = false,
+                scoutActionsComeNuovoPalleggiatore = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -4656,6 +5055,8 @@ class $$PlayersTableTableManager
                     if (matchSetsComeLibero2) db.matchSets,
                     if (rotationsRefs) db.rotations,
                     if (scoutActionsRefs) db.scoutActions,
+                    if (scoutActionsComeUscente) db.scoutActions,
+                    if (scoutActionsComeNuovoPalleggiatore) db.scoutActions,
                   ],
                   addJoins:
                       <
@@ -4775,6 +5176,48 @@ class $$PlayersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (scoutActionsComeUscente)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          ScoutAction
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._scoutActionsComeUscenteTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).scoutActionsComeUscente,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.giocatoreUscenteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (scoutActionsComeNuovoPalleggiatore)
+                        await $_getPrefetchedData<
+                          Player,
+                          $PlayersTable,
+                          ScoutAction
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlayersTableReferences
+                              ._scoutActionsComeNuovoPalleggiatoreTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlayersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).scoutActionsComeNuovoPalleggiatore,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.nuovoPalleggiatoreId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4801,6 +5244,8 @@ typedef $$PlayersTableProcessedTableManager =
         bool matchSetsComeLibero2,
         bool rotationsRefs,
         bool scoutActionsRefs,
+        bool scoutActionsComeUscente,
+        bool scoutActionsComeNuovoPalleggiatore,
       })
     >;
 typedef $$VolleyMatchesTableCreateCompanionBuilder =
@@ -6536,6 +6981,10 @@ typedef $$ScoutActionsTableCreateCompanionBuilder =
       Value<double?> traiettoriaMuroY,
       Value<int?> puntiCasaAlMomento,
       Value<int?> puntiOspitiAlMomento,
+      Value<int?> giocatoreUscenteId,
+      Value<int?> nuovoPalleggiatoreId,
+      Value<Ruolo?> nuovoRuoloCambiLibero,
+      Value<int?> gruppoCambio,
     });
 typedef $$ScoutActionsTableUpdateCompanionBuilder =
     ScoutActionsCompanion Function({
@@ -6559,6 +7008,10 @@ typedef $$ScoutActionsTableUpdateCompanionBuilder =
       Value<double?> traiettoriaMuroY,
       Value<int?> puntiCasaAlMomento,
       Value<int?> puntiOspitiAlMomento,
+      Value<int?> giocatoreUscenteId,
+      Value<int?> nuovoPalleggiatoreId,
+      Value<Ruolo?> nuovoRuoloCambiLibero,
+      Value<int?> gruppoCambio,
     });
 
 final class $$ScoutActionsTableReferences
@@ -6593,6 +7046,43 @@ final class $$ScoutActionsTableReferences
       $_db.players,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_giocatoreIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _giocatoreUscenteIdTable(_$AppDatabase db) => db.players
+      .createAlias('scout_actions__giocatore_uscente_id__players__id');
+
+  $$PlayersTableProcessedTableManager? get giocatoreUscenteId {
+    final $_column = $_itemColumn<int>('giocatore_uscente_id');
+    if ($_column == null) return null;
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_giocatoreUscenteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlayersTable _nuovoPalleggiatoreIdTable(_$AppDatabase db) => db
+      .players
+      .createAlias('scout_actions__nuovo_palleggiatore_id__players__id');
+
+  $$PlayersTableProcessedTableManager? get nuovoPalleggiatoreId {
+    final $_column = $_itemColumn<int>('nuovo_palleggiatore_id');
+    if ($_column == null) return null;
+    final manager = $$PlayersTableTableManager(
+      $_db,
+      $_db.players,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(
+      _nuovoPalleggiatoreIdTable($_db),
+    );
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -6704,6 +7194,17 @@ class $$ScoutActionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnWithTypeConverterFilters<Ruolo?, Ruolo, String>
+  get nuovoRuoloCambiLibero => $composableBuilder(
+    column: $table.nuovoRuoloCambiLibero,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get gruppoCambio => $composableBuilder(
+    column: $table.gruppoCambio,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$MatchSetsTableFilterComposer get setId {
     final $$MatchSetsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -6731,6 +7232,52 @@ class $$ScoutActionsTableFilterComposer
     final $$PlayersTableFilterComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.giocatoreId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get giocatoreUscenteId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.giocatoreUscenteId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableFilterComposer get nuovoPalleggiatoreId {
+    final $$PlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nuovoPalleggiatoreId,
       referencedTable: $db.players,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -6850,6 +7397,16 @@ class $$ScoutActionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get nuovoRuoloCambiLibero => $composableBuilder(
+    column: $table.nuovoRuoloCambiLibero,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get gruppoCambio => $composableBuilder(
+    column: $table.gruppoCambio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MatchSetsTableOrderingComposer get setId {
     final $$MatchSetsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6877,6 +7434,52 @@ class $$ScoutActionsTableOrderingComposer
     final $$PlayersTableOrderingComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.giocatoreId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get giocatoreUscenteId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.giocatoreUscenteId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableOrderingComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableOrderingComposer get nuovoPalleggiatoreId {
+    final $$PlayersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nuovoPalleggiatoreId,
       referencedTable: $db.players,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -6984,6 +7587,17 @@ class $$ScoutActionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<Ruolo?, String> get nuovoRuoloCambiLibero =>
+      $composableBuilder(
+        column: $table.nuovoRuoloCambiLibero,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get gruppoCambio => $composableBuilder(
+    column: $table.gruppoCambio,
+    builder: (column) => column,
+  );
+
   $$MatchSetsTableAnnotationComposer get setId {
     final $$MatchSetsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -7029,6 +7643,52 @@ class $$ScoutActionsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$PlayersTableAnnotationComposer get giocatoreUscenteId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.giocatoreUscenteId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlayersTableAnnotationComposer get nuovoPalleggiatoreId {
+    final $$PlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.nuovoPalleggiatoreId,
+      referencedTable: $db.players,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.players,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ScoutActionsTableTableManager
@@ -7044,7 +7704,12 @@ class $$ScoutActionsTableTableManager
           $$ScoutActionsTableUpdateCompanionBuilder,
           (ScoutAction, $$ScoutActionsTableReferences),
           ScoutAction,
-          PrefetchHooks Function({bool setId, bool giocatoreId})
+          PrefetchHooks Function({
+            bool setId,
+            bool giocatoreId,
+            bool giocatoreUscenteId,
+            bool nuovoPalleggiatoreId,
+          })
         > {
   $$ScoutActionsTableTableManager(_$AppDatabase db, $ScoutActionsTable table)
     : super(
@@ -7079,6 +7744,10 @@ class $$ScoutActionsTableTableManager
                 Value<double?> traiettoriaMuroY = const Value.absent(),
                 Value<int?> puntiCasaAlMomento = const Value.absent(),
                 Value<int?> puntiOspitiAlMomento = const Value.absent(),
+                Value<int?> giocatoreUscenteId = const Value.absent(),
+                Value<int?> nuovoPalleggiatoreId = const Value.absent(),
+                Value<Ruolo?> nuovoRuoloCambiLibero = const Value.absent(),
+                Value<int?> gruppoCambio = const Value.absent(),
               }) => ScoutActionsCompanion(
                 id: id,
                 setId: setId,
@@ -7100,6 +7769,10 @@ class $$ScoutActionsTableTableManager
                 traiettoriaMuroY: traiettoriaMuroY,
                 puntiCasaAlMomento: puntiCasaAlMomento,
                 puntiOspitiAlMomento: puntiOspitiAlMomento,
+                giocatoreUscenteId: giocatoreUscenteId,
+                nuovoPalleggiatoreId: nuovoPalleggiatoreId,
+                nuovoRuoloCambiLibero: nuovoRuoloCambiLibero,
+                gruppoCambio: gruppoCambio,
               ),
           createCompanionCallback:
               ({
@@ -7123,6 +7796,10 @@ class $$ScoutActionsTableTableManager
                 Value<double?> traiettoriaMuroY = const Value.absent(),
                 Value<int?> puntiCasaAlMomento = const Value.absent(),
                 Value<int?> puntiOspitiAlMomento = const Value.absent(),
+                Value<int?> giocatoreUscenteId = const Value.absent(),
+                Value<int?> nuovoPalleggiatoreId = const Value.absent(),
+                Value<Ruolo?> nuovoRuoloCambiLibero = const Value.absent(),
+                Value<int?> gruppoCambio = const Value.absent(),
               }) => ScoutActionsCompanion.insert(
                 id: id,
                 setId: setId,
@@ -7144,6 +7821,10 @@ class $$ScoutActionsTableTableManager
                 traiettoriaMuroY: traiettoriaMuroY,
                 puntiCasaAlMomento: puntiCasaAlMomento,
                 puntiOspitiAlMomento: puntiOspitiAlMomento,
+                giocatoreUscenteId: giocatoreUscenteId,
+                nuovoPalleggiatoreId: nuovoPalleggiatoreId,
+                nuovoRuoloCambiLibero: nuovoRuoloCambiLibero,
+                gruppoCambio: gruppoCambio,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7153,60 +7834,100 @@ class $$ScoutActionsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({setId = false, giocatoreId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (setId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.setId,
-                                referencedTable: $$ScoutActionsTableReferences
-                                    ._setIdTable(db),
-                                referencedColumn: $$ScoutActionsTableReferences
-                                    ._setIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (giocatoreId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.giocatoreId,
-                                referencedTable: $$ScoutActionsTableReferences
-                                    ._giocatoreIdTable(db),
-                                referencedColumn: $$ScoutActionsTableReferences
-                                    ._giocatoreIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({
+                setId = false,
+                giocatoreId = false,
+                giocatoreUscenteId = false,
+                nuovoPalleggiatoreId = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (setId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.setId,
+                                    referencedTable:
+                                        $$ScoutActionsTableReferences
+                                            ._setIdTable(db),
+                                    referencedColumn:
+                                        $$ScoutActionsTableReferences
+                                            ._setIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (giocatoreId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.giocatoreId,
+                                    referencedTable:
+                                        $$ScoutActionsTableReferences
+                                            ._giocatoreIdTable(db),
+                                    referencedColumn:
+                                        $$ScoutActionsTableReferences
+                                            ._giocatoreIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (giocatoreUscenteId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.giocatoreUscenteId,
+                                    referencedTable:
+                                        $$ScoutActionsTableReferences
+                                            ._giocatoreUscenteIdTable(db),
+                                    referencedColumn:
+                                        $$ScoutActionsTableReferences
+                                            ._giocatoreUscenteIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (nuovoPalleggiatoreId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.nuovoPalleggiatoreId,
+                                    referencedTable:
+                                        $$ScoutActionsTableReferences
+                                            ._nuovoPalleggiatoreIdTable(db),
+                                    referencedColumn:
+                                        $$ScoutActionsTableReferences
+                                            ._nuovoPalleggiatoreIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -7223,7 +7944,12 @@ typedef $$ScoutActionsTableProcessedTableManager =
       $$ScoutActionsTableUpdateCompanionBuilder,
       (ScoutAction, $$ScoutActionsTableReferences),
       ScoutAction,
-      PrefetchHooks Function({bool setId, bool giocatoreId})
+      PrefetchHooks Function({
+        bool setId,
+        bool giocatoreId,
+        bool giocatoreUscenteId,
+        bool nuovoPalleggiatoreId,
+      })
     >;
 
 class $AppDatabaseManager {
