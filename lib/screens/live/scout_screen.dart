@@ -2234,8 +2234,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final squadraLabel =
         azione.squadra == Squadra.nostra ? widget.team.nome : 'avversario';
     final isPunto = azione.tipo == TipoAzione.puntoManuale;
+    var testo = '${isPunto ? "Punto" : "Errore"} $squadraLabel';
+    // Motivo dell'errore (scelto con la pressione prolungata sul bottone
+    // "Errore avversario", salvato in tipoEsecuzione — vedi MotivoErrore):
+    // aggiunto in coda, es. "Errore avversario - Battuta". `generico` (il
+    // tap veloce) non si mostra, non aggiunge informazione.
+    if (azione.tipo == TipoAzione.erroreGenerico) {
+      final motivo = MotivoErrore.values
+          .where((m) => m.name == azione.tipoEsecuzione)
+          .firstOrNull;
+      if (motivo != null && motivo != MotivoErrore.generico) {
+        testo = '$testo - ${motivo.label}';
+      }
+    }
     return (
-      testo: '${isPunto ? "Punto" : "Errore"} $squadraLabel',
+      testo: testo,
       voto: null,
       colore: isPunto ? AppColors.success : Colors.red,
     );
