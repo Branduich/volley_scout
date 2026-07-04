@@ -51,6 +51,8 @@ class StatoSet {
   final Map<int, int> rotazione; // posizione 1-6 -> giocatoreId (solo nostra)
   final int? palleggiatoreId; // palleggiatore designato effettivo
   final Ruolo? ruoloCambiLibero; // coppia cambi-libero effettiva
+  final int? liberoId; // libero L1 effettivo (cambia solo libero-per-libero)
+  final int? libero2Id; // libero L2 effettivo
 
   const StatoSet({
     required this.punteggioNostro,
@@ -59,6 +61,8 @@ class StatoSet {
     required this.rotazione,
     this.palleggiatoreId,
     this.ruoloCambiLibero,
+    this.liberoId,
+    this.libero2Id,
   });
 
   @override
@@ -69,6 +73,8 @@ class StatoSet {
         other.squadraAlServizio != squadraAlServizio ||
         other.palleggiatoreId != palleggiatoreId ||
         other.ruoloCambiLibero != ruoloCambiLibero ||
+        other.liberoId != liberoId ||
+        other.libero2Id != libero2Id ||
         other.rotazione.length != rotazione.length) {
       return false;
     }
@@ -85,6 +91,8 @@ class StatoSet {
         squadraAlServizio,
         palleggiatoreId,
         ruoloCambiLibero,
+        liberoId,
+        libero2Id,
         Object.hashAllUnordered(
           rotazione.entries.map((e) => Object.hash(e.key, e.value)),
         ),
@@ -94,7 +102,8 @@ class StatoSet {
   String toString() =>
       'StatoSet(nostro: $punteggioNostro, avversario: $punteggioAvversario, '
       'al servizio: $squadraAlServizio, rotazione: $rotazione, '
-      'palleggiatore: $palleggiatoreId, cambiLibero: $ruoloCambiLibero)';
+      'palleggiatore: $palleggiatoreId, cambiLibero: $ruoloCambiLibero, '
+      'liberi: $liberoId/$libero2Id)';
 }
 
 /// Ricalcola punteggio e rotazione corrente di un set rigiocando, in ordine,
@@ -114,6 +123,8 @@ StatoSet ricalcolaStato({
   required Map<int, int> rotazioneIniziale,
   int? palleggiatoreInizialeId,
   Ruolo? ruoloCambiLiberoIniziale,
+  int? liberoInizialeId,
+  int? libero2InizialeId,
 }) {
   var punteggioNostro = 0;
   var punteggioAvversario = 0;
@@ -121,29 +132,40 @@ StatoSet ricalcolaStato({
   var rotazione = Map<int, int>.from(rotazioneIniziale);
   var palleggiatoreId = palleggiatoreInizialeId;
   var ruoloCambiLibero = ruoloCambiLiberoIniziale;
+  var liberoId = liberoInizialeId;
+  var libero2Id = libero2InizialeId;
 
   final ordinate = [...azioni]..sort((a, b) => a.ordine.compareTo(b.ordine));
 
   for (final azione in ordinate) {
     final sostituzione = azione.sostituzione;
     if (sostituzione != null) {
-      // Il subentrante prende la posizione dell'uscente, la rotazione non
-      // cambia. Righe incoerenti → no-op, mai lanciare durante un replay:
-      // uscente non in campo (la sostituzione non tocca nessuna posizione)
-      // o subentrante GIÀ in campo (applicarla duplicherebbe lo stesso
-      // giocatore su due posizioni — ValueKey duplicate in UI, dati
-      // corrotti). Eccezione: esceId == entraId è la riga "no-op" legittima
-      // usata per una riconfigurazione senza cambi (porta solo gli
-      // override).
-      final duplicherebbe = sostituzione.esceId != sostituzione.entraId &&
-          rotazione.containsValue(sostituzione.entraId);
+      // Se esce un LIBERO (mai in rotazione), il cambio aggiorna il libero
+      // effettivo (solo libero-per-libero, vincolo di dominio); altrimenti
+      // il subentrante prende la posizione di rotazione dell'uscente — la
+      // rotazione non cambia mai. Righe incoerenti → no-op, mai lanciare
+      // durante un replay: uscente non presente (né in rotazione né come
+      // libero) o subentrante GIÀ presente (applicarla duplicherebbe lo
+      // stesso giocatore — ValueKey duplicate in UI, dati corrotti).
+      // Eccezione: esceId == entraId è la riga "no-op" legittima usata per
+      // una riconfigurazione senza cambi (porta solo gli override).
+      final esce = sostituzione.esceId;
+      final entra = sostituzione.entraId;
+      final duplicherebbe = esce != entra &&
+          (rotazione.containsValue(entra) ||
+              entra == liberoId ||
+              entra == libero2Id);
       if (!duplicherebbe) {
-        rotazione = {
-          for (final entry in rotazione.entries)
-            entry.key: entry.value == sostituzione.esceId
-                ? sostituzione.entraId
-                : entry.value,
-        };
+        if (esce == liberoId) {
+          liberoId = entra;
+        } else if (esce == libero2Id) {
+          libero2Id = entra;
+        } else {
+          rotazione = {
+            for (final entry in rotazione.entries)
+              entry.key: entry.value == esce ? entra : entry.value,
+          };
+        }
         palleggiatoreId =
             sostituzione.nuovoPalleggiatoreId ?? palleggiatoreId;
         ruoloCambiLibero =
@@ -176,6 +198,8 @@ StatoSet ricalcolaStato({
     rotazione: rotazione,
     palleggiatoreId: palleggiatoreId,
     ruoloCambiLibero: ruoloCambiLibero,
+    liberoId: liberoId,
+    libero2Id: libero2Id,
   );
 }
 

@@ -408,6 +408,89 @@ void main() {
     });
   });
 
+  group('ricalcolaStato — cambio libero (solo libero-per-libero)', () {
+    test('esce il libero L1: si aggiorna liberoId, rotazione intatta', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 70, entraId: 71),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+      );
+
+      expect(stato.liberoId, 71);
+      expect(stato.libero2Id, 80);
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    test('esce il libero L2: si aggiorna libero2Id', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 80, entraId: 81),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, 81);
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    test('subentrante già libero in campo: riga incoerente, no-op', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            // 70 è già il libero L1: metterlo anche in rotazione al posto
+            // del 30 lo duplicherebbe.
+            sostituzione: SostituzioneGiocatore(esceId: 30, entraId: 70),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+      );
+
+      expect(stato.rotazione, rotazioneIniziale);
+      expect(stato.liberoId, 70);
+    });
+
+    test('cambio normale con liberi presenti: i liberi restano invariati',
+        () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 30, entraId: 99),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+      );
+
+      expect(stato.rotazione, {1: 10, 2: 20, 3: 99, 4: 40, 5: 50, 6: 60});
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, 80);
+    });
+  });
+
   group('StatoSet equality', () {
     test('due StatoSet con stessi valori sono uguali', () {
       const a = StatoSet(

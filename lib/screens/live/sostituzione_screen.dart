@@ -7,11 +7,23 @@ import 'formation_config_screen.dart';
 
 const _kBg = Color(0xFF0F172A);
 
+// Colore invertito (canale per canale) rispetto al colore squadra, usato
+// per i liberi — in pallavolo il libero indossa sempre una maglia di
+// colore diverso dai compagni. Stessa funzione duplicata in
+// lineup_screen.dart/scout_screen.dart (pattern deliberato, vedi CLAUDE.md).
+Color _invertedColor(Color color) => Color.from(
+      alpha: color.a,
+      red: 1.0 - color.r,
+      green: 1.0 - color.g,
+      blue: 1.0 - color.b,
+    );
+
 /// Risultato del flusso di sostituzione, tornato a `ScoutScreen` che
-/// calcola il diff posizione-per-posizione e scrive una riga
-/// `registraSostituzione` per ogni cambio (vedi piano).
+/// calcola il diff posizione-per-posizione (P1..P6 e L1/L2) e scrive una
+/// riga `registraSostituzione` per ogni cambio (vedi piano).
 typedef RisultatoSostituzione = ({
   Map<String, Player> seiFinali,
+  Map<String, Player> liberiFinali,
   String palleggiatoreSlot,
   Ruolo? ruoloCambiLibero,
 });
@@ -33,12 +45,14 @@ class SostituzioneScreen extends StatefulWidget {
   /// derivata dagli eventi — non la formazione iniziale del set).
   final Map<String, Player> seiCorrenti;
 
-  /// Panchina: roster − 6 in campo − liberi (il libero non entra mai con
-  /// un cambio, ha la sua meccanica).
+  /// Panchina: roster − 6 in campo − liberi correnti. Include anche i
+  /// giocatori con ruolo libero: un libero si può cambiare, ma SOLO al
+  /// posto di un altro libero (vincolo di dominio — la panchina si
+  /// abilita/disabilita per ruolo in base alla card selezionata).
   final List<Player> panchina;
 
-  /// L1/L2 correnti (solo per far comparire il campo "Cambi del libero"
-  /// nella configurazione, come a inizio partita).
+  /// L1/L2 EFFETTIVI correnti: card selezionabili come "chi esce" accanto
+  /// al campo, e passati alla configurazione come a inizio partita.
   final Map<String, Player> liberi;
 
   /// Valori EFFETTIVI correnti del set, per precompilare la configurazione.
@@ -62,7 +76,11 @@ class SostituzioneScreen extends StatefulWidget {
 
 class _SostituzioneScreenState extends State<SostituzioneScreen> {
   late final Map<String, Player> _pending = Map.of(widget.seiCorrenti);
+  late final Map<String, Player> _pendingLiberi = Map.of(widget.liberi);
+  // Slot P1..P6 oppure chiave libero L1/L2 selezionata come "chi esce".
   String? _selectedSlot;
+
+  bool get _selezioneLibero => _selectedSlot?.startsWith('L') ?? false;
 
   /// Slot con un cambio pending (giocatore diverso da quello di partenza).
   Set<String> get _slotCambiati => {
@@ -70,22 +88,46 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
           if (widget.seiCorrenti[e.key]?.id != e.value.id) e.key,
       };
 
+  /// Chiavi libero con un cambio pending.
+  Set<String> get _liberiCambiati => {
+        for (final e in _pendingLiberi.entries)
+          if (widget.liberi[e.key]?.id != e.value.id) e.key,
+      };
+
   /// Panchina visibile: candidati (panchina originale + eventuali usciti
-  /// nei cambi pending) meno chi è attualmente nei 6 pending. Gli USCITI
-  /// pending restano visibili ma disabilitati (grigi, non tappabili): chi
-  /// esce con un cambio non può rientrare in un'altra posizione — per
-  /// riaverlo in campo si annulla il suo cambio col badge ✕.
+  /// nei cambi pending, titolari e liberi) meno chi è attualmente nei
+  /// pending. Disabilitati (grigi, non tappabili): gli USCITI pending (chi
+  /// esce non può rientrare in un'altra posizione — si annulla il suo
+  /// cambio col badge ✕) e, quando una card è selezionata, i ruoli
+  /// incompatibili (un libero entra SOLO per un altro libero, e viceversa).
   List<({Player player, bool disabilitato})> get _panchinaVisibile {
-    final inCampo = {for (final p in _pending.values) p.id};
-    final idsOriginali = {for (final p in widget.seiCorrenti.values) p.id};
+    final inCampo = {
+      for (final p in _pending.values) p.id,
+      for (final p in _pendingLiberi.values) p.id,
+    };
+    final idsOriginali = {
+      for (final p in widget.seiCorrenti.values) p.id,
+      for (final p in widget.liberi.values) p.id,
+    };
     final candidati = <int, Player>{
       for (final p in widget.panchina) p.id: p,
       for (final p in widget.seiCorrenti.values) p.id: p,
+      for (final p in widget.liberi.values) p.id: p,
     };
+    bool ruoloIncompatibile(Player p) {
+      if (_selectedSlot == null) return false;
+      final isLibero = p.ruolo == Ruolo.libero;
+      return _selezioneLibero ? !isLibero : isLibero;
+    }
+
     final visibili = [
       for (final p in candidati.values)
         if (!inCampo.contains(p.id))
-          (player: p, disabilitato: idsOriginali.contains(p.id)),
+          (
+            player: p,
+            disabilitato:
+                idsOriginali.contains(p.id) || ruoloIncompatibile(p),
+          ),
     ]..sort((a, b) => a.player.numero.compareTo(b.player.numero));
     return visibili;
   }
@@ -120,6 +162,15 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
     });
   }
 
+  void _annullaCambioLibero(String key) {
+    final originale = widget.liberi[key];
+    if (originale == null) return;
+    setState(() {
+      _pendingLiberi[key] = originale;
+      _selectedSlot = null;
+    });
+  }
+
   void _onPanchinaTap(Player player) {
     final slot = _selectedSlot;
     if (slot == null) {
@@ -130,7 +181,13 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
       return;
     }
     setState(() {
-      _pending[slot] = player;
+      // Guardia ridondante (le tile incompatibili sono già disabilitate):
+      // un libero entra solo per un libero, e viceversa.
+      if (_selezioneLibero) {
+        if (player.ruolo == Ruolo.libero) _pendingLiberi[slot] = player;
+      } else {
+        if (player.ruolo != Ruolo.libero) _pending[slot] = player;
+      }
       _selectedSlot = null;
     });
   }
@@ -148,7 +205,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
         builder: (_) => FormationConfigScreen(
           match: widget.match,
           team: widget.team,
-          assignments: {..._pending, ...widget.liberi},
+          assignments: {..._pending, ..._pendingLiberi},
           palleggiatoreSlotIniziale: widget.palleggiatoreSlotCorrente,
           ruoloCambiLiberoIniziale: widget.ruoloCambiLiberoCorrente,
           modalitaConferma: true,
@@ -158,6 +215,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
     if (risultato == null || !mounted) return; // back: si resta qui
     Navigator.pop<RisultatoSostituzione>(context, (
       seiFinali: Map.of(_pending),
+      liberiFinali: Map.of(_pendingLiberi),
       palleggiatoreSlot: risultato.palleggiatoreSlot,
       ruoloCambiLibero: risultato.ruoloCambiLibero,
     ));
@@ -165,7 +223,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cambi = _slotCambiati.length;
+    final cambi = _slotCambiati.length + _liberiCambiati.length;
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(
@@ -185,28 +243,52 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sinistra: campo con la rotazione corrente + cambi pending.
+          // Sinistra: campo con la rotazione corrente + cambi pending, e
+          // di fianco le card dei liberi (come in LineupScreen: il libero
+          // non ha uno slot di rotazione, sta fuori dal campo).
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 4, 8, 16),
               child: Center(
-                child: LabeledCourt(
-                  title: 'In campo',
-                  subtitle: cambi == 0
-                      ? 'Tocca chi esce, poi chi entra dalla panchina'
-                      : '$cambi cambi${cambi == 1 ? "o" : ""} da confermare',
-                  subtitleColor:
-                      cambi == 0 ? Colors.white54 : Colors.lightBlue,
-                  child: CourtView(
-                    assignments: _pending,
-                    selectedSlots: _selectedSlot != null
-                        ? {_selectedSlot!}
-                        : const {},
-                    selectionColor: Colors.red,
-                    onSlotTap: _onSlotTap,
-                    slotBadges: _slotCambiati,
-                    onBadgeTap: _annullaCambio,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  // .end: le card libero si allineano al fondo del campo
+                  // (stessa scelta di LineupScreen).
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    LabeledCourt(
+                      title: 'In campo',
+                      subtitle: cambi == 0
+                          ? 'Tocca chi esce, poi chi entra dalla panchina'
+                          : '$cambi cambi${cambi == 1 ? "o" : ""} '
+                              'da confermare',
+                      subtitleColor:
+                          cambi == 0 ? Colors.white54 : Colors.lightBlue,
+                      child: CourtView(
+                        assignments: _pending,
+                        selectedSlots: _selectedSlot != null
+                            ? {_selectedSlot!}
+                            : const {},
+                        selectionColor: Colors.red,
+                        onSlotTap: _onSlotTap,
+                        slotBadges: _slotCambiati,
+                        onBadgeTap: _annullaCambio,
+                      ),
+                    ),
+                    if (_pendingLiberi.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final key in const ['L1', 'L2'])
+                            if (_pendingLiberi[key] != null) ...[
+                              _buildLiberoCard(key),
+                              const SizedBox(height: 10),
+                            ],
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -255,12 +337,123 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
     );
   }
 
+  // Card del libero accanto al campo (stile analogo alle card slot di
+  // CourtView, in scala ridotta): tap = seleziona come "chi esce" (solo un
+  // altro libero potrà entrare — vedi _panchinaVisibile); badge ✕ se ha un
+  // cambio pending.
+  Widget _buildLiberoCard(String key) {
+    final player = _pendingLiberi[key]!;
+    final isSelected = _selectedSlot == key;
+    final cambiato = _liberiCambiati.contains(key);
+
+    final card = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _onSlotTap(key),
+      child: Container(
+        width: 112,
+        height: 112,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected
+              ? Border.all(color: Colors.red, width: 3)
+              : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.red.withAlpha(80),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  )
+                ]
+              : null,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              '${player.numero}',
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Text(
+                '${player.cognome} ${player.nome}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
+                  color: Colors.black54,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Text(
+                key,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!cambiato) return card;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        card,
+        Positioned(
+          top: -8,
+          right: -8,
+          child: GestureDetector(
+            onTap: () => _annullaCambioLibero(key),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPanchinaTile(Player p, bool disabilitato) {
     final teamColor = Color(widget.team.coloreDivisa);
-    // Stessa convenzione di LineupScreen per i non disponibili: card
-    // grigia, avatar col colore squadra a opacità ridotta, non tappabile.
+    // Libero col colore invertito (maglia diversa), come nella lista di
+    // LineupScreen. Stessa convenzione per i non disponibili: card grigia,
+    // avatar a opacità ridotta, non tappabile.
+    final baseColor =
+        p.ruolo == Ruolo.libero ? _invertedColor(teamColor) : teamColor;
     final avatarColor =
-        disabilitato ? teamColor.withAlpha(120) : teamColor;
+        disabilitato ? baseColor.withAlpha(120) : baseColor;
     return Material(
       color: disabilitato ? Colors.grey.shade300 : Colors.white,
       borderRadius: BorderRadius.circular(12),
@@ -277,7 +470,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
           child: Text(
             '${p.numero}',
             style: TextStyle(
-              color: contrastingTextColor(teamColor),
+              color: contrastingTextColor(baseColor),
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),

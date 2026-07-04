@@ -156,7 +156,7 @@ assets/
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
 └── logic/
-    └── ricalcola_stato_test.dart  (23 test su ricalcolaStato(), `flutter test`)
+    └── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
 ```
 
 ---
@@ -327,7 +327,7 @@ rigiocando la sequenza ordinata di `ScoutAction` di un set (event sourcing
 leggero).
 
 **`ricalcolaStato()` (IMPLEMENTATA, isolata dal resto)**: `lib/logic/ricalcola_stato.dart`,
-testata in `test/logic/ricalcola_stato_test.dart` (23 test, tutti verdi).
+testata in `test/logic/ricalcola_stato_test.dart` (27 test, tutti verdi).
 Deliberatamente **disaccoppiata da Drift/DB**: non usa la tabella
 `ScoutActions` ma una classe minimale `AzioneScout` (const: `ordine`,
 `esitoPunto`, `sostituzione` opzionale — era un record typedef, promossa a
@@ -339,10 +339,11 @@ compaiono qui. La conversione riga DB → evento è centralizzata in
 così restano sempre allineati.
 - Firma: `StatoSet ricalcolaStato({required List<AzioneScout> azioni,
   required Squadra servizioIniziale, required Map<int,int> rotazioneIniziale,
-  int? palleggiatoreInizialeId, Ruolo? ruoloCambiLiberoIniziale})`.
+  int? palleggiatoreInizialeId, Ruolo? ruoloCambiLiberoIniziale,
+  int? liberoInizialeId, int? libero2InizialeId})`.
   Stato iniziale passato come parametro (non letto da DB): la funzione resta
-  pura e testabile senza mock. Gli ultimi due parametri sono opzionali (i
-  chiamanti che vogliono solo il punteggio possono ometterli).
+  pura e testabile senza mock. I parametri dopo la rotazione sono opzionali
+  (i chiamanti che vogliono solo il punteggio possono ometterli).
 - Ordina le azioni per `ordine` prima di rigiocarle (resiliente a input non
   ordinato).
 - Logica: `puntoNostro` mentre il servizio non era nostro → sideout, ruota
@@ -357,17 +358,23 @@ così restano sempre allineati.
   di rotazione dell'uscente — il cambio non altera mai la rotazione, solo
   chi occupa una posizione; gli override di configurazione (null =
   invariato) aggiornano `palleggiatoreId`/`ruoloCambiLibero` dello stato.
+  **Cambio del libero (stessa riga evento, nessuna colonna in più)**: se
+  `esceId` è il libero effettivo (L1 o L2, mai in rotazione), il replay
+  aggiorna `liberoId`/`libero2Id` invece della rotazione — vincolo di
+  dominio confermato: un libero si cambia SOLO con un altro libero (sia
+  per infortunio sia per scelta tecnica), mai un ruolo diverso.
   **Guardie sui dati incoerenti (mai lanciare durante un replay)**: uscente
-  non in campo → no-op; subentrante GIÀ in campo (con esceId ≠ entraId) →
+  non presente (né in rotazione né come libero) → no-op; subentrante GIÀ
+  presente — in rotazione o come libero — (con esceId ≠ entraId) →
   no-op COMPLETO, override compresi (applicarlo duplicherebbe lo stesso
   giocatore su due posizioni → ValueKey duplicate in UI, bug reale
   riscontrato). Eccezione legittima: `esceId == entraId` è la riga "no-op"
   usata per una riconfigurazione senza cambi (porta solo gli override).
 - `StatoSet` (risultato): punteggio nostro/avversario, `squadraAlServizio`,
-  `rotazione` (Map posizione→giocatoreId), `palleggiatoreId` e
-  `ruoloCambiLibero` EFFETTIVI (seguono gli override dei cambi). `==`/
-  `hashCode` ridefiniti per confrontare il contenuto della mappa nei test,
-  non l'identità.
+  `rotazione` (Map posizione→giocatoreId), `palleggiatoreId`,
+  `ruoloCambiLibero`, `liberoId` e `libero2Id` EFFETTIVI (seguono i
+  cambi). `==`/`hashCode` ridefiniti per confrontare il contenuto della
+  mappa nei test, non l'identità.
 - Enum `Squadra` ed `EsitoPunto` aggiunti a `enums.dart` (servivano comunque
   alla futura tabella `ScoutActions`, quindi vivono lì e non in `logic/`).
 
@@ -1741,6 +1748,24 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       euristica per il doppio cambio); `_computeRotazioni`
       (trajectory_report_screen) replica la regola del cambio nel suo
       replay duplicato, palleggiatore effettivo compreso.
+    - **Cambio del LIBERO (IMPLEMENTATO, stesso flusso)**: vincolo di
+      dominio confermato — un libero si cambia SOLO con un altro libero
+      (infortunio o scelta tecnica), mai un ruolo diverso. In
+      `SostituzioneScreen` le card L1/L2 stanno di fianco al campo
+      (`_buildLiberoCard`, tap = chi esce, badge ✕ come le altre) e la
+      panchina include anche i giocatori con ruolo libero: quando è
+      selezionato un libero si abilitano SOLO i liberi, quando è
+      selezionato un titolare i liberi sono disabilitati
+      (`_panchinaVisibile.ruoloIncompatibile`). Il diff produce la stessa
+      riga `cambioGiocatore` (nessuna colonna in più): `ricalcolaStato`
+      riconosce dall'esceId che si tratta del libero e aggiorna
+      `liberoId`/`libero2Id` invece della rotazione. In `ScoutScreen` i
+      liberi si leggono da **`_liberiEffettivi`** (derivato da
+      `StatoSet.liberoId`/`libero2Id` via `_rosterById`, fallback su
+      `widget.assignments` per set non iniziato/modalità test/primi
+      frame) — MAI più `widget.assignments['L1'/'L2']` direttamente,
+      tranne che in `_statoSetReale` (valori INIZIALI passati al replay)
+      e `_iniziaSet` (persistenza del valore iniziale).
   - [x] Undo: bottone (icona `Icons.undo`) nella barra superiore di
         `ScoutScreen`, al posto del bottone "indietro" (spostato nel drawer
         di utilità, vedi "Interfaccia di scout" — libera quella posizione

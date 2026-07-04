@@ -765,6 +765,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       palleggiatoreInizialeId:
           widget.assignments[widget.palleggiatoreSlot]?.id,
       ruoloCambiLiberoIniziale: widget.ruoloCambiLibero,
+      liberoInizialeId: widget.assignments['L1']?.id,
+      libero2InizialeId: widget.assignments['L2']?.id,
     );
   }
 
@@ -793,6 +795,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Ruolo? get _ruoloCambiLiberoEffettivo => _testModeEnabled
       ? widget.ruoloCambiLibero
       : (_statoSetReale?.ruoloCambiLibero ?? widget.ruoloCambiLibero);
+
+  // Liberi EFFETTIVI (L1/L2 -> Player): possono cambiare a set in corso con
+  // un cambio libero-per-libero (vedi ricalcolaStato) — widget.assignments
+  // resta la formazione INIZIALE. Fallback sul widget quando lo stato non è
+  // ancora derivato (set non iniziato, modalità test) o il roster stream
+  // non ha ancora emesso (primi frame).
+  Map<String, Player> get _liberiEffettivi {
+    final iniziali = <String, Player>{
+      if (widget.assignments['L1'] != null) 'L1': widget.assignments['L1']!,
+      if (widget.assignments['L2'] != null) 'L2': widget.assignments['L2']!,
+    };
+    final stato = _testModeEnabled ? null : _statoSetReale;
+    if (stato == null) return iniziali;
+    return <String, Player>{
+      if (stato.liberoId != null)
+        'L1': _rosterById[stato.liberoId] ?? iniziali['L1']!,
+      if (stato.libero2Id != null)
+        'L2': _rosterById[stato.libero2Id] ?? iniziali['L2']!,
+    };
+  }
 
   // Ultima azione registrata nel set (stessa riga che alimenterà in futuro
   // le statistiche/report — vedi Modello dati), per il banner "ultima
@@ -829,7 +851,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // convenzione automatica (L1 in ricezione, L2 in servizio) finché non c'è
   // un override manuale da _liberoOverride.
   String get _liberoAttivoKey {
-    if (widget.assignments['L2'] == null) return 'L1';
+    if (_liberiEffettivi['L2'] == null) return 'L1';
     if (_liberoOverride != null) return _liberoOverride!;
     return _squadraAlServizio == Squadra.avversari ? 'L1' : 'L2';
   }
@@ -837,7 +859,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Chiave del libero inattivo (in panchina fissa, tappabile). Null se non
   // c'è doppio libero.
   String? get _liberoInattivoKey {
-    if (widget.assignments['L2'] == null) return null;
+    if (_liberiEffettivi['L2'] == null) return null;
     return _liberoAttivoKey == 'L1' ? 'L2' : 'L1';
   }
 
@@ -906,7 +928,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // ricade su _refPositionFor (logica generica per zona fissa, non per
   // ruolo) — vedi _attackPosition.
   Map<String, Offset>? get _activeAttackMap {
-    final senzaLibero = !widget.assignments.containsKey('L1');
+    final senzaLibero = !_liberiEffettivi.containsKey('L1');
     final usaSchiacciatori =
         !senzaLibero && _ruoloCambiLiberoEffettivo == Ruolo.schiacciatore;
     final rotazione = _currentSlot;
@@ -1137,7 +1159,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Map<String, Offset>? get _activeDefenseMap {
     if (_squadraAlServizio != Squadra.avversari) return null;
     if (_faseDopo) return null;
-    if (!widget.assignments.containsKey('L1')) {
+    if (!_liberiEffettivi.containsKey('L1')) {
       return _kDefensePositionsComplete(_currentSlot);
     }
     final ruolo = _ruoloCambiLiberoEffettivo;
@@ -1517,20 +1539,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (seiCorrenti.length != 6) return; // dato incoerente, niente cambio
     final palleggiatoreSlotCorrente = _currentSlot;
 
-    // Panchina: roster meno i 6 in campo, meno i liberi (L1/L2 e chiunque
-    // abbia ruolo libero: il libero non entra mai con un cambio).
-    final liberi = <String, Player>{
-      if (widget.assignments['L1'] != null) 'L1': widget.assignments['L1']!,
-      if (widget.assignments['L2'] != null) 'L2': widget.assignments['L2']!,
-    };
+    // Panchina: roster meno i 6 in campo, meno i liberi correnti. I
+    // giocatori con ruolo libero RESTANO in panchina: un libero si può
+    // cambiare, ma solo al posto di un altro libero (SostituzioneScreen
+    // abilita/disabilita per ruolo in base alla card selezionata).
+    final liberi = Map<String, Player>.of(_liberiEffettivi);
     final idsInCampo = {for (final p in seiCorrenti.values) p.id};
     final idsLiberi = {for (final p in liberi.values) p.id};
     final panchina = [
       for (final p in _rosterById.values)
-        if (!idsInCampo.contains(p.id) &&
-            !idsLiberi.contains(p.id) &&
-            p.ruolo != Ruolo.libero)
-          p,
+        if (!idsInCampo.contains(p.id) && !idsLiberi.contains(p.id)) p,
     ];
 
     final risultato = await Navigator.push<RisultatoSostituzione>(
@@ -1550,9 +1568,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (risultato == null || !mounted) return;
 
     // Difesa in profondità: mai scrivere eventi che metterebbero lo stesso
-    // giocatore in due posizioni (dati corrotti, ValueKey duplicate in UI).
-    final idsFinali = {for (final p in risultato.seiFinali.values) p.id};
-    if (idsFinali.length != risultato.seiFinali.length) {
+    // giocatore in due posizioni (dati corrotti, ValueKey duplicate in UI)
+    // — id unici sull'unione di sei in campo + liberi.
+    final tuttiFinali = [
+      ...risultato.seiFinali.values,
+      ...risultato.liberiFinali.values,
+    ];
+    final idsFinali = {for (final p in tuttiFinali) p.id};
+    if (idsFinali.length != tuttiFinali.length) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(
               'Sostituzione non valida: un giocatore comparirebbe due '
@@ -1560,11 +1583,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       return;
     }
 
-    // Diff posizione per posizione: originale ≠ finale → un cambio.
+    // Diff posizione per posizione: originale ≠ finale → un cambio. Vale
+    // anche per L1/L2 (cambio libero-per-libero): ricalcolaStato riconosce
+    // dall'esceId che si tratta del libero e aggiorna quello invece della
+    // rotazione.
     final cambi = <({int esceId, int entraId})>[];
     for (final slot in _kSlotOrder) {
       final originale = seiCorrenti[slot];
       final finale = risultato.seiFinali[slot];
+      if (originale != null &&
+          finale != null &&
+          originale.id != finale.id) {
+        cambi.add((esceId: originale.id, entraId: finale.id));
+      }
+    }
+    for (final key in const ['L1', 'L2']) {
+      final originale = liberi[key];
+      final finale = risultato.liberiFinali[key];
       if (originale != null &&
           finale != null &&
           originale.id != finale.id) {
@@ -2729,8 +2764,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // interno del campo grande. Stessa key (player.id) sia in campo sia in
   // panchina: AnimatedPositioned anima il movimento in entrambi i casi.
   List<Widget> _buildLiberoSwapTokens(BoxConstraints constraints, double courtWidth) {
+    final liberiEffettivi = _liberiEffettivi;
     final liberoKey = _liberoAttivoKey;
-    final libero = widget.assignments[liberoKey];
+    final libero = liberiEffettivi[liberoKey];
     if (libero == null) return const [];
 
     final radius = _swapTokenRadius(courtWidth);
@@ -2742,7 +2778,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // il movimento quando attivo e inattivo si scambiano (stesso key, nuova
     // posizione → AnimatedPositioned interpola fluidamente tra le due).
     final inattivoKey = _liberoInattivoKey;
-    final inattivo = inattivoKey != null ? widget.assignments[inattivoKey] : null;
+    final inattivo =
+        inattivoKey != null ? liberiEffettivi[inattivoKey] : null;
     final bench1Token = inattivo != null
         ? _buildAbsoluteToken(inattivoKey!, inattivo, bench1, radius,
             isLibero: true,
