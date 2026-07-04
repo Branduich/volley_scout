@@ -93,9 +93,12 @@ lib/
 │   └── enums.dart                (Ruolo, Categoria, Voto, SistemaGioco, Squadra,
 │                                   EsitoPunto + jerseyPalette)
 ├── logic/
-│   └── ricalcola_stato.dart      (funzione pura ricalcolaStato() — punteggio/
-│                                   rotazione derivati dalle azioni di scout,
-│                                   nessuna dipendenza da DB/UI; vedi Modello dati)
+│   ├── ricalcola_stato.dart      (funzione pura ricalcolaStato() — punteggio/
+│   │                               rotazione derivati dalle azioni di scout,
+│   │                               nessuna dipendenza da DB/UI; vedi Modello dati)
+│   └── role_labels.dart          (roleLabelsFor() — etichette P/O/S1/S2/C1/C2
+│                                   per slot; gli universali riempiono le
+│                                   etichette mancanti, vedi Interfaccia di scout)
 ├── data/
 │   ├── database.dart             (tabelle Teams, Players, VolleyMatches + AppDatabase)
 │   └── database.g.dart           (generato, non editare a mano)
@@ -156,7 +159,9 @@ assets/
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
 └── logic/
-    └── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
+    ├── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
+    └── role_labels_test.dart      (8 test su roleLabelsFor() — regressione +
+                                    universali per completamento)
 ```
 
 ---
@@ -199,7 +204,14 @@ cognome, numero (int), ruolo (enum Ruolo), scadenzaCertificato (DateTime nullabl
 riservato a futura segnalazione visiva di scadenza imminente, impostabile via
 date picker in `PlayerFormScreen`).
 
-**Enum Ruolo**: palleggiatore, schiacciatore, centrale, opposto, libero, undefined.
+**Enum Ruolo**: palleggiatore, schiacciatore, centrale, opposto, libero,
+undefined. Il valore `undefined` ha label **"Universale"**: può giocare al
+posto di qualsiasi ruolo tranne il libero (assume l'etichetta tattica
+mancante nella composizione — vedi `roleLabelsFor` in
+`logic/role_labels.dart`). Il nome Dart resta `undefined` per
+compatibilità: `RuoloConverter` persiste `.name` a DB e rinominarlo
+romperebbe `byName()` sulle righe esistenti (players.ruolo,
+match_sets.ruolo_cambi_libero, scout_actions.nuovo_ruolo_cambi_libero).
 
 **Enum Categoria**: under11..under18, terzaDivisione, secondaDivisione,
 primaDivisione, serieD, serieC, serieB, serieB1, serieB2, serieA1, serieA2, serieA3.
@@ -1070,7 +1082,7 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `_currentAssignments` ricostruisce la mappa slot→giocatore intera
     facendo scorrere **tutti** i 6 giocatori insieme (chi era allo slot di
     indice `j` si trova ora a `j + _rotationSteps`) — non solo l'indicatore
-    del palleggiatore. `_roleLabelsFor` viene chiamata con
+    del palleggiatore. `roleLabelsFor` viene chiamata con
     `_currentAssignments`, quindi le etichette di ruolo seguono
     automaticamente ogni giocatore mentre la squadra ruota.
 - **Cambio campo** (voce "Cambia campo" nel drawer di utilità, vedi sopra):
@@ -1235,7 +1247,7 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       - `_buildCourtTokens()`: in ricezione itera per **ruolo** sulla mappa
         di difesa — il ruolo `Libero` è saltato (`continue`, gestito a parte
         da `_buildLiberoSwapTokens` nello Stack esterno, vedi sotto), gli
-        altri 5 ruoli risolvono lo slot via `_roleLabelsFor` invertita e
+        altri 5 ruoli risolvono lo slot via `roleLabelsFor` invertita e
         prendono il giocatore da `_currentAssignments`. In attacco/battuta
         (o ricezione senza dati di difesa completi) itera per **giocatore**
         sulle posizioni di attacco, applicando la stessa sostituzione
@@ -1377,15 +1389,36 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     sempre, cambia solo la posizione P che occupa), Flutter riconosce il
     widget tramite la key e ne anima fluidamente lo spostamento da una
     posizione all'altra invece di "teletrasportarlo" istantaneamente.
-  - **Etichette di ruolo** (`_roleLabelsFor`): NON un pattern fisso per
+  - **Etichette di ruolo** (`roleLabelsFor`, estratta in
+    `lib/logic/role_labels.dart` — funzione pura, testata in
+    `test/logic/role_labels_test.dart`): NON un pattern fisso per
     posizione — leggono il `Ruolo` reale del giocatore assegnato a ciascuno
-    slot. Il palleggiatore è sempre "P"; l'opposto è sempre "O" (trovato
-    cercando `Ruolo.opposto` negli `assignments`, non per offset fisso). Tra i
-    due schiacciatori, quello con distanza minore dal palleggiatore (in senso
-    antiorario lungo `_kSlotOrder`) è "S1", l'altro (diametralmente opposto, a
-    3 posizioni) è "S2" — stessa logica per i centrali → "C1"/"C2". Gestisce
-    correttamente anche formazioni dove un centrale (non uno schiacciatore) si
-    trova subito dopo il palleggiatore.
+    slot. Il palleggiatore designato è sempre "P"; l'opposto è sempre "O"
+    (trovato cercando `Ruolo.opposto` negli `assignments`, non per offset
+    fisso). Tra i due schiacciatori, quello con distanza minore dal
+    palleggiatore (in senso antiorario lungo `kSlotOrder`) è "S1", l'altro
+    (diametralmente opposto, a 3 posizioni) è "S2" — stessa logica per i
+    centrali → "C1"/"C2". Gestisce correttamente anche formazioni dove un
+    centrale (non uno schiacciatore) si trova subito dopo il palleggiatore.
+    - **Universale = completamento** (fix del bug "sostituzione di un
+      undefined"): `Ruolo.undefined` NON è più cablato come centrale —
+      gli universali riempiono le etichette MANCANTI del set canonico
+      {O, S1, S2, C1, C2}, preferendo per le coppie l'universale a 3
+      posizioni (opposto nel ring) dal compagno esistente, e per la 'O'
+      quello opposto al P. Dopo un cambio, l'etichetta mancante è
+      esattamente quella dell'uscente: l'universale ne eredita il ruolo
+      tattico, e le mappe di attacco/difesa (che cercano per etichetta) si
+      sistemano da sole. Universali in eccesso → senza etichetta (fallback
+      griglia). Prima del fix, un universale entrato per uno schiacciatore
+      produceva 3 "centrali": il terzo restava senza etichetta e il token
+      SPARIVA in ricezione (mappa di difesa iterata per ruolo).
+    - **`ruoloCambiLibero` non è mai più `undefined` per i NUOVI set**:
+      `FormationConfigScreen._ruoloCoppiaEffettivo()` deriva sempre
+      centrale|schiacciatore (coppia mista universale+reale → il ruolo del
+      reale; due universali → il ruolo non coperto dai reali in campo;
+      ambiguità → centrale). I check `== Ruolo.undefined` in
+      `_activeDefenseMap`/`_slotCentraleSecondaLinea` restano come
+      tolleranza per i set persistiti prima di questo fix.
   - **Token del palleggiatore (`label == 'P'`)**: forma distinta rispetto agli
     altri — esagono con angoli arrotondati invece di un cerchio, stesso
     colore/bordo/ombra, **10% più grande** (`tokenRadius = radius * 1.1`,
@@ -1743,7 +1776,7 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       richiede `tipo == scout` (un cambio ha esito `nessuno` ma non
       giudica nulla); banner/dialog undo con ramo "Cambio: esce N Cognome,
       entra N Cognome" (colore neutro `AppColors.brandPrimary`);
-      `_roleLabelsFor` gestisce un secondo palleggiatore in campo (gioca
+      `roleLabelsFor` gestisce un secondo palleggiatore in campo (gioca
       da opposto se la 'O' è libera, altrimenti da schiacciatore —
       euristica per il doppio cambio); `_computeRotazioni`
       (trajectory_report_screen) replica la regola del cambio nel suo

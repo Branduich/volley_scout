@@ -22,7 +22,14 @@ enum Categoria {
 }
 
 enum Ruolo {
-  undefined('Undefined'),
+  // "Universale": può giocare al posto di qualsiasi ruolo tranne il libero
+  // (assume l'etichetta tattica mancante nella composizione — vedi
+  // roleLabelsFor in logic/role_labels.dart). Il nome Dart resta
+  // `undefined` per compatibilità: RuoloConverter persiste `.name` a DB
+  // (players.ruolo, match_sets.ruolo_cambi_libero,
+  // scout_actions.nuovo_ruolo_cambi_libero) e rinominarlo romperebbe
+  // byName() sulle righe esistenti.
+  undefined('Universale'),
   palleggiatore('Palleggiatore'),
   opposto('Opposto'),
   schiacciatore('Schiacciatore'),

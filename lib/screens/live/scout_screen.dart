@@ -1,9 +1,10 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../logic/ricalcola_stato.dart';
+import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
@@ -586,66 +587,10 @@ const List<String> _kSlotOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 // `%` in Dart, che mantiene il segno dell'operando).
 int _mod(int a, int n) => ((a % n) + n) % n;
 
-// Etichette di ruolo per ogni slot, basate sul ruolo REALE del giocatore
-// assegnato (non su un pattern fisso): il palleggiatore è sempre "P",
-// l'opposto è sempre "O". Tra i due schiacciatori, quello più vicino al
-// palleggiatore (in senso antiorario) è "S1", l'altro (diametralmente
-// opposto, a 3 posizioni di distanza) è "S2" — stessa logica per i centrali
-// ("C1"/"C2"). Permette anche formazioni dove un centrale, non uno
-// schiacciatore, si trova subito dopo il palleggiatore.
-Map<String, String> _roleLabelsFor(
-    String palleggiatoreSlot, Map<String, Player> assignments) {
-  final startIndex = _kSlotOrder.indexOf(palleggiatoreSlot);
-  int distanceFromP(String slot) =>
-      (_kSlotOrder.indexOf(slot) - startIndex + _kSlotOrder.length) %
-      _kSlotOrder.length;
-
-  final schiacciatori = <String>[];
-  final centrali = <String>[];
-  // Palleggiatori NON designati (doppio cambio: un secondo palleggiatore in
-  // campo al posto di un altro ruolo) — raccolti a parte e assegnati DOPO
-  // il ciclo, così non rubano la 'O' all'opposto vero se compaiono prima
-  // di lui nell'ordine degli slot.
-  final palleggiatoriExtra = <String>[];
-  String? opposto;
-
-  for (final slot in _kSlotOrder) {
-    if (slot == palleggiatoreSlot) continue;
-    switch (assignments[slot]?.ruolo) {
-      case Ruolo.opposto:
-        opposto = slot;
-      case Ruolo.schiacciatore:
-        schiacciatori.add(slot);
-      case Ruolo.centrale:
-      case Ruolo.undefined:
-        centrali.add(slot);
-      case Ruolo.palleggiatore:
-        palleggiatoriExtra.add(slot);
-      default:
-        break;
-    }
-  }
-  // Euristica per il palleggiatore extra: gioca da opposto se la 'O' è
-  // libera (il caso reale del doppio cambio: P entra per O), altrimenti
-  // conta come schiacciatore — degradazione accettabile, mai senza label.
-  for (final slot in palleggiatoriExtra) {
-    if (opposto == null) {
-      opposto = slot;
-    } else {
-      schiacciatori.add(slot);
-    }
-  }
-  schiacciatori.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-  centrali.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-
-  final labels = <String, String>{palleggiatoreSlot: 'P'};
-  if (opposto != null) labels[opposto] = 'O';
-  if (schiacciatori.isNotEmpty) labels[schiacciatori[0]] = 'S1';
-  if (schiacciatori.length > 1) labels[schiacciatori[1]] = 'S2';
-  if (centrali.isNotEmpty) labels[centrali[0]] = 'C1';
-  if (centrali.length > 1) labels[centrali[1]] = 'C2';
-  return labels;
-}
+// Le etichette di ruolo per slot (P/O/S1/S2/C1/C2) vivono in
+// logic/role_labels.dart (funzione pura roleLabelsFor, testata): gli
+// universali (Ruolo.undefined) riempiono le etichette MANCANTI nella
+// composizione — dopo un cambio ereditano il ruolo tattico dell'uscente.
 
 // Esagono con angoli arrotondati, inscritto nel quadrato `size` (stesso
 // raggio centro-vertice dei token circolari, per coerenza di ingombro).
@@ -2721,7 +2666,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // difesa. Altrimenti: itera per giocatore sulle posizioni di attacco.
   List<Widget> _buildCourtTokens(double cw, double ch) {
     final currentAssignments = _currentAssignments;
-    final roleLabels = _roleLabelsFor(_currentSlot, currentAssignments);
+    final roleLabels = roleLabelsFor(_currentSlot, currentAssignments);
     final defenseMap = _activeDefenseMap;
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
 
@@ -2787,7 +2732,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         : null;
 
     final currentAssignments = _currentAssignments;
-    final roleLabels = _roleLabelsFor(_currentSlot, currentAssignments);
+    final roleLabels = roleLabelsFor(_currentSlot, currentAssignments);
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
     if (slotCentrale == null) {
       // Nessuna coppia di cambio derivabile (formazione incompleta): il
@@ -2874,7 +2819,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
     if (onTap == null) return const [];
 
-    final roleLabels = _roleLabelsFor(_currentSlot, _currentAssignments);
+    final roleLabels = roleLabelsFor(_currentSlot, _currentAssignments);
     final radius = _swapTokenRadius(courtWidth);
     final tokenRadius = _currentSlot == 'P1' ? radius * 1.1 : radius;
     final courtHeight = courtWidth / 2;

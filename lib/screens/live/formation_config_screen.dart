@@ -69,14 +69,26 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     // Coppia cambi-libero: preseleziona i giocatori col ruolo della coppia
     // effettiva se fornito, altrimenti i centrali come a inizio partita.
     // Solo slot P1..P6 (assignments contiene anche L1/L2) e mai il
-    // palleggiatore designato.
+    // palleggiatore designato. Prima i match esatti, poi si completa fino
+    // a 2 con gli universali (Ruolo.undefined): possono coprire il membro
+    // mancante di qualunque coppia.
     final ruoloCoppia = widget.ruoloCambiLiberoIniziale ?? Ruolo.centrale;
+    bool selezionabile(MapEntry<String, Player> entry) =>
+        entry.key != _palleggiatoreSlot && entry.key.startsWith('P');
     for (final entry in widget.assignments.entries) {
       if (entry.value.ruolo == ruoloCoppia &&
-          entry.key != _palleggiatoreSlot &&
-          entry.key.startsWith('P') &&
+          selezionabile(entry) &&
           _centraliSlots.length < 2) {
         _centraliSlots.add(entry.key);
+      }
+    }
+    if (ruoloCoppia != Ruolo.undefined) {
+      for (final entry in widget.assignments.entries) {
+        if (entry.value.ruolo == Ruolo.undefined &&
+            selezionabile(entry) &&
+            _centraliSlots.length < 2) {
+          _centraliSlots.add(entry.key);
+        }
       }
     }
   }
@@ -141,14 +153,39 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     });
   }
 
+  // Ruolo EFFETTIVO della coppia cambi-libero selezionata: sempre
+  // centrale|schiacciatore, mai undefined ("Universale") — le mappe di
+  // attacco/difesa in ScoutScreen conoscono solo le due coppie canoniche.
+  // Coppia mista universale+reale → il ruolo del reale; coppia di due
+  // universali → il ruolo NON coperto dai reali in campo (2 schiacciatori
+  // reali presenti → gli universali fanno i centrali, e viceversa);
+  // ambiguità → centrale, coerente col trattamento storico di undefined.
+  Ruolo? _ruoloCoppiaEffettivo() {
+    if (!_hasLibero || _centraliSlots.isEmpty) return null;
+    for (final slot in _centraliSlots) {
+      final ruolo = widget.assignments[slot]?.ruolo;
+      if (ruolo == Ruolo.centrale || ruolo == Ruolo.schiacciatore) {
+        return ruolo;
+      }
+    }
+    var schiacciatoriReali = 0;
+    var centraliReali = 0;
+    for (final entry in widget.assignments.entries) {
+      if (!entry.key.startsWith('P')) continue;
+      if (entry.value.ruolo == Ruolo.schiacciatore) schiacciatoriReali++;
+      if (entry.value.ruolo == Ruolo.centrale) centraliReali++;
+    }
+    if (schiacciatoriReali >= 2 && centraliReali < 2) return Ruolo.centrale;
+    if (centraliReali >= 2 && schiacciatoriReali < 2) {
+      return Ruolo.schiacciatore;
+    }
+    return Ruolo.centrale;
+  }
+
   void _onAvanti() {
     // Il libero sostituisce o i due centrali o i due schiacciatori (mai una
-    // combinazione, vedi _onCentraleSlotTap): basta leggere il ruolo di uno
-    // dei due slot selezionati per sapere quale coppia ScoutScreen dovrà
-    // sostituire ad ogni rotazione.
-    final ruoloCambiLibero = _hasLibero && _centraliSlots.isNotEmpty
-        ? widget.assignments[_centraliSlots.first]?.ruolo
-        : null;
+    // combinazione, vedi _onCentraleSlotTap).
+    final ruoloCambiLibero = _ruoloCoppiaEffettivo();
     if (widget.modalitaConferma) {
       // Flusso sostituzione: la scelta torna al chiamante (che scriverà
       // gli eventi di cambio) — nessuna navigazione avanti.
