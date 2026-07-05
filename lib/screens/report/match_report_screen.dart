@@ -7,8 +7,14 @@ import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 import '../../widgets/debug_paint_toggle.dart';
 
-// Punteggio finale (eventi + correzione manuale) di un singolo set.
-typedef _RigaSet = ({int numero, int nostro, int avversario});
+// Punteggio finale (eventi + correzione manuale) di un singolo set +
+// durata di gioco (prima→ultima azione registrata, null se < 2 azioni).
+typedef _RigaSet = ({
+  int numero,
+  int nostro,
+  int avversario,
+  Duration? durata,
+});
 
 // Riga del riepilogo fondamentali: conteggi per voto + totale.
 typedef _RigaFondamentale = ({String label, Map<Voto, int> conteggi, int totale});
@@ -71,12 +77,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     final azioniPerSet = <int, List<ScoutAction>>{};
     for (final set in sets) {
       final stato = await setRepo.calcolaStatoFinale(set);
+      final azioni = await azioniRepo.caricaAzioni(set.id);
+      azioniPerSet[set.id] = azioni;
       righeSet.add((
         numero: set.numero,
         nostro: stato.punteggioNostro + set.correzionePuntiNostri,
         avversario: stato.punteggioAvversario + set.correzionePuntiAvversari,
+        durata: _durataSet(azioni),
       ));
-      azioniPerSet[set.id] = await azioniRepo.caricaAzioni(set.id);
     }
     if (!mounted) return;
     setState(() {
@@ -88,6 +96,85 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   }
 
   String _pad(int n) => n.toString().padLeft(2, '0');
+
+  // Durata di gioco di un set: dalla prima all'ultima azione registrata
+  // (per lo scout live i timestamp sono reali; per la partita demo sono
+  // sintetici, quindi la durata lì è solo indicativa). Null se il set ha
+  // meno di due azioni.
+  Duration? _durataSet(List<ScoutAction> azioni) {
+    if (azioni.length < 2) return null;
+    // caricaAzioni ordina per `ordine` crescente: prima = inizio, ultima =
+    // fine set. I timestamp sono monotoni con l'ordine.
+    return azioni.last.timestamp.difference(azioni.first.timestamp);
+  }
+
+  String _formatDurata(Duration d) =>
+      '${d.inMinutes}:${_pad(d.inSeconds % 60)}';
+
+  // Trailing condiviso dalle righe "Set N" e dalla riga "Totale":
+  // punteggio a larghezza fissa (colonne allineate) · pallino esito ·
+  // durata. `esitoNostro`/`esitoAvversario` pilotano il colore del pallino
+  // separatamente dal punteggio mostrato — per il Totale il pallino segue
+  // i SET vinti, non i punti fatti/subiti.
+  Widget _trailingPunteggio({
+    required int nostro,
+    required int avversario,
+    required Duration? durata,
+    int? esitoNostro,
+    int? esitoAvversario,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 84,
+          child: Text(
+            '$nostro - $avversario',
+            textAlign: TextAlign.end,
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        const SizedBox(width: 28),
+        _pallinoEsito(esitoNostro ?? nostro, esitoAvversario ?? avversario),
+        const SizedBox(width: 28),
+        _durataLabel(durata),
+      ],
+    );
+  }
+
+  // Pallino esito del set: verde = vinto, rosso = perso, grigio = parità
+  // (set non concluso, non dovrebbe capitare in una partita terminata).
+  Widget _pallinoEsito(int nostro, int avversario) {
+    final color = nostro > avversario
+        ? AppColors.success
+        : (avversario > nostro ? AppColors.danger : AppColors.neutral);
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+
+  // Durata di gioco del set (mm:ss) con icona orologio; "—" se non
+  // calcolabile (meno di due azioni registrate).
+  Widget _durataLabel(Duration? durata) {
+    return SizedBox(
+      // largo abbastanza per il totale di partita (minuti a 3 cifre).
+      width: 78,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.schedule, size: 15, color: Colors.black45),
+          const SizedBox(width: 4),
+          Text(
+            durata == null ? '—' : _formatDurata(durata),
+            style: const TextStyle(color: Colors.black54, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
 
   List<List<ScoutAction>> get _listeAzioniNelloScope {
     final azioniPerSet = _azioniPerSet;
@@ -194,9 +281,15 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
 
     var setVintiNostri = 0;
     var setVintiAvversario = 0;
+    var puntiNostri = 0;
+    var puntiAvversari = 0;
+    var durataTotale = Duration.zero;
     for (final riga in righeSet) {
       if (riga.nostro > riga.avversario) setVintiNostri++;
       if (riga.avversario > riga.nostro) setVintiAvversario++;
+      puntiNostri += riga.nostro;
+      puntiAvversari += riga.avversario;
+      if (riga.durata != null) durataTotale += riga.durata!;
     }
 
     return Scaffold(
@@ -207,7 +300,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
+          constraints: const BoxConstraints(minWidth: double.infinity),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -258,19 +351,39 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                 const Text('Nessun set giocato.')
               else
                 Card(
+                  // clipBehavior: lo sfondo colorato della riga Totale deve
+                  // rispettare gli angoli arrotondati della Card.
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       for (final riga in righeSet) ...[
                         ListTile(
                           title: Text('Set ${riga.numero}'),
-                          trailing: Text(
-                            '${riga.nostro} - ${riga.avversario}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
+                          trailing: _trailingPunteggio(
+                            nostro: riga.nostro,
+                            avversario: riga.avversario,
+                            durata: riga.durata,
                           ),
                         ),
-                        if (riga != righeSet.last) const Divider(height: 1),
+                        const Divider(height: 1),
                       ],
+                      // Riga Totale: punti fatti-subiti su tutta la partita,
+                      // pallino sull'esito della PARTITA (set vinti, non
+                      // punti) e durata totale. Sfondo azzurro come la riga
+                      // "Totale" di PlayerStatsScreen.
+                      ListTile(
+                        tileColor:
+                            const Color.fromARGB(255, 213, 242, 255),
+                        title: const Text('Totale',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: _trailingPunteggio(
+                          nostro: puntiNostri,
+                          avversario: puntiAvversari,
+                          durata: durataTotale,
+                          esitoNostro: setVintiNostri,
+                          esitoAvversario: setVintiAvversario,
+                        ),
+                      ),
                     ],
                   ),
                 ),
