@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/teams/teams_screen.dart';
 import 'screens/matches/matches_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/debug_paint_toggle.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,10 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Volley Stratego')),
+      appBar: AppBar(
+        title: const Text('Volley Stratego'),
+        actions: const [DebugPaintToggle()],
+      ),
       body: Row(
         children: [
           // Area principale vuota (per ora)

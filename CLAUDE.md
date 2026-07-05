@@ -101,7 +101,9 @@ lib/
 │                                   etichette mancanti, vedi Interfaccia di scout)
 ├── data/
 │   ├── database.dart             (tabelle Teams, Players, VolleyMatches + AppDatabase)
-│   └── database.g.dart           (generato, non editare a mano)
+│   ├── database.g.dart           (generato, non editare a mano)
+│   └── demo_match_importer.dart  (import partita demo da assets/demo/ —
+│                                   solo debug, vedi Fase 4)
 ├── providers/
 │   └── database_provider.dart    (TeamRepository + MatchRepository,
 │                                   tutti i provider: teamsStream, playersStream,
@@ -154,14 +156,16 @@ lib/
 
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
+├── demo/           (demo_match.json — partita reale convertita, vedi Fase 4)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
 └── logic/
     ├── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
-    └── role_labels_test.dart      (8 test su roleLabelsFor() — regressione +
-                                    universali per completamento)
+    ├── role_labels_test.dart      (8 test su roleLabelsFor() — regressione +
+    │                               universali per completamento)
+    └── demo_match_test.dart       (valida la partita demo: replay == referto)
 ```
 
 ---
@@ -2066,7 +2070,38 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           `ricalcola_stato.dart` (replicata file-privata); registra lo slot
           del palleggiatore per ogni azione di attacco PRIMA di applicare
           l'esito — risultato: `Map<int, String>` actionId→slotLabel.
-  - [ ] Export PDF, condivisione.
+  - [x] **Partita demo per lo sviluppo del report** (`assets/demo/
+        demo_match.json` + `lib/data/demo_match_importer.dart` + bottone
+        `Icons.science` nell'AppBar di `MatchesScreen`, SOLO `kDebugMode`):
+        partita REALE (Clai Imola - Nettunia 30/04/2026, persa 2-3:
+        25-16, 15-25, 21-25, 25-16, 25-23) convertita una tantum
+        dall'export xlsx dell'app "Volleyball Scout" (log azione per
+        azione; il PDF della stessa app, in `G:\My Drive\_Volley\Partite\
+        2026-3-div\2026_04_30_Clai_Nettunia`, è il RIFERIMENTO per le
+        prossime iterazioni del report). Dettagli di conversione:
+        - Esiti derivati dai delta del punteggio riga per riga del loro log
+          (ground truth), non da `_esitoVoto()`; punti senza azione
+          scoutata → righe `puntoManuale`. Punteggi validati da
+          `test/logic/demo_match_test.dart` (replay con `ricalcolaStato()`
+          == referto, tutti e 5 i set).
+        - Rotazione iniziale derivata dall'ORDINE DEI BATTITORI (chi batte
+          è sempre in P1; la colonna "posizione giocatore" dell'export è
+          la ZONA dell'azione, NON lo slot di rotazione — trappola).
+          Palleggiatori reali: Millo (set 1-3, 5), Camprini (set 4).
+          Cambi a set in corso NON ricostruiti (non derivabili in modo
+          affidabile); liberi Corradi/Cerrè su `ruoloCambiLibero:
+          centrale` (convenzione). Un sideout di scarto nel set 2
+          (correzione manuale del loro scoutman) — accettato.
+        - Traiettorie sintetiche plausibili (seed fisso) per battute e
+          attacchi: l'export non le contiene.
+        - Import idempotente: ricrea la partita (stesso nome), riusa
+          squadra "Nettunia (demo)" e giocatori per numero di maglia.
+  - [ ] Export PDF, condivisione (riferimento: il PDF "Volleyball Scout"
+        sopra — tabelle per giocatore con punti tot/v-p, battuta
+        tot/err/pt, ricezione tot/err/pos%/prf%, attacco tot/err/mur/pt/pt%,
+        difesa, muro; riga totali; errori/punti generici; attacchi
+        su ricezione/su difesa; traiettorie per giocatore/zona;
+        distribuzione alzate per rotazione).
 
 ---
 

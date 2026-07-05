@@ -5,6 +5,7 @@ import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../../widgets/debug_paint_toggle.dart';
 
 // Punteggio finale (eventi + correzione manuale) di un singolo set.
 typedef _RigaSet = ({int numero, int nostro, int avversario});
@@ -199,7 +200,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Report partita')),
+      appBar: AppBar(
+        title: const Text('Report partita'),
+        actions: const [DebugPaintToggle()],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(

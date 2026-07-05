@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../data/demo_match_importer.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
@@ -62,7 +64,31 @@ class MatchesScreen extends ConsumerWidget {
     final matchesAsync = ref.watch(matchesStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Partite')),
+      appBar: AppBar(
+        title: const Text('Partite'),
+        actions: [
+          // Solo in debug: importa la partita demo (Clai-Nettunia, 5 set)
+          // per sviluppare/provare i report — vedi DemoMatchImporter.
+          if (kDebugMode)
+            IconButton(
+              tooltip: 'Genera partita demo',
+              icon: const Icon(Icons.science),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  final nome =
+                      await DemoMatchImporter(ref.read(appDatabaseProvider))
+                          .importa();
+                  messenger.showSnackBar(
+                      SnackBar(content: Text('Importata "$nome"')));
+                } catch (e) {
+                  messenger.showSnackBar(
+                      SnackBar(content: Text('Import demo fallito: $e')));
+                }
+              },
+            ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
