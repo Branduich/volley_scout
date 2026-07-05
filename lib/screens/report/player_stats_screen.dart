@@ -230,7 +230,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
   Widget _headerCell(String text,
           {bool allineaSinistra = false, double? fontSize}) =>
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         child: Text(
           text,
           textAlign: allineaSinistra ? TextAlign.left : TextAlign.center,
@@ -239,18 +239,27 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
       );
 
   Widget _giocatoreCell(Player p) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        child: Text.rich(
-          TextSpan(children: [
-            TextSpan(
-              text: '${p.numero} ${p.cognome}',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        // Nome sopra, ruolo sotto (come conteggio/percentuale in _votoCell).
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
+              TextSpan(children: [
+                TextSpan(text: '${p.numero}'),
+                // Spazio extra tra numero e cognome (WidgetSpan così il
+                // testo continua a poter andare a capo se lungo).
+                const WidgetSpan(child: SizedBox(width: 10)),
+                TextSpan(text: p.cognome),
+              ]),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
-            TextSpan(
-              text: '  ${p.ruolo.label}',
+            Text(
+              p.ruolo.label,
               style: const TextStyle(color: Colors.black54, fontSize: 14),
             ),
-          ]),
+          ],
         ),
       );
 
@@ -258,13 +267,13 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
     final pct = totale == 0 ? 0 : (count * 100 / totale).round();
     final color = CourtStyle.votoColor(voto);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('$count',
               style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 22)),
+                  color: color, fontWeight: FontWeight.bold, fontSize: 16)),
           Text('$pct%', style: TextStyle(color: color, fontSize: 14)),
         ],
       ),
@@ -272,10 +281,10 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
   }
 
   Widget _totaleCell(int totale) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Center(
           child: Text('$totale',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
       );
 }
