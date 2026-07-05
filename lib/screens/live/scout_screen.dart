@@ -2088,6 +2088,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       }
       parziali[r.id] = '$nostro–$avversario';
     }
+    // Numero di scambio progressivo (r1, r2, r3...) per la sola
+    // visualizzazione: a DB rallyId è l'`ordine` della prima azione dello
+    // scambio (r1, r3, r6... — semantica comoda per le query ma poco
+    // leggibile qui).
+    final numeroRally = <int, int>{}; // rallyId -> progressivo 1-based
+    for (final r in righe) {
+      numeroRally.putIfAbsent(r.rallyId, () => numeroRally.length + 1);
+    }
     return [
       Positioned(
         top: 8,
@@ -2123,7 +2131,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       child: Text.rich(
                         TextSpan(children: [
                           TextSpan(
-                            text: '${a.ordine}·r${a.rallyId}  ',
+                            text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
                             style: const TextStyle(
                                 color: Colors.white38, fontSize: 13),
                           ),

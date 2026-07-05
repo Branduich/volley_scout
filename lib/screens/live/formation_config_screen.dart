@@ -299,7 +299,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                           child: CourtView(
                             assignments: widget.assignments,
                             selectedSlots: _centraliSlots,
-                            selectionColor: const Color(0xFF00008A),
+                            selectionColor: Colors.red,
                             disabledSlots: {
                               ?_palleggiatoreSlot,
                               for (final e in widget.assignments.entries)
