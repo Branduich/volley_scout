@@ -51,8 +51,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   List<MatchSet>? _sets;
   List<_RigaSet>? _righeSet;
   Map<int, List<ScoutAction>>? _azioniPerSet; // setId -> azioni
+  List<Player>? _giocatori; // roster della squadra (per il filtro)
 
   int? _setSelezionato; // null = Partita intera (default)
+  int? _giocatoreSelezionato; // null = Tutti (default)
 
   @override
   void initState() {
@@ -71,6 +73,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     // teamId rimasto null pur avendo una squadra realmente selezionata —
     // vedi MatchSetRepository.inferisciSquadraDaRotazioni.
     team ??= await setRepo.inferisciSquadraDaRotazioni(widget.match.id);
+    final giocatori = team == null
+        ? <Player>[]
+        : await ref.read(teamRepositoryProvider).getPlayersForTeam(team.id);
     final sets = await setRepo.caricaSetsPartita(widget.match.id);
 
     final righeSet = <_RigaSet>[];
@@ -92,6 +97,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       _sets = sets;
       _righeSet = righeSet;
       _azioniPerSet = azioniPerSet;
+      _giocatori = giocatori;
     });
   }
 
@@ -176,6 +182,25 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     );
   }
 
+  // Giocatori con almeno un'azione di scout nella partita (per il dropdown
+  // di filtro) — lista match-wide, non set-scoped, così la selezione resta
+  // valida anche cambiando set. Ordinati per numero (getPlayersForTeam).
+  List<Player> get _giocatoriConAzioni {
+    final azioniPerSet = _azioniPerSet;
+    final giocatori = _giocatori;
+    if (azioniPerSet == null || giocatori == null) return const [];
+    final ids = <int>{
+      for (final azioni in azioniPerSet.values)
+        for (final a in azioni)
+          if (a.tipo == TipoAzione.scout && a.giocatoreId != null)
+            a.giocatoreId!,
+    };
+    return [
+      for (final p in giocatori)
+        if (ids.contains(p.id)) p,
+    ];
+  }
+
   List<List<ScoutAction>> get _listeAzioniNelloScope {
     final azioniPerSet = _azioniPerSet;
     final sets = _sets;
@@ -218,32 +243,40 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
           rallyCorrente = azione.rallyId;
           ultimoTipo = null;
         }
+        // Il filtro giocatore conta solo le SUE azioni, ma `ultimoTipo`
+        // (contesto dello scambio per la classifica attacco su ricezione/
+        // difesa) va aggiornato su TUTTI i giocatori: chi riceve/difende
+        // può essere diverso da chi attacca.
+        final delGiocatore = _giocatoreSelezionato == null ||
+            azione.giocatoreId == _giocatoreSelezionato;
         switch (fondamentale) {
           case Fondamentale.battuta:
-            incrementa('battuta', voto);
+            if (delGiocatore) incrementa('battuta', voto);
           case Fondamentale.ricezione:
-            incrementa('ricezione', voto);
+            if (delGiocatore) incrementa('ricezione', voto);
             ultimoTipo = Fondamentale.ricezione;
           case Fondamentale.difesa:
-            incrementa('difesa', voto);
+            if (delGiocatore) incrementa('difesa', voto);
             ultimoTipo = Fondamentale.difesa;
           case Fondamentale.attacco:
-            incrementa('attacco', voto);
-            // Ragionamento per fasi, non per fondamentale: l'attacco "su
-            // ricezione" è sempre il primo dopo un voto di ricezione nello
-            // stesso scambio — tutti gli altri (dopo una difesa, dopo un
-            // altro attacco, o senza alcun contesto registrato) sono
-            // "su Difesa". Partizione binaria: la somma dei due torna
-            // sempre il totale "Attacco".
-            if (ultimoTipo == Fondamentale.ricezione) {
-              incrementa('attaccoSuRicezione', voto);
-            } else {
-              incrementa('attaccoSuDifesa', voto);
+            if (delGiocatore) {
+              incrementa('attacco', voto);
+              // Ragionamento per fasi, non per fondamentale: l'attacco "su
+              // ricezione" è sempre il primo dopo un voto di ricezione
+              // nello stesso scambio — tutti gli altri (dopo una difesa,
+              // dopo un altro attacco, o senza alcun contesto registrato)
+              // sono "su Difesa". Partizione binaria: la somma dei due
+              // torna sempre il totale "Attacco".
+              if (ultimoTipo == Fondamentale.ricezione) {
+                incrementa('attaccoSuRicezione', voto);
+              } else {
+                incrementa('attaccoSuDifesa', voto);
+              }
             }
           case Fondamentale.muro:
-            incrementa('muro', voto);
+            if (delGiocatore) incrementa('muro', voto);
           case Fondamentale.alzata:
-            incrementa('alzata', voto);
+            if (delGiocatore) incrementa('alzata', voto);
           case Fondamentale.errore:
             break; // mai assegnato da ScoutScreen
         }
@@ -391,27 +424,56 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
               Text('Riepilogo fondamentali',
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
-              SizedBox(
-                width: 220,
-                child: DropdownButtonFormField<int?>(
-                  initialValue: _setSelezionato,
-                  decoration: const InputDecoration(
-                    labelText: 'Set',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Partita intera'),
-                    ),
-                    for (final s in sets)
-                      DropdownMenuItem(
-                        value: s.numero,
-                        child: Text('Set ${s.numero}'),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _setSelezionato,
+                      decoration: const InputDecoration(
+                        labelText: 'Set',
+                        border: OutlineInputBorder(),
                       ),
-                  ],
-                  onChanged: (v) => setState(() => _setSelezionato = v),
-                ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Partita intera'),
+                        ),
+                        for (final s in sets)
+                          DropdownMenuItem(
+                            value: s.numero,
+                            child: Text('Set ${s.numero}'),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _setSelezionato = v),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 260,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _giocatoreSelezionato,
+                      decoration: const InputDecoration(
+                        labelText: 'Giocatore',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Tutti'),
+                        ),
+                        for (final p in _giocatoriConAzioni)
+                          DropdownMenuItem(
+                            value: p.id,
+                            child: Text('${p.numero} ${p.cognome}'),
+                          ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _giocatoreSelezionato = v),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               _buildTabellaFondamentali(_riepilogoFondamentali),
