@@ -5,19 +5,38 @@ import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../../widgets/court_view.dart';
 import '../../widgets/debug_paint_toggle.dart';
+import 'trajectory_report_screen.dart';
 
 // Punteggio finale (eventi + correzione manuale) di un singolo set +
 // durata di gioco (prima→ultima azione registrata, null se < 2 azioni).
-typedef _RigaSet = ({
-  int numero,
-  int nostro,
-  int avversario,
-  Duration? durata,
-});
+typedef _RigaSet = ({int numero, int nostro, int avversario, Duration? durata});
 
 // Riga del riepilogo fondamentali: conteggi per voto + totale.
-typedef _RigaFondamentale = ({String label, Map<Voto, int> conteggi, int totale});
+typedef _RigaFondamentale = ({
+  String label,
+  Map<Voto, int> conteggi,
+  int totale,
+});
+
+// Riepilogo dei punti/errori generici (bottoni rapidi, senza giocatore) +
+// scomposizione degli errori avversari per motivo.
+typedef _RiepilogoGenerici = ({
+  int puntiNostri,
+  int erroriNostri,
+  int puntiAvversari,
+  int erroriAvversari,
+  Map<MotivoErrore, int> motiviAvversari,
+});
+
+// Formazione di partenza di un set — stesso record di
+// MatchSetRepository.caricaFormazione().
+typedef _Formazione = ({
+  Map<String, Player> assignments,
+  String palleggiatoreSlot,
+  Ruolo? ruoloCambiLibero,
+});
 
 // Ordine/etichette delle righe del riepilogo fondamentali, fissato dallo
 // sviluppatore — "Attacco" è il totale di tutti gli attacchi, "Attacco su
@@ -52,6 +71,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   List<_RigaSet>? _righeSet;
   Map<int, List<ScoutAction>>? _azioniPerSet; // setId -> azioni
   List<Player>? _giocatori; // roster della squadra (per il filtro)
+  Map<int, _Formazione>? _formazioni; // setId -> formazione di partenza
 
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
@@ -80,10 +100,13 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
 
     final righeSet = <_RigaSet>[];
     final azioniPerSet = <int, List<ScoutAction>>{};
+    final formazioni = <int, _Formazione>{};
     for (final set in sets) {
       final stato = await setRepo.calcolaStatoFinale(set);
       final azioni = await azioniRepo.caricaAzioni(set.id);
       azioniPerSet[set.id] = azioni;
+      final formazione = await setRepo.caricaFormazione(set.id);
+      if (formazione != null) formazioni[set.id] = formazione;
       righeSet.add((
         numero: set.numero,
         nostro: stato.punteggioNostro + set.correzionePuntiNostri,
@@ -98,6 +121,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       _righeSet = righeSet;
       _azioniPerSet = azioniPerSet;
       _giocatori = giocatori;
+      _formazioni = formazioni;
     });
   }
 
@@ -137,8 +161,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
           child: Text(
             '$nostro - $avversario',
             textAlign: TextAlign.end,
-            style:
-                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
         const SizedBox(width: 28),
@@ -247,7 +270,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
         // (contesto dello scambio per la classifica attacco su ricezione/
         // difesa) va aggiornato su TUTTI i giocatori: chi riceve/difende
         // può essere diverso da chi attacca.
-        final delGiocatore = _giocatoreSelezionato == null ||
+        final delGiocatore =
+            _giocatoreSelezionato == null ||
             azione.giocatoreId == _giocatoreSelezionato;
         switch (fondamentale) {
           case Fondamentale.battuta:
@@ -293,6 +317,52 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     ];
   }
 
+  // Conta i punti/errori generici (bottoni rapidi: tipo puntoManuale /
+  // erroreGenerico, senza giocatore) nello scope del set selezionato. Il
+  // filtro giocatore non si applica — questi eventi non hanno un giocatore.
+  // Per gli errori avversari raggruppa per MotivoErrore (colonna
+  // polimorfica `tipoEsecuzione`; valori non riconosciuti → generico).
+  _RiepilogoGenerici get _riepilogoGenerici {
+    var puntiNostri = 0,
+        erroriNostri = 0,
+        puntiAvversari = 0,
+        erroriAvversari = 0;
+    final motivi = <MotivoErrore, int>{};
+    for (final azioniSet in _listeAzioniNelloScope) {
+      for (final a in azioniSet) {
+        if (a.tipo == TipoAzione.puntoManuale) {
+          if (a.squadra == Squadra.nostra) {
+            puntiNostri++;
+          } else {
+            puntiAvversari++;
+          }
+        } else if (a.tipo == TipoAzione.erroreGenerico) {
+          if (a.squadra == Squadra.nostra) {
+            erroriNostri++;
+          } else {
+            erroriAvversari++;
+            final m = _motivoDa(a.tipoEsecuzione);
+            motivi[m] = (motivi[m] ?? 0) + 1;
+          }
+        }
+      }
+    }
+    return (
+      puntiNostri: puntiNostri,
+      erroriNostri: erroriNostri,
+      puntiAvversari: puntiAvversari,
+      erroriAvversari: erroriAvversari,
+      motiviAvversari: motivi,
+    );
+  }
+
+  MotivoErrore _motivoDa(String tipoEsecuzione) {
+    for (final m in MotivoErrore.values) {
+      if (m.name == tipoEsecuzione) return m;
+    }
+    return MotivoErrore.generico; // 'nonSpecificato' o valori legacy
+  }
+
   @override
   Widget build(BuildContext context) {
     final sets = _sets;
@@ -305,8 +375,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     }
 
     final avversario = widget.match.avversario?.trim();
-    final nomeAvversario =
-        (avversario != null && avversario.isNotEmpty) ? avversario : 'Avversari';
+    final nomeAvversario = (avversario != null && avversario.isNotEmpty)
+        ? avversario
+        : 'Avversari';
     final dt = widget.match.dataOra;
     final dataOraStr =
         '${_pad(dt.day)}/${_pad(dt.month)}/${dt.year} ${_pad(dt.hour)}:${_pad(dt.minute)}';
@@ -342,15 +413,23 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
-              Text(widget.match.nome, style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                widget.match.nome,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 4),
               Text(dataOraStr, style: Theme.of(context).textTheme.bodyLarge),
               if (widget.match.palestra != null &&
                   widget.match.palestra!.trim().isNotEmpty)
-                Text(widget.match.palestra!.trim(),
-                    style: Theme.of(context).textTheme.bodyLarge),
+                Text(
+                  widget.match.palestra!.trim(),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
               const SizedBox(height: 32),
-              Text('Punteggio finale', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Punteggio finale',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               Card(
                 child: Padding(
@@ -359,8 +438,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(nomeNostro,
-                            style: Theme.of(context).textTheme.titleMedium),
+                        child: Text(
+                          nomeNostro,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
                       Text(
                         '$setVintiNostri - $setVintiAvversario',
@@ -378,7 +459,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              Text('Punteggio per set', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Punteggio per set',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               if (righeSet.isEmpty)
                 const Text('Nessun set giocato.')
@@ -405,10 +489,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                       // punti) e durata totale. Sfondo azzurro come la riga
                       // "Totale" di PlayerStatsScreen.
                       ListTile(
-                        tileColor:
-                            const Color.fromARGB(255, 213, 242, 255),
-                        title: const Text('Totale',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        tileColor: const Color.fromARGB(255, 213, 242, 255),
+                        title: const Text(
+                          'Totale',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         trailing: _trailingPunteggio(
                           nostro: puntiNostri,
                           avversario: puntiAvversari,
@@ -421,8 +506,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   ),
                 ),
               const SizedBox(height: 32),
-              Text('Riepilogo fondamentali',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Riepilogo fondamentali',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 16,
@@ -477,6 +564,76 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
               ),
               const SizedBox(height: 8),
               _buildTabellaFondamentali(_riepilogoFondamentali),
+              const SizedBox(height: 32),
+              Text(
+                'Punti ed errori generici',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              _buildSpecchiettoGenerici(
+                _riepilogoGenerici,
+                nomeNostro: nomeNostro,
+                nomeAvversario: nomeAvversario,
+              ),
+              // Le traiettorie hanno filtri propri (set/giocatore, +rotazione
+              // per l'attacco): si aprono nella schermata dedicata. Solo con
+              // una squadra risolta — senza roster non c'è nulla su cui
+              // filtrare (teamId può essere rimasto null, vedi _carica).
+              if (_team != null) ...[
+                const SizedBox(height: 32),
+                Text(
+                  'Traiettorie',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('Traiettorie battute'),
+                      onPressed: () => _apriTraiettorie(Fondamentale.battuta),
+                    ),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.trending_up),
+                      label: const Text('Traiettorie attacco'),
+                      onPressed: () => _apriTraiettorie(Fondamentale.attacco),
+                    ),
+                  ],
+                ),
+              ],
+              if (_formazioni != null && _formazioni!.isNotEmpty) ...[
+                const SizedBox(height: 32),
+                Text(
+                  'Formazioni di partenza',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                LayoutBuilder(
+                  builder: (context, c) {
+                    const spacing = 16.0;
+                    // Tre card affiancate per riga.
+                    final cardWidth = (c.maxWidth - 2 * spacing) / 3;
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (final s in sets)
+                          if (_formazioni![s.id] != null)
+                            SizedBox(
+                              width: cardWidth,
+                              child: _buildFormazioneSet(
+                                s.numero,
+                                _formazioni![s.id]!,
+                                servizio: s.squadraServizioIniziale,
+                              ),
+                            ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -484,56 +641,239 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     );
   }
 
-  Widget _buildTabellaFondamentali(List<_RigaFondamentale> righe) {
-    const voti = Voto.values;
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(3.2),
-        1: FlexColumnWidth(1),
-        2: FlexColumnWidth(1),
-        3: FlexColumnWidth(1),
-        4: FlexColumnWidth(1),
-        5: FlexColumnWidth(1),
-        6: FlexColumnWidth(1),
-      },
-      children: [
-        TableRow(
-          decoration: const BoxDecoration(color: AppColors.surfaceDim),
+  // Formazione di partenza di un set: card con campo read-only (CourtView,
+  // slot P1–P6) + didascalia con il/i libero/i e la coppia che
+  // sostituiscono. Il campo è renderizzato a 460×460 e scalato con FittedBox
+  // (CourtView ha margini fissi in px, non regge un SizedBox più piccolo). Il
+  // libero non è disegnato sul campo (CourtView rende solo P1–P6).
+  Widget _buildFormazioneSet(
+    int numero,
+    _Formazione f, {
+    required Squadra servizio,
+  }) {
+    final liberi = [f.assignments['L1'], f.assignments['L2']]
+        .whereType<Player>()
+        .toList();
+    final cambi = f.ruoloCambiLibero; // centrale/schiacciatore, o null
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _headerCell('Fondamentale', allineaSinistra: true),
-            for (final v in voti) _headerCell(v.simbolo, fontSize: 22),
-            _headerCell('TOT'),
+            // Icona pallone a destra solo se la battuta iniziale del set era
+            // nostra (la card mostra la nostra formazione).
+            Row(
+              children: [
+                Text('Set $numero - ${f.palleggiatoreSlot}',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                if (servizio == Squadra.nostra)
+                  const Icon(Icons.sports_volleyball, size: 20),
+              ],
+            ),
+            const SizedBox(height: 6),
+            AspectRatio(
+              aspectRatio: 1,
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(
+                  width: 460,
+                  height: 460,
+                  child: CourtView(
+                    assignments: f.assignments,
+                    selectedSlots: {f.palleggiatoreSlot},
+                    selectionColor: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (liberi.isNotEmpty)
+              Text(
+                'Libero: ${liberi.map((p) => '${p.numero} ${p.cognome}').join(' · ')}'
+                '${cambi != null ? ' — cambi: ${cambi.label}' : ''}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
           ],
         ),
-        for (var i = 0; i < righe.length; i++)
-          TableRow(
-            decoration: BoxDecoration(
-              color: i.isEven ? Colors.white : AppColors.surface,
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                child: Text(righe[i].label,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-              ),
-              for (final v in voti)
-                _votoCell(righe[i].conteggi[v] ?? 0, righe[i].totale, v),
-              _totaleCell(righe[i].totale),
-            ],
-          ),
-      ],
+      ),
     );
   }
 
-  Widget _headerCell(String text, {bool allineaSinistra = false, double? fontSize}) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        child: Text(
-          text,
-          textAlign: allineaSinistra ? TextAlign.left : TextAlign.center,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
+  void _apriTraiettorie(Fondamentale fondamentale) {
+    final team = _team;
+    if (team == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TrajectoryReportScreen(
+          match: widget.match,
+          team: team,
+          fondamentale: fondamentale,
+          // Dal report (partita finita) parti da tutti i set, non dal corrente.
+          setCorrenteAllAvvio: false,
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildTabellaFondamentali(List<_RigaFondamentale> righe) {
+    const voti = Voto.values;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(3.2),
+            1: FlexColumnWidth(1),
+            2: FlexColumnWidth(1),
+            3: FlexColumnWidth(1),
+            4: FlexColumnWidth(1),
+            5: FlexColumnWidth(1),
+            6: FlexColumnWidth(1),
+          },
+          children: [
+            TableRow(
+              decoration: const BoxDecoration(color: AppColors.surfaceDim),
+              children: [
+                _headerCell('Fondamentale', allineaSinistra: true),
+                for (final v in voti) _headerCell(v.simbolo, fontSize: 22),
+                _headerCell('TOT'),
+              ],
+            ),
+            for (var i = 0; i < righe.length; i++)
+              TableRow(
+                decoration: BoxDecoration(
+                  color: i.isEven ? Colors.white : AppColors.surface,
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 8,
+                    ),
+                    child: Text(
+                      righe[i].label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  for (final v in voti)
+                    _votoCell(righe[i].conteggi[v] ?? 0, righe[i].totale, v),
+                  _totaleCell(righe[i].totale),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Specchietto punti/errori generici: tabella 2 colonne (Nostri/Avversari)
+  // per punti e errori, più la scomposizione per motivo degli errori
+  // avversari se ce ne sono.
+  Widget _buildSpecchiettoGenerici(
+    _RiepilogoGenerici r, {
+    required String nomeNostro,
+    required String nomeAvversario,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(2.4),
+                1: FlexColumnWidth(1),
+                2: FlexColumnWidth(1),
+              },
+              children: [
+                TableRow(
+                  decoration: const BoxDecoration(color: AppColors.surfaceDim),
+                  children: [
+                    _headerCell('', allineaSinistra: true),
+                    _headerCell(nomeNostro),
+                    _headerCell(nomeAvversario),
+                  ],
+                ),
+                TableRow(
+                  decoration: const BoxDecoration(color: Colors.white),
+                  children: [
+                    _labelCell('Punti generici'),
+                    _totaleCell(r.puntiNostri),
+                    _totaleCell(r.puntiAvversari),
+                  ],
+                ),
+                TableRow(
+                  decoration: const BoxDecoration(color: AppColors.surface),
+                  children: [
+                    _labelCell('Errori generici'),
+                    _totaleCell(r.erroriNostri),
+                    _totaleCell(r.erroriAvversari),
+                  ],
+                ),
+              ],
+            ),
+            if (r.erroriAvversari > 0) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Tipologia errori avversari',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  for (final m in MotivoErrore.values)
+                    _motivoChip(m.label, r.motiviAvversari[m] ?? 0),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _labelCell(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    child: Text(
+      text,
+      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+    ),
+  );
+
+  Widget _motivoChip(String label, int count) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.surfaceDim),
+    ),
+    child: Text(
+      '$label: $count',
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+    ),
+  );
+
+  Widget _headerCell(
+    String text, {
+    bool allineaSinistra = false,
+    double? fontSize,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+    child: Text(
+      text,
+      textAlign: allineaSinistra ? TextAlign.left : TextAlign.center,
+      style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
+    ),
+  );
 
   Widget _votoCell(int count, int totale, Voto voto) {
     final pct = totale == 0 ? 0 : (count * 100 / totale).round();
@@ -543,9 +883,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$count',
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            '$count',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
           Text('$pct%', style: TextStyle(color: color, fontSize: 14)),
         ],
       ),
@@ -553,10 +898,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   }
 
   Widget _totaleCell(int totale) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Center(
-          child: Text('$totale',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Center(
+      child: Text(
+        '$totale',
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+    ),
+  );
 }

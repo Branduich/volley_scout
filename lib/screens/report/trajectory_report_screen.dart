@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,13 +5,10 @@ import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/court_style.dart';
+import '../../widgets/court_trajectories_view.dart';
 
-const _kCourtImage = 'assets/images/double_court_bg.png';
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
-const double _kCourtWidthFraction = 0.58;
-const double _kCourtTopMargin = 16.0;
 
 const _kSlots = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 
@@ -21,18 +16,6 @@ const _kSlots = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 // in posizione p+1 si sposta in posizione p al momento di un sideout.
 Map<int, int> _ruotata(Map<int, int> rot) =>
     {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
-
-// Alzata del punto di controllo per l'arco del pallonetto (px schermo).
-const _kPallonettoArcOffset = 40.0;
-
-class _TrajData {
-  final double x1, y1, x2, y2;
-  final double? muroX, muroY; // coordinate normalizzate del tocco a muro
-  final Color color;
-  final bool isPallonetto;
-  const _TrajData(this.x1, this.y1, this.x2, this.y2, this.color,
-      {this.muroX, this.muroY, this.isPallonetto = false});
-}
 
 /// Schermata di visualizzazione traiettorie per un singolo fondamentale
 /// (battuta o attacco). Per l'attacco aggiunge il filtro rotazione
@@ -42,11 +25,17 @@ class TrajectoryReportScreen extends ConsumerStatefulWidget {
   final Team team;
   final Fondamentale fondamentale;
 
+  /// Set su cui posizionare il filtro all'apertura: `true` = set corrente
+  /// (default, sensato dallo scout live in corso), `false` = tutti i set
+  /// / partita intera (default sensato dal report a partita finita).
+  final bool setCorrenteAllAvvio;
+
   const TrajectoryReportScreen({
     super.key,
     required this.match,
     required this.team,
     required this.fondamentale,
+    this.setCorrenteAllAvvio = true,
   });
 
   String get _title => fondamentale == Fondamentale.battuta
@@ -107,12 +96,13 @@ class _TrajectoryReportScreenState
       _players = players;
       _azioniPerSet = azioniPerSet;
       _slotPerAzioneId = slotPerAzioneId;
-      if (sets.isNotEmpty) {
+      if (widget.setCorrenteAllAvvio && sets.isNotEmpty) {
         _setFiltro = sets.firstWhere(
           (s) => s.numero == widget.match.setCorrente,
           orElse: () => sets.last,
         );
       }
+      // altrimenti _setFiltro resta null = "Partita intera" (tutti i set).
       _loading = false;
     });
   }
@@ -239,41 +229,6 @@ class _TrajectoryReportScreenState
         .whereType<int>()
         .toSet();
     return _players.where((p) => ids.contains(p.id)).toList();
-  }
-
-  // Normalizza: partenza sempre da sinistra (x1 < 0.5). Verde brillante
-  // per le azioni vincenti (#), rosso per gli errori (=), bianco per il
-  // resto (in campo — nessuna distinzione ulteriore in questa vista).
-  _TrajData _buildTrajData(ScoutAction a) {
-    var x1 = a.traiettoriaX1!;
-    var y1 = a.traiettoriaY1!;
-    var x2 = a.traiettoriaX2!;
-    var y2 = a.traiettoriaY2!;
-    final shouldMirror = x1 > 0.5;
-    if (shouldMirror) {
-      x1 = 1.0 - x1;
-      y1 = 1.0 - y1;
-      x2 = 1.0 - x2;
-      y2 = 1.0 - y2;
-    }
-    // Il tocco a muro va specchiato come il resto della traiettoria.
-    double? muroX = a.traiettoriaMuroX;
-    double? muroY = a.traiettoriaMuroY;
-    if (shouldMirror && muroX != null && muroY != null) {
-      muroX = 1.0 - muroX;
-      muroY = 1.0 - muroY;
-    }
-    final Color color;
-    if (a.voto == Voto.perfetto) {
-      color = CourtStyle.trajectoryAce;
-    } else if (a.voto == Voto.errore) {
-      color = Colors.red;
-    } else {
-      color = Colors.white;
-    }
-    final isPallonetto = a.tipoEsecuzione == TipoAttacco.pallonetto.name;
-    return _TrajData(x1, y1, x2, y2, color,
-        muroX: muroX, muroY: muroY, isPallonetto: isPallonetto);
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -440,64 +395,25 @@ class _TrajectoryReportScreenState
   Widget _buildBody() {
     final tutte = _azioniFiltrate;
     final conTraj = _azioniConTraj;
-    final trajectories = conTraj.map(_buildTrajData).toList();
+    final trajectories = conTraj.map(buildTrajData).toList();
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final courtWidth = constraints.maxWidth * _kCourtWidthFraction;
-      final courtHeight = courtWidth / 2;
-      final courtLeft = (constraints.maxWidth - courtWidth) / 2;
-      const courtTop = _kCourtTopMargin;
-
-      return Stack(
-        children: [
-          Positioned(
-            top: courtTop,
-            left: 0,
-            right: 0,
+    // footer posizionato a courtTop+courtHeight+16 dentro CourtTrajectoriesView:
+    // per il messaggio "vuoto" aggiungo 8px in cima per riprodurre il vecchio
+    // scostamento a +24, la mini-tabella resta a +16.
+    final Widget footer = tutte.isEmpty
+        ? const Padding(
+            padding: EdgeInsets.only(top: 8),
             child: Center(
-              child: SizedBox(
-                width: courtWidth,
-                child: AspectRatio(
-                  aspectRatio: 1200 / 600,
-                  child: Image.asset(_kCourtImage, fit: BoxFit.contain),
-                ),
+              child: Text(
+                'Nessuna azione registrata per i filtri selezionati.',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+                textAlign: TextAlign.center,
               ),
             ),
-          ),
-          if (trajectories.isNotEmpty)
-            CustomPaint(
-              size: constraints.biggest,
-              painter: _MultiTrajectoryPainter(
-                trajectories: trajectories,
-                courtLeft: courtLeft,
-                courtTop: courtTop,
-                courtWidth: courtWidth,
-                courtHeight: courtHeight,
-              ),
-            ),
-          if (tutte.isEmpty)
-            Positioned(
-              top: courtTop + courtHeight + 24,
-              left: 0,
-              right: 0,
-              child: const Center(
-                child: Text(
-                  'Nessuna azione registrata per i filtri selezionati.',
-                  style: TextStyle(color: Colors.white54, fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            )
-          else
-            Positioned(
-              top: courtTop + courtHeight + 16,
-              left: 0,
-              right: 0,
-              child: _buildMiniTable(tutte, conTraj.length),
-            ),
-        ],
-      );
-    });
+          )
+        : _buildMiniTable(tutte, conTraj.length);
+
+    return CourtTrajectoriesView(trajectories: trajectories, footer: footer);
   }
 
   Widget _buildMiniTable(List<ScoutAction> tutte, int conTraj) {
@@ -561,92 +477,4 @@ class _TrajectoryReportScreenState
       ),
     );
   }
-}
-
-class _MultiTrajectoryPainter extends CustomPainter {
-  final List<_TrajData> trajectories;
-  final double courtLeft, courtTop, courtWidth, courtHeight;
-
-  _MultiTrajectoryPainter({
-    required this.trajectories,
-    required this.courtLeft,
-    required this.courtTop,
-    required this.courtWidth,
-    required this.courtHeight,
-  });
-
-  Offset _toScreen(double nx, double ny) => Offset(
-        courtLeft + nx * courtWidth,
-        courtTop + ny * courtHeight,
-      );
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final t in trajectories) {
-      final inizio = _toScreen(t.x1, t.y1);
-      final fine = _toScreen(t.x2, t.y2);
-
-      final paint = Paint()
-        ..color = t.color.withAlpha(220)
-        ..strokeWidth = CourtStyle.trajectoryWidth
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      final Offset arrowDir;
-      final muroScreen = (t.muroX != null && t.muroY != null)
-          ? _toScreen(t.muroX!, t.muroY!)
-          : null;
-
-      if (muroScreen != null) {
-        // Tocco a muro: due segmenti dritti con pallino sullo snodo.
-        canvas.drawLine(inizio, muroScreen, paint);
-        canvas.drawLine(muroScreen, fine, paint);
-        canvas.drawCircle(
-            muroScreen, 5, Paint()..color = t.color.withAlpha(220));
-        arrowDir = fine - muroScreen;
-      } else if (t.isPallonetto) {
-        // Pallonetto: arco con bezier quadratica. Punto di controllo = punto
-        // medio della traiettoria alzato di un offset fisso verso l'alto.
-        // La freccia finale segue la tangente della curva in t=1 (fine−ctrl).
-        final ctrl = Offset(
-          (inizio.dx + fine.dx) / 2,
-          (inizio.dy + fine.dy) / 2 - _kPallonettoArcOffset,
-        );
-        final path = Path()
-          ..moveTo(inizio.dx, inizio.dy)
-          ..quadraticBezierTo(ctrl.dx, ctrl.dy, fine.dx, fine.dy);
-        canvas.drawPath(path, paint);
-        arrowDir = fine - ctrl;
-      } else {
-        canvas.drawLine(inizio, fine, paint);
-        arrowDir = fine - inizio;
-      }
-
-      if (arrowDir.distance >= 4) {
-        final angolo = arrowDir.direction;
-        const lunghezza = 10.0;
-        const apertura = 0.45;
-        final p1 = fine -
-            Offset(
-              lunghezza * math.cos(angolo - apertura),
-              lunghezza * math.sin(angolo - apertura),
-            );
-        final p2 = fine -
-            Offset(
-              lunghezza * math.cos(angolo + apertura),
-              lunghezza * math.sin(angolo + apertura),
-            );
-        canvas.drawLine(fine, p1, paint);
-        canvas.drawLine(fine, p2, paint);
-      }
-
-      canvas.drawCircle(inizio, 4, Paint()..color = t.color.withAlpha(220));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MultiTrajectoryPainter old) =>
-      old.trajectories != trajectories ||
-      old.courtLeft != courtLeft ||
-      old.courtTop != courtTop;
 }
