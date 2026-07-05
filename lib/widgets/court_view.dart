@@ -60,6 +60,13 @@ class CourtView extends StatelessWidget {
   final Set<String> slotBadges;
   final void Function(String slot)? onBadgeTap;
 
+  /// Contenuto personalizzato per slot: se presente per uno slot, la card
+  /// mostra questo widget (sfondo bianco) invece della card giocatore/
+  /// etichetta — la geometria (margini, posizione, dimensione) resta
+  /// identica. Usato dalla distribuzione alzate per mostrare le percentuali
+  /// con lo stesso layout delle card dei giocatori.
+  final Map<String, Widget> slotContent;
+
   const CourtView({
     super.key,
     required this.assignments,
@@ -69,6 +76,7 @@ class CourtView extends StatelessWidget {
     this.onSlotTap,
     this.slotBadges = const {},
     this.onBadgeTap,
+    this.slotContent = const {},
   });
 
   @override
@@ -116,6 +124,7 @@ class CourtView extends StatelessWidget {
 
   Widget _buildSlot(String slot) {
     final player = assignments[slot];
+    final override = slotContent[slot];
     final isSelected = selectedSlots.contains(slot);
     final isDisabled = disabledSlots.contains(slot);
     final canTap = onSlotTap != null && player != null && !isDisabled;
@@ -124,9 +133,11 @@ class CourtView extends StatelessWidget {
     final card = Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: isDisabled
-            ? Colors.grey.shade300
-            : (player == null ? Colors.lightBlueAccent : Colors.white),
+        color: override != null
+            ? Colors.white
+            : (isDisabled
+                ? Colors.grey.shade300
+                : (player == null ? Colors.lightBlueAccent : Colors.white)),
         borderRadius: BorderRadius.circular(12),
         border: isSelected
             ? Border.all(color: selectionColor, width: 3)
@@ -141,7 +152,8 @@ class CourtView extends StatelessWidget {
               ]
             : null,
       ),
-      child: player == null ? _slotLabel(slot) : _slotPlayer(player, isDisabled),
+      child: override ??
+          (player == null ? _slotLabel(slot) : _slotPlayer(player, isDisabled)),
     );
 
     final tappableCard = canTap

@@ -53,6 +53,11 @@ const _ordineFondamentali = [
   ('alzata', 'Alzata'),
 ];
 
+// Rotazione oraria a un sideout: chi era in posizione p+1 va in p. Stessa
+// logica di ricalcola_stato.dart / trajectory_report_screen.dart.
+Map<int, int> _ruotata(Map<int, int> rot) =>
+    {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
+
 /// Report di una partita (Fase 4) — pagina 1: dati partita, punteggio
 /// finale (set vinti), punteggio di ogni set e riepilogo di tutti i
 /// fondamentali (set selezionabile o partita intera). Niente statistiche
@@ -75,6 +80,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
 
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
+  int? _setDistribuzione; // null = Partita intera — sezione distribuzione alzate
 
   @override
   void initState() {
@@ -363,6 +369,80 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     return MotivoErrore.generico; // 'nonSpecificato' o valori legacy
   }
 
+  // Distribuzione delle alzate per zona (P1..P6), dedotta dalla posizione di
+  // rotazione dell'attaccante al momento di ogni attacco: replay set per set
+  // (rotazione iniziale da caricaFormazione + sideout/cambi, stessa logica di
+  // ricalcolaStato). Scope dal selettore `_setDistribuzione`.
+  ({Map<String, int> conteggi, int totale}) get _distribuzioneAlzate {
+    final conteggi = <String, int>{
+      'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0, 'P5': 0, 'P6': 0,
+    };
+    final formazioni = _formazioni;
+    final azioniPerSet = _azioniPerSet;
+    final sets = _sets;
+    if (formazioni != null && azioniPerSet != null && sets != null) {
+      for (final set in sets) {
+        if (_setDistribuzione != null && set.numero != _setDistribuzione) {
+          continue;
+        }
+        final f = formazioni[set.id];
+        final azioni = azioniPerSet[set.id];
+        if (f == null || azioni == null) continue;
+
+        // Rotazione iniziale: posizione (1-6) → giocatoreId.
+        var rot = <int, int>{};
+        for (final e in f.assignments.entries) {
+          final pos =
+              e.key.startsWith('P') ? int.tryParse(e.key.substring(1)) : null;
+          if (pos != null) rot[pos] = e.value.id;
+        }
+        var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
+        final ordinate = [...azioni]..sort((a, b) => a.ordine.compareTo(b.ordine));
+
+        for (final a in ordinate) {
+          // Cambio giocatore: il subentrante prende la posizione dell'uscente
+          // (no-op se duplicherebbe), stessa guardia di ricalcolaStato.
+          if (a.tipo == TipoAzione.cambioGiocatore &&
+              a.giocatoreId != null &&
+              a.giocatoreUscenteId != null) {
+            final entra = a.giocatoreId!;
+            final esce = a.giocatoreUscenteId!;
+            if (!(esce != entra && rot.containsValue(entra))) {
+              rot = {
+                for (final e in rot.entries)
+                  e.key: e.value == esce ? entra : e.value,
+              };
+            }
+          }
+
+          // Attribuisci l'attacco alla zona dell'attaccante PRIMA di applicare
+          // l'esito (l'attacco avviene durante il rally, prima del sideout).
+          if (a.tipo == TipoAzione.scout &&
+              a.fondamentale == Fondamentale.attacco &&
+              a.giocatoreId != null) {
+            for (final e in rot.entries) {
+              if (e.value == a.giocatoreId) {
+                conteggi['P${e.key}'] = conteggi['P${e.key}']! + 1;
+                break;
+              }
+            }
+          }
+
+          if (a.esitoPunto == EsitoPunto.puntoNostro && !nostraAlServizio) {
+            rot = _ruotata(rot);
+            nostraAlServizio = true;
+          } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
+            nostraAlServizio = true;
+          } else if (a.esitoPunto == EsitoPunto.puntoAvversario) {
+            nostraAlServizio = false;
+          }
+        }
+      }
+    }
+    final totale = conteggi.values.fold(0, (s, v) => s + v);
+    return (conteggi: conteggi, totale: totale);
+  }
+
   @override
   Widget build(BuildContext context) {
     final sets = _sets;
@@ -634,6 +714,36 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   },
                 ),
               ],
+              const SizedBox(height: 32),
+              Text(
+                'Distribuzione alzate',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: 220,
+                child: DropdownButtonFormField<int?>(
+                  initialValue: _setDistribuzione,
+                  decoration: const InputDecoration(
+                    labelText: 'Set',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('Partita intera'),
+                    ),
+                    for (final s in sets)
+                      DropdownMenuItem(
+                        value: s.numero,
+                        child: Text('Set ${s.numero}'),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _setDistribuzione = v),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildDistribuzioneCourt(_distribuzioneAlzate),
             ],
           ),
         ),
@@ -697,6 +807,92 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Campo a piena dimensione (come un singolo set) con la % di alzate per
+  // zona: riusa CourtView (stessa geometria/posizione delle card giocatore)
+  // con un contenuto per slot che mostra la percentuale. La % è sul totale
+  // degli attacchi nello scope; il numero sotto è il conteggio di quella zona.
+  Widget _buildDistribuzioneCourt(
+      ({Map<String, int> conteggi, int totale}) d) {
+    if (d.totale == 0) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Nessun attacco registrato per lo scope selezionato.'),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            const spacing = 16.0;
+            // Stessa larghezza di una card di formazione ("un singolo set"),
+            // allineata a sinistra; renderizzata a 460 e scalata come quelle,
+            // così le celle mantengono le stesse proporzioni.
+            final size = (c.maxWidth - 2 * spacing) / 3;
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: SizedBox(
+                    width: 460,
+                    height: 460,
+                    child: CourtView(
+                      assignments: const {},
+                      slotContent: {
+                        for (final slot in const ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'])
+                          slot: _cellaPercentuale(slot, d),
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // Contenuto di una cella della distribuzione: percentuale grande al centro
+  // e conteggio sotto, stesso stile della card giocatore (numero 31 +
+  // secondario 13, vedi CourtView._slotPlayer).
+  Widget _cellaPercentuale(
+      String slot, ({Map<String, int> conteggi, int totale}) d) {
+    final count = d.conteggi[slot] ?? 0;
+    final pct = d.totale == 0 ? 0 : (count * 100 / d.totale).round();
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            '$pct%',
+            style: const TextStyle(
+              fontSize: 31,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Text(
+              '$count',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, color: Colors.black54),
+            ),
+          ),
+        ],
       ),
     );
   }
