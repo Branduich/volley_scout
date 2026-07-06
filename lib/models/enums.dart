@@ -93,7 +93,10 @@ enum Fondamentale {
 /// ("cambio", non "sostituzione": quel termine è già usato per la meccanica
 /// del libero) — `giocatoreId` = chi entra, `esitoPunto = nessuno`, più le
 /// colonne dedicate su ScoutActions (uscente + override di configurazione).
-enum TipoAzione { scout, puntoManuale, erroreGenerico, cambioGiocatore }
+/// `timeout` = timeout chiamato da una squadra (max 2 per set per
+/// allenatore) — `esitoPunto = nessuno`, nessun giocatore: no-op nel replay
+/// di ricalcolaStato(), serve solo al conteggio per set e all'undo.
+enum TipoAzione { scout, puntoManuale, erroreGenerico, cambioGiocatore, timeout }
 
 /// Motivo di un `TipoAzione.erroreGenerico` dell'avversario — salvato nella
 /// stessa colonna polimorfica `tipoEsecuzione` usata da TipoBattuta/

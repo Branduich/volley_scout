@@ -557,8 +557,13 @@ class ScoutActionRepository {
     // Se l'ultima azione del set è ancora "in corso" (esitoPunto = nessuno,
     // es. una battuta non terminale), questa azione fa parte dello stesso
     // scambio — stesso rallyId. Altrimenti inizia un nuovo scambio.
+    // Un timeout ha esito `nessuno` ma non apre né continua uno scambio:
+    // senza l'esclusione, l'azione successiva erediterebbe il suo rallyId
+    // invece di iniziarne uno nuovo.
     final ultima = await ultimaAzione(setId);
-    final rallyId = (ultima != null && ultima.esitoPunto == EsitoPunto.nessuno)
+    final rallyId = (ultima != null &&
+            ultima.esitoPunto == EsitoPunto.nessuno &&
+            ultima.tipo != TipoAzione.timeout)
         ? ultima.rallyId
         : ordine;
 

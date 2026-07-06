@@ -1645,9 +1645,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               builder: (context, headerConstraints) {
                 const scoreControlWidth = 116.0;
                 final leftScoreLeft =
-                    headerConstraints.maxWidth * 0.25 - scoreControlWidth / 2;
+                    headerConstraints.maxWidth * 0.30 - scoreControlWidth / 2;
                 final rightScoreLeft =
-                    headerConstraints.maxWidth * 0.75 - scoreControlWidth / 2;
+                    headerConstraints.maxWidth * 0.70 - scoreControlWidth / 2;
                 return Stack(
                   children: [
                     Positioned(
@@ -1666,25 +1666,50 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    // Center: il contenuto (−/numero/+, ~76px) è più stretto
+                    // del riquadro da 116 — senza, la Row resta allineata a
+                    // sinistra in entrambi i riquadri e i due punteggi
+                    // risultano asimmetrici rispetto al titolo centrato.
                     Positioned(
                       left: leftScoreLeft,
                       width: scoreControlWidth,
                       bottom: 4,
-                      child: _isRightSide
-                          ? _buildScoreDisplay(
-                              _punteggioAvversario, Squadra.avversari)
-                          : _buildScoreDisplay(
-                              _punteggioNostro, Squadra.nostra),
+                      child: Center(
+                        child: _isRightSide
+                            ? _buildScoreDisplay(
+                                _punteggioAvversario, Squadra.avversari)
+                            : _buildScoreDisplay(
+                                _punteggioNostro, Squadra.nostra),
+                      ),
                     ),
                     Positioned(
                       left: rightScoreLeft,
                       width: scoreControlWidth,
                       bottom: 4,
-                      child: _isRightSide
-                          ? _buildScoreDisplay(
-                              _punteggioNostro, Squadra.nostra)
-                          : _buildScoreDisplay(
-                              _punteggioAvversario, Squadra.avversari),
+                      child: Center(
+                        child: _isRightSide
+                            ? _buildScoreDisplay(
+                                _punteggioNostro, Squadra.nostra)
+                            : _buildScoreDisplay(
+                                _punteggioAvversario, Squadra.avversari),
+                      ),
+                    ),
+                    // Pallini timeout: nell'header, alla stessa X del
+                    // bottone timeout nella riga sottostante — centro
+                    // bottone a 254px dal bordo (padding 24 + 44+8+44 +
+                    // gap 112 + 22), riga pallini larga 34 → offset 237.
+                    // Il lato segue i gruppi punto/errore (_isRightSide).
+                    Positioned(
+                      left: 237,
+                      bottom: 8,
+                      child: _buildTimeoutDots(
+                          _isRightSide ? Squadra.avversari : Squadra.nostra),
+                    ),
+                    Positioned(
+                      right: 237,
+                      bottom: 8,
+                      child: _buildTimeoutDots(
+                          _isRightSide ? Squadra.nostra : Squadra.avversari),
                     ),
                     Positioned(
                       left: 0,
@@ -2213,6 +2238,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         colore: AppColors.brandPrimary,
       );
     }
+    // Timeout: stesso colore neutro del cambio (nessun punto per nessuno),
+    // nome squadra come per punto/errore qui sotto.
+    if (azione.tipo == TipoAzione.timeout) {
+      final squadraLabel =
+          azione.squadra == Squadra.nostra ? widget.team.nome : 'avversario';
+      return (
+        testo: 'Timeout $squadraLabel',
+        voto: null,
+        colore: AppColors.brandPrimary,
+      );
+    }
     // Per la nostra squadra si usa il nome reale (es. "Punto Nettunia")
     // invece del generico "nostro" — stesso testo sia nel banner ultima
     // azione sia nel dialog di conferma undo (entrambi riusano questa
@@ -2339,67 +2375,158 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Distanza tra il gruppo punto/errore e il bottone timeout della stessa
+  // squadra: spazio in cui starebbero altri due bottoni rapidi (2×44 + gap).
+  static const double _kTimeoutGap = 112;
+
   // Riga "Errore nostro" (rosso, X) + "Punto nostro" (verde, check — stesso
   // colore del voto "perfetto", non blu: un punto generico è semanticamente
-  // più vicino a "perfetto" che a "positivo").
+  // più vicino a "perfetto" che a "positivo") + bottone timeout staccato
+  // sul lato interno (verso il centro dello schermo, segue _isRightSide).
   Widget _buildBottoniNostri() {
+    final base = [
+      _buildQuickActionButton(
+        icon: Icons.close,
+        color: Colors.red,
+        onTap: _bottoniRapidiAttivi
+            ? () => _registraAzioneRapida(Squadra.nostra,
+                TipoAzione.erroreGenerico, EsitoPunto.puntoAvversario)
+            : null,
+      ),
+      const SizedBox(width: 8),
+      _buildQuickActionButton(
+        icon: Icons.check,
+        color: AppColors.success,
+        onTap: _bottoniRapidiAttivi
+            ? () => _registraAzioneRapida(Squadra.nostra,
+                TipoAzione.puntoManuale, EsitoPunto.puntoNostro)
+            : null,
+      ),
+    ];
+    final timeout = _buildTimeoutButton(Squadra.nostra);
+    const gap = SizedBox(width: _kTimeoutGap);
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildQuickActionButton(
-          icon: Icons.close,
-          color: Colors.red,
-          onTap: _bottoniRapidiAttivi
-              ? () => _registraAzioneRapida(Squadra.nostra,
-                  TipoAzione.erroreGenerico, EsitoPunto.puntoAvversario)
-              : null,
-        ),
-        const SizedBox(width: 8),
-        _buildQuickActionButton(
-          icon: Icons.check,
-          color: AppColors.success,
-          onTap: _bottoniRapidiAttivi
-              ? () => _registraAzioneRapida(Squadra.nostra,
-                  TipoAzione.puntoManuale, EsitoPunto.puntoNostro)
-              : null,
-        ),
-      ],
+      // Gruppo a sinistra (default): timeout in coda; coi lati invertiti il
+      // gruppo va a destra e il timeout passa in testa — resta verso il
+      // centro in entrambi i casi.
+      children: _isRightSide ? [timeout, gap, ...base] : [...base, gap, timeout],
     );
   }
 
   // Speculare a _buildBottoniNostri: "Punto avversario" (verde, check) +
   // "Errore avversario" (rosso, X) — ordine invertito per simmetria visiva.
   Widget _buildBottoniAvversario() {
+    final base = [
+      _buildQuickActionButton(
+        icon: Icons.check,
+        color: AppColors.success,
+        onTap: _bottoniRapidiAttivi
+            ? () => _registraAzioneRapida(Squadra.avversari,
+                TipoAzione.puntoManuale, EsitoPunto.puntoAvversario)
+            : null,
+      ),
+      const SizedBox(width: 8),
+      _buildQuickActionButton(
+        icon: Icons.close,
+        color: Colors.red,
+        onTap: _bottoniRapidiAttivi
+            ? () => _registraAzioneRapida(Squadra.avversari,
+                TipoAzione.erroreGenerico, EsitoPunto.puntoNostro,
+                tipoEsecuzione: MotivoErrore.generico.name)
+            : null,
+        // Pressione prolungata: scegli il motivo dell'errore (Battuta/
+        // Fallo di posizione/Invasione) invece del default "Generico"
+        // del tap singolo — vedi MotivoErrore in enums.dart. Se va bene,
+        // si può estendere lo stesso meccanismo ad altri bottoni rapidi.
+        onLongPressStart: _bottoniRapidiAttivi
+            ? (details) => _scegliMotivoErroreAvversario(details.globalPosition)
+            : null,
+      ),
+    ];
+    final timeout = _buildTimeoutButton(Squadra.avversari);
+    const gap = SizedBox(width: _kTimeoutGap);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      // Gruppo a destra (default): timeout in testa; specchiato con
+      // _isRightSide — vedi _buildBottoniNostri.
+      children: _isRightSide ? [...base, gap, timeout] : [timeout, gap, ...base],
+    );
+  }
+
+  // Timeout già chiamati da una squadra nel set corrente — derivato dallo
+  // stesso stream di _statoSetReale contando le righe `TipoAzione.timeout`
+  // (nessuno stato locale: undo e ripresa partita tornano coerenti da soli).
+  int _timeoutChiamati(Squadra squadra) {
+    final set = _setCorrente;
+    if (set == null) return 0;
+    final righe = ref.watch(scoutAzioniStreamProvider(set.id)).value ??
+        const <ScoutAction>[];
+    return righe
+        .where((a) => a.tipo == TipoAzione.timeout && a.squadra == squadra)
+        .length;
+  }
+
+  // Bottone timeout di una squadra (blu, orologio) — due per set per
+  // allenatore nel volley. I due pallini di stato stanno nell'header, in
+  // corrispondenza orizzontale di questo bottone (_buildTimeoutDots); al
+  // secondo timeout il bottone si disabilita. Nessun dialog di conferma:
+  // il timeout è una riga di log come le altre, il banner ultima azione lo
+  // mostra e l'undo lo annulla.
+  Widget _buildTimeoutButton(Squadra squadra) {
+    return _buildQuickActionButton(
+      icon: Icons.access_time,
+      color: AppColors.brandPrimary,
+      onTap: _bottoniRapidiAttivi && _timeoutChiamati(squadra) < 2
+          ? () => _timeout(squadra)
+          : null,
+    );
+  }
+
+  // Pallini di stato dei timeout (14×14): grigi da chiamare, gialli
+  // chiamati. Mostrati nell'header, allineati in orizzontale col bottone
+  // timeout della stessa squadra nella riga sottostante.
+  Widget _buildTimeoutDots(Squadra squadra) {
+    final chiamati = _timeoutChiamati(squadra);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildQuickActionButton(
-          icon: Icons.check,
-          color: AppColors.success,
-          onTap: _bottoniRapidiAttivi
-              ? () => _registraAzioneRapida(Squadra.avversari,
-                  TipoAzione.puntoManuale, EsitoPunto.puntoAvversario)
-              : null,
-        ),
-        const SizedBox(width: 8),
-        _buildQuickActionButton(
-          icon: Icons.close,
-          color: Colors.red,
-          onTap: _bottoniRapidiAttivi
-              ? () => _registraAzioneRapida(Squadra.avversari,
-                  TipoAzione.erroreGenerico, EsitoPunto.puntoNostro,
-                  tipoEsecuzione: MotivoErrore.generico.name)
-              : null,
-          // Pressione prolungata: scegli il motivo dell'errore (Battuta/
-          // Fallo di posizione/Invasione) invece del default "Generico"
-          // del tap singolo — vedi MotivoErrore in enums.dart. Se va bene,
-          // si può estendere lo stesso meccanismo ad altri bottoni rapidi.
-          onLongPressStart: _bottoniRapidiAttivi
-              ? (details) => _scegliMotivoErroreAvversario(details.globalPosition)
-              : null,
-        ),
+        for (var i = 0; i < 2; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              // Grigio Colors.grey (0xFF9E9E9E) scurito del 30%.
+              color: i < chiamati ? Colors.yellow : const Color(0xFF6F6F6F),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  // Registra il timeout come evento nel log (esito `nessuno`: no-op per
+  // punteggio/rotazione nel replay) — così l'undo esistente lo annulla e i
+  // pallini si aggiornano via stream, senza stato locale.
+  Future<void> _timeout(Squadra squadra) async {
+    final set = _setCorrente;
+    if (set == null || _testModeEnabled) return;
+    // Riconteggio con ref.read (siamo in un callback, non nel build): il
+    // bottone è già disabilitato a 2, questa è solo una guardia in più.
+    final righe = ref.read(scoutAzioniStreamProvider(set.id)).value ??
+        const <ScoutAction>[];
+    final chiamati = righe
+        .where((a) => a.tipo == TipoAzione.timeout && a.squadra == squadra)
+        .length;
+    if (chiamati >= 2) return;
+    await ref.read(scoutActionRepositoryProvider).registraAzioneRapida(
+          setId: set.id,
+          squadra: squadra,
+          tipo: TipoAzione.timeout,
+          esitoPunto: EsitoPunto.nessuno,
+        );
   }
 
   Future<void> _scegliMotivoErroreAvversario(Offset posizione) async {
