@@ -81,6 +81,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
   int? _setDistribuzione; // null = Partita intera — sezione distribuzione alzate
+  int? _setEfficienza; // null = Partita intera — sezione efficienza
+  int? _giocatoreEfficienza; // null = Tutti — sezione efficienza
+  int? _setPositivita; // null = Partita intera — sezione positività
+  int? _giocatorePositivita; // null = Tutti — sezione positività
 
   @override
   void initState() {
@@ -230,15 +234,20 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     ];
   }
 
-  List<List<ScoutAction>> get _listeAzioniNelloScope {
+  List<List<ScoutAction>> get _listeAzioniNelloScope =>
+      _listeAzioniPerSet(_setSelezionato);
+
+  // Liste azioni per lo scope set richiesto (null = partita intera) — una
+  // lista per set, così i calcoli scoped per rallyId restano corretti.
+  List<List<ScoutAction>> _listeAzioniPerSet(int? setNumero) {
     final azioniPerSet = _azioniPerSet;
     final sets = _sets;
     if (azioniPerSet == null || sets == null) return const [];
-    if (_setSelezionato == null) {
+    if (setNumero == null) {
       return azioniPerSet.values.toList();
     }
     for (final s in sets) {
-      if (s.numero == _setSelezionato) {
+      if (s.numero == setNumero) {
         final lista = azioniPerSet[s.id];
         return lista == null ? const [] : [lista];
       }
@@ -443,6 +452,56 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     return (conteggi: conteggi, totale: totale);
   }
 
+  // Dati per l'efficienza di un fondamentale nello scope dei selettori della
+  // sezione Efficienza (_setEfficienza/_giocatoreEfficienza):
+  // efficienza = (punti − errori) / totale × 100, con punti = voti `#`,
+  // errori = voti `=`, totale = tutte le azioni votate del fondamentale.
+  // Può essere negativa; con totale 0 il chiamante mostra "—" (mai una
+  // divisione per zero).
+  ({int punti, int errori, int totale}) _efficienzaDati(
+      Fondamentale fondamentale) {
+    var punti = 0, errori = 0, totale = 0;
+    for (final azioniSet in _listeAzioniPerSet(_setEfficienza)) {
+      for (final a in azioniSet) {
+        if (a.tipo != TipoAzione.scout) continue;
+        if (a.fondamentale != fondamentale || a.voto == null) continue;
+        if (_giocatoreEfficienza != null &&
+            a.giocatoreId != _giocatoreEfficienza) {
+          continue;
+        }
+        totale++;
+        if (a.voto == Voto.perfetto) punti++;
+        if (a.voto == Voto.errore) errori++;
+      }
+    }
+    return (punti: punti, errori: errori, totale: totale);
+  }
+
+  // Dati per la positività di un fondamentale (ricezione/difesa) nello scope
+  // dei selettori della sezione Positività:
+  // positività = positive / totale × 100, con positive = voti `#` o `+`,
+  // totale = tutte le azioni votate del fondamentale. Per la ricezione si
+  // mostra anche percentuale errore = errori / totale × 100 (ace subiti).
+  // Con totale 0 il chiamante mostra "—" (mai una divisione per zero).
+  ({int positive, int errori, int totale}) _positivitaDati(
+      Fondamentale fondamentale) {
+    var positive = 0, errori = 0, totale = 0;
+    for (final azioniSet in _listeAzioniPerSet(_setPositivita)) {
+      for (final a in azioniSet) {
+        if (a.tipo != TipoAzione.scout) continue;
+        if (a.fondamentale != fondamentale || a.voto == null) continue;
+        if (_giocatorePositivita != null &&
+            a.giocatoreId != _giocatorePositivita) {
+          continue;
+        }
+        totale++;
+        if (a.voto == Voto.perfetto || a.voto == Voto.positivo) positive++;
+        if (a.voto == Voto.errore) errori++;
+      }
+    }
+    return (positive: positive, errori: errori, totale: totale);
+  }
+
   @override
   Widget build(BuildContext context) {
     final sets = _sets;
@@ -517,10 +576,21 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Pallino esito accanto a ciascun nome: verde chi ha
+                      // vinto, rosso chi ha perso (stesso _pallinoEsito, e
+                      // stessa dimensione, dello specchietto dei set).
                       Expanded(
-                        child: Text(
-                          nomeNostro,
-                          style: Theme.of(context).textTheme.titleMedium,
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                nomeNostro,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _pallinoEsito(setVintiNostri, setVintiAvversario),
+                          ],
                         ),
                       ),
                       Text(
@@ -528,10 +598,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       Expanded(
-                        child: Text(
-                          nomeAvversario,
-                          textAlign: TextAlign.end,
-                          style: Theme.of(context).textTheme.titleMedium,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            _pallinoEsito(setVintiAvversario, setVintiNostri),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                nomeAvversario,
+                                textAlign: TextAlign.end,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -744,6 +823,169 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
               ),
               const SizedBox(height: 8),
               _buildDistribuzioneCourt(_distribuzioneAlzate),
+              const SizedBox(height: 32),
+              Text(
+                'Efficienza',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _setEfficienza,
+                      decoration: const InputDecoration(
+                        labelText: 'Set',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Partita intera'),
+                        ),
+                        for (final s in sets)
+                          DropdownMenuItem(
+                            value: s.numero,
+                            child: Text('Set ${s.numero}'),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _setEfficienza = v),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 260,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _giocatoreEfficienza,
+                      decoration: const InputDecoration(
+                        labelText: 'Giocatore',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Tutti'),
+                        ),
+                        for (final p in _giocatoriConAzioni)
+                          DropdownMenuItem(
+                            value: p.id,
+                            child: Text('${p.numero} ${p.cognome}'),
+                          ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _giocatoreEfficienza = v),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  _buildEfficienzaCard(
+                      'Efficienza battuta', _efficienzaDati(Fondamentale.battuta)),
+                  _buildEfficienzaCard(
+                      'Efficienza attacco', _efficienzaDati(Fondamentale.attacco)),
+                ],
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Positività',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _setPositivita,
+                      decoration: const InputDecoration(
+                        labelText: 'Set',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Partita intera'),
+                        ),
+                        for (final s in sets)
+                          DropdownMenuItem(
+                            value: s.numero,
+                            child: Text('Set ${s.numero}'),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _setPositivita = v),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 260,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _giocatorePositivita,
+                      decoration: const InputDecoration(
+                        labelText: 'Giocatore',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Tutti'),
+                        ),
+                        for (final p in _giocatoriConAzioni)
+                          DropdownMenuItem(
+                            value: p.id,
+                            child: Text('${p.numero} ${p.cognome}'),
+                          ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _giocatorePositivita = v),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Builder(builder: (context) {
+                final ricezione = _positivitaDati(Fondamentale.ricezione);
+                final difesa = _positivitaDati(Fondamentale.difesa);
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    _buildPercentCard(
+                      titolo: 'Positività ricezione',
+                      formula: '(# + +) / totale × 100',
+                      numeratore: ricezione.positive,
+                      totale: ricezione.totale,
+                      color: AppColors.brandPrimary,
+                      dettaglio:
+                          'Positive: ${ricezione.positive} · Totale: ${ricezione.totale}',
+                    ),
+                    _buildPercentCard(
+                      titolo: 'Errore ricezione',
+                      formula: '(=) / totale × 100',
+                      numeratore: ricezione.errori,
+                      totale: ricezione.totale,
+                      color: Colors.red,
+                      dettaglio:
+                          'Errori: ${ricezione.errori} · Totale: ${ricezione.totale}',
+                    ),
+                    _buildPercentCard(
+                      titolo: 'Positività difesa',
+                      formula: '(# + +) / totale × 100',
+                      numeratore: difesa.positive,
+                      totale: difesa.totale,
+                      color: AppColors.brandPrimary,
+                      dettaglio:
+                          'Positive: ${difesa.positive} · Totale: ${difesa.totale}',
+                    ),
+                  ],
+                );
+              }),
             ],
           ),
         ),
@@ -893,6 +1135,105 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Specchietto efficienza di un fondamentale: valore grande colorato
+  // (verde > 0, rosso < 0, grigio a 0 — "—" senza azioni) + dettaglio
+  // punti/errori/totale. La formula è in _efficienzaDati.
+  // Stile della formula mostrata in piccolo sotto il titolo delle card
+  // efficienza/positività — spiega il conto usando i simboli dei voti.
+  static const _kFormulaStyle = TextStyle(
+    fontSize: 12,
+    color: Colors.black45,
+    fontStyle: FontStyle.italic,
+  );
+
+  Widget _buildEfficienzaCard(
+      String titolo, ({int punti, int errori, int totale}) d) {
+    final double? efficienza =
+        d.totale == 0 ? null : (d.punti - d.errori) * 100 / d.totale;
+    final Color color;
+    if (efficienza == null) {
+      color = AppColors.neutral;
+    } else if (efficienza > 0) {
+      color = AppColors.success;
+    } else if (efficienza < 0) {
+      color = AppColors.danger;
+    } else {
+      color = AppColors.neutral;
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: 240,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(titolo, style: Theme.of(context).textTheme.titleMedium),
+              const Text('(# − =) / totale × 100', style: _kFormulaStyle),
+              const SizedBox(height: 8),
+              Text(
+                efficienza == null ? '—' : '${efficienza.round()}%',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Punti: ${d.punti} · Errori: ${d.errori} · Totale: ${d.totale}',
+                style: const TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Specchietto percentuale generico (positività/errore ricezione): stesso
+  // layout della card efficienza ma con colore fisso e percentuale sempre
+  // ≥ 0 — "—" con totale 0, mai una divisione per zero.
+  Widget _buildPercentCard({
+    required String titolo,
+    required String formula,
+    required int numeratore,
+    required int totale,
+    required Color color,
+    required String dettaglio,
+  }) {
+    final double? percentuale = totale == 0 ? null : numeratore * 100 / totale;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: 240,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(titolo, style: Theme.of(context).textTheme.titleMedium),
+              Text(formula, style: _kFormulaStyle),
+              const SizedBox(height: 8),
+              Text(
+                percentuale == null ? '—' : '${percentuale.round()}%',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                  color: percentuale == null ? AppColors.neutral : color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                dettaglio,
+                style: const TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
