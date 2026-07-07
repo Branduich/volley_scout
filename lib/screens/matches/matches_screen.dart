@@ -7,6 +7,7 @@ import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../live/scout_screen.dart';
+import '../report/match_pdf_screen.dart';
 import '../report/match_report_screen.dart';
 import 'match_form_screen.dart';
 import 'team_selection_screen.dart';
@@ -126,6 +127,14 @@ class MatchesScreen extends ConsumerWidget {
                   ),
                 ),
                 onStart: () => _avviaOContinua(context, ref, match),
+                onOpenPdf: match.stato == StatoPartita.terminata
+                    ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MatchPdfScreen(match: match),
+                          ),
+                        )
+                    : null,
                 onOpenReport: match.stato == StatoPartita.terminata
                     ? () => Navigator.push(
                           context,
@@ -187,12 +196,16 @@ class _MatchCard extends StatelessWidget {
   final VoidCallback onStart;
   // Non null solo per le partite terminate — apre MatchReportScreen.
   final VoidCallback? onOpenReport;
+  // Non null solo per le partite terminate — apre MatchPdfScreen
+  // (anteprima + condivisione del report PDF).
+  final VoidCallback? onOpenPdf;
 
   const _MatchCard({
     required this.match,
     required this.onTap,
     required this.onStart,
     this.onOpenReport,
+    this.onOpenPdf,
   });
 
   String _pad(int n) => n.toString().padLeft(2, '0');
@@ -245,6 +258,14 @@ class _MatchCard extends StatelessWidget {
           children: [
             _CasaBadge(inCasa: match.inCasa),
             const SizedBox(width: 12),
+            if (onOpenPdf != null) ...[
+              OutlinedButton.icon(
+                onPressed: onOpenPdf,
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text('PDF'),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (onOpenReport != null) ...[
               OutlinedButton.icon(
                 onPressed: onOpenReport,

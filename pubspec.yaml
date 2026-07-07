@@ -39,6 +39,8 @@ dependencies:
   sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.5
   path: ^1.9.1
+  pdf: ^3.13.0
+  printing: ^5.15.0
 
 dev_dependencies:
   flutter_test:
@@ -81,6 +83,9 @@ flutter:
   assets:
     - assets/images/
     - assets/demo/
+    # Logo app (già usato per l'icona launcher): caricato a runtime anche
+    # nell'header del report PDF (match_pdf_screen.dart).
+    - assets/icon/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
