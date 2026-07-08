@@ -128,28 +128,53 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
             labelText: 'Colore divisa',
             border: OutlineInputBorder(),
           ),
-          items: jerseyPalette
-              .map(
-                (j) => DropdownMenuItem(
-                  value: j.color.toARGB32(),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: j.color,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black26),
-                        ),
+          items: [
+            // Colore fuori palette (es. squadra demo importata, che ha un
+            // verde custom): item dedicato col valore corrente, altrimenti
+            // il Dropdown lancia perché initialValue non esiste tra gli
+            // item ("There should be exactly one item with value"). Il
+            // colore resta invariato finché non se ne sceglie un altro.
+            if (!jerseyPalette
+                .any((j) => j.color.toARGB32() == _coloreDivisa))
+              DropdownMenuItem(
+                value: _coloreDivisa,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Color(_coloreDivisa),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black26),
                       ),
-                      const SizedBox(width: 12),
-                      Text(j.nome),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Personalizzato'),
+                  ],
                 ),
-              )
-              .toList(),
+              ),
+            ...jerseyPalette.map(
+              (j) => DropdownMenuItem(
+                value: j.color.toARGB32(),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: j.color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black26),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(j.nome),
+                  ],
+                ),
+              ),
+            ),
+          ],
           onChanged: (v) => setState(() => _coloreDivisa = v!),
         ),
         const SizedBox(height: 32),
