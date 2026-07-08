@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'screens/teams/teams_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'providers/settings_provider.dart';
 import 'screens/matches/matches_screen.dart';
+import 'screens/settings/settings_screen.dart';
+import 'screens/teams/teams_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/debug_paint_toggle.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
+  // SharedPreferences caricato PRIMA di runApp e iniettato con override:
+  // le impostazioni si leggono in modo sincrono ovunque (vedi
+  // settings_provider.dart).
+  final prefs = await SharedPreferences.getInstance();
+  await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
-  ]).then((_) {
-    runApp(const ProviderScope(child: VolleyScoutApp()));
-  });
+  ]);
+  runApp(ProviderScope(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    child: const VolleyScoutApp(),
+  ));
 }
 
 class VolleyScoutApp extends StatelessWidget {
@@ -61,8 +70,10 @@ class HomeScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Spacer simmetrici: i due bottoni principali restano
+                  // centrati, "Impostazioni" sta in fondo, staccata.
+                  const Spacer(),
                   _MenuButton(
                     icon: Icons.groups,
                     label: 'Setup squadre',
@@ -80,6 +91,17 @@ class HomeScreen extends StatelessWidget {
                       MaterialPageRoute(
                         settings: const RouteSettings(name: '/matches'),
                         builder: (_) => const MatchesScreen(),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  _MenuButton(
+                    icon: Icons.settings,
+                    label: 'Impostazioni',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
                       ),
                     ),
                   ),

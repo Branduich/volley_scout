@@ -38,12 +38,21 @@ procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 - **Flutter / Dart**
 - **drift** (database locale SQLite, con code generation via build_runner)
 - **flutter_riverpod** (state management)
-- Per le fasi successive: **pdf** + **printing** (export), **share_plus** (condivisione)
+- **pdf** + **printing** (export PDF con anteprima/condivisione/stampa —
+  `share_plus` NON serve: la condivisione è già dentro `printing`)
+- **shared_preferences** (impostazioni app — vedi `SettingsScreen`)
 - Target: **solo orientamento orizzontale (landscape)**
 
 Package già installati:
-`flutter_riverpod drift sqlite3_flutter_libs path_provider path`
-dev: `drift_dev build_runner`
+`flutter_riverpod drift sqlite3_flutter_libs path_provider path pdf printing
+shared_preferences`
+dev: `drift_dev build_runner flutter_launcher_icons`
+
+**Workaround build Android** (`android/gradle.properties`):
+`kotlin.incremental=false` — bug noto di Kotlin su Windows ("Could not close
+incremental caches", file `.tab` lockati compilando i moduli plugin, visto con
+`shared_preferences_android`). Non rimuoverlo senza motivo: senza, la build
+fallisce anche dopo `flutter clean`/stop dei daemon.
 
 ---
 
@@ -105,9 +114,12 @@ lib/
 │   └── demo_match_importer.dart  (import partita demo da assets/demo/ —
 │                                   solo debug, vedi Fase 4)
 ├── providers/
-│   └── database_provider.dart    (TeamRepository + MatchRepository,
-│                                   tutti i provider: teamsStream, playersStream,
-│                                   matchesStream)
+│   ├── database_provider.dart    (TeamRepository + MatchRepository,
+│   │                               tutti i provider: teamsStream, playersStream,
+│   │                               matchesStream)
+│   └── settings_provider.dart    (Impostazioni + impostazioniProvider su
+│                                   shared_preferences; sharedPreferencesProvider
+│                                   sovrascritto in main() — vedi Impostazioni)
 ├── screens/
 │   ├── teams/
 │   │   ├── teams_screen.dart      (lista squadre + FAB nuova squadra)
@@ -132,15 +144,26 @@ lib/
 │   │   ├── scout_screen.dart             (setup grafico Fase 3 in corso: sfondo, barra
 │   │   │                                  top, campo doppio + campo piccolo)
 │   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
-│   └── report/
-│       ├── match_report_screen.dart      (Fase 4: dati partita, punteggio finale,
-│       │                                  punteggio per set, riepilogo fondamentali —
-│       │                                  raggiunta da MatchesScreen)
-│       ├── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
-│       │                                  set per set — raggiunta dal drawer di ScoutScreen)
-│       └── trajectory_report_screen.dart (Fase 4: traiettorie battute/attacco con filtri
-│                                          set/giocatore e, per attacco, rotazione P1-P6 —
-│                                          raggiunta dal drawer di ScoutScreen)
+│   ├── report/
+│   │   ├── match_report_screen.dart      (Fase 4: report completo — dati partita,
+│   │   │                                  punteggio finale/per set con durata e pallini
+│   │   │                                  esito, riepilogo fondamentali, punti/errori
+│   │   │                                  generici, bottoni traiettorie, formazioni di
+│   │   │                                  partenza per set, distribuzione alzate,
+│   │   │                                  efficienza e positività — da MatchesScreen)
+│   │   ├── match_pdf_screen.dart         (Fase 4: anteprima+condivisione PDF on-demand
+│   │   │                                  via PdfPreview — bottone "PDF" sulla card
+│   │   │                                  delle partite terminate, vedi Fase 4)
+│   │   ├── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
+│   │   │                                  set per set — raggiunta dal drawer di ScoutScreen)
+│   │   └── trajectory_report_screen.dart (Fase 4: traiettorie battute/attacco con filtri
+│   │                                      set/giocatore e, per attacco, rotazione P1-P6 —
+│   │                                      dal drawer di ScoutScreen e dai bottoni di
+│   │                                      MatchReportScreen, vedi Fase 4)
+│   └── settings/
+│       └── settings_screen.dart          (Impostazioni — bottone in fondo al menu di
+│                                          HomeScreen; per ora solo il toggle
+│                                          traiettorie, vedi sezione Impostazioni)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -149,14 +172,22 @@ lib/
 │   └── court_style.dart           (CourtStyle — costanti grafiche campo: colori linee,
 │                                   rete, token giocatore, traiettoria, votoColor(Voto))
 └── widgets/
-    └── court_view.dart            (CourtView + LabeledCourt: campo 3×2 con card
-                                    giocatori, estratti da formation_config_screen —
-                                    condivisi con sostituzione_screen; CourtView ha
-                                    anche badge ✕ opzionali per-slot)
+    ├── court_view.dart            (CourtView + LabeledCourt: campo 3×2 con card
+    │                               giocatori, estratti da formation_config_screen —
+    │                               condivisi con sostituzione_screen; CourtView ha
+    │                               anche badge ✕ opzionali per-slot e `slotContent`
+    │                               — contenuto custom per slot a parità di geometria,
+    │                               usato dalla distribuzione alzate del report)
+    └── court_trajectories_view.dart (CourtTrajectoriesView + TrajData/buildTrajData +
+                                    MultiTrajectoryPainter: campo doppio + traiettorie
+                                    già filtrate, widget puro estratto da
+                                    trajectory_report_screen in vista della cattura
+                                    PNG per il PDF — vedi Fase 4)
 
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
 ├── demo/           (demo_match.json — partita reale convertita, vedi Fase 4)
+├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 
 test/
@@ -470,7 +501,12 @@ voto), `puntoManuale` (bottoni rapidi "+1 Noi"/"+1 Loro", nessun giocatore),
 `giocatoreId` = chi entra, `esitoPunto = nessuno`, più le colonne dedicate
 `giocatoreUscenteId`/`nuovoPalleggiatoreId`/`nuovoRuoloCambiLibero` (v11,
 `@ReferenceName` sulle due FK verso Players) e `gruppoCambio` (v12) — vedi
-la voce in Fase 3).
+la voce in Fase 3), `timeout` (timeout chiamato da una squadra, max 2 per
+set per allenatore — `esitoPunto = nessuno`, nessun giocatore, nessuna
+colonna/migrazione: no-op nel replay di `ricalcolaStato()`, serve solo al
+conteggio per set, al banner e all'undo; ESCLUSO dall'ereditarietà del
+`rallyId` in `_registraAzione` — ha esito `nessuno` ma non apre né continua
+uno scambio — vedi "Bottoni timeout" in Interfaccia di scout).
 
 **Enum EsitoPunto**: `nessuno` (azione interna allo scambio, non chiude il
 punto), `puntoNostro`, `puntoAvversario`. Calcolato in automatico in base a
@@ -524,7 +560,9 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 ## Flusso dell'app (navigazione)
 
 - **HomeScreen**: layout landscape con area principale a sinistra (vuota per ora)
-  e colonna di bottoni a destra: "Setup squadre" e "Gestione partite".
+  e colonna di bottoni a destra: "Setup squadre" e "Gestione partite" centrati
+  (tra due `Spacer` simmetrici) + "Impostazioni" in fondo, staccata — apre
+  `SettingsScreen` (vedi sezione Impostazioni).
 - **Flusso scout** (navigabile end-to-end fino al setup grafico di `ScoutScreen`):
   `MatchesScreen` → [Inizia/Riprendi] → `TeamSelectionScreen` → [Seleziona] → `LineupScreen` → [Conferma formazione] → `FormationConfigScreen` → [Inizia scout] → `ScoutScreen` → [drawer "Fine"] → `EndSetScreen` → [Prossimo Set] → `LineupScreen` (da capo, set successivo) **oppure** [Fine Partita] → `MatchesScreen`
   - **Bypass alla ripresa**: se il set corrente ha già una formazione salvata
@@ -815,6 +853,32 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `_registraAzioneRapida` chiude comunque `_votoInCorso` (lo riporta a
     `null`), perché un bottone rapido chiude lo scambio per un'altra via e
     il pannello non avrebbe più senso.
+- **Bottoni timeout** (IMPLEMENTATI — `TipoAzione.timeout`, vedi Modello
+  dati): un bottone per squadra (blu `AppColors.brandPrimary`, icona
+  `Icons.access_time`, stesso stile 44×44 dei bottoni rapidi) sulla stessa
+  riga dei gruppi punto/errore, sul **lato interno** del rispettivo gruppo,
+  staccato da un gap `_kTimeoutGap = 112` (lo spazio di ~2 bottoni — voluto
+  per eventuali bottoni futuri in mezzo). Seguono `_isRightSide` col cambio
+  campo (il timeout resta sempre verso il centro). Tap →
+  `_timeout(squadra)` → riga `registraAzioneRapida` con esito `nessuno`:
+  nessun dialog di conferma (decisione esplicita: il banner ultima azione
+  mostra "Timeout [squadra]" in blu come conferma visiva, e l'undo standard
+  lo annulla — approccio log-eventi preferito al dialog).
+  - **Pallini di stato** (`_buildTimeoutDots`): due cerchi 14×14
+    **nell'header** (barra superiore, `bottom: 8`), allineati in orizzontale
+    col bottone timeout sottostante (offset 237px dal bordo = centro bottone
+    254 − metà riga pallini; il lato segue `_isRightSide`). Grigio scuro
+    `0xFF6F6F6F` (Colors.grey −30%) da chiamare, **gialli** man mano che si
+    chiamano; al secondo timeout il bottone si disabilita. Conteggio
+    derivato dallo stream (`_timeoutChiamati`, conta le righe
+    `TipoAzione.timeout` del set — nessuno stato locale: undo e ripresa
+    partita tornano coerenti da soli; si azzera al set successivo perché il
+    log è per-set).
+- **Punteggi header al 30%/70%**: i due gruppi −/punteggio/+ sono centrati
+  al 30% e 70% della larghezza (erano 25/75, avvicinati su richiesta), con
+  un `Center` dentro il riquadro fisso da 116px — senza, la `Row` (~76px)
+  resta allineata a sinistra in entrambi i riquadri e i punteggi risultano
+  asimmetrici rispetto al titolo centrato (bug reale corretto).
 - **Voto battuta/ricezione/altri fondamentali** (IMPLEMENTATO — flusso a 3
   tocchi generalizzato a tutti i fondamentali tranne `errore`: giocatore →
   fondamentale → voto). Nessuna traiettoria per ora.
@@ -1598,6 +1662,34 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 
 ---
 
+## Impostazioni (SettingsScreen + settings_provider)
+
+Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
+(`lib/screens/settings/settings_screen.dart`), persistenza su
+**shared_preferences**:
+
+- **`settings_provider.dart`**: `SharedPreferences` caricato in `main()`
+  PRIMA di `runApp` e iniettato con
+  `sharedPreferencesProvider.overrideWithValue(prefs)` sul `ProviderScope`
+  (il provider base lancia `UnimplementedError` se non sovrascritto) — così
+  `impostazioniProvider` (`Notifier<Impostazioni>`) si legge in modo
+  **sincrono** ovunque, senza FutureProvider. `main()` è diventato `async`
+  per questo.
+- **`traiettorieAbilitate`** (bool, default `true`, chiave
+  `scout.traiettorieAbilitate`): unica impostazione per ora. Se `false`,
+  `ScoutScreen._registraVoto` NON apre `TrajectoryScreen` dopo il voto di
+  battuta/attacco — l'azione si registra subito con coordinate `null`
+  (stesso percorso del "salta", zero impatti su DB/report). **Implicazione
+  accettata per ora**: anche i chip tipo battuta/attacco vivono su
+  `TrajectoryScreen`, quindi col toggle spento `tipoEsecuzione` resta
+  `nonSpecificato` — eventuale rientro dei chip nel pannello voto da
+  valutare in futuro (annotato anche nel codice).
+- **Pensata per il gating premium futuro** (es. traiettorie solo premium):
+  il resto del codice legge solo `impostazioniProvider`, il gating potrà
+  limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.
+
+---
+
 ## Fasi di sviluppo
 
 - **Fase 1 — Squadre e giocatori** (COMPLETATA)
@@ -1803,6 +1895,12 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
       frame) — MAI più `widget.assignments['L1'/'L2']` direttamente,
       tranne che in `_statoSetReale` (valori INIZIALI passati al replay)
       e `_iniziaSet` (persistenza del valore iniziale).
+  - [x] **Timeout per set** (`TipoAzione.timeout`, nessuna migrazione):
+        bottoni blu con orologio per squadra sulla riga dei bottoni rapidi
+        + pallini di stato nell'header — dettagli in "Interfaccia di scout"
+        → "Bottoni timeout". Max 2 per squadra per set (bottone
+        disabilitato al secondo), conteggio derivato dallo stream, undo e
+        banner gratis dall'approccio log-eventi.
   - [x] Undo: bottone (icona `Icons.undo`) nella barra superiore di
         `ScoutScreen`, al posto del bottone "indietro" (spostato nel drawer
         di utilità, vedi "Interfaccia di scout" — libera quella posizione
@@ -2096,12 +2194,78 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
           attacchi: l'export non le contiene.
         - Import idempotente: ricrea la partita (stesso nome), riusa
           squadra "Nettunia (demo)" e giocatori per numero di maglia.
-  - [ ] Export PDF, condivisione (riferimento: il PDF "Volleyball Scout"
-        sopra — tabelle per giocatore con punti tot/v-p, battuta
-        tot/err/pt, ricezione tot/err/pos%/prf%, attacco tot/err/mur/pt/pt%,
-        difesa, muro; riga totali; errori/punti generici; attacchi
-        su ricezione/su difesa; traiettorie per giocatore/zona;
-        distribuzione alzate per rotazione).
+  - [x] **Report a video completato** (`MatchReportScreen`, tutte le sezioni
+        dentro `Card` arrotondate con ombra):
+    - Punteggio finale con **pallini esito** 14×14 accanto ai nomi (verde
+      vinto/rosso perso, `_pallinoEsito` riusato dalla tabella set) e
+      punteggio per set con **durata** (prima→ultima azione) + riga Totale.
+    - **Bottoni "Traiettorie battute"/"Traiettorie attacco"** → aprono
+      `TrajectoryReportScreen`; nuovo parametro `setCorrenteAllAvvio`
+      (default `true` per il drawer live; `false` dal report = si entra su
+      "Partita intera"). Mostrati solo se `_team != null`.
+    - **Punti/errori generici**: tabella 2 colonne (nomi squadre reali come
+      header, fallback "Avversari") per `puntoManuale`/`erroreGenerico` +
+      chip "Tipologia errori avversari" per `MotivoErrore` (letto da
+      `tipoEsecuzione`, valori sconosciuti → generico). Segue il selettore
+      Set del riepilogo fondamentali, ignora quello Giocatore (i generici
+      non hanno giocatore).
+    - **Formazioni di partenza per set**: 3 card per riga (`LayoutBuilder`,
+      `(maxWidth − 2×16)/3`), ognuna con `CourtView` renderizzato a 460 e
+      scalato via `FittedBox` (i margini interni fissi di CourtView non
+      reggono un SizedBox più piccolo), titolo "Set N - P<slot>" + icona
+      pallone a destra SOLO se la battuta iniziale era nostra, bordo rosso
+      sul palleggiatore (`selectedSlots`), didascalia libero/i. Dati da
+      `caricaFormazione(setId)` (caricate in `_carica`).
+    - **Distribuzione alzate**: campo singolo largo come una card
+      formazione, allineato a sinistra — `CourtView` col nuovo parametro
+      `slotContent` (contenuto custom per slot, stessa geometria delle card
+      giocatore): % grande (fontSize 31) + conteggio (17) per zona P1–P6.
+      Zona = posizione di rotazione dell'ATTACCANTE al momento dell'azione,
+      derivata replayando le rotazioni per set (`_distribuzioneAlzate`,
+      stessa logica di `_computeRotazioni` di trajectory_report_screen,
+      `_ruotata` replicata file-privata). Selettore Set proprio
+      (`_setDistribuzione`).
+    - **Efficienza battuta/attacco** (2 card) e **Positività** (3 card:
+      positività ricezione, errore ricezione, positività difesa): formule
+      `(# − =)/tot×100` (può essere negativa: verde/rosso/grigio per segno),
+      `(# + +)/tot×100`, `(=)/tot×100` — mostrate in piccolo sotto i titoli
+      (`_kFormulaStyle`); "—" con totale 0 (mai divisione per zero).
+      Selettori Set+Giocatore propri per ciascuna sezione
+      (`_setEfficienza`/`_giocatoreEfficienza`,
+      `_setPositivita`/`_giocatorePositivita`). Helper condiviso
+      `_buildPercentCard`; scope set generalizzato in
+      `_listeAzioniPerSet(int? setNumero)`.
+  - [x] **Widget `CourtTrajectoriesView` estratto**
+        (`lib/widgets/court_trajectories_view.dart`): campo doppio +
+        traiettorie già filtrate + footer opzionale — widget puro senza
+        filtri/Scaffold, con `TrajData`/`buildTrajData`/`MultiTrajectoryPainter`
+        pubblici (ex privati di `trajectory_report_screen`, che ora lo usa).
+        Estratto in vista del PDF: verrà catturato in PNG per giocatore.
+  - [ ] **Export PDF, condivisione — IN CORSO (impianto + pagina 1 fatti)**.
+        Deciso con lo sviluppatore: bottone "PDF" (`Icons.picture_as_pdf`)
+        sulla card delle partite `terminata` in `MatchesScreen` →
+        `MatchPdfScreen` con **`PdfPreview`** (package `printing`):
+        anteprima sfogliabile + condividi/stampa integrati (schermate di
+        sistema, si esce col back di sistema). Generazione **on-demand**
+        nella callback `build` — NIENTE file persistito né auto-generazione
+        a fine partita (scartata: PDF sempre aggiornato anche dopo una
+        ripresa, nessuna gestione file, layout nuovi validi per partite
+        vecchie; il file nasce solo alla condivisione). **A4 landscape
+        fisso** (`initialPageFormat`, cambio formato disabilitato — deciso
+        per i contenuti futuri, campi più larghi che alti). Font Barlow
+        dagli asset; header su ogni pagina (logo
+        `assets/icon/icon_foreground.png` — cartella aggiunta agli asset
+        runtime — + "Pag. X/Y"); pallini esito come a video (colonna
+        "Esito" nella tabella set, pallini accanto ai nomi nel punteggio
+        finale; riga Totale segue i SET vinti). Una funzione `pw.*` per
+        sezione (`_buildIntestazione`/`_buildPunteggioFinale`/
+        `_buildTabellaSet`): i prossimi pezzi si aggiungono lì.
+        **Contenuti pagine successive da decidere** (riferimento: il PDF
+        "Volleyball Scout" sopra — tabelle per giocatore, errori/punti
+        generici, attacchi su ricezione/difesa, traiettorie per
+        giocatore/zona — cattura di `CourtTrajectoriesView` via
+        `RepaintBoundary.toImage` → `pw.Image`, un campo per giocatore con
+        tutte le sue battute, idem attacchi —, distribuzione alzate).
 
 ---
 
@@ -2126,11 +2290,17 @@ successivo, "Fine Partita" torna a `MatchesScreen`, a due sezioni
 "Riprendere" lo scout, o aprire `MatchReportScreen` per il report
 completo). Bypass automatico di `TeamSelectionScreen`/`LineupScreen`/
 `FormationConfigScreen` quando si riprende un set già iniziato.
-Fase 4: `MatchReportScreen` (dati partita, punteggio finale/per set,
-riepilogo fondamentali), `PlayerStatsScreen` (statistiche per giocatore/
-fondamentale, set per set) e `TrajectoryReportScreen` (traiettorie battute/
-attacco con filtri set/giocatore/rotazione, normalizzazione sx→dx, colori
-ace/in-campo/errore) sono pronte; manca l'export PDF e la condivisione.
+Fase 4: `MatchReportScreen` è COMPLETO a video (dati partita, punteggio
+finale/per set con durata e pallini esito, riepilogo fondamentali,
+punti/errori generici con motivi, bottoni traiettorie, formazioni di
+partenza per set, distribuzione alzate, efficienza e positività);
+`PlayerStatsScreen` e `TrajectoryReportScreen` pronte da tempo. Export PDF
+IN CORSO: impianto fatto (`MatchPdfScreen` con `PdfPreview`, on-demand, A4
+landscape, header logo+pagina, pagina 1 con intestazione/punteggi) —
+contenuti delle pagine successive da decidere col riferimento "Volleyball
+Scout". Nello scout live: timeout per set (bottoni + pallini header) e
+pagina Impostazioni (toggle traiettorie via shared_preferences, vedi
+sezione Impostazioni).
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout
@@ -2141,5 +2311,7 @@ github.com/Branduich/volley_scout
 
 - Ambiente di sviluppo: Windows 11, VS Code, emulatore Pixel 7 (o device fisico).
 - Modalità sviluppatore Windows attiva (necessaria per i symlink dei plugin).
-- Fare **commit frequenti** dopo ogni pezzo funzionante.
+- Fare **commit frequenti** dopo ogni pezzo funzionante — **i commit li fa
+  sempre lo sviluppatore, mai Claude** (al massimo segnalare che c'è lavoro
+  non committato).
 - Build Android la prima volta è lenta (Gradle), è normale.

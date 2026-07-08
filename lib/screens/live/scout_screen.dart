@@ -8,6 +8,7 @@ import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 import '../report/player_stats_screen.dart';
@@ -1035,8 +1036,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // spostata qui dal pannello voto): si passa il valore "armato" attuale
     // come iniziale e si rilegge quello (eventualmente cambiato) dal
     // risultato, per restare "armato" anche tra una traiettoria e l'altra.
+    // Con le traiettorie disattivate nelle Impostazioni si salta la
+    // schermata: azione registrata subito con coordinate null (stesso
+    // percorso del "salta"). Nota: anche la scelta del tipo battuta/attacco
+    // vive su TrajectoryScreen, quindi resta 'nonSpecificato' — accettato
+    // per ora (flusso ultra-veloce), eventuale rientro dei chip nel
+    // pannello voto da valutare in futuro.
     Traiettoria? traiettoria;
-    if (fondamentale.richiedeTraiettoria) {
+    if (fondamentale.richiedeTraiettoria &&
+        ref.read(impostazioniProvider).traiettorieAbilitate) {
       traiettoria = await Navigator.push<Traiettoria>(
         context,
         MaterialPageRoute(
