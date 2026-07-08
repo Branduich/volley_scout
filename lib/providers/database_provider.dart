@@ -32,6 +32,61 @@ AzioneScout azioneScoutDaRiga(ScoutAction a) => AzioneScout(
           : null,
     );
 
+/// Id delle azioni di attacco classificate "su ricezione": un attacco che
+/// segue un voto di ricezione nello stesso scambio (`rallyId`, scope per
+/// set — ogni lista in [azioniPerSet] è UN set, ordinata per `ordine`).
+/// Tutti gli altri attacchi sono "su difesa" — partizione binaria, stessa
+/// regola di `MatchReportScreen._riepilogoFondamentali` (tenere allineate):
+/// non è un campo salvato, si deduce dalla sequenza. Usata dal filtro
+/// attacchi di `PlayerStatsScreen` (e in futuro dal report PDF).
+/// True se l'attacco risulta "murato" (muro punto subito): voto `=`, tocco
+/// a muro registrato durante il drag della traiettoria E palla tornata nel
+/// campo dell'attaccante (punto d'arrivo dallo stesso lato della rete del
+/// punto di partenza — rete a x=0.5 nello spazio normalizzato). Deducibile
+/// SOLO se la traiettoria è stata disegnata: senza (saltata o disattivata
+/// nelle Impostazioni) resta un normale errore d'attacco. Usata dalla
+/// colonna "Murati" di `PlayerStatsScreen` (e in futuro dal report PDF).
+bool attaccoMurato(ScoutAction a) {
+  if (a.tipo != TipoAzione.scout ||
+      a.fondamentale != Fondamentale.attacco ||
+      a.voto != Voto.errore) {
+    return false;
+  }
+  final x1 = a.traiettoriaX1;
+  final x2 = a.traiettoriaX2;
+  if (x1 == null || x2 == null) return false;
+  if (a.traiettoriaMuroX == null || a.traiettoriaMuroY == null) return false;
+  return (x1 < 0.5) == (x2 < 0.5);
+}
+
+Set<int> idAttacchiSuRicezione(Iterable<List<ScoutAction>> azioniPerSet) {
+  final ids = <int>{};
+  for (final azioniSet in azioniPerSet) {
+    int? rallyCorrente;
+    Fondamentale? ultimoTipo; // ricezione o difesa più recente nello scambio
+    for (final azione in azioniSet) {
+      if (azione.tipo != TipoAzione.scout) continue;
+      final fondamentale = azione.fondamentale;
+      if (fondamentale == null || azione.voto == null) continue;
+      if (azione.rallyId != rallyCorrente) {
+        rallyCorrente = azione.rallyId;
+        ultimoTipo = null;
+      }
+      switch (fondamentale) {
+        case Fondamentale.ricezione:
+          ultimoTipo = Fondamentale.ricezione;
+        case Fondamentale.difesa:
+          ultimoTipo = Fondamentale.difesa;
+        case Fondamentale.attacco:
+          if (ultimoTipo == Fondamentale.ricezione) ids.add(azione.id);
+        default:
+          break;
+      }
+    }
+  }
+  return ids;
+}
+
 class TeamRepository {
   TeamRepository(this._db);
 

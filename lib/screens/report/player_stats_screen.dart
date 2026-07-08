@@ -7,7 +7,29 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/court_style.dart';
 
-typedef _RigaGiocatore = ({Player player, Map<Voto, int> conteggi, int totale});
+// `murati`: attacchi con muro punto subito (voto `=` + tocco a muro + palla
+// tornata nel campo dell'attaccante — vedi attaccoMurato in
+// database_provider.dart). Sempre 0 per i fondamentali diversi dall'attacco.
+typedef _RigaGiocatore = ({
+  Player player,
+  Map<Voto, int> conteggi,
+  int totale,
+  int murati,
+});
+
+/// Filtro aggiuntivo, solo per il fondamentale attacco: tutti gli attacchi
+/// (default), solo quelli su ricezione o solo quelli su difesa — la
+/// classificazione è dedotta dalla sequenza dello scambio (vedi
+/// `idAttacchiSuRicezione` in database_provider.dart, stessa regola del
+/// riepilogo fondamentali di MatchReportScreen).
+enum _FiltroAttacco {
+  tutti('Tutti gli attacchi'),
+  suRicezione('Su ricezione'),
+  suDifesa('Su difesa');
+
+  final String label;
+  const _FiltroAttacco(this.label);
+}
 
 /// Statistiche per giocatore e per fondamentale (Fase 4) — consultabile sia
 /// a partita terminata sia **durante una partita in corso** (raggiunta dal
@@ -31,6 +53,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
 
   int? _setSelezionato; // null = Partita intera
   Fondamentale _fondamentale = Fondamentale.battuta;
+  _FiltroAttacco _filtroAttacco = _FiltroAttacco.tutti; // solo per attacco
 
   @override
   void initState() {
@@ -78,22 +101,46 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
   }
 
   List<_RigaGiocatore> get _righe {
+    // Classificazione degli attacchi (solo se serve al filtro): calcolata su
+    // TUTTI i set — dipende dalla sequenza dello scambio, non dallo scope.
+    final filtroAttivo =
+        _fondamentale == Fondamentale.attacco &&
+            _filtroAttacco != _FiltroAttacco.tutti;
+    final suRicezione = filtroAttivo
+        ? idAttacchiSuRicezione((_azioniPerSet ?? const {}).values)
+        : const <int>{};
+
     final perGiocatore = <int, Map<Voto, int>>{};
+    final muratiPerGiocatore = <int, int>{};
     for (final azione in _azioniNelloScope) {
       if (azione.tipo != TipoAzione.scout) continue;
       if (azione.fondamentale != _fondamentale) continue;
+      if (filtroAttivo &&
+          suRicezione.contains(azione.id) !=
+              (_filtroAttacco == _FiltroAttacco.suRicezione)) {
+        continue;
+      }
       final giocatoreId = azione.giocatoreId;
       final voto = azione.voto;
       if (giocatoreId == null || voto == null) continue;
       final conteggi = perGiocatore.putIfAbsent(giocatoreId, () => {});
       conteggi[voto] = (conteggi[voto] ?? 0) + 1;
+      if (attaccoMurato(azione)) {
+        muratiPerGiocatore[giocatoreId] =
+            (muratiPerGiocatore[giocatoreId] ?? 0) + 1;
+      }
     }
     final righe = <_RigaGiocatore>[];
     for (final player in _giocatori ?? const <Player>[]) {
       final conteggi = perGiocatore[player.id];
       if (conteggi == null) continue; // nessun voto in questo scope/fondamentale
       final totale = conteggi.values.fold(0, (a, b) => a + b);
-      righe.add((player: player, conteggi: conteggi, totale: totale));
+      righe.add((
+        player: player,
+        conteggi: conteggi,
+        totale: totale,
+        murati: muratiPerGiocatore[player.id] ?? 0,
+      ));
     }
     righe.sort((a, b) => a.player.numero.compareTo(b.player.numero));
     return righe;
@@ -155,10 +202,34 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
                             ])
                               DropdownMenuItem(value: f, child: Text(f.label)),
                           ],
-                          onChanged: (v) =>
-                              setState(() => _fondamentale = v!),
+                          onChanged: (v) => setState(() {
+                            _fondamentale = v!;
+                            // Il filtro attacchi vale solo per l'attacco:
+                            // cambiando fondamentale riparte da "tutti".
+                            _filtroAttacco = _FiltroAttacco.tutti;
+                          }),
                         ),
                       ),
+                      if (_fondamentale == Fondamentale.attacco) ...[
+                        const SizedBox(width: AppSpacing.md),
+                        SizedBox(
+                          width: 220,
+                          child: DropdownButtonFormField<_FiltroAttacco>(
+                            initialValue: _filtroAttacco,
+                            decoration: const InputDecoration(
+                              labelText: 'Attacchi',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: [
+                              for (final f in _FiltroAttacco.values)
+                                DropdownMenuItem(
+                                    value: f, child: Text(f.label)),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _filtroAttacco = v!),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -175,23 +246,26 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
 
   Widget _buildTabella(List<_RigaGiocatore> righe) {
     const voti = Voto.values;
+    // Colonna "Murati" solo per l'attacco (sottoinsieme degli errori `=`,
+    // deducibile dalla traiettoria — vedi attaccoMurato).
+    final mostraMurati = _fondamentale == Fondamentale.attacco;
     final totaliPerVoto = <Voto, int>{};
     var totaleComplessivo = 0;
+    var totaleMurati = 0;
     for (final riga in righe) {
       for (final v in voti) {
         totaliPerVoto[v] = (totaliPerVoto[v] ?? 0) + (riga.conteggi[v] ?? 0);
       }
       totaleComplessivo += riga.totale;
+      totaleMurati += riga.murati;
     }
     return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(2.6),
-        1: FlexColumnWidth(1),
-        2: FlexColumnWidth(1),
-        3: FlexColumnWidth(1),
-        4: FlexColumnWidth(1),
-        5: FlexColumnWidth(1),
-        6: FlexColumnWidth(1),
+      columnWidths: {
+        0: const FlexColumnWidth(2.6),
+        for (var i = 1; i <= voti.length; i++) i: const FlexColumnWidth(1),
+        if (mostraMurati) voti.length + 1: const FlexColumnWidth(1),
+        (mostraMurati ? voti.length + 2 : voti.length + 1):
+            const FlexColumnWidth(1), // TOT
       },
       children: [
         TableRow(
@@ -199,6 +273,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
           children: [
             _headerCell('Giocatori', allineaSinistra: true),
             for (final v in voti) _headerCell(v.simbolo, fontSize: 28),
+            if (mostraMurati) _headerCell('Murati'),
             _headerCell('TOT'),
           ],
         ),
@@ -211,6 +286,8 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
               _giocatoreCell(righe[i].player),
               for (final v in voti)
                 _votoCell(righe[i].conteggi[v] ?? 0, righe[i].totale, v),
+              if (mostraMurati)
+                _muratiCell(righe[i].murati, righe[i].totale),
               _totaleCell(righe[i].totale),
             ],
           ),
@@ -220,10 +297,33 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
             _headerCell('Totale', allineaSinistra: true),
             for (final v in voti)
               _votoCell(totaliPerVoto[v] ?? 0, totaleComplessivo, v),
+            if (mostraMurati) _muratiCell(totaleMurati, totaleComplessivo),
             _totaleCell(totaleComplessivo),
           ],
         ),
       ],
+    );
+  }
+
+  // Conteggio murati + percentuale sul totale attacchi del giocatore —
+  // stesso layout di _votoCell, colore neutro (il rosso è già dell'errore,
+  // di cui i murati sono un sottoinsieme).
+  Widget _muratiCell(int count, int totale) {
+    final pct = totale == 0 ? 0 : (count * 100 / totale).round();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$count',
+              style: const TextStyle(
+                  color: AppColors.neutral,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16)),
+          Text('$pct%',
+              style: const TextStyle(color: AppColors.neutral, fontSize: 14)),
+        ],
+      ),
     );
   }
 
