@@ -21,6 +21,14 @@ typedef _RigaSetPdf = ({
   Duration? durata,
 });
 
+// Formazione di partenza di un set — stesso record di
+// MatchSetRepository.caricaFormazione().
+typedef _FormazionePdf = ({
+  Map<String, Player> assignments,
+  String palleggiatoreSlot,
+  Ruolo? ruoloCambiLibero,
+});
+
 // Traiettoria pronta per il painter vettoriale del PDF (coordinate
 // normalizzate 0-1 già specchiate sx→dx): colore per esito, tocco a muro
 // opzionale (due segmenti con snodo) e pallonetto (arco) — equivalente
@@ -128,10 +136,13 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     final sets = await setRepo.caricaSetsPartita(match.id);
     final righeSet = <_RigaSetPdf>[];
     final azioniPerSet = <int, List<ScoutAction>>{};
+    final formazioni = <int, _FormazionePdf>{};
     for (final set in sets) {
       final stato = await setRepo.calcolaStatoFinale(set);
       final azioni = await azioniRepo.caricaAzioni(set.id);
       azioniPerSet[set.id] = azioni;
+      final formazione = await setRepo.caricaFormazione(set.id);
+      if (formazione != null) formazioni[set.id] = formazione;
       righeSet.add((
         numero: set.numero,
         nostro: stato.punteggioNostro + set.correzionePuntiNostri,
@@ -205,6 +216,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         await setRepo.zonaTatticaPerAzione(sets, azioniPerSet, players);
     _aggiungiPagineAttacchi(
         doc, format, logo, team, players, azioniPerSet, zonaPerAzione);
+    _aggiungiPaginaFormazioni(doc, format, logo, sets, formazioni);
     return doc.save();
   }
 
@@ -1175,6 +1187,232 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
             ..drawEllipse(x1, y1, 1.5, 1.5)
             ..fillPath();
         }
+      },
+    );
+  }
+
+  // ── Pagina "Formazioni di partenza": un campo per set ──────────────────
+
+  // Come la sezione del report a video, ma col campo disegnato in
+  // vettoriale B/N: mezzo campo con la rete IN ALTO, griglia 3×2 —
+  // P4|P3|P2 in prima linea, P5|P6|P1 in seconda (P1 in basso a destra).
+  void _aggiungiPaginaFormazioni(
+    pw.Document doc,
+    PdfPageFormat format,
+    pw.MemoryImage logo,
+    List<MatchSet> sets,
+    Map<int, _FormazionePdf> formazioni,
+  ) {
+    final conFormazione = [
+      for (final s in sets)
+        if (formazioni.containsKey(s.id)) s,
+    ];
+    if (conFormazione.isEmpty) return;
+
+    // Campo QUADRATO (mezzo campo reale 9×9): lato tale che due righe da
+    // 3 campi stiano in pagina (200 + titolo/didascalia ≈ 240 a riga).
+    const lato = 200.0;
+    const gap = 24.0;
+    final righe = <pw.Widget>[];
+    for (var i = 0; i < conFormazione.length; i += 3) {
+      righe.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 12),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            for (var j = i; j < i + 3 && j < conFormazione.length; j++) ...[
+              if (j > i) pw.SizedBox(width: gap),
+              _cellaFormazione(
+                  conFormazione[j], formazioni[conFormazione[j].id]!, lato),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(20),
+        header: (context) => _buildHeaderPagina(context, logo),
+        build: (context) => [
+          pw.Text(
+            'Formazioni di partenza',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          ...righe,
+        ],
+      ),
+    );
+  }
+
+  // Cella di un set: titolo "Set N - P<slot>" (+ pallone se la battuta
+  // iniziale era nostra), campo con le card dei giocatori (palleggiatore
+  // bordato di rosso), didascalia libero/i sotto.
+  pw.Widget _cellaFormazione(MatchSet set, _FormazionePdf f, double lato) {
+    final larghezza = lato;
+    final altezzaCampo = lato; // campo quadrato (mezzo campo reale 9×9)
+    final cw = larghezza / 3;
+    final ch = altezzaCampo / 2;
+    // slot → (colonna, riga) della griglia: rete in alto.
+    const posizioni = {
+      'P4': (0, 0), 'P3': (1, 0), 'P2': (2, 0),
+      'P5': (0, 1), 'P6': (1, 1), 'P1': (2, 1),
+    };
+    final liberi = [f.assignments['L1'], f.assignments['L2']]
+        .whereType<Player>()
+        .toList();
+    final cambi = f.ruoloCambiLibero;
+
+    pw.Widget cardGiocatore(String slot) {
+      final p = f.assignments[slot];
+      if (p == null) return pw.SizedBox();
+      final (col, riga) = posizioni[slot]!;
+      final isSetter = slot == f.palleggiatoreSlot;
+      return pw.Positioned(
+        left: col * cw + 4,
+        top: riga * ch + 8,
+        child: pw.Container(
+          width: cw - 8,
+          height: ch - 28,
+          padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.white,
+            borderRadius: pw.BorderRadius.circular(4),
+            border: pw.Border.all(
+              color: isSetter ? PdfColors.red : PdfColors.grey400,
+              width: isSetter ? 1.4 : 0.7,
+            ),
+          ),
+          child: pw.Column(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                '${p.cognome} ${p.nome}',
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+              pw.Text(
+                '${p.numero}',
+                style:
+                    pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(
+                p.ruolo.label,
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: const pw.TextStyle(fontSize: 7.5),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Larghezza esplicita: la cella vive in una Row (larghezza
+        // illimitata) e uno Spacer/flex senza vincolo lancia
+        // "PdfException: flex children".
+        pw.SizedBox(
+          width: larghezza,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Set ${set.numero} - ${f.palleggiatoreSlot}',
+                style:
+                    pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+              if (set.squadraServizioIniziale == Squadra.nostra)
+                _iconaPallone(10),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 3),
+        pw.SizedBox(
+          width: larghezza,
+          height: altezzaCampo,
+          child: pw.Stack(
+            children: [
+              pw.Positioned.fill(child: _campoFormazionePdf(lato)),
+              for (final slot in posizioni.keys) cardGiocatore(slot),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 3),
+        if (liberi.isNotEmpty)
+          pw.Text(
+            'Libero: ${liberi.map((p) => '${p.numero} ${p.cognome}').join(' · ')}'
+            '${cambi != null ? ' — cambi: ${cambi.label}' : ''}',
+            maxLines: 1,
+            overflow: pw.TextOverflow.clip,
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+      ],
+    );
+  }
+
+  // Mezzo campo B/N QUADRATO con la rete in alto: bordo grigio, rete più
+  // marcata sul lato superiore, linea di metà griglia orizzontale,
+  // separatori verticali tratteggiati (come la sezione formazioni a video).
+  pw.Widget _campoFormazionePdf(double lato) {
+    return pw.CustomPaint(
+      size: PdfPoint(lato, lato),
+      painter: (canvas, size) {
+        // y PDF verso l'alto: la rete (bordo superiore) è a y = lato.
+        canvas
+          ..setStrokeColor(PdfColors.grey500)
+          ..setLineWidth(0.8)
+          ..drawRect(0, 0, lato, lato)
+          ..moveTo(0, lato / 2)
+          ..lineTo(lato, lato / 2)
+          ..strokePath()
+          // Separatori verticali tratteggiati tra le colonne della griglia.
+          ..setLineDashPattern(<int>[3, 3])
+          ..moveTo(lato / 3, 0)
+          ..lineTo(lato / 3, lato)
+          ..moveTo(2 * lato / 3, 0)
+          ..lineTo(2 * lato / 3, lato)
+          ..strokePath()
+          ..setLineDashPattern()
+          // Rete: bordo superiore più scuro e spesso.
+          ..setStrokeColor(PdfColors.grey700)
+          ..setLineWidth(2.2)
+          ..moveTo(0, lato)
+          ..lineTo(lato, lato)
+          ..strokePath();
+      },
+    );
+  }
+
+  // Pallone da volley minimale (cerchio + tre "cuciture" curve) — usato
+  // accanto al titolo del set quando la battuta iniziale era nostra
+  // (equivalente PDF dell'icona sports_volleyball del report a video).
+  pw.Widget _iconaPallone(double lato) {
+    return pw.CustomPaint(
+      size: PdfPoint(lato, lato),
+      painter: (canvas, size) {
+        final c = lato / 2;
+        final r = lato / 2 - 0.6;
+        canvas
+          ..setStrokeColor(PdfColors.grey800)
+          ..setLineWidth(0.8)
+          ..drawEllipse(c, c, r, r)
+          ..strokePath()
+          // Cucitura orizzontale curva + due verticali dal centro.
+          ..moveTo(c - r, c)
+          ..curveTo(c - r / 2, c + r / 2, c + r / 2, c + r / 2, c + r, c)
+          ..moveTo(c, c + r * 0.5)
+          ..curveTo(c - r * 0.5, c + r * 0.1, c - r * 0.6, c - r * 0.5,
+              c - r * 0.3, c - r * 0.95)
+          ..moveTo(c, c + r * 0.5)
+          ..curveTo(c + r * 0.5, c + r * 0.1, c + r * 0.6, c - r * 0.5,
+              c + r * 0.3, c - r * 0.95)
+          ..strokePath();
       },
     );
   }
