@@ -152,36 +152,67 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
       ),
     );
     // Pagina 2 — mega tabella statistiche giocatori (layout dal foglio di
-    // riferimento "VOLLEY STATS PDF") + punti/errori generici. Margine
-    // ridotto e fissato esplicitamente: le larghezze fisse delle colonne
-    // (vedi _buildMegaTabella) sono calcolate su ~800pt utili.
+    // riferimento "VOLLEY STATS PDF") + punti/errori generici sulla
+    // partita intera; poi una pagina identica per OGNI set giocato (scope
+    // ridotto alle azioni di quel set, intestazione "Set N").
     if (stats.isNotEmpty) {
-      doc.addPage(
-        pw.MultiPage(
-          pageFormat: format,
-          margin: const pw.EdgeInsets.all(20),
-          header: (context) => _buildHeaderPagina(context, logo),
-          build: (context) => [
-            pw.Text(
-              'Statistiche giocatori — Partita intera',
-              style:
-                  pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 8),
-            _buildMegaTabella(stats),
-            pw.SizedBox(height: 16),
-            pw.Text(
-              'Punti ed errori generici',
-              style:
-                  pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 4),
-            _buildGenerici(team, azioniPerSet.values),
-          ],
-        ),
-      );
+      doc.addPage(_buildPaginaStatistiche(
+        format: format,
+        logo: logo,
+        titolo: 'Statistiche giocatori — Partita intera',
+        stats: stats,
+        azioniGenerici: azioniPerSet.values,
+        team: team,
+      ));
+    }
+    for (final set in sets) {
+      final azioniSet = azioniPerSet[set.id] ?? const <ScoutAction>[];
+      final statsSet = _calcolaStatGiocatori(players, {set.id: azioniSet});
+      if (statsSet.isEmpty) continue; // set senza azioni scoutate
+      doc.addPage(_buildPaginaStatistiche(
+        format: format,
+        logo: logo,
+        titolo: 'Statistiche giocatori — Set ${set.numero}',
+        stats: statsSet,
+        azioniGenerici: [azioniSet],
+        team: team,
+      ));
     }
     return doc.save();
+  }
+
+  // Pagina statistiche (mega tabella + generici) per uno scope di azioni:
+  // partita intera o singolo set — cambia solo titolo e dati. Margine
+  // ridotto e fissato esplicitamente: le larghezze fisse delle colonne
+  // (vedi _buildMegaTabella) sono calcolate su ~800pt utili.
+  pw.MultiPage _buildPaginaStatistiche({
+    required PdfPageFormat format,
+    required pw.MemoryImage logo,
+    required String titolo,
+    required List<_StatGiocatore> stats,
+    required Iterable<List<ScoutAction>> azioniGenerici,
+    required Team? team,
+  }) {
+    return pw.MultiPage(
+      pageFormat: format,
+      margin: const pw.EdgeInsets.all(20),
+      header: (context) => _buildHeaderPagina(context, logo),
+      build: (context) => [
+        pw.Text(
+          titolo,
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 8),
+        _buildMegaTabella(stats),
+        pw.SizedBox(height: 16),
+        pw.Text(
+          'Punti ed errori generici',
+          style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 4),
+        _buildGenerici(team, azioniGenerici),
+      ],
+    );
   }
 
   // Header ripetuto su ogni pagina: logo + numero di pagina in alto a
@@ -504,40 +535,81 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
   }
 
   pw.Widget _buildMegaTabella(List<_StatGiocatore> stats) {
-    // Larghezze fisse in pt: 3 colonne giocatore + 31 numeriche = ~784,
+    // Larghezze fisse in pt per TIPO di colonna — intestazioni compatte
+    // (R/ER/EF%/POS%, ++ e nome troncato) per stringere dove si può e
+    // reinvestire lo spazio nel font (8pt invece di 6.5): totale ~790,
     // dentro i ~802 utili di A4 landscape col margine 20 della pagina.
-    const wNum = 16.0, wNome = 66.0, wRuolo = 20.0, wCol = 22.0;
+    const wTot = 22.0, wPt = 22.0, wEr = 20.0, wMuri = 24.0;
+    const wEff = 26.0, wPos = 27.0, wPp = 20.0;
 
-    // Gruppi di colonne: label, larghezze, colore (palette del foglio
-    // Google Sheets di riferimento).
-    final gruppi = <(String, List<double>, PdfColor)>[
-      ('GIOCATORE', const [wNum, wNome, wRuolo],
+    // Gruppi di colonne: label gruppo, colonne (header, larghezza), colore
+    // (palette del foglio Google Sheets di riferimento).
+    final gruppi = <(String, List<(String, double)>, PdfColor)>[
+      ('GIOCATORE', const [('#', 18.0), ('Nome', 56.0), ('R', 16.0)],
           const PdfColor.fromInt(0xFFDD7E6B)),
-      ('BATTUTA', List.filled(4, wCol), const PdfColor.fromInt(0xFFFCE5CD)),
-      ('ATTACCO', List.filled(5, wCol), const PdfColor.fromInt(0xFFD9EAD3)),
-      ('ATT. SU RIC.', List.filled(4, wCol),
-          const PdfColor.fromInt(0xFFEBF3E8)),
-      ('ATT. SU DIF.', List.filled(4, wCol),
-          const PdfColor.fromInt(0xFFEBF3E8)),
-      ('RICEZIONE', List.filled(5, wCol), const PdfColor.fromInt(0xFFC9DAF8)),
-      ('DIFESA', List.filled(5, wCol), const PdfColor.fromInt(0xFF9FC5E8)),
-      ('MURO', List.filled(2, wCol), const PdfColor.fromInt(0xFFEAD1DC)),
-      ('PT - ERR', List.filled(2, wCol), const PdfColor.fromInt(0xFFD5A6BD)),
-    ];
-    const headerColonne = [
-      '#', 'Nome', 'Ruolo',
-      'TOT', 'PT', 'ERR', 'EFF %',
-      'TOT', 'PT', 'ERR', 'MURI', 'EFF %',
-      'TOT', 'PT', 'ERR', 'EFF %',
-      'TOT', 'PT', 'ERR', 'EFF %',
-      'TOT', '++', 'ERR', 'EFF %', 'POS %',
-      'TOT', '++', 'ERR', 'EFF %', 'POS %',
-      'TOT', 'PT',
-      'PT', 'ERR',
+      (
+        'BATTUTA',
+        const [('TOT', wTot), ('PT', wPt), ('ER', wEr), ('EF%', wEff)],
+        const PdfColor.fromInt(0xFFFCE5CD)
+      ),
+      (
+        'ATTACCO',
+        const [
+          ('TOT', wTot),
+          ('PT', wPt),
+          ('ER', wEr),
+          ('MURI', wMuri),
+          ('EF%', wEff),
+        ],
+        const PdfColor.fromInt(0xFFD9EAD3)
+      ),
+      (
+        'ATT. SU RIC.',
+        const [('TOT', wTot), ('PT', wPt), ('ER', wEr), ('EF%', wEff)],
+        const PdfColor.fromInt(0xFFEBF3E8)
+      ),
+      (
+        'ATT. SU DIF.',
+        const [('TOT', wTot), ('PT', wPt), ('ER', wEr), ('EF%', wEff)],
+        const PdfColor.fromInt(0xFFEBF3E8)
+      ),
+      (
+        'RICEZIONE',
+        const [
+          ('TOT', wTot),
+          ('++', wPp),
+          ('ER', wEr),
+          ('EF%', wEff),
+          ('POS%', wPos),
+        ],
+        const PdfColor.fromInt(0xFFC9DAF8)
+      ),
+      (
+        'DIFESA',
+        const [
+          ('TOT', wTot),
+          ('++', wPp),
+          ('ER', wEr),
+          ('EF%', wEff),
+          ('POS%', wPos),
+        ],
+        const PdfColor.fromInt(0xFF9FC5E8)
+      ),
+      (
+        'MURO',
+        const [('TOT', wTot), ('PT', wPt)],
+        const PdfColor.fromInt(0xFFEAD1DC)
+      ),
+      (
+        'PT - ERR',
+        const [('PT', wPt), ('ER', wEr)],
+        const PdfColor.fromInt(0xFFD5A6BD)
+      ),
     ];
 
-    // Liste piatte per la Table: larghezza e colore di ciascuna colonna.
-    final larghezze = [for (final g in gruppi) ...g.$2];
+    // Liste piatte per la Table: header, larghezza e colore per colonna.
+    final headerColonne = [for (final g in gruppi) ...[for (final c in g.$2) c.$1]];
+    final larghezze = [for (final g in gruppi) ...[for (final c in g.$2) c.$2]];
     final coloriColonna = [
       for (final g in gruppi) ...List.filled(g.$2.length, g.$3),
     ];
@@ -553,7 +625,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
           maxLines: 1,
           overflow: pw.TextOverflow.clip,
           style: pw.TextStyle(
-            fontSize: 6.5,
+            fontSize: 8,
             fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
           ),
         ),
@@ -568,14 +640,14 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
       children: [
         for (final g in gruppi)
           pw.Container(
-            width: g.$2.fold<double>(0.0, (a, b) => a + b),
-            height: 12,
+            width: g.$2.fold<double>(0.0, (a, b) => a + b.$2),
+            height: 14,
             color: g.$3,
             alignment: pw.Alignment.center,
             child: pw.Text(
               g.$1,
               style:
-                  pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold),
+                  pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
             ),
           ),
       ],
