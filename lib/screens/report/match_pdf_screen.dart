@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../data/database.dart';
+import '../../logic/attack_positions.dart';
+import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 
@@ -19,6 +22,27 @@ typedef _RigaSetPdf = ({
   int avversario,
   Duration? durata,
 });
+
+// Traiettoria pronta per il painter vettoriale del PDF (coordinate
+// normalizzate 0-1 già specchiate sx→dx): colore per esito, tocco a muro
+// opzionale (due segmenti con snodo) e pallonetto (arco) — equivalente
+// PDF di TrajData in court_trajectories_view.dart.
+class _TrajPdf {
+  final double x1, y1, x2, y2;
+  final PdfColor colore;
+  final double? muroX, muroY;
+  final bool isPallonetto;
+  const _TrajPdf({
+    required this.x1,
+    required this.y1,
+    required this.x2,
+    required this.y2,
+    required this.colore,
+    this.muroX,
+    this.muroY,
+    this.isPallonetto = false,
+  });
+}
 
 // Contatori di un giocatore per la mega tabella statistiche (pagina 2,
 // layout dal foglio "VOLLEY STATS PDF"): una mappa voto→conteggio per
@@ -178,7 +202,110 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         team: team,
       ));
     }
+    _aggiungiPagineBattute(doc, format, logo, team, players, azioniPerSet);
+    final zonaPerAzione =
+        await _zonaTatticaPerAzione(setRepo, sets, azioniPerSet, players);
+    _aggiungiPagineAttacchi(
+        doc, format, logo, team, players, azioniPerSet, zonaPerAzione);
     return doc.save();
+  }
+
+  // actionId → zona TATTICA (1-6) dell'attaccante al momento dell'azione:
+  // dove il giocatore era schierato secondo le stesse tabelle di posizione
+  // che ScoutScreen usa per disegnare i token (logic/attack_positions.dart)
+  // — es. lo schiacciatore di prima linea attacca quasi sempre da zona 4, a
+  // prescindere dalla sua zona di rotazione. Replay per set: rotazione
+  // (sideout + cambi con le guardie di ricalcolaStato), palleggiatore e
+  // ruolo cambi libero effettivi (override dei cambi), etichette di ruolo
+  // via roleLabelsFor, fase dopo-battuta/dopo-ricezione in base a chi
+  // serviva. Azioni non ricostruibili (formazione mancante, attaccante non
+  // in rotazione, ruolo senza posizione in tabella) restano fuori dalla
+  // mappa → zona "ignota" nel raggruppamento.
+  Future<Map<int, int>> _zonaTatticaPerAzione(
+    MatchSetRepository setRepo,
+    List<MatchSet> sets,
+    Map<int, List<ScoutAction>> azioniPerSet,
+    List<Player> players,
+  ) async {
+    final result = <int, int>{};
+    final perId = {for (final p in players) p.id: p};
+    for (final set in sets) {
+      final formazione = await setRepo.caricaFormazione(set.id);
+      if (formazione == null) continue;
+      var rot = <int, Player>{};
+      for (final e in formazione.assignments.entries) {
+        if (!e.key.startsWith('P')) continue;
+        final pos = int.tryParse(e.key.substring(1));
+        if (pos != null) rot[pos] = e.value;
+      }
+      if (rot.length != 6) continue; // dato incoerente
+      var setterId = formazione.assignments[formazione.palleggiatoreSlot]?.id;
+      var ruoloCambi = formazione.ruoloCambiLibero;
+      final conLibero = formazione.assignments.containsKey('L1');
+      var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
+
+      final ordinate = [...(azioniPerSet[set.id] ?? const <ScoutAction>[])]
+        ..sort((a, b) => a.ordine.compareTo(b.ordine));
+      for (final a in ordinate) {
+        if (a.tipo == TipoAzione.cambioGiocatore &&
+            a.giocatoreId != null &&
+            a.giocatoreUscenteId != null) {
+          final entra = perId[a.giocatoreId!];
+          final esceId = a.giocatoreUscenteId!;
+          final duplicherebbe = esceId != a.giocatoreId &&
+              rot.values.any((p) => p.id == a.giocatoreId);
+          if (entra != null && !duplicherebbe) {
+            rot = {
+              for (final e in rot.entries)
+                e.key: e.value.id == esceId ? entra : e.value,
+            };
+          }
+          setterId = a.nuovoPalleggiatoreId ?? setterId;
+          ruoloCambi = a.nuovoRuoloCambiLibero ?? ruoloCambi;
+        }
+
+        if (a.tipo == TipoAzione.scout &&
+            a.fondamentale == Fondamentale.attacco &&
+            a.giocatoreId != null) {
+          int? posAttaccante;
+          int? posSetter;
+          rot.forEach((pos, p) {
+            if (p.id == a.giocatoreId) posAttaccante = pos;
+            if (p.id == setterId) posSetter = pos;
+          });
+          if (posAttaccante != null && posSetter != null) {
+            final assignments = {
+              for (final e in rot.entries) 'P${e.key}': e.value,
+            };
+            final ruolo =
+                roleLabelsFor('P$posSetter', assignments)['P$posAttaccante'];
+            final mappa = attackMapFor(
+              rotazione: 'P$posSetter',
+              // L'attacco avviene a palla in gioco: dopo-battuta se
+              // servivamo noi in questo scambio, dopo-ricezione altrimenti.
+              fase: nostraAlServizio
+                  ? FaseAttacco.dopoBattuta
+                  : FaseAttacco.dopoRicezione,
+              senzaLibero: !conLibero,
+              liberoSuSchiacciatori:
+                  conLibero && ruoloCambi == Ruolo.schiacciatore,
+            );
+            final posizione = ruolo == null ? null : mappa?[ruolo];
+            if (posizione != null) result[a.id] = zonaDaPosizione(posizione);
+          }
+        }
+
+        if (a.esitoPunto == EsitoPunto.puntoNostro && !nostraAlServizio) {
+          rot = {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
+          nostraAlServizio = true;
+        } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
+          nostraAlServizio = true;
+        } else if (a.esitoPunto == EsitoPunto.puntoAvversario) {
+          nostraAlServizio = false;
+        }
+      }
+    }
+    return result;
   }
 
   // Pagina statistiche (mega tabella + generici) per uno scope di azioni:
@@ -792,6 +919,363 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  // ── Pagine "Battute <squadra>": un campo per giocatore ─────────────────
+
+  // Colori di stampa delle traiettorie: verde ace (AppColors.success, più
+  // leggibile su carta del verde brillante usato a video), nero per
+  // l'"in campo" (a video è bianco, invisibile su pagina bianca), rosso
+  // errore come ovunque.
+  static const _kPdfAce = PdfColor.fromInt(0xFF16A34A);
+  static const _kPdfErrore = PdfColors.red;
+  static const _kPdfInCampo = PdfColors.black;
+
+  void _aggiungiPagineBattute(
+    pw.Document doc,
+    PdfPageFormat format,
+    pw.MemoryImage logo,
+    Team? team,
+    List<Player> players,
+    Map<int, List<ScoutAction>> azioniPerSet,
+  ) {
+    // Tutte le battute della partita, raggruppate per giocatore.
+    final perGiocatore = <int, List<ScoutAction>>{};
+    for (final azioni in azioniPerSet.values) {
+      for (final a in azioni) {
+        if (a.tipo != TipoAzione.scout ||
+            a.fondamentale != Fondamentale.battuta ||
+            a.giocatoreId == null) {
+          continue;
+        }
+        perGiocatore.putIfAbsent(a.giocatoreId!, () => []).add(a);
+      }
+    }
+    final battitori = [
+      for (final p in players)
+        if (perGiocatore.containsKey(p.id)) p,
+    ]..sort((a, b) => a.numero.compareTo(b.numero));
+    if (battitori.isEmpty) return;
+
+    // 3 campi per riga; ogni riga è atomica, MultiPage spezza tra le righe.
+    const gap = 12.0;
+    const larghezzaCella = (802 - 2 * gap) / 3;
+    final righe = <pw.Widget>[];
+    for (var i = 0; i < battitori.length; i += 3) {
+      righe.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 14),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            for (var j = i; j < i + 3 && j < battitori.length; j++) ...[
+              if (j > i) pw.SizedBox(width: gap),
+              _cellaTraiettorie(
+                titolo: '${battitori[j].numero}  ${battitori[j].cognome}',
+                azioni: perGiocatore[battitori[j].id]!,
+                larghezza: larghezzaCella,
+                labelVincente: 'Ace',
+              ),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(20),
+        header: (context) => _buildHeaderPagina(context, logo),
+        build: (context) => [
+          pw.Text(
+            'Battute ${_nomeNostro(team)}',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          ...righe,
+        ],
+      ),
+    );
+  }
+
+  // Pagine "Attacchi <squadra>": un campo per OGNI COPPIA giocatore +
+  // posizione di attacco (zona TATTICA in cui il giocatore era schierato
+  // al momento dell'azione, da _zonaTatticaPerAzione — NON la sua zona di
+  // rotazione) — se un giocatore ha attaccato da P2 e da P4, i campi sono
+  // due. Gli attacchi senza zona ricostruibile (formazione mancante/dato
+  // incoerente) finiscono in un campo senza etichetta di posizione.
+  void _aggiungiPagineAttacchi(
+    pw.Document doc,
+    PdfPageFormat format,
+    pw.MemoryImage logo,
+    Team? team,
+    List<Player> players,
+    Map<int, List<ScoutAction>> azioniPerSet,
+    Map<int, int> zonaPerAzione,
+  ) {
+    // (giocatoreId, zona) → attacchi; zona 0 = non ricostruibile.
+    final perChiave = <(int, int), List<ScoutAction>>{};
+    for (final azioni in azioniPerSet.values) {
+      for (final a in azioni) {
+        if (a.tipo != TipoAzione.scout ||
+            a.fondamentale != Fondamentale.attacco ||
+            a.giocatoreId == null) {
+          continue;
+        }
+        final chiave = (a.giocatoreId!, zonaPerAzione[a.id] ?? 0);
+        perChiave.putIfAbsent(chiave, () => []).add(a);
+      }
+    }
+    if (perChiave.isEmpty) return;
+
+    // Ordina per numero di maglia, poi per zona (quella ignota in coda).
+    final perId = {for (final p in players) p.id: p};
+    final chiavi = perChiave.keys
+        .where((c) => perId.containsKey(c.$1))
+        .toList()
+      ..sort((a, b) {
+        final numeri =
+            perId[a.$1]!.numero.compareTo(perId[b.$1]!.numero);
+        if (numeri != 0) return numeri;
+        if (a.$2 == 0) return 1;
+        if (b.$2 == 0) return -1;
+        return a.$2.compareTo(b.$2);
+      });
+
+    const gap = 12.0;
+    const larghezzaCella = (802 - 2 * gap) / 3;
+    final righe = <pw.Widget>[];
+    for (var i = 0; i < chiavi.length; i += 3) {
+      righe.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 14),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            for (var j = i; j < i + 3 && j < chiavi.length; j++) ...[
+              if (j > i) pw.SizedBox(width: gap),
+              _cellaTraiettorie(
+                titolo: '${perId[chiavi[j].$1]!.numero}  '
+                    '${perId[chiavi[j].$1]!.cognome}'
+                    '${chiavi[j].$2 == 0 ? '' : ' — P${chiavi[j].$2}'}',
+                azioni: perChiave[chiavi[j]]!,
+                larghezza: larghezzaCella,
+                labelVincente: 'Pt',
+              ),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(20),
+        header: (context) => _buildHeaderPagina(context, logo),
+        build: (context) => [
+          pw.Text(
+            'Attacchi ${_nomeNostro(team)}',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          ...righe,
+        ],
+      ),
+    );
+  }
+
+  // Cella traiettorie condivisa tra pagine battute e attacchi: titolo
+  // sopra, campo B/N con le traiettorie, legenda Vincente/In/Err sotto
+  // (label vincente parametrica: 'Ace' per la battuta, 'Pt' per l'attacco).
+  pw.Widget _cellaTraiettorie({
+    required String titolo,
+    required List<ScoutAction> azioni,
+    required double larghezza,
+    required String labelVincente,
+  }) {
+    final vincenti = azioni.where((a) => a.voto == Voto.perfetto).length;
+    final errori = azioni.where((a) => a.voto == Voto.errore).length;
+    final inCampo = azioni.length - vincenti - errori;
+
+    // Traiettorie disegnabili (coordinate complete), normalizzate sx→dx
+    // come a video (mirror attorno al centro se partono da destra) —
+    // tocco a muro specchiato insieme al resto, pallonetto dal
+    // tipoEsecuzione (solo attacco).
+    final trajs = <_TrajPdf>[];
+    for (final a in azioni) {
+      var x1 = a.traiettoriaX1;
+      var y1 = a.traiettoriaY1;
+      var x2 = a.traiettoriaX2;
+      var y2 = a.traiettoriaY2;
+      if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
+      var muroX = a.traiettoriaMuroX;
+      var muroY = a.traiettoriaMuroY;
+      if (x1 > 0.5) {
+        x1 = 1.0 - x1;
+        y1 = 1.0 - y1;
+        x2 = 1.0 - x2;
+        y2 = 1.0 - y2;
+        if (muroX != null && muroY != null) {
+          muroX = 1.0 - muroX;
+          muroY = 1.0 - muroY;
+        }
+      }
+      final colore = a.voto == Voto.perfetto
+          ? _kPdfAce
+          : (a.voto == Voto.errore ? _kPdfErrore : _kPdfInCampo);
+      trajs.add(_TrajPdf(
+        x1: x1,
+        y1: y1,
+        x2: x2,
+        y2: y2,
+        colore: colore,
+        muroX: muroX,
+        muroY: muroY,
+        isPallonetto: a.tipoEsecuzione == TipoAttacco.pallonetto.name,
+      ));
+    }
+
+    pw.Widget legenda(String label, int count, PdfColor colore) =>
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 5),
+          decoration: pw.BoxDecoration(
+            color: colore,
+            borderRadius: pw.BorderRadius.circular(2),
+          ),
+          child: pw.Text(
+            '$label $count',
+            // 8pt come le celle della mega tabella statistiche.
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.white),
+          ),
+        );
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Text(
+          titolo,
+          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 3),
+        _campoTraiettoriePdf(trajs, larghezza),
+        pw.SizedBox(height: 4),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          children: [
+            legenda(labelVincente, vincenti, _kPdfAce),
+            pw.SizedBox(width: 6),
+            legenda('In', inCampo, PdfColors.grey600),
+            pw.SizedBox(width: 6),
+            legenda('Err', errori, _kPdfErrore),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Campo doppio in bianco e nero disegnato in vettoriale (niente PNG:
+  // nitido a ogni zoom e senza sfondo colorato, adatto alla stampa):
+  // bordo, rete al centro (più marcata), linee dei 3m a 1/3 e 2/3.
+  // Il padding attorno al campo lascia spazio alle traiettorie che partono
+  // fuori (il battitore sta dietro la linea di fondo, x normalizzata < 0).
+  pw.Widget _campoTraiettoriePdf(List<_TrajPdf> trajs, double larghezza) {
+    const pad = 14.0;
+    final courtW = larghezza - 2 * pad;
+    final courtH = courtW / 2;
+    final altezza = courtH + 2 * pad;
+    return pw.CustomPaint(
+      size: PdfPoint(larghezza, altezza),
+      painter: (canvas, size) {
+        // Coordinate normalizzate (origine in alto a sinistra) → punti PDF
+        // (origine in basso a sinistra, y verso l'alto).
+        double px(double nx) => pad + nx * courtW;
+        double py(double ny) => altezza - (pad + ny * courtH);
+
+        // Campo: bordo + linee dei 3m in grigio, rete più scura e spessa.
+        canvas
+          ..setStrokeColor(PdfColors.grey500)
+          ..setLineWidth(0.8)
+          ..drawRect(px(0), py(1), courtW, courtH)
+          ..moveTo(px(1 / 3), py(0))
+          ..lineTo(px(1 / 3), py(1))
+          ..moveTo(px(2 / 3), py(0))
+          ..lineTo(px(2 / 3), py(1))
+          ..strokePath()
+          ..setStrokeColor(PdfColors.grey700)
+          ..setLineWidth(1.4)
+          ..moveTo(px(0.5), py(0))
+          ..lineTo(px(0.5), py(1))
+          ..strokePath();
+
+        for (final t in trajs) {
+          final x1 = px(t.x1), y1 = py(t.y1), x2 = px(t.x2), y2 = py(t.y2);
+          canvas
+            ..setStrokeColor(t.colore)
+            ..setLineWidth(1.0);
+
+          // Direzione della punta: dallo snodo del muro, dalla tangente
+          // dell'arco (fine−controllo) o dalla retta — stessi tre casi del
+          // MultiTrajectoryPainter a video.
+          final double dirX, dirY;
+          if (t.muroX != null && t.muroY != null) {
+            // Tocco a muro: due segmenti con pallino sullo snodo.
+            final mx = px(t.muroX!), my = py(t.muroY!);
+            canvas
+              ..moveTo(x1, y1)
+              ..lineTo(mx, my)
+              ..lineTo(x2, y2)
+              ..strokePath()
+              ..setFillColor(t.colore)
+              ..drawEllipse(mx, my, 1.8, 1.8)
+              ..fillPath();
+            dirX = x2 - mx;
+            dirY = y2 - my;
+          } else if (t.isPallonetto) {
+            // Pallonetto: arco — bezier quadratica col punto di controllo
+            // alzato (y PDF verso l'alto), convertita in cubica per
+            // curveTo (cp = estremo + 2/3·(ctrl − estremo)).
+            final ctrlX = (x1 + x2) / 2;
+            final ctrlY = (y1 + y2) / 2 + courtH * 0.15;
+            canvas
+              ..moveTo(x1, y1)
+              ..curveTo(
+                  x1 + 2 / 3 * (ctrlX - x1),
+                  y1 + 2 / 3 * (ctrlY - y1),
+                  x2 + 2 / 3 * (ctrlX - x2),
+                  y2 + 2 / 3 * (ctrlY - y2),
+                  x2,
+                  y2)
+              ..strokePath();
+            dirX = x2 - ctrlX;
+            dirY = y2 - ctrlY;
+          } else {
+            canvas
+              ..moveTo(x1, y1)
+              ..lineTo(x2, y2)
+              ..strokePath();
+            dirX = x2 - x1;
+            dirY = y2 - y1;
+          }
+
+          // Punta a "V" sulla direzione calcolata.
+          final angolo = math.atan2(dirY, dirX);
+          const lunghezza = 4.0, apertura = 0.45;
+          canvas
+            ..moveTo(x2, y2)
+            ..lineTo(x2 - lunghezza * math.cos(angolo - apertura),
+                y2 - lunghezza * math.sin(angolo - apertura))
+            ..moveTo(x2, y2)
+            ..lineTo(x2 - lunghezza * math.cos(angolo + apertura),
+                y2 - lunghezza * math.sin(angolo + apertura))
+            ..strokePath();
+          // Pallino sul punto di partenza.
+          canvas
+            ..setFillColor(t.colore)
+            ..drawEllipse(x1, y1, 1.5, 1.5)
+            ..fillPath();
+        }
+      },
     );
   }
 

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../logic/attack_positions.dart';
 import '../../logic/ricalcola_stato.dart';
 import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
@@ -87,365 +88,10 @@ const Offset _kBattutaP1Position = Offset(-70, 470);
 // Aumentato da 1.0 dopo test su tablet fisico (token troppo piccoli).
 const double _kTokenSizeScale = 1.4;
 
-// Posizioni di attacco per RUOLO e FASE (non solo per zona fissa come
-// _kAttackPositions): "Battuta" (chi sta per servire, fuori campo con X
-// negativa — il ruolo che serve varia per rotazione) e "DopoBattuta"/
-// "DopoRicezione" (palla in gioco, ognuna con la propria "forma" tattica —
-// NON sempre coincidenti tra loro, a differenza delle posizioni di
-// ricezione). Solo variante "libero sui centrali" per ora (le altre due
-// varianti ricadono sulla vecchia logica generica — vedi _attackPosition).
-// L'eccezione "il libero non può servire" è già implicita nei dati: quando
-// il centrale di seconda linea sta per servire, compare lui stesso (es.
-// 'C2') invece di 'Libero'.
-const Map<String, Map<String, Offset>> _kAttackBattutaCentrali = {
-  'P1': {
-    'P': Offset(-60, 470),
-    'S1': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'O': Offset(530, 130),
-    'S2': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P2': {
-    'C2': Offset(-60, 470),
-    'P': Offset(530, 470),
-    'S1': Offset(530, 300),
-    'C1': Offset(530, 130),
-    'O': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P3': {
-    'S2': Offset(-60, 470),
-    'C2': Offset(530, 470),
-    'P': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'O': Offset(200, 300),
-  },
-  'P4': {
-    'O': Offset(-60, 470),
-    'S2': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'P': Offset(530, 130),
-    'S1': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P5': {
-    'C1': Offset(-60, 470),
-    'O': Offset(530, 470),
-    'S2': Offset(530, 300),
-    'C2': Offset(530, 130),
-    'P': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-  'P6': {
-    'S1': Offset(-60, 470),
-    'C1': Offset(530, 470),
-    'O': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'P': Offset(200, 300),
-  },
-};
-
-const Map<String, Map<String, Offset>> _kAttackDopoBattutaCentrali = {
-  'P1': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P2': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P3': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P4': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-  'P5': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-  'P6': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-};
-
-// Coincide con _kAttackDopoBattutaCentrali per P3, P4 e P6 (confermato dallo
-// sviluppatore) ma differisce per P1, P2 e P5: dopo aver ricevuto la
-// squadra si schiera diversamente rispetto a dopo aver servito.
-const Map<String, Map<String, Offset>> _kAttackDopoRicezioneCentrali = {
-  'P1': {
-    'P': Offset(200, 470),
-    'S1': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'O': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P2': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P3': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P4': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-  'P5': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-  'P6': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-};
-
-// Equivalenti di _kAttackBattutaCentrali/_kAttackDopoBattutaCentrali/
-// _kAttackDopoRicezioneCentrali per il caso "libero sugli schiacciatori"
-// (qui sono entrambi i centrali a restare in campo, il libero sostituisce
-// lo schiacciatore di seconda linea). P3 e P6 non hanno 'Libero' in Battuta
-// e Dopo_Battuta: in quelle due rotazioni lo schiacciatore che il libero
-// sostituirebbe è proprio quello che deve servire in quel turno — eccezione
-// "il libero non può servire" (stesso pattern già presente in
-// _kAttackBattutaCentrali/_kAttackDopoBattutaCentrali per la rotazione P2,
-// dove serve C2): per tutta la durata di quel turno di servizio il libero
-// resta fuori, non solo per l'istante della battuta. Non si attiva più in
-// Dopo_Ricezione (lì non serviamo noi, nessun problema a far entrare il
-// libero) — tutte le 6 rotazioni hanno 'Libero' in quella tabella.
-const Map<String, Map<String, Offset>> _kAttackBattutaSchiacciatori = {
-  'P1': {
-    'P': Offset(-60, 470),
-    'S1': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'O': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'C2': Offset(200, 300),
-  },
-  'P2': {
-    'C2': Offset(-60, 470),
-    'P': Offset(530, 470),
-    'S1': Offset(530, 300),
-    'C1': Offset(530, 130),
-    'O': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P3': {
-    'S2': Offset(-60, 470),
-    'C2': Offset(530, 470),
-    'P': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'O': Offset(200, 300),
-  },
-  'P4': {
-    'O': Offset(-60, 470),
-    'S2': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'P': Offset(530, 130),
-    'Libero': Offset(200, 130),
-    'C1': Offset(200, 300),
-  },
-  'P5': {
-    'C1': Offset(-60, 470),
-    'O': Offset(530, 470),
-    'S2': Offset(530, 300),
-    'C2': Offset(530, 130),
-    'P': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P6': {
-    'S1': Offset(-60, 470),
-    'C1': Offset(530, 470),
-    'O': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'P': Offset(200, 300),
-  },
-};
-
-const Map<String, Map<String, Offset>> _kAttackDopoBattutaSchiacciatori = {
-  'P1': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P2': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P3': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'S2': Offset(200, 300),
-  },
-  'P4': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P5': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P6': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'S1': Offset(200, 300),
-  },
-};
-
-const Map<String, Map<String, Offset>> _kAttackDopoRicezioneSchiacciatori = {
-  'P1': {
-    'P': Offset(200, 470),
-    'S1': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'O': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P2': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P3': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S1': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P4': {
-    'O': Offset(200, 470),
-    'P': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P5': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C2': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C1': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-  'P6': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
-    'C1': Offset(530, 300),
-    'S2': Offset(530, 130),
-    'C2': Offset(200, 130),
-    'Libero': Offset(200, 300),
-  },
-};
-
-// Per rotazione, quale centrale verrebbe sostituito dal libero (l'altro è
-// sempre quello "fisso" già presente nelle tabelle sopra) — usata per
-// derivare le tabelle "senza libero" dalle tabelle "libero sui centrali"
-// senza duplicare i dati: in campo senza libero quel centrale gioca
-// semplicemente lui stesso, nella stessa posizione tattica che avrebbe
-// occupato il libero.
-const Map<String, String> _kRuoloSostituitoCentrali = {
-  'P1': 'C2',
-  'P2': 'C2',
-  'P3': 'C1',
-  'P4': 'C1',
-  'P5': 'C1',
-  'P6': 'C2',
-};
-
-// Deriva la tabella "senza libero" da una delle tabelle centrali sopra:
-// sostituisce la chiave 'Libero' (se presente — durante l'eccezione del
-// servizio non c'è, la tabella è già completa) con il centrale reale di
-// _kRuoloSostituitoCentrali, stessa Offset.
-Map<String, Offset>? _kAttackSenzaLiberoDaCentrali(
-    Map<String, Map<String, Offset>> tabellaCentrali, String slot) {
-  final mappa = tabellaCentrali[slot];
-  if (mappa == null) return null;
-  final posizioneLibero = mappa['Libero'];
-  if (posizioneLibero == null) return mappa; // già completa
-  final ruoloSostituito = _kRuoloSostituitoCentrali[slot]!;
-  return {...mappa, ruoloSostituito: posizioneLibero}..remove('Libero');
-}
+// Le posizioni TATTICHE di attacco per rotazione/ruolo/fase (ex costanti
+// private qui) vivono in logic/attack_positions.dart: condivise con le
+// pagine attacchi del report PDF, che ne ricava la "posizione di attacco"
+// dei giocatori — vedi _activeAttackMap più sotto.
 
 // Posizioni di ricezione (battuta avversaria), per rotazione (chiave = slot
 // del palleggiatore, come _currentSlot) e per RUOLO (non per slot fisso —
@@ -874,33 +520,25 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // ricade su _refPositionFor (logica generica per zona fissa, non per
   // ruolo) — vedi _attackPosition.
   Map<String, Offset>? get _activeAttackMap {
-    final senzaLibero = !_liberiEffettivi.containsKey('L1');
-    final usaSchiacciatori =
-        !senzaLibero && _ruoloCambiLiberoEffettivo == Ruolo.schiacciatore;
-    final rotazione = _currentSlot;
-    Map<String, Offset>? risolvi(
-      Map<String, Map<String, Offset>> tabellaCentrali,
-      Map<String, Map<String, Offset>> tabellaSchiacciatori,
-    ) {
-      if (senzaLibero) {
-        return _kAttackSenzaLiberoDaCentrali(tabellaCentrali, rotazione);
-      }
-      return usaSchiacciatori
-          ? tabellaSchiacciatori[rotazione]
-          : tabellaCentrali[rotazione];
-    }
-
+    // Fase: battuta/dopo-battuta se serviamo noi, dopo-ricezione se
+    // servono loro e la ricezione è già stata giudicata; null durante la
+    // ricezione in corso (comanda _activeDefenseMap).
+    final FaseAttacco fase;
     if (_squadraAlServizio == Squadra.nostra) {
-      return !_faseDopo
-          ? risolvi(_kAttackBattutaCentrali, _kAttackBattutaSchiacciatori)
-          : risolvi(_kAttackDopoBattutaCentrali,
-              _kAttackDopoBattutaSchiacciatori);
+      fase = !_faseDopo ? FaseAttacco.battuta : FaseAttacco.dopoBattuta;
+    } else if (_squadraAlServizio == Squadra.avversari && _faseDopo) {
+      fase = FaseAttacco.dopoRicezione;
+    } else {
+      return null;
     }
-    if (_squadraAlServizio == Squadra.avversari && _faseDopo) {
-      return risolvi(
-          _kAttackDopoRicezioneCentrali, _kAttackDopoRicezioneSchiacciatori);
-    }
-    return null;
+    final senzaLibero = !_liberiEffettivi.containsKey('L1');
+    return attackMapFor(
+      rotazione: _currentSlot,
+      fase: fase,
+      senzaLibero: senzaLibero,
+      liberoSuSchiacciatori:
+          !senzaLibero && _ruoloCambiLiberoEffettivo == Ruolo.schiacciatore,
+    );
   }
 
   // Posizione di riferimento per il giocatore nello slot (rotazione
