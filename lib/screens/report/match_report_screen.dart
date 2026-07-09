@@ -53,11 +53,6 @@ const _ordineFondamentali = [
   ('alzata', 'Alzata'),
 ];
 
-// Rotazione oraria a un sideout: chi era in posizione p+1 va in p. Stessa
-// logica di ricalcola_stato.dart / trajectory_report_screen.dart.
-Map<int, int> _ruotata(Map<int, int> rot) =>
-    {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
-
 /// Report di una partita (Fase 4) — pagina 1: dati partita, punteggio
 /// finale (set vinti), punteggio di ogni set e riepilogo di tutti i
 /// fondamentali (set selezionabile o partita intera). Niente statistiche
@@ -77,6 +72,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   Map<int, List<ScoutAction>>? _azioniPerSet; // setId -> azioni
   List<Player>? _giocatori; // roster della squadra (per il filtro)
   Map<int, _Formazione>? _formazioni; // setId -> formazione di partenza
+  // actionId -> zona tattica dell'attaccante (vedi _distribuzioneAlzate).
+  Map<int, int>? _zonaTatticaPerAzione;
 
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
@@ -124,6 +121,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
         durata: _durataSet(azioni),
       ));
     }
+    final zonaTattica =
+        await setRepo.zonaTatticaPerAzione(sets, azioniPerSet, giocatori);
     if (!mounted) return;
     setState(() {
       _team = team;
@@ -132,6 +131,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       _azioniPerSet = azioniPerSet;
       _giocatori = giocatori;
       _formazioni = formazioni;
+      _zonaTatticaPerAzione = zonaTattica;
     });
   }
 
@@ -378,72 +378,25 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     return MotivoErrore.generico; // 'nonSpecificato' o valori legacy
   }
 
-  // Distribuzione delle alzate per zona (P1..P6), dedotta dalla posizione di
-  // rotazione dell'attaccante al momento di ogni attacco: replay set per set
-  // (rotazione iniziale da caricaFormazione + sideout/cambi, stessa logica di
-  // ricalcolaStato). Scope dal selettore `_setDistribuzione`.
+  // Distribuzione delle alzate per zona (1..6): posizione TATTICA
+  // dell'attaccante al momento di ogni attacco — la stessa definizione
+  // delle pagine attacchi del PDF (`MatchSetRepository.zonaTatticaPerAzione`,
+  // mappa calcolata una volta in _carica), NON la zona di rotazione (era
+  // la logica precedente, corretta su richiesta: uno schiacciatore di
+  // prima linea attacca quasi sempre da zona 4). Gli attacchi con zona
+  // non ricostruibile restano fuori dal conteggio. Scope dal selettore
+  // `_setDistribuzione`.
   ({Map<String, int> conteggi, int totale}) get _distribuzioneAlzate {
     final conteggi = <String, int>{
       'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0, 'P5': 0, 'P6': 0,
     };
-    final formazioni = _formazioni;
-    final azioniPerSet = _azioniPerSet;
-    final sets = _sets;
-    if (formazioni != null && azioniPerSet != null && sets != null) {
-      for (final set in sets) {
-        if (_setDistribuzione != null && set.numero != _setDistribuzione) {
-          continue;
-        }
-        final f = formazioni[set.id];
-        final azioni = azioniPerSet[set.id];
-        if (f == null || azioni == null) continue;
-
-        // Rotazione iniziale: posizione (1-6) → giocatoreId.
-        var rot = <int, int>{};
-        for (final e in f.assignments.entries) {
-          final pos =
-              e.key.startsWith('P') ? int.tryParse(e.key.substring(1)) : null;
-          if (pos != null) rot[pos] = e.value.id;
-        }
-        var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
-        final ordinate = [...azioni]..sort((a, b) => a.ordine.compareTo(b.ordine));
-
-        for (final a in ordinate) {
-          // Cambio giocatore: il subentrante prende la posizione dell'uscente
-          // (no-op se duplicherebbe), stessa guardia di ricalcolaStato.
-          if (a.tipo == TipoAzione.cambioGiocatore &&
-              a.giocatoreId != null &&
-              a.giocatoreUscenteId != null) {
-            final entra = a.giocatoreId!;
-            final esce = a.giocatoreUscenteId!;
-            if (!(esce != entra && rot.containsValue(entra))) {
-              rot = {
-                for (final e in rot.entries)
-                  e.key: e.value == esce ? entra : e.value,
-              };
-            }
-          }
-
-          // Attribuisci l'attacco alla zona dell'attaccante PRIMA di applicare
-          // l'esito (l'attacco avviene durante il rally, prima del sideout).
-          if (a.tipo == TipoAzione.scout &&
-              a.fondamentale == Fondamentale.attacco &&
-              a.giocatoreId != null) {
-            for (final e in rot.entries) {
-              if (e.value == a.giocatoreId) {
-                conteggi['P${e.key}'] = conteggi['P${e.key}']! + 1;
-                break;
-              }
-            }
-          }
-
-          if (a.esitoPunto == EsitoPunto.puntoNostro && !nostraAlServizio) {
-            rot = _ruotata(rot);
-            nostraAlServizio = true;
-          } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
-            nostraAlServizio = true;
-          } else if (a.esitoPunto == EsitoPunto.puntoAvversario) {
-            nostraAlServizio = false;
+    final zone = _zonaTatticaPerAzione;
+    if (zone != null) {
+      for (final azioniSet in _listeAzioniPerSet(_setDistribuzione)) {
+        for (final a in azioniSet) {
+          final zona = zone[a.id];
+          if (zona != null) {
+            conteggi['P$zona'] = conteggi['P$zona']! + 1;
           }
         }
       }

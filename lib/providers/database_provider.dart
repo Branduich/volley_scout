@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
+import '../logic/attack_positions.dart';
 import '../logic/ricalcola_stato.dart';
+import '../logic/role_labels.dart';
 import '../models/enums.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -325,6 +327,105 @@ class MatchSetRepository {
       palleggiatoreSlot: palleggiatoreSlot,
       ruoloCambiLibero: set.ruoloCambiLibero,
     );
+  }
+
+  /// actionId → zona TATTICA (1-6) dell'attaccante al momento di ogni
+  /// azione di attacco: dove il giocatore era schierato secondo le stesse
+  /// tabelle di posizione che ScoutScreen usa per i token
+  /// (logic/attack_positions.dart) — es. lo schiacciatore di prima linea
+  /// attacca quasi sempre da zona 4, a prescindere dalla sua zona di
+  /// rotazione. Replay per set: rotazione (sideout + cambi con le guardie
+  /// di ricalcolaStato), palleggiatore e ruolo cambi libero effettivi
+  /// (override dei cambi), etichette di ruolo via roleLabelsFor, fase
+  /// dopo-battuta/dopo-ricezione in base a chi serviva. Azioni non
+  /// ricostruibili (formazione mancante, attaccante non in rotazione,
+  /// ruolo senza posizione in tabella) restano fuori dalla mappa.
+  /// Usata dalle pagine attacchi del PDF e dalla distribuzione alzate di
+  /// MatchReportScreen.
+  Future<Map<int, int>> zonaTatticaPerAzione(
+    List<MatchSet> sets,
+    Map<int, List<ScoutAction>> azioniPerSet,
+    List<Player> players,
+  ) async {
+    final result = <int, int>{};
+    final perId = {for (final p in players) p.id: p};
+    for (final set in sets) {
+      final formazione = await caricaFormazione(set.id);
+      if (formazione == null) continue;
+      var rot = <int, Player>{};
+      for (final e in formazione.assignments.entries) {
+        if (!e.key.startsWith('P')) continue;
+        final pos = int.tryParse(e.key.substring(1));
+        if (pos != null) rot[pos] = e.value;
+      }
+      if (rot.length != 6) continue; // dato incoerente
+      var setterId = formazione.assignments[formazione.palleggiatoreSlot]?.id;
+      var ruoloCambi = formazione.ruoloCambiLibero;
+      final conLibero = formazione.assignments.containsKey('L1');
+      var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
+
+      final ordinate = [...(azioniPerSet[set.id] ?? const <ScoutAction>[])]
+        ..sort((a, b) => a.ordine.compareTo(b.ordine));
+      for (final a in ordinate) {
+        if (a.tipo == TipoAzione.cambioGiocatore &&
+            a.giocatoreId != null &&
+            a.giocatoreUscenteId != null) {
+          final entra = perId[a.giocatoreId!];
+          final esceId = a.giocatoreUscenteId!;
+          final duplicherebbe = esceId != a.giocatoreId &&
+              rot.values.any((p) => p.id == a.giocatoreId);
+          if (entra != null && !duplicherebbe) {
+            rot = {
+              for (final e in rot.entries)
+                e.key: e.value.id == esceId ? entra : e.value,
+            };
+          }
+          setterId = a.nuovoPalleggiatoreId ?? setterId;
+          ruoloCambi = a.nuovoRuoloCambiLibero ?? ruoloCambi;
+        }
+
+        if (a.tipo == TipoAzione.scout &&
+            a.fondamentale == Fondamentale.attacco &&
+            a.giocatoreId != null) {
+          int? posAttaccante;
+          int? posSetter;
+          rot.forEach((pos, p) {
+            if (p.id == a.giocatoreId) posAttaccante = pos;
+            if (p.id == setterId) posSetter = pos;
+          });
+          if (posAttaccante != null && posSetter != null) {
+            final assignments = {
+              for (final e in rot.entries) 'P${e.key}': e.value,
+            };
+            final ruolo =
+                roleLabelsFor('P$posSetter', assignments)['P$posAttaccante'];
+            final mappa = attackMapFor(
+              rotazione: 'P$posSetter',
+              // L'attacco avviene a palla in gioco: dopo-battuta se
+              // servivamo noi in questo scambio, dopo-ricezione altrimenti.
+              fase: nostraAlServizio
+                  ? FaseAttacco.dopoBattuta
+                  : FaseAttacco.dopoRicezione,
+              senzaLibero: !conLibero,
+              liberoSuSchiacciatori:
+                  conLibero && ruoloCambi == Ruolo.schiacciatore,
+            );
+            final posizione = ruolo == null ? null : mappa?[ruolo];
+            if (posizione != null) result[a.id] = zonaDaPosizione(posizione);
+          }
+        }
+
+        if (a.esitoPunto == EsitoPunto.puntoNostro && !nostraAlServizio) {
+          rot = {for (var p = 1; p <= 6; p++) p: rot[(p % 6) + 1]!};
+          nostraAlServizio = true;
+        } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
+          nostraAlServizio = true;
+        } else if (a.esitoPunto == EsitoPunto.puntoAvversario) {
+          nostraAlServizio = false;
+        }
+      }
+    }
+    return result;
   }
 
   /// Aggiusta l'override manuale del punteggio (bottoni +/- accanto al

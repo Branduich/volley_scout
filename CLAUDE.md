@@ -102,6 +102,11 @@ lib/
 │   └── enums.dart                (Ruolo, Categoria, Voto, SistemaGioco, Squadra,
 │                                   EsitoPunto + jerseyPalette)
 ├── logic/
+│   ├── attack_positions.dart     (tabelle posizioni TATTICHE di attacco per
+│   │                               rotazione/ruolo/fase + attackMapFor() +
+│   │                               zonaDaPosizione() — ex costanti private di
+│   │                               scout_screen, condivise con le pagine
+│   │                               attacchi del PDF; vedi Fase 4)
 │   ├── ricalcola_stato.dart      (funzione pura ricalcolaStato() — punteggio/
 │   │                               rotazione derivati dalle azioni di scout,
 │   │                               nessuna dipendenza da DB/UI; vedi Modello dati)
@@ -116,7 +121,9 @@ lib/
 ├── providers/
 │   ├── database_provider.dart    (TeamRepository + MatchRepository,
 │   │                               tutti i provider: teamsStream, playersStream,
-│   │                               matchesStream)
+│   │                               matchesStream; helper condivisi su righe
+│   │                               ScoutAction: azioneScoutDaRiga(),
+│   │                               idAttacchiSuRicezione(), attaccoMurato())
 │   └── settings_provider.dart    (Impostazioni + impostazioniProvider su
 │                                   shared_preferences; sharedPreferencesProvider
 │                                   sovrascritto in main() — vedi Impostazioni)
@@ -153,9 +160,14 @@ lib/
 │   │   │                                  efficienza e positività — da MatchesScreen)
 │   │   ├── match_pdf_screen.dart         (Fase 4: anteprima+condivisione PDF on-demand
 │   │   │                                  via PdfPreview — bottone "PDF" sulla card
-│   │   │                                  delle partite terminate, vedi Fase 4)
+│   │   │                                  delle partite terminate; pagina 1 punteggi,
+│   │   │                                  mega tabella statistiche partita+per set,
+│   │   │                                  pagine battute/attacchi con campi vettoriali,
+│   │   │                                  vedi Fase 4)
 │   │   ├── player_stats_screen.dart      (Fase 4: statistiche per giocatore/fondamentale,
-│   │   │                                  set per set — raggiunta dal drawer di ScoutScreen)
+│   │   │                                  set per set, filtro attacchi tutti/su ricezione/
+│   │   │                                  su difesa + colonna Murati — dal drawer di
+│   │   │                                  ScoutScreen)
 │   │   └── trajectory_report_screen.dart (Fase 4: traiettorie battute/attacco con filtri
 │   │                                      set/giocatore e, per attacco, rotazione P1-P6 —
 │   │                                      dal drawer di ScoutScreen e dai bottoni di
@@ -186,7 +198,9 @@ lib/
 
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
-├── demo/           (demo_match.json — partita reale convertita, vedi Fase 4)
+├── demo/           (demo_match.json — partita reale convertita, vedi Fase 4;
+│                    + "VOLLEY STATS PDF - Stats_Match_PDF.csv", foglio di
+│                    riferimento della mega tabella statistiche del PDF)
 ├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 
@@ -1215,11 +1229,14 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
     `clipBehavior: Clip.none`: il default (`Clip.hardEdge`) taglierebbe via
     il token del battitore, che essendo a X negativa cade fuori dai confini
     dello `Stack` stesso.
-    - **Posizioni di attacco per RUOLO e FASE** (IMPLEMENTATO, variante
-      "libero sui centrali" + "senza libero" derivata — "libero sugli
-      schiacciatori" resta da fare e ricade sulla logica generica sopra):
-      `_kAttackBattutaCentrali`/`_kAttackDopoBattutaCentrali`/
-      `_kAttackDopoRicezioneCentrali`, stesso formato delle tabelle di
+    - **Posizioni di attacco per RUOLO e FASE** (IMPLEMENTATO, tutte e tre
+      le varianti: "libero sui centrali", "libero sugli schiacciatori" —
+      vedi sotto — e "senza libero" derivata dalle tabelle centrali).
+      **Le tabelle vivono in `lib/logic/attack_positions.dart`**
+      (`kAttackBattutaCentrali` ecc., ex costanti private di scout_screen,
+      estratte perché condivise con le pagine attacchi del PDF —
+      `_activeAttackMap` ora delega la selezione ad `attackMapFor()`):
+      stesso formato delle tabelle di
       ricezione (`slot palleggiatore (P1..P6) -> ruolo -> Offset`). A
       differenza della posizione fissa per zona (`_kAttackPositions`), qui la
       posizione dipende dal **ruolo** e dalla **fase** dello scambio — in
@@ -2131,6 +2148,21 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
           **`ScoutActionRepository.caricaAzioni`**: equivalenti one-shot
           (non stream) di `watchPlayersForTeam`/`watchAzioni`, aggiunti per
           questo caricamento one-shot.
+        - **Filtro attacchi** (solo con fondamentale Attacco): terzo
+          dropdown "Attacchi" — Tutti (default)/Su ricezione/Su difesa,
+          si resetta cambiando fondamentale. Classificazione =
+          `idAttacchiSuRicezione()` (helper condiviso in
+          database_provider.dart): "su ricezione" è l'attacco che segue un
+          voto di ricezione nello stesso scambio (`rallyId`, scope per
+          set), tutto il resto "su difesa" — STESSA regola del riepilogo
+          fondamentali di `MatchReportScreen` (che per ora tiene il suo
+          loop interno: tenere allineati).
+        - **Colonna "Murati"** (solo Attacco, tra `=` e TOT, colore
+          neutro): attacchi con muro punto subito — `attaccoMurato()`
+          (helper condiviso): voto `=` + tocco a muro registrato + palla
+          tornata nel campo dell'attaccante (arrivo dallo stesso lato
+          della rete della partenza). Deducibile SOLO con la traiettoria
+          disegnata; senza, resta un normale errore.
   - [x] **Traiettorie battute/attacco** (`lib/screens/report/trajectory_report_screen.dart`,
         `TrajectoryReportScreen` parametrizzata su `fondamentale: Fondamentale`):
         raggiunta da due voci del drawer di `ScoutScreen` — "Traiettorie battute"
@@ -2220,11 +2252,13 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
       formazione, allineato a sinistra — `CourtView` col nuovo parametro
       `slotContent` (contenuto custom per slot, stessa geometria delle card
       giocatore): % grande (fontSize 31) + conteggio (17) per zona P1–P6.
-      Zona = posizione di rotazione dell'ATTACCANTE al momento dell'azione,
-      derivata replayando le rotazioni per set (`_distribuzioneAlzate`,
-      stessa logica di `_computeRotazioni` di trajectory_report_screen,
-      `_ruotata` replicata file-privata). Selettore Set proprio
-      (`_setDistribuzione`).
+      Zona = posizione TATTICA dell'attaccante al momento dell'azione —
+      STESSA definizione delle pagine attacchi del PDF
+      (`MatchSetRepository.zonaTatticaPerAzione`, mappa calcolata una
+      volta in `_carica`), NON la zona di rotazione (era la logica
+      iniziale, corretta su richiesta dell'utente: "è quella corretta").
+      Attacchi con zona non ricostruibile esclusi dal conteggio.
+      Selettore Set proprio (`_setDistribuzione`).
     - **Efficienza battuta/attacco** (2 card) e **Positività** (3 card:
       positività ricezione, errore ricezione, positività difesa): formule
       `(# − =)/tot×100` (può essere negativa: verde/rosso/grigio per segno),
@@ -2260,12 +2294,56 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
         finale; riga Totale segue i SET vinti). Una funzione `pw.*` per
         sezione (`_buildIntestazione`/`_buildPunteggioFinale`/
         `_buildTabellaSet`): i prossimi pezzi si aggiungono lì.
-        **Contenuti pagine successive da decidere** (riferimento: il PDF
-        "Volleyball Scout" sopra — tabelle per giocatore, errori/punti
-        generici, attacchi su ricezione/difesa, traiettorie per
-        giocatore/zona — cattura di `CourtTrajectoriesView` via
-        `RepaintBoundary.toImage` → `pw.Image`, un campo per giocatore con
-        tutte le sue battute, idem attacchi —, distribuzione alzate).
+    - **Mega tabella statistiche giocatori** (layout dal foglio Google
+      Sheets dell'utente, CSV di riferimento in `assets/demo/`): pagina
+      "Partita intera" + UNA PAGINA PER OGNI SET giocato
+      (`_buildPaginaStatistiche`, scope parametrico). 34 colonne in gruppi
+      colorati (palette del foglio): GIOCATORE (#/Nome troncato/R),
+      BATTUTA e ATTACCO (TOT/PT/ER[/MURI]/EF%), ATT. SU RIC./ATT. SU DIF.
+      (partizione via `idAttacchiSuRicezione`), RICEZIONE e DIFESA
+      (TOT/++/ER/EF%/POS% — `++` = solo voti `#`), MURO (TOT/PT), PT-ERR
+      (punti `#` di battuta+attacco+muro; errori `=` dei 5 gruppi, alzata
+      esclusa). Formule = card del report a video: EF% `(#−=)/tot`, POS%
+      `(#++)/tot`, percentuali INTERE col segno, "—" con tot 0. Riga
+      TOTALI gialla. **Larghezze fisse per tipo di colonna** (~790pt su
+      ~802 utili, margine pagina 20) + font 8; la riga dei gruppi è una
+      Row separata (pw.Table NON ha colspan) con le stesse larghezze —
+      richiede **`tableWidth: TableWidth.min`** sulla Table (il default
+      `max` stira le colonne oltre le FixedColumnWidth e la riga gruppi si
+      disallinea, bug reale corretto). Sotto: specchietto punti/errori
+      generici + tipologia errori avversari (`_buildGenerici`).
+    - **Pagine "Battute <squadra>"**: un campo per ogni giocatore che ha
+      battuto (3 per riga, righe atomiche — MultiPage spezza tra le
+      righe), titolo numero+cognome, legenda Ace/In/Err (verde/grigio/
+      rosso, font 8). Campo doppio B/N **vettoriale** (`pw.CustomPaint`,
+      NON cattura PNG di CourtTrajectoriesView come ipotizzato prima:
+      nitido a ogni zoom e adatto alla stampa — `_campoTraiettoriePdf`,
+      bordo+linee 3m grigie, rete marcata, padding attorno per il
+      battitore fuori campo). Traiettorie normalizzate sx→dx; colori di
+      STAMPA: verde ace `0xFF16A34A`, rosso errore, NERO in campo (a video
+      è bianco, invisibile su carta). Painter con i 3 casi del
+      MultiTrajectoryPainter: retta, tocco a muro (2 segmenti + snodo),
+      pallonetto (bezier quadratica→cubica per curveTo).
+    - **Pagine "Attacchi <squadra>"**: un campo per OGNI COPPIA giocatore
+      + POSIZIONE TATTICA di attacco (titolo "N Cognome — P4"): se uno ha
+      attaccato da zona 2 e da zona 4, i campi sono due. La posizione è
+      quella in cui il giocatore era SCHIERATO al momento dell'azione
+      secondo le tabelle di `logic/attack_positions.dart` (estratte da
+      scout_screen: le stesse che posizionano i token) — NON la zona di
+      rotazione (uno S di prima linea attacca quasi sempre da zona 4) e
+      NON il punto di partenza della traiettoria (entrambe scartate con
+      l'utente). `MatchSetRepository.zonaTatticaPerAzione` (condiviso
+      con la distribuzione alzate del report a video, che usa la STESSA
+      definizione): replay per set (rotazione+
+      palleggiatore+ruoloCambiLibero effettivi, guardie di
+      ricalcolaStato) + `roleLabelsFor` + fase dopo-battuta/dopo-ricezione
+      in base a chi serviva + `attackMapFor()` → `zonaDaPosizione()`
+      (prima linea 4/3/2, seconda 5/6/1). Zona non ricostruibile → campo
+      del giocatore senza etichetta, in coda. Legenda Pt/In/Err. Cella
+      condivisa con le battute (`_cellaTraiettorie`).
+    - **Contenuti eventuali futuri**: separare att. su ric./difesa dalla
+      mega tabella (l'utente vuole provare la tabella unica), formazioni
+      per set e distribuzione alzate nel PDF.
 
 ---
 
@@ -2294,13 +2372,16 @@ Fase 4: `MatchReportScreen` è COMPLETO a video (dati partita, punteggio
 finale/per set con durata e pallini esito, riepilogo fondamentali,
 punti/errori generici con motivi, bottoni traiettorie, formazioni di
 partenza per set, distribuzione alzate, efficienza e positività);
-`PlayerStatsScreen` e `TrajectoryReportScreen` pronte da tempo. Export PDF
-IN CORSO: impianto fatto (`MatchPdfScreen` con `PdfPreview`, on-demand, A4
-landscape, header logo+pagina, pagina 1 con intestazione/punteggi) —
-contenuti delle pagine successive da decidere col riferimento "Volleyball
-Scout". Nello scout live: timeout per set (bottoni + pallini header) e
+`PlayerStatsScreen` con filtro attacchi (tutti/su ricezione/su difesa) e
+colonna Murati. Export PDF quasi completo (`MatchPdfScreen`, on-demand,
+A4 landscape): pagina 1 intestazione/punteggi, mega tabella statistiche
+(partita intera + una pagina per set, layout dal foglio dell'utente) con
+specchietto generici, pagine "Battute" (un campo vettoriale B/N per
+battitore) e "Attacchi" (un campo per giocatore+posizione TATTICA, dalle
+tabelle di `logic/attack_positions.dart`) — vedi la voce Export PDF in
+Fase 4. Nello scout live: timeout per set (bottoni + pallini header) e
 pagina Impostazioni (toggle traiettorie via shared_preferences, vedi
-sezione Impostazioni).
+sezione Impostazioni). In test su dispositivo fisico (APK release).
 
 Testato sull'emulatore Pixel 7 in landscape. Repo Git su GitHub:
 github.com/Branduich/volley_scout
