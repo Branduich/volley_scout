@@ -5,6 +5,7 @@ import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_spacing.dart';
+import '../../widgets/certificato_dot.dart';
 import '../teams/player_form_screen.dart';
 import 'formation_config_screen.dart';
 
@@ -520,6 +521,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              CertificatoDot(scadenza: p.scadenzaCertificato),
                               if (!assigned)
                                 IconButton(
                                   icon: const Icon(Icons.edit, size: 24),

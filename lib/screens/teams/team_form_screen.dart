@@ -4,6 +4,7 @@ import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
+import '../../widgets/certificato_dot.dart';
 import 'player_form_screen.dart';
 
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
@@ -303,7 +304,13 @@ class _PlayersSection extends ConsumerWidget {
                       p.ruolo.label,
                       style: const TextStyle(fontSize: 16),
                     ),
-                    trailing: const Icon(Icons.chevron_right, size: 28),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CertificatoDot(scadenza: p.scadenzaCertificato),
+                        const Icon(Icons.chevron_right, size: 28),
+                      ],
+                    ),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(

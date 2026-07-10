@@ -953,12 +953,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // mostrano il ruolo.
   bool _showJerseyNumbers = true;
 
-  // Log azioni di debug (toggle nel drawer): pannello scrollabile ancorato
-  // al bordo destro con tutte le ScoutAction del SET CORRENTE, più recente
-  // in alto, aggiornato in tempo reale dallo stesso stream di
-  // _statoSetReale. Nascosto mentre il pannello voto è aperto (occupa la
-  // stessa zona dello schermo).
-  bool _showActionLog = false;
+  // Log azioni (toggle nel drawer, VISIBILE di default): pannello
+  // scrollabile ancorato al bordo destro con tutte le ScoutAction del SET
+  // CORRENTE, più recente in alto, aggiornato in tempo reale dallo stesso
+  // stream di _statoSetReale. Nascosto mentre il pannello voto è aperto
+  // (occupa la stessa zona dello schermo).
+  bool _showActionLog = true;
 
   // Punteggio del set in corso, derivato da _statoSetReale (eventi reali) +
   // l'eventuale correzione manuale persistita su MatchSet (vedi

@@ -39,13 +39,15 @@ procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 - **drift** (database locale SQLite, con code generation via build_runner)
 - **flutter_riverpod** (state management)
 - **pdf** + **printing** (export PDF con anteprima/condivisione/stampa —
-  `share_plus` NON serve: la condivisione è già dentro `printing`)
+  per il PDF `share_plus` non serve: la condivisione è già dentro `printing`)
+- **csv** + **share_plus** (export CSV delle azioni partita — qui `printing`
+  non basta, condivide solo PDF; vedi Export CSV in Fase 4)
 - **shared_preferences** (impostazioni app — vedi `SettingsScreen`)
 - Target: **solo orientamento orizzontale (landscape)**
 
 Package già installati:
 `flutter_riverpod drift sqlite3_flutter_libs path_provider path pdf printing
-shared_preferences`
+shared_preferences csv share_plus`
 dev: `drift_dev build_runner flutter_launcher_icons`
 
 **Workaround build Android** (`android/gradle.properties`):
@@ -116,8 +118,12 @@ lib/
 ├── data/
 │   ├── database.dart             (tabelle Teams, Players, VolleyMatches + AppDatabase)
 │   ├── database.g.dart           (generato, non editare a mano)
-│   └── demo_match_importer.dart  (import partita demo da assets/demo/ —
-│                                   solo debug, vedi Fase 4)
+│   ├── demo_match_importer.dart  (import partita demo da assets/demo/ —
+│   │                               solo debug, vedi Fase 4)
+│   └── match_csv_exporter.dart   (export CSV azioni partita: righeCsvPartita()
+│                                   pura + condividiCsvPartita() con share
+│                                   sheet — bottone "CSV" in MatchesScreen,
+│                                   vedi Export CSV in Fase 4)
 ├── providers/
 │   ├── database_provider.dart    (TeamRepository + MatchRepository,
 │   │                               tutti i provider: teamsStream, playersStream,
@@ -184,6 +190,12 @@ lib/
 │   └── court_style.dart           (CourtStyle — costanti grafiche campo: colori linee,
 │                                   rete, token giocatore, traiettoria, votoColor(Voto))
 └── widgets/
+    ├── certificato_dot.dart       (CertificatoDot + coloreScadenzaCertificato():
+    │                               pallino 14×14 di stato del certificato medico
+    │                               — rosso <8 giorni o scaduto, giallo <30,
+    │                               verde altrimenti, niente se data assente —
+    │                               nel trailing delle liste giocatori di
+    │                               TeamFormScreen e LineupScreen)
     ├── court_view.dart            (CourtView + LabeledCourt: campo 3×2 con card
     │                               giocatori, estratti da formation_config_screen —
     │                               condivisi con sostituzione_screen; CourtView ha
@@ -210,7 +222,10 @@ test/
     ├── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
     ├── role_labels_test.dart      (8 test su roleLabelsFor() — regressione +
     │                               universali per completamento)
-    └── demo_match_test.dart       (valida la partita demo: replay == referto)
+    ├── demo_match_test.dart       (valida la partita demo: replay == referto)
+    ├── certificato_dot_test.dart  (soglie del pallino certificato medico)
+    └── match_csv_test.dart        (righeCsvPartita() — header, join nomi,
+                                    punteggio progressivo, celle vuote)
 ```
 
 ---
@@ -2358,8 +2373,36 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
       `zonaTatticaPerAzione` ritorna `(zona, rotazione)` per questo. Nel
       report a video la distribuzione alzate ha il filtro gemello
       "Alzate": Tutte/Su ricezione/Su difesa (`_FiltroAlzate`).
-    - **Contenuti eventuali futuri**: separare att. su ric./difesa dalla
-      mega tabella (l'utente vuole provare la tabella unica).
+  - [x] **Export CSV azioni partita** (`lib/data/match_csv_exporter.dart`,
+        package `csv` + `share_plus`): bottone "CSV" (`Icons.table_view`)
+        sulla card delle partite `terminata` in `MatchesScreen`, accanto a
+        "PDF" — futura feature premium, per ora sempre visibile (il gating
+        arriverà col meccanismo premium, come per il toggle traiettorie).
+        Una riga per `ScoutAction`, set per set: colonne "parlanti" (nomi
+        giocatori/squadre e label degli enum via join in memoria, mai ID;
+        `tipoEsecuzione` risolto con l'enum giusto per contesto —
+        TipoBattuta/TipoAttacco/MotivoErrore), punteggio progressivo del
+        set derivato contando gli `esitoPunto` (correzioni manuali escluse,
+        vivono fuori dal log). Punteggio ed esito in convenzione **referto
+        ufficiale Casa/Trasferta** ("Punti casa"/"Punti trasferta", "Punto
+        casa"/"Punto trasferta" — lato dato da `match.inCasa`): intestazioni
+        fisse tra un file e l'altro, comode per fogli-modello; la colonna
+        Squadra coi nomi reali scioglie l'ambiguità su chi era in casa. Compatibilità Excel italiano: separatore
+        `;`, decimali con la VIRGOLA (col punto diventerebbero testo),
+        **BOM UTF-8** in testa (senza, Excel storpia gli accenti). File
+        on-demand in `getTemporaryDirectory()` + `SharePlus.instance.share`
+        (niente file persistiti, stesso principio del PDF). Funzione pura
+        `righeCsvPartita()` testata in `test/logic/match_csv_test.dart`;
+        caricamento dati one-shot in `MatchesScreen._esportaCsv` (stesso
+        pattern di `MatchPdfScreen`, incluso il fallback
+        `inferisciSquadraDaRotazioni` per le partite pre-fix del teamId).
+        **Trappole share_plus risolte** (il file arrivava a Drive senza
+        nome/estensione e Sheets rifiutava l'import): (1) `fileNameOverrides`
+        è IGNORATO con un XFile creato da path (`if (file.path.isNotEmpty)
+        return file;` nel package) — serve `XFile.fromData(bytes)`;
+        (2) "Salva su Drive" usa `EXTRA_SUBJECT` come titolo del documento
+        al posto del display name → il `subject` DEVE essere il nome file
+        completo di estensione, non un titolo libero.
 
 ---
 

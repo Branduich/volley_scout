@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../data/demo_match_importer.dart';
+import '../../data/match_csv_exporter.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
@@ -58,6 +59,45 @@ class MatchesScreen extends ConsumerWidget {
       context,
       MaterialPageRoute(builder: (_) => TeamSelectionScreen(match: match)),
     );
+  }
+
+  // Export CSV di tutte le azioni della partita (bottone "CSV", solo
+  // partite terminate — futura feature premium). Caricamento one-shot con
+  // lo stesso pattern di MatchPdfScreen: team (con fallback
+  // inferisciSquadraDaRotazioni per le partite pre-fix del teamId), set,
+  // azioni per set, roster per la join sui nomi. Poi delega a
+  // condividiCsvPartita (lib/data/match_csv_exporter.dart).
+  Future<void> _esportaCsv(
+      BuildContext context, WidgetRef ref, VolleyMatch match) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final teamRepo = ref.read(teamRepositoryProvider);
+      final setRepo = ref.read(matchSetRepositoryProvider);
+      final azioniRepo = ref.read(scoutActionRepositoryProvider);
+
+      Team? team;
+      if (match.teamId != null) {
+        team = await teamRepo.getTeam(match.teamId!);
+      }
+      team ??= await setRepo.inferisciSquadraDaRotazioni(match.id);
+
+      final sets = await setRepo.caricaSetsPartita(match.id);
+      final azioniPerSet = <int, List<ScoutAction>>{
+        for (final s in sets) s.id: await azioniRepo.caricaAzioni(s.id),
+      };
+      final players =
+          team == null ? const <Player>[] : await teamRepo.getPlayersForTeam(team.id);
+
+      await condividiCsvPartita(
+        match: match,
+        team: team,
+        sets: sets,
+        azioniPerSet: azioniPerSet,
+        playerById: {for (final p in players) p.id: p},
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Export CSV fallito: $e')));
+    }
   }
 
   @override
@@ -135,6 +175,9 @@ class MatchesScreen extends ConsumerWidget {
                           ),
                         )
                     : null,
+                onExportCsv: match.stato == StatoPartita.terminata
+                    ? () => _esportaCsv(context, ref, match)
+                    : null,
                 onOpenReport: match.stato == StatoPartita.terminata
                     ? () => Navigator.push(
                           context,
@@ -199,6 +242,9 @@ class _MatchCard extends StatelessWidget {
   // Non null solo per le partite terminate — apre MatchPdfScreen
   // (anteprima + condivisione del report PDF).
   final VoidCallback? onOpenPdf;
+  // Non null solo per le partite terminate — esporta tutte le azioni della
+  // partita in CSV e apre lo share sheet (futura feature premium).
+  final VoidCallback? onExportCsv;
 
   const _MatchCard({
     required this.match,
@@ -206,6 +252,7 @@ class _MatchCard extends StatelessWidget {
     required this.onStart,
     this.onOpenReport,
     this.onOpenPdf,
+    this.onExportCsv,
   });
 
   String _pad(int n) => n.toString().padLeft(2, '0');
@@ -258,6 +305,14 @@ class _MatchCard extends StatelessWidget {
           children: [
             _CasaBadge(inCasa: match.inCasa),
             const SizedBox(width: 12),
+            if (onExportCsv != null) ...[
+              OutlinedButton.icon(
+                onPressed: onExportCsv,
+                icon: const Icon(Icons.table_view),
+                label: const Text('CSV'),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (onOpenPdf != null) ...[
               OutlinedButton.icon(
                 onPressed: onOpenPdf,
