@@ -2275,7 +2275,7 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
         filtri/Scaffold, con `TrajData`/`buildTrajData`/`MultiTrajectoryPainter`
         pubblici (ex privati di `trajectory_report_screen`, che ora lo usa).
         Estratto in vista del PDF: verrà catturato in PNG per giocatore.
-  - [ ] **Export PDF, condivisione — IN CORSO (impianto + pagina 1 fatti)**.
+  - [x] **Export PDF, condivisione — COMPLETO**.
         Deciso con lo sviluppatore: bottone "PDF" (`Icons.picture_as_pdf`)
         sulla card delle partite `terminata` in `MatchesScreen` →
         `MatchPdfScreen` con **`PdfPreview`** (package `printing`):
@@ -2341,9 +2341,25 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
       (prima linea 4/3/2, seconda 5/6/1). Zona non ricostruibile → campo
       del giocatore senza etichetta, in coda. Legenda Pt/In/Err. Cella
       condivisa con le battute (`_cellaTraiettorie`).
+    - **Pagina "Formazioni di partenza"**: un campo QUADRATO vettoriale
+      B/N per set (rete in alto, P1 in basso a destra, 3 per riga), card
+      giocatore con cognome e nome su DUE righe, numero grande, ruolo;
+      palleggiatore bordato rosso; pallone vettoriale accanto al titolo
+      "Set N - P<slot>" se la battuta iniziale era nostra; didascalia
+      libero/i. ATTENZIONE: `pw.Spacer`/flex dentro una Row a larghezza
+      illimitata lancia "PdfException: flex children" — serve un SizedBox
+      con larghezza esplicita (bug reale corretto).
+    - **Pagina "Distribuzione alzate — partita intera"** (ultima): 6 campi
+      quadrati per ROTAZIONE P1–P6 (posizione del palleggiatore), in ogni
+      zona etichetta Ric/Dif sopra due chip — nera testo bianco = dopo
+      ricezione, bianca bordata = dopo difesa — con % grande (11pt bold) +
+      conteggio. Percentuali PER FASE dentro la rotazione (K1/K2: le sei
+      zone di una fase sommano a 100), "0%" a fase vuota (non "—").
+      `zonaTatticaPerAzione` ritorna `(zona, rotazione)` per questo. Nel
+      report a video la distribuzione alzate ha il filtro gemello
+      "Alzate": Tutte/Su ricezione/Su difesa (`_FiltroAlzate`).
     - **Contenuti eventuali futuri**: separare att. su ric./difesa dalla
-      mega tabella (l'utente vuole provare la tabella unica), formazioni
-      per set e distribuzione alzate nel PDF.
+      mega tabella (l'utente vuole provare la tabella unica).
 
 ---
 
@@ -2373,13 +2389,14 @@ finale/per set con durata e pallini esito, riepilogo fondamentali,
 punti/errori generici con motivi, bottoni traiettorie, formazioni di
 partenza per set, distribuzione alzate, efficienza e positività);
 `PlayerStatsScreen` con filtro attacchi (tutti/su ricezione/su difesa) e
-colonna Murati. Export PDF quasi completo (`MatchPdfScreen`, on-demand,
+colonna Murati. Export PDF COMPLETO (`MatchPdfScreen`, on-demand,
 A4 landscape): pagina 1 intestazione/punteggi, mega tabella statistiche
 (partita intera + una pagina per set, layout dal foglio dell'utente) con
 specchietto generici, pagine "Battute" (un campo vettoriale B/N per
-battitore) e "Attacchi" (un campo per giocatore+posizione TATTICA, dalle
-tabelle di `logic/attack_positions.dart`) — vedi la voce Export PDF in
-Fase 4. Nello scout live: timeout per set (bottoni + pallini header) e
+battitore), "Attacchi" (un campo per giocatore+posizione TATTICA, dalle
+tabelle di `logic/attack_positions.dart`), "Formazioni di partenza" e
+"Distribuzione alzate" per rotazione con chip Ric/Dif — vedi la voce
+Export PDF in Fase 4. Nello scout live: timeout per set (bottoni + pallini header) e
 pagina Impostazioni (toggle traiettorie via shared_preferences, vedi
 sezione Impostazioni). In test su dispositivo fisico (APK release).
 

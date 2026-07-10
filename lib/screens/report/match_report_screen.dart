@@ -38,6 +38,18 @@ typedef _Formazione = ({
   Ruolo? ruoloCambiLibero,
 });
 
+/// Filtro della distribuzione alzate: tutte (default), solo quelle dopo
+/// una ricezione o solo dopo difesa — stessa partizione binaria di
+/// `idAttacchiSuRicezione` usata ovunque (PDF compreso).
+enum _FiltroAlzate {
+  tutte('Tutte'),
+  suRicezione('Su ricezione'),
+  suDifesa('Su difesa');
+
+  final String label;
+  const _FiltroAlzate(this.label);
+}
+
 // Ordine/etichette delle righe del riepilogo fondamentali, fissato dallo
 // sviluppatore — "Attacco" è il totale di tutti gli attacchi, "Attacco su
 // ricezione"/"Attacco su Difesa" sono il sottoinsieme dedotto dalla
@@ -72,12 +84,15 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   Map<int, List<ScoutAction>>? _azioniPerSet; // setId -> azioni
   List<Player>? _giocatori; // roster della squadra (per il filtro)
   Map<int, _Formazione>? _formazioni; // setId -> formazione di partenza
-  // actionId -> zona tattica dell'attaccante (vedi _distribuzioneAlzate).
-  Map<int, int>? _zonaTatticaPerAzione;
+  // actionId -> zona tattica dell'attaccante + rotazione (vedi
+  // _distribuzioneAlzate; la rotazione serve solo al PDF, qui si ignora).
+  Map<int, ({int zona, int rotazione})>? _zonaTatticaPerAzione;
 
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
   int? _setDistribuzione; // null = Partita intera — sezione distribuzione alzate
+  _FiltroAlzate _filtroDistribuzione = _FiltroAlzate.tutte;
+  int? _rotazioneDistribuzione; // null = Tutte; 1-6 = rotazione P1..P6
   int? _setEfficienza; // null = Partita intera — sezione efficienza
   int? _giocatoreEfficienza; // null = Tutti — sezione efficienza
   int? _setPositivita; // null = Partita intera — sezione positività
@@ -392,12 +407,26 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     };
     final zone = _zonaTatticaPerAzione;
     if (zone != null) {
+      // Filtro su ricezione/difesa (partizione binaria, come ovunque):
+      // calcolato su TUTTI i set, dipende dalla sequenza dello scambio.
+      final filtroAttivo = _filtroDistribuzione != _FiltroAlzate.tutte;
+      final suRicezione = filtroAttivo
+          ? idAttacchiSuRicezione((_azioniPerSet ?? const {}).values)
+          : const <int>{};
       for (final azioniSet in _listeAzioniPerSet(_setDistribuzione)) {
         for (final a in azioniSet) {
-          final zona = zone[a.id];
-          if (zona != null) {
-            conteggi['P$zona'] = conteggi['P$zona']! + 1;
+          final info = zone[a.id];
+          if (info == null) continue;
+          if (_rotazioneDistribuzione != null &&
+              info.rotazione != _rotazioneDistribuzione) {
+            continue;
           }
+          if (filtroAttivo &&
+              suRicezione.contains(a.id) !=
+                  (_filtroDistribuzione == _FiltroAlzate.suRicezione)) {
+            continue;
+          }
+          conteggi['P${info.zona}'] = conteggi['P${info.zona}']! + 1;
         }
       }
     }
@@ -752,27 +781,69 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                width: 220,
-                child: DropdownButtonFormField<int?>(
-                  initialValue: _setDistribuzione,
-                  decoration: const InputDecoration(
-                    labelText: 'Set',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Partita intera'),
-                    ),
-                    for (final s in sets)
-                      DropdownMenuItem(
-                        value: s.numero,
-                        child: Text('Set ${s.numero}'),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _setDistribuzione,
+                      decoration: const InputDecoration(
+                        labelText: 'Set',
+                        border: OutlineInputBorder(),
                       ),
-                  ],
-                  onChanged: (v) => setState(() => _setDistribuzione = v),
-                ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Partita intera'),
+                        ),
+                        for (final s in sets)
+                          DropdownMenuItem(
+                            value: s.numero,
+                            child: Text('Set ${s.numero}'),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _setDistribuzione = v),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<_FiltroAlzate>(
+                      initialValue: _filtroDistribuzione,
+                      decoration: const InputDecoration(
+                        labelText: 'Alzate',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (final f in _FiltroAlzate.values)
+                          DropdownMenuItem(value: f, child: Text(f.label)),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _filtroDistribuzione = v!),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _rotazioneDistribuzione,
+                      decoration: const InputDecoration(
+                        labelText: 'Rotazione',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Tutte'),
+                        ),
+                        for (var r = 1; r <= 6; r++)
+                          DropdownMenuItem(value: r, child: Text('P$r')),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _rotazioneDistribuzione = v),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               _buildDistribuzioneCourt(_distribuzioneAlzate),

@@ -217,7 +217,197 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     _aggiungiPagineAttacchi(
         doc, format, logo, team, players, azioniPerSet, zonaPerAzione);
     _aggiungiPaginaFormazioni(doc, format, logo, sets, formazioni);
+    _aggiungiPaginaDistribuzione(doc, format, logo, azioniPerSet, zonaPerAzione);
     return doc.save();
+  }
+
+  // ── Pagina "Distribuzione alzate": un campo per rotazione ──────────────
+
+  // Partita intera, un campo per ROTAZIONE P1..P6 (posizione del
+  // palleggiatore al momento dell'alzata). In ogni zona due righe: % e
+  // conteggio delle alzate dopo RICEZIONE e dopo DIFESA (partizione via
+  // idAttacchiSuRicezione, come ovunque) — percentuali sul totale della
+  // rotazione PER FASE: le sei zone di "Ric" sommano a 100 dentro la
+  // rotazione, idem "Dif" (lettura K1/K2 standard, così le due
+  // distribuzioni sono confrontabili anche con conteggi diversi).
+  void _aggiungiPaginaDistribuzione(
+    pw.Document doc,
+    PdfPageFormat format,
+    pw.MemoryImage logo,
+    Map<int, List<ScoutAction>> azioniPerSet,
+    Map<int, ({int zona, int rotazione})> zonaPerAzione,
+  ) {
+    final suRicezione = idAttacchiSuRicezione(azioniPerSet.values);
+    // rotazione → zona → conteggio, per fase.
+    final ric = <int, Map<int, int>>{};
+    final dif = <int, Map<int, int>>{};
+    var totale = 0;
+    for (final azioni in azioniPerSet.values) {
+      for (final a in azioni) {
+        final info = zonaPerAzione[a.id]; // solo attacchi ricostruiti
+        if (info == null) continue;
+        final target = suRicezione.contains(a.id) ? ric : dif;
+        final perZona = target.putIfAbsent(info.rotazione, () => {});
+        perZona[info.zona] = (perZona[info.zona] ?? 0) + 1;
+        totale++;
+      }
+    }
+    if (totale == 0) return;
+
+    const lato = 200.0;
+    const gap = 24.0;
+    final righe = <pw.Widget>[];
+    for (var r = 1; r <= 6; r += 3) {
+      righe.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 12),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            for (var rot = r; rot < r + 3; rot++) ...[
+              if (rot > r) pw.SizedBox(width: gap),
+              _cellaDistribuzione(
+                  rot, ric[rot] ?? const {}, dif[rot] ?? const {}, lato),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(20),
+        header: (context) => _buildHeaderPagina(context, logo),
+        build: (context) => [
+          pw.Text(
+            'Distribuzione alzate — partita intera',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'In ogni zona: alzate dopo ricezione (Ric) e dopo difesa (Dif) — '
+            'percentuali sul totale della rotazione per ciascuna fase.',
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+          pw.SizedBox(height: 8),
+          ...righe,
+        ],
+      ),
+    );
+  }
+
+  // Campo di una rotazione: titolo "Rotazione Pn" + totali per fase,
+  // campo quadrato (stesso painter delle formazioni) con una card per
+  // zona — riga "Ric" e riga "Dif" con % e conteggio.
+  pw.Widget _cellaDistribuzione(
+      int rotazione, Map<int, int> ric, Map<int, int> dif, double lato) {
+    final cw = lato / 3;
+    final ch = lato / 2;
+    // zona → (colonna, riga) della griglia: rete in alto, zona 1 in basso
+    // a destra (stessa disposizione della pagina formazioni).
+    const posizioni = {
+      4: (0, 0), 3: (1, 0), 2: (2, 0),
+      5: (0, 1), 6: (1, 1), 1: (2, 1),
+    };
+    final totRic = ric.values.fold(0, (a, b) => a + b);
+    final totDif = dif.values.fold(0, (a, b) => a + b);
+    // "0%" anche a fase vuota (più visibile del "—", scelta dell'utente).
+    String pct(int n, int tot) => tot == 0 ? '0%' : '${(n * 100 / tot).round()}%';
+
+    // Chip di una fase con la sua etichetta SOPRA (fuori dalla chip, così
+    // dentro c'è spazio per percentuale e conteggio grandi). Ric = testo
+    // bianco su nero, Dif = nero su bianco (bordata) — proposta
+    // dell'utente per distinguerle a colpo d'occhio.
+    pw.Widget chip(String label, int n, int tot, {required bool nero}) {
+      final testo = nero ? PdfColors.white : PdfColors.black;
+      return pw.Column(
+        children: [
+          pw.Text(label, style: const pw.TextStyle(fontSize: 6.5)),
+          pw.SizedBox(height: 1),
+          pw.Container(
+            width: cw - 8,
+            padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+            decoration: pw.BoxDecoration(
+              color: nero ? PdfColors.black : PdfColors.white,
+              borderRadius: pw.BorderRadius.circular(8),
+              border: nero ? null : pw.Border.all(width: 0.8),
+            ),
+            child: pw.RichText(
+              textAlign: pw.TextAlign.center,
+              maxLines: 1,
+              overflow: pw.TextOverflow.clip,
+              text: pw.TextSpan(
+                style: pw.TextStyle(fontSize: 9, color: testo),
+                children: [
+                  pw.TextSpan(
+                    text: pct(n, tot),
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                      color: testo,
+                    ),
+                  ),
+                  pw.TextSpan(text: ' ($n)'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    pw.Widget cardZona(int zona) {
+      final (col, riga) = posizioni[zona]!;
+      final r = ric[zona] ?? 0;
+      final d = dif[zona] ?? 0;
+      // Due blocchi etichetta+chip impilati, centrati nella cella.
+      const altezzaCard = 52.0;
+      return pw.Positioned(
+        left: col * cw + 4,
+        top: riga * ch + (ch - altezzaCard) / 2,
+        child: pw.Column(
+          children: [
+            chip('Ric', r, totRic, nero: true),
+            pw.SizedBox(height: 3),
+            chip('Dif', d, totDif, nero: false),
+          ],
+        ),
+      );
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(
+          width: lato,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Rotazione P$rotazione',
+                style:
+                    pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(
+                'Ric $totRic · Dif $totDif',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 3),
+        pw.SizedBox(
+          width: lato,
+          height: lato,
+          child: pw.Stack(
+            children: [
+              pw.Positioned.fill(child: _campoFormazionePdf(lato)),
+              for (final zona in posizioni.keys) cardZona(zona),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   // Pagina statistiche (mega tabella + generici) per uno scope di azioni:
@@ -924,7 +1114,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     Team? team,
     List<Player> players,
     Map<int, List<ScoutAction>> azioniPerSet,
-    Map<int, int> zonaPerAzione,
+    Map<int, ({int zona, int rotazione})> zonaPerAzione,
   ) {
     // (giocatoreId, zona) → attacchi; zona 0 = non ricostruibile.
     final perChiave = <(int, int), List<ScoutAction>>{};
@@ -935,7 +1125,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
             a.giocatoreId == null) {
           continue;
         }
-        final chiave = (a.giocatoreId!, zonaPerAzione[a.id] ?? 0);
+        final chiave = (a.giocatoreId!, zonaPerAzione[a.id]?.zona ?? 0);
         perChiave.putIfAbsent(chiave, () => []).add(a);
       }
     }
@@ -1288,11 +1478,24 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
           child: pw.Column(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(
-                '${p.cognome} ${p.nome}',
-                maxLines: 1,
-                overflow: pw.TextOverflow.clip,
-                style: const pw.TextStyle(fontSize: 8),
+              // Cognome e nome su DUE righe: su una sola il nome spariva
+              // troncato appena il cognome era lungo.
+              pw.Column(
+                children: [
+                  pw.Text(
+                    p.cognome,
+                    maxLines: 1,
+                    overflow: pw.TextOverflow.clip,
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  if (p.nome.trim().isNotEmpty)
+                    pw.Text(
+                      p.nome,
+                      maxLines: 1,
+                      overflow: pw.TextOverflow.clip,
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                ],
               ),
               pw.Text(
                 '${p.numero}',

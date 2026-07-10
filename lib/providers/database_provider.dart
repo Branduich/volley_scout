@@ -329,9 +329,10 @@ class MatchSetRepository {
     );
   }
 
-  /// actionId → zona TATTICA (1-6) dell'attaccante al momento di ogni
-  /// azione di attacco: dove il giocatore era schierato secondo le stesse
-  /// tabelle di posizione che ScoutScreen usa per i token
+  /// actionId → (zona TATTICA 1-6 dell'attaccante, rotazione = posizione
+  /// 1-6 del palleggiatore) al momento di ogni azione di attacco. La zona
+  /// è dove il giocatore era schierato secondo le stesse tabelle di
+  /// posizione che ScoutScreen usa per i token
   /// (logic/attack_positions.dart) — es. lo schiacciatore di prima linea
   /// attacca quasi sempre da zona 4, a prescindere dalla sua zona di
   /// rotazione. Replay per set: rotazione (sideout + cambi con le guardie
@@ -340,14 +341,14 @@ class MatchSetRepository {
   /// dopo-battuta/dopo-ricezione in base a chi serviva. Azioni non
   /// ricostruibili (formazione mancante, attaccante non in rotazione,
   /// ruolo senza posizione in tabella) restano fuori dalla mappa.
-  /// Usata dalle pagine attacchi del PDF e dalla distribuzione alzate di
-  /// MatchReportScreen.
-  Future<Map<int, int>> zonaTatticaPerAzione(
+  /// Usata dalle pagine attacchi e distribuzione alzate del PDF e dalla
+  /// distribuzione alzate di MatchReportScreen.
+  Future<Map<int, ({int zona, int rotazione})>> zonaTatticaPerAzione(
     List<MatchSet> sets,
     Map<int, List<ScoutAction>> azioniPerSet,
     List<Player> players,
   ) async {
-    final result = <int, int>{};
+    final result = <int, ({int zona, int rotazione})>{};
     final perId = {for (final p in players) p.id: p};
     for (final set in sets) {
       final formazione = await caricaFormazione(set.id);
@@ -411,7 +412,12 @@ class MatchSetRepository {
                   conLibero && ruoloCambi == Ruolo.schiacciatore,
             );
             final posizione = ruolo == null ? null : mappa?[ruolo];
-            if (posizione != null) result[a.id] = zonaDaPosizione(posizione);
+            if (posizione != null) {
+              result[a.id] = (
+                zona: zonaDaPosizione(posizione),
+                rotazione: posSetter!,
+              );
+            }
           }
         }
 
