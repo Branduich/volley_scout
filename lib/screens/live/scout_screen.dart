@@ -20,6 +20,7 @@ import '../report/player_stats_screen.dart';
 import '../report/trajectory_report_screen.dart';
 import 'end_set_screen.dart';
 import 'sostituzione_screen.dart';
+import 'tactical_board_screen.dart';
 import 'trajectory_screen.dart';
 
 const _kBg = Color(0xFF143E59);
@@ -1642,6 +1643,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
                 _avviaSostituzione();
+              },
+            ),
+            // Lavagna tattica (premium): campo per disporre le chip dei ruoli
+            // e disegnare durante il timeout — vedi TacticalBoardScreen.
+            ListTile(
+              leading: const Icon(Icons.dashboard, color: Colors.white),
+              title: const Text(
+                'Lavagna tattica',
+                style: TextStyle(color: Colors.white),
+              ),
+              trailing: const PremiumBadge(),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                if (_richiedePremium()) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TacticalBoardScreen(team: widget.team),
+                  ),
+                );
               },
             ),
             const Divider(color: Colors.white24, height: 1),

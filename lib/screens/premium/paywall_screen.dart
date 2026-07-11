@@ -18,6 +18,8 @@ class PaywallScreen extends StatelessWidget {
     (Icons.gesture, 'Traiettorie di battuta e attacco',
         'Disegnale durante lo scout e rivedile filtrate per set, giocatore '
             'e rotazione.'),
+    (Icons.dashboard, 'Lavagna tattica',
+        'Disponi i ruoli in campo e disegna gli schemi durante il timeout.'),
     (Icons.picture_as_pdf, 'Report PDF completo',
         'Statistiche, traiettorie e formazioni da condividere o stampare.'),
     (Icons.table_view, 'Export CSV delle azioni',

@@ -180,6 +180,11 @@ lib/
 │   │   │                                  visita — vedi "cambio giocatore" in Fase 3)
 │   │   ├── scout_screen.dart             (setup grafico Fase 3 in corso: sfondo, barra
 │   │   │                                  top, campo doppio + campo piccolo)
+│   │   ├── tactical_board_screen.dart    (lavagna tattica premium dal drawer live:
+│   │   │                                  chip ruoli trascinabili nella metà campo +
+│   │   │                                  disegno linee a mano libera, undo/cestino;
+│   │   │                                  effimera, riusa il layout campo di
+│   │   │                                  TrajectoryScreen)
 │   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
 │   ├── report/
 │   │   ├── match_report_screen.dart      (Fase 4: report completo — dati partita,
@@ -1789,7 +1794,9 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   alzate, efficienza, positività) hanno titolo+badge come vetrina e una
   card "Statistica premium" che apre il paywall al posto del contenuto
   (helper `_sezionePremium({titolo, figli})`, unico punto da ritoccare per
-  spostare la linea free/premium del report).
+  spostare la linea free/premium del report); (5) **lavagna tattica**: voce
+  drawer "Lavagna tattica" in `ScoutScreen` (badge premium) → da free apre
+  il paywall, da premium `TacticalBoardScreen`.
 - **`lib/widgets/premium_badge.dart`**: `PremiumBadge` — iconcina
   `workspace_premium` ambra (stessa del paywall) da affiancare alle feature
   gated, visibile SOLO per utente free (osserva `statoPremiumProvider`,
