@@ -48,3 +48,7 @@ app.*.map.json
 android/key.properties
 *.jks
 *.keystore
+
+# Localizzazioni generate da flutter gen-l10n (generate: true in pubspec):
+# rigenerate a ogni build/pub get, non committate.
+/lib/l10n/app_localizations*.dart

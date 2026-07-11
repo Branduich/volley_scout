@@ -1919,7 +1919,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       Positioned(
         top: 8,
         bottom: 8,
-        right: 8,
+        // Lato OPPOSTO alla mini-map (che segue _isRightSide): default a
+        // destra, ma col cambio campo la mini-map va a destra e il log si
+        // sposta a sinistra per non finirci sopra.
+        left: _isRightSide ? 8 : null,
+        right: _isRightSide ? null : 8,
         width: 240,
         child: Container(
           padding: const EdgeInsets.all(8),

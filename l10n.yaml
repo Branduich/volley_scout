@@ -1,0 +1,10 @@
+# Configurazione della generazione delle localizzazioni (flutter gen-l10n).
+# Sorgente = italiano (app_it.arb), inglese = app_en.arb. La classe generata
+# AppLocalizations vive in lib/l10n (non committata: rigenerata dalla build).
+arb-dir: lib/l10n
+template-arb-file: app_it.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+# AppLocalizations.of(context) ritorna non-null (context sempre sotto
+# MaterialApp coi delegate): niente `!` sparsi nelle schermate.
+nullable-getter: false

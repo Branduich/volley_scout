@@ -1757,6 +1757,36 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
 
 ---
 
+## Internazionalizzazione (i18n) — IN CORSO (pilota fatto)
+
+Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
+`intl` + `gen_l10n`, nessuna dip esterna). Sorgente = italiano.
+
+- **File ARB** in `lib/l10n/`: `app_it.arb` (sorgente/template) e
+  `app_en.arb` (inglese). Chiave → stringa; le stringhe con interpolazione
+  usano i placeholder ARB (`"x": "Set {n}"`). Config in `l10n.yaml`
+  (`nullable-getter: false`).
+- **Classe generata** `AppLocalizations` (`lib/l10n/app_localizations*.dart`,
+  **gitignorata** — rigenerata da `flutter gen-l10n`/`pub get`, `generate:
+  true` nel pubspec). Uso: `final l = AppLocalizations.of(context);` (mai
+  null) → `l.nomeChiave`. Rilanciare `flutter gen-l10n` dopo ogni modifica
+  agli ARB.
+- **Selezione lingua**: `linguaProvider` (`lib/providers/lingua_provider.dart`,
+  `Notifier<Locale?>`) — `null` = segue il dispositivo (fallback EN),
+  altrimenti lingua forzata. Persistito su shared_preferences (chiave
+  `app.lingua`). Passato a `MaterialApp.locale`; dropdown compatta
+  Sistema/Italiano/English in `SettingsScreen`.
+- **Stato**: PILOTA fatto (`HomeScreen` + `SettingsScreen` — l'inglese di
+  queste due l'ho compilato io). Da fare, un pezzo alla volta: tutte le
+  altre schermate (il grosso è scout/report/PDF), le **label degli enum**
+  (`enums.dart`: `Ruolo`/`Categoria`/`Fondamentale`… — vanno spostate fuori
+  dall'enum in una funzione con `context`, `Voto.simbolo` resta com'è), e
+  gli **export PDF/CSV** (seguono la lingua dell'app — decisione presa).
+  Per ogni schermata nuova: si passa all'utente la lista `chiave → italiano`
+  e lui rimanda l'inglese.
+
+---
+
 ## Premium — Strada A (in corso)
 
 Percorso di pubblicazione/monetizzazione: roadmap completa in

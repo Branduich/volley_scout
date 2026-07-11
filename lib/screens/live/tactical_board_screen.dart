@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/database.dart';
 import '../../models/jersey_colors.dart';
-import '../../theme/app_colors.dart';
 
 const _kCourtImage = 'assets/images/double_court_bg.png';
 
@@ -41,8 +40,9 @@ const Map<String, Offset> _kChipDefault = {
   'L': Offset(0.49, 0.78),
 };
 
-// Colori del tratto (penne in header) — bianco/rosso/verde, gli stessi già
-// usati altrove (rosso errore, verde = AppColors.success dei punti).
+// Colori del tratto (penne in header) — bianco/rosso/verde. Verde brillante
+// (non AppColors.success, troppo scuro sul campo azzurro chiaro) per restare
+// ben visibile.
 const List<Color> _kColoriTratto = [
   Colors.white,
   Colors.red,

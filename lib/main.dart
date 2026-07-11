@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'l10n/app_localizations.dart';
+import 'providers/lingua_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/matches/matches_screen.dart';
 import 'screens/settings/settings_screen.dart';
@@ -25,15 +27,21 @@ Future<void> main() async {
   ));
 }
 
-class VolleyScoutApp extends StatelessWidget {
+class VolleyScoutApp extends ConsumerWidget {
   const VolleyScoutApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // locale: null = segue il dispositivo (tra le supportedLocales, fallback
+    // inglese); altrimenti la lingua forzata da Impostazioni.
+    final locale = ref.watch(linguaProvider);
     return MaterialApp(
       title: 'Volley Stratego',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const HomeScreen(),
     );
   }
@@ -44,6 +52,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Volley Stratego'),
@@ -56,10 +65,10 @@ class HomeScreen extends StatelessWidget {
             flex: 2,
             child: Container(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'Area principale',
-                  style: TextStyle(fontSize: 18, color: Colors.black54),
+                  l.homeMainArea,
+                  style: const TextStyle(fontSize: 18, color: Colors.black54),
                 ),
               ),
             ),
@@ -76,7 +85,7 @@ class HomeScreen extends StatelessWidget {
                   const Spacer(),
                   _MenuButton(
                     icon: Icons.groups,
-                    label: 'Setup squadre',
+                    label: l.homeTeamsSetup,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const TeamsScreen()),
@@ -85,7 +94,7 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _MenuButton(
                     icon: Icons.event_note,
-                    label: 'Gestione partite',
+                    label: l.homeMatches,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -97,7 +106,7 @@ class HomeScreen extends StatelessWidget {
                   const Spacer(),
                   _MenuButton(
                     icon: Icons.settings,
-                    label: 'Impostazioni',
+                    label: l.homeSettings,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
