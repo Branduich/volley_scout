@@ -457,9 +457,98 @@ class _TrajectoryReportScreenState
               ),
             ),
           )
-        : _buildMiniTable(tutte, conTraj.length);
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildMiniTable(tutte, conTraj.length),
+              const SizedBox(height: 14),
+              _buildDistribuzioneTipi(tutte),
+            ],
+          );
 
     return CourtTrajectoriesView(trajectories: trajectories, footer: footer);
+  }
+
+  // Distribuzione per tipo di esecuzione (TipoBattuta per la battuta,
+  // TipoAttacco per l'attacco) sulle azioni FILTRATE `tutte` — riflette
+  // quindi set/giocatore/(rotazione+su ric./difesa per l'attacco). Mostra
+  // solo i tipi con conteggio > 0, incluso `nonSpecificato` (dice quante
+  // azioni non sono state taggate). Parsing per `.name` come l'export CSV.
+  Widget _buildDistribuzioneTipi(List<ScoutAction> tutte) {
+    final isBattuta = widget.fondamentale == Fondamentale.battuta;
+    // (label, name) in ordine di dichiarazione dell'enum.
+    final tipi = isBattuta
+        ? [for (final t in TipoBattuta.values) (t.label, t.name)]
+        : [for (final t in TipoAttacco.values) (t.label, t.name)];
+    final validi = {for (final t in tipi) t.$2};
+
+    final conteggi = <String, int>{};
+    for (final a in tutte) {
+      final n = validi.contains(a.tipoEsecuzione)
+          ? a.tipoEsecuzione
+          : 'nonSpecificato';
+      conteggi[n] = (conteggi[n] ?? 0) + 1;
+    }
+    final totale = tutte.length;
+
+    final celle = <Widget>[
+      for (final (label, name) in tipi)
+        if ((conteggi[name] ?? 0) > 0)
+          _buildTipoCell(label, conteggi[name]!, totale),
+    ];
+    if (celle.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          isBattuta ? 'Tipo di battuta' : 'Tipo di attacco',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: celle,
+        ),
+      ],
+    );
+  }
+
+  // Cella compatta della distribuzione: label + "conteggio (%)". Colore
+  // neutro (i colori esito sono già usati dalla mini-tabella sopra).
+  Widget _buildTipoCell(String label, int count, int totale) {
+    final pct = totale == 0 ? 0 : (count * 100 / totale).round();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade700,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$count  ($pct%)',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMiniTable(List<ScoutAction> tutte, int conTraj) {

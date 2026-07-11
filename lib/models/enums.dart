@@ -117,7 +117,7 @@ enum MotivoErrore {
 /// Tipo di esecuzione di un attacco — contestuale, opzionale, default
 /// `nonSpecificato` per non bloccare il flusso veloce.
 enum TipoAttacco {
-  nonSpecificato('Non specificato'),
+  nonSpecificato('Generico'),
   forte('Forte'),
   piazzata('Piazzata'),
   pallonetto('Pallonetto');
@@ -128,7 +128,7 @@ enum TipoAttacco {
 
 /// Tipo di esecuzione di una battuta — stessa logica di TipoAttacco.
 enum TipoBattuta {
-  nonSpecificato('Non specificato'),
+  nonSpecificato('Generico'),
   dalBasso('Dal basso'),
   float('Float'),
   salto('Salto'),
