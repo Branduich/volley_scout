@@ -1775,7 +1775,21 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   "Traiettorie battute/attacco" del drawer di `ScoutScreen`
   (`_richiedePremium()`) e i bottoni traiettorie di `MatchReportScreen`
   (`_apriTraiettorie`) aprono invece il paywall; il toggle in
-  `SettingsScreen` è disabilitato con nota "Funzione premium".
+  `SettingsScreen` è disabilitato con nota "Funzione premium"; (3) **una
+  sola squadra e una sola partita**: da free, i FAB "Nuova squadra"
+  (`TeamsScreen` e `TeamSelectionScreen`) e "Nuova partita"
+  (`MatchesScreen`) aprono il paywall se ne esiste già almeno una — gate
+  SOLO sulla creazione: squadre/partite esistenti restano visibili,
+  modificabili e cancellabili (deciso: si deve sempre poter scendere a una
+  cancellando le altre; le partite esistenti restano scoutabili, tanto gli
+  export/traiettorie sono comunque gated). Badge sul FAB solo quando il
+  gate scatterebbe (count ≥ 1); (4) **report parziale**: da free
+  `MatchReportScreen` mostra solo dati partita, punteggi e riepilogo
+  fondamentali — le altre sezioni (generici, formazioni, distribuzione
+  alzate, efficienza, positività) hanno titolo+badge come vetrina e una
+  card "Statistica premium" che apre il paywall al posto del contenuto
+  (helper `_sezionePremium({titolo, figli})`, unico punto da ritoccare per
+  spostare la linea free/premium del report).
 - **`lib/widgets/premium_badge.dart`**: `PremiumBadge` — iconcina
   `workspace_premium` ambra (stessa del paywall) da affiancare alle feature
   gated, visibile SOLO per utente free (osserva `statoPremiumProvider`,

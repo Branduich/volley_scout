@@ -154,14 +154,37 @@ class MatchesScreen extends ConsumerWidget {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MatchFormScreen()),
-        ),
-        icon: const Icon(Icons.add),
-        label: const Text('Nuova partita'),
-      ),
+      // Gate premium (vedi docs/TODO_strada_A.md): da free si può avere UNA
+      // sola partita — la creazione della seconda apre il paywall. Le
+      // partite esistenti restano visibili e scoutabili (i gate su
+      // PDF/CSV/traiettorie valgono comunque). Badge sul FAB solo quando il
+      // gate scatterebbe (già una partita + utente free).
+      floatingActionButton: Builder(builder: (context) {
+        final giaUnaPartita = matchesAsync.value?.isNotEmpty ?? false;
+        return FloatingActionButton.extended(
+          onPressed: () {
+            if (giaUnaPartita && !ref.read(statoPremiumProvider).attivo) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              );
+              return;
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MatchFormScreen()),
+            );
+          },
+          icon: const Icon(Icons.add),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Nuova partita'),
+              if (giaUnaPartita) const PremiumBadge(),
+            ],
+          ),
+        );
+      }),
       body: matchesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Errore: $e')),

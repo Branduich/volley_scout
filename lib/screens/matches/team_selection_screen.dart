@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/premium_provider.dart';
+import '../../widgets/premium_badge.dart';
+import '../premium/paywall_screen.dart';
 import '../teams/team_form_screen.dart';
 import '../live/lineup_screen.dart';
 
@@ -47,14 +50,35 @@ class TeamSelectionScreen extends ConsumerWidget {
               : 'Seleziona la squadra in trasferta',
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TeamFormScreen()),
-        ),
-        icon: const Icon(Icons.group_add),
-        label: const Text('Nuova squadra'),
-      ),
+      // Stesso gate premium di TeamsScreen: da free una sola squadra — la
+      // creazione al volo della seconda apre il paywall (badge sul FAB solo
+      // quando il gate scatterebbe).
+      floatingActionButton: Builder(builder: (context) {
+        final giaUnaSquadra = teamsAsync.value?.isNotEmpty ?? false;
+        return FloatingActionButton.extended(
+          onPressed: () {
+            if (giaUnaSquadra && !ref.read(statoPremiumProvider).attivo) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              );
+              return;
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TeamFormScreen()),
+            );
+          },
+          icon: const Icon(Icons.group_add),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Nuova squadra'),
+              if (giaUnaSquadra) const PremiumBadge(),
+            ],
+          ),
+        );
+      }),
       body: teamsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Errore: $e')),

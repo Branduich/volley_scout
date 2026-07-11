@@ -93,7 +93,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
 
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
-  int? _setDistribuzione; // null = Partita intera — sezione distribuzione alzate
+  int?
+  _setDistribuzione; // null = Partita intera — sezione distribuzione alzate
   _FiltroAlzate _filtroDistribuzione = _FiltroAlzate.tutte;
   int? _rotazioneDistribuzione; // null = Tutte; 1-6 = rotazione P1..P6
   int? _setEfficienza; // null = Partita intera — sezione efficienza
@@ -139,8 +140,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
         durata: _durataSet(azioni),
       ));
     }
-    final zonaTattica =
-        await setRepo.zonaTatticaPerAzione(sets, azioniPerSet, giocatori);
+    final zonaTattica = await setRepo.zonaTatticaPerAzione(
+      sets,
+      azioniPerSet,
+      giocatori,
+    );
     if (!mounted) return;
     setState(() {
       _team = team;
@@ -406,7 +410,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // `_setDistribuzione`.
   ({Map<String, int> conteggi, int totale}) get _distribuzioneAlzate {
     final conteggi = <String, int>{
-      'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0, 'P5': 0, 'P6': 0,
+      'P1': 0,
+      'P2': 0,
+      'P3': 0,
+      'P4': 0,
+      'P5': 0,
+      'P6': 0,
     };
     final zone = _zonaTatticaPerAzione;
     if (zone != null) {
@@ -444,7 +453,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // Può essere negativa; con totale 0 il chiamante mostra "—" (mai una
   // divisione per zero).
   ({int punti, int errori, int totale}) _efficienzaDati(
-      Fondamentale fondamentale) {
+    Fondamentale fondamentale,
+  ) {
     var punti = 0, errori = 0, totale = 0;
     for (final azioniSet in _listeAzioniPerSet(_setEfficienza)) {
       for (final a in azioniSet) {
@@ -469,7 +479,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // mostra anche percentuale errore = errori / totale × 100 (ace subiti).
   // Con totale 0 il chiamante mostra "—" (mai una divisione per zero).
   ({int positive, int errori, int totale}) _positivitaDati(
-      Fondamentale fondamentale) {
+    Fondamentale fondamentale,
+  ) {
     var positive = 0, errori = 0, totale = 0;
     for (final azioniSet in _listeAzioniPerSet(_setPositivita)) {
       for (final a in azioniSet) {
@@ -709,15 +720,15 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
               const SizedBox(height: 8),
               _buildTabellaFondamentali(_riepilogoFondamentali),
               const SizedBox(height: 32),
-              Text(
-                'Punti ed errori generici',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              _buildSpecchiettoGenerici(
-                _riepilogoGenerici,
-                nomeNostro: nomeNostro,
-                nomeAvversario: nomeAvversario,
+              ..._sezionePremium(
+                titolo: 'Punti ed errori generici',
+                figli: [
+                  _buildSpecchiettoGenerici(
+                    _riepilogoGenerici,
+                    nomeNostro: nomeNostro,
+                    nomeAvversario: nomeAvversario,
+                  ),
+                ],
               ),
               // Le traiettorie hanno filtri propri (set/giocatore, +rotazione
               // per l'attacco): si aprono nella schermata dedicata. Solo con
@@ -738,10 +749,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                       icon: const Icon(Icons.arrow_forward),
                       label: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Traiettorie battute'),
-                          PremiumBadge(),
-                        ],
+                        children: [Text('Traiettorie battute'), PremiumBadge()],
                       ),
                       onPressed: () => _apriTraiettorie(Fondamentale.battuta),
                     ),
@@ -749,10 +757,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                       icon: const Icon(Icons.trending_up),
                       label: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Traiettorie attacco'),
-                          PremiumBadge(),
-                        ],
+                        children: [Text('Traiettorie attacco'), PremiumBadge()],
                       ),
                       onPressed: () => _apriTraiettorie(Fondamentale.attacco),
                     ),
@@ -761,270 +766,277 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
               ],
               if (_formazioni != null && _formazioni!.isNotEmpty) ...[
                 const SizedBox(height: 32),
-                Text(
-                  'Formazioni di partenza',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                LayoutBuilder(
-                  builder: (context, c) {
-                    const spacing = 16.0;
-                    // Tre card affiancate per riga.
-                    final cardWidth = (c.maxWidth - 2 * spacing) / 3;
-                    return Wrap(
-                      spacing: spacing,
-                      runSpacing: spacing,
-                      children: [
-                        for (final s in sets)
-                          if (_formazioni![s.id] != null)
-                            SizedBox(
-                              width: cardWidth,
-                              child: _buildFormazioneSet(
-                                s.numero,
-                                _formazioni![s.id]!,
-                                servizio: s.squadraServizioIniziale,
-                              ),
-                            ),
-                      ],
-                    );
-                  },
+                ..._sezionePremium(
+                  titolo: 'Formazioni di partenza',
+                  figli: [
+                    LayoutBuilder(
+                      builder: (context, c) {
+                        const spacing = 16.0;
+                        // Tre card affiancate per riga.
+                        final cardWidth = (c.maxWidth - 2 * spacing) / 3;
+                        return Wrap(
+                          spacing: spacing,
+                          runSpacing: spacing,
+                          children: [
+                            for (final s in sets)
+                              if (_formazioni![s.id] != null)
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildFormazioneSet(
+                                    s.numero,
+                                    _formazioni![s.id]!,
+                                    servizio: s.squadraServizioIniziale,
+                                  ),
+                                ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
               const SizedBox(height: 32),
-              Text(
-                'Distribuzione alzate',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _setDistribuzione,
-                      decoration: const InputDecoration(
-                        labelText: 'Set',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Partita intera'),
-                        ),
-                        for (final s in sets)
-                          DropdownMenuItem(
-                            value: s.numero,
-                            child: Text('Set ${s.numero}'),
+              ..._sezionePremium(
+                titolo: 'Distribuzione alzate',
+                figli: [
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      SizedBox(
+                        width: 220,
+                        child: DropdownButtonFormField<int?>(
+                          initialValue: _setDistribuzione,
+                          decoration: const InputDecoration(
+                            labelText: 'Set',
+                            border: OutlineInputBorder(),
                           ),
-                      ],
-                      onChanged: (v) => setState(() => _setDistribuzione = v),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<_FiltroAlzate>(
-                      initialValue: _filtroDistribuzione,
-                      decoration: const InputDecoration(
-                        labelText: 'Alzate',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        for (final f in _FiltroAlzate.values)
-                          DropdownMenuItem(value: f, child: Text(f.label)),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _filtroDistribuzione = v!),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _rotazioneDistribuzione,
-                      decoration: const InputDecoration(
-                        labelText: 'Rotazione',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Tutte'),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Partita intera'),
+                            ),
+                            for (final s in sets)
+                              DropdownMenuItem(
+                                value: s.numero,
+                                child: Text('Set ${s.numero}'),
+                              ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _setDistribuzione = v),
                         ),
-                        for (var r = 1; r <= 6; r++)
-                          DropdownMenuItem(value: r, child: Text('P$r')),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _rotazioneDistribuzione = v),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildDistribuzioneCourt(_distribuzioneAlzate),
-              const SizedBox(height: 32),
-              Text(
-                'Efficienza',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _setEfficienza,
-                      decoration: const InputDecoration(
-                        labelText: 'Set',
-                        border: OutlineInputBorder(),
                       ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Partita intera'),
-                        ),
-                        for (final s in sets)
-                          DropdownMenuItem(
-                            value: s.numero,
-                            child: Text('Set ${s.numero}'),
+                      SizedBox(
+                        width: 220,
+                        child: DropdownButtonFormField<_FiltroAlzate>(
+                          initialValue: _filtroDistribuzione,
+                          decoration: const InputDecoration(
+                            labelText: 'Alzate',
+                            border: OutlineInputBorder(),
                           ),
-                      ],
-                      onChanged: (v) => setState(() => _setEfficienza = v),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 260,
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _giocatoreEfficienza,
-                      decoration: const InputDecoration(
-                        labelText: 'Giocatore',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Tutti'),
+                          items: [
+                            for (final f in _FiltroAlzate.values)
+                              DropdownMenuItem(value: f, child: Text(f.label)),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _filtroDistribuzione = v!),
                         ),
-                        for (final p in _giocatoriConAzioni)
-                          DropdownMenuItem(
-                            value: p.id,
-                            child: Text('${p.numero} ${p.cognome}'),
+                      ),
+                      SizedBox(
+                        width: 220,
+                        child: DropdownButtonFormField<int?>(
+                          initialValue: _rotazioneDistribuzione,
+                          decoration: const InputDecoration(
+                            labelText: 'Rotazione',
+                            border: OutlineInputBorder(),
                           ),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _giocatoreEfficienza = v),
-                    ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Tutte'),
+                            ),
+                            for (var r = 1; r <= 6; r++)
+                              DropdownMenuItem(value: r, child: Text('P$r')),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _rotazioneDistribuzione = v),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  _buildEfficienzaCard(
-                      'Efficienza battuta', _efficienzaDati(Fondamentale.battuta)),
-                  _buildEfficienzaCard(
-                      'Efficienza attacco', _efficienzaDati(Fondamentale.attacco)),
+                  const SizedBox(height: 8),
+                  _buildDistribuzioneCourt(_distribuzioneAlzate),
                 ],
               ),
               const SizedBox(height: 32),
-              Text(
-                'Positività',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _setPositivita,
-                      decoration: const InputDecoration(
-                        labelText: 'Set',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Partita intera'),
-                        ),
-                        for (final s in sets)
-                          DropdownMenuItem(
-                            value: s.numero,
-                            child: Text('Set ${s.numero}'),
+              ..._sezionePremium(
+                titolo: 'Efficienza',
+                figli: [
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      SizedBox(
+                        width: 220,
+                        child: DropdownButtonFormField<int?>(
+                          initialValue: _setEfficienza,
+                          decoration: const InputDecoration(
+                            labelText: 'Set',
+                            border: OutlineInputBorder(),
                           ),
-                      ],
-                      onChanged: (v) => setState(() => _setPositivita = v),
-                    ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Partita intera'),
+                            ),
+                            for (final s in sets)
+                              DropdownMenuItem(
+                                value: s.numero,
+                                child: Text('Set ${s.numero}'),
+                              ),
+                          ],
+                          onChanged: (v) => setState(() => _setEfficienza = v),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 260,
+                        child: DropdownButtonFormField<int?>(
+                          initialValue: _giocatoreEfficienza,
+                          decoration: const InputDecoration(
+                            labelText: 'Giocatore',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Tutti'),
+                            ),
+                            for (final p in _giocatoriConAzioni)
+                              DropdownMenuItem(
+                                value: p.id,
+                                child: Text('${p.numero} ${p.cognome}'),
+                              ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _giocatoreEfficienza = v),
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(
-                    width: 260,
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: _giocatorePositivita,
-                      decoration: const InputDecoration(
-                        labelText: 'Giocatore',
-                        border: OutlineInputBorder(),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      _buildEfficienzaCard(
+                        'Efficienza battuta',
+                        _efficienzaDati(Fondamentale.battuta),
                       ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Tutti'),
-                        ),
-                        for (final p in _giocatoriConAzioni)
-                          DropdownMenuItem(
-                            value: p.id,
-                            child: Text('${p.numero} ${p.cognome}'),
-                          ),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _giocatorePositivita = v),
-                    ),
+                      _buildEfficienzaCard(
+                        'Efficienza attacco',
+                        _efficienzaDati(Fondamentale.attacco),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Builder(builder: (context) {
-                final ricezione = _positivitaDati(Fondamentale.ricezione);
-                final difesa = _positivitaDati(Fondamentale.difesa);
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [
-                    _buildPercentCard(
-                      titolo: 'Positività ricezione',
-                      formula: '(# + +) / totale × 100',
-                      numeratore: ricezione.positive,
-                      totale: ricezione.totale,
-                      color: AppColors.brandPrimary,
-                      dettaglio:
-                          'Positive: ${ricezione.positive} · Totale: ${ricezione.totale}',
-                    ),
-                    _buildPercentCard(
-                      titolo: 'Errore ricezione',
-                      formula: '(=) / totale × 100',
-                      numeratore: ricezione.errori,
-                      totale: ricezione.totale,
-                      color: Colors.red,
-                      dettaglio:
-                          'Errori: ${ricezione.errori} · Totale: ${ricezione.totale}',
-                    ),
-                    _buildPercentCard(
-                      titolo: 'Positività difesa',
-                      formula: '(# + +) / totale × 100',
-                      numeratore: difesa.positive,
-                      totale: difesa.totale,
-                      color: AppColors.brandPrimary,
-                      dettaglio:
-                          'Positive: ${difesa.positive} · Totale: ${difesa.totale}',
-                    ),
-                  ],
-                );
-              }),
+              const SizedBox(height: 32),
+              ..._sezionePremium(
+                titolo: 'Positività',
+                figli: [
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      SizedBox(
+                        width: 220,
+                        child: DropdownButtonFormField<int?>(
+                          initialValue: _setPositivita,
+                          decoration: const InputDecoration(
+                            labelText: 'Set',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Partita intera'),
+                            ),
+                            for (final s in sets)
+                              DropdownMenuItem(
+                                value: s.numero,
+                                child: Text('Set ${s.numero}'),
+                              ),
+                          ],
+                          onChanged: (v) => setState(() => _setPositivita = v),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 260,
+                        child: DropdownButtonFormField<int?>(
+                          initialValue: _giocatorePositivita,
+                          decoration: const InputDecoration(
+                            labelText: 'Giocatore',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Tutti'),
+                            ),
+                            for (final p in _giocatoriConAzioni)
+                              DropdownMenuItem(
+                                value: p.id,
+                                child: Text('${p.numero} ${p.cognome}'),
+                              ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _giocatorePositivita = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      final ricezione = _positivitaDati(Fondamentale.ricezione);
+                      final difesa = _positivitaDati(Fondamentale.difesa);
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          _buildPercentCard(
+                            titolo: 'Positività ricezione',
+                            formula: '(# + +) / totale × 100',
+                            numeratore: ricezione.positive,
+                            totale: ricezione.totale,
+                            color: AppColors.brandPrimary,
+                            dettaglio:
+                                'Positive: ${ricezione.positive} · Totale: ${ricezione.totale}',
+                          ),
+                          _buildPercentCard(
+                            titolo: 'Errore ricezione',
+                            formula: '(=) / totale × 100',
+                            numeratore: ricezione.errori,
+                            totale: ricezione.totale,
+                            color: Colors.red,
+                            dettaglio:
+                                'Errori: ${ricezione.errori} · Totale: ${ricezione.totale}',
+                          ),
+                          _buildPercentCard(
+                            titolo: 'Positività difesa',
+                            formula: '(# + +) / totale × 100',
+                            numeratore: difesa.positive,
+                            totale: difesa.totale,
+                            color: AppColors.brandPrimary,
+                            dettaglio:
+                                'Positive: ${difesa.positive} · Totale: ${difesa.totale}',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -1042,9 +1054,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     _Formazione f, {
     required Squadra servizio,
   }) {
-    final liberi = [f.assignments['L1'], f.assignments['L2']]
-        .whereType<Player>()
-        .toList();
+    final liberi = [
+      f.assignments['L1'],
+      f.assignments['L2'],
+    ].whereType<Player>().toList();
     final cambi = f.ruoloCambiLibero; // centrale/schiacciatore, o null
     return Card(
       child: Padding(
@@ -1056,8 +1069,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
             // nostra (la card mostra la nostra formazione).
             Row(
               children: [
-                Text('Set $numero - ${f.palleggiatoreSlot}',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Set $numero - ${f.palleggiatoreSlot}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const Spacer(),
                 if (servizio == Squadra.nostra)
                   const Icon(Icons.sports_volleyball, size: 20),
@@ -1096,8 +1111,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // zona: riusa CourtView (stessa geometria/posizione delle card giocatore)
   // con un contenuto per slot che mostra la percentuale. La % è sul totale
   // degli attacchi nello scope; il numero sotto è il conteggio di quella zona.
-  Widget _buildDistribuzioneCourt(
-      ({Map<String, int> conteggi, int totale}) d) {
+  Widget _buildDistribuzioneCourt(({Map<String, int> conteggi, int totale}) d) {
     if (d.totale == 0) {
       return const Card(
         child: Padding(
@@ -1129,7 +1143,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                     child: CourtView(
                       assignments: const {},
                       slotContent: {
-                        for (final slot in const ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'])
+                        for (final slot in const [
+                          'P1',
+                          'P2',
+                          'P3',
+                          'P4',
+                          'P5',
+                          'P6',
+                        ])
                           slot: _cellaPercentuale(slot, d),
                       },
                     ),
@@ -1147,7 +1168,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // e conteggio sotto, stesso stile della card giocatore (numero 31 +
   // secondario 13, vedi CourtView._slotPlayer).
   Widget _cellaPercentuale(
-      String slot, ({Map<String, int> conteggi, int totale}) d) {
+    String slot,
+    ({Map<String, int> conteggi, int totale}) d,
+  ) {
     final count = d.conteggi[slot] ?? 0;
     final pct = d.totale == 0 ? 0 : (count * 100 / d.totale).round();
     return Padding(
@@ -1190,9 +1213,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   );
 
   Widget _buildEfficienzaCard(
-      String titolo, ({int punti, int errori, int totale}) d) {
-    final double? efficienza =
-        d.totale == 0 ? null : (d.punti - d.errori) * 100 / d.totale;
+    String titolo,
+    ({int punti, int errori, int totale}) d,
+  ) {
+    final double? efficienza = d.totale == 0
+        ? null
+        : (d.punti - d.errori) * 100 / d.totale;
     final Color color;
     if (efficienza == null) {
       color = AppColors.neutral;
@@ -1275,6 +1301,47 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
         ),
       ),
     );
+  }
+
+  // Sezione premium del report (gate deciso: free vede dati partita,
+  // punteggi e riepilogo fondamentali; il resto è premium — vedi
+  // docs/TODO_strada_A.md). Da premium ritorna titolo + contenuto normali;
+  // da free il titolo (con badge) resta come vetrina e il contenuto è
+  // sostituito da una card "Statistica premium" che apre il paywall.
+  List<Widget> _sezionePremium({
+    required String titolo,
+    required List<Widget> figli,
+  }) {
+    final attivo = ref.watch(statoPremiumProvider).attivo;
+    final intestazione = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(titolo, style: Theme.of(context).textTheme.titleLarge),
+        const PremiumBadge(size: 22),
+      ],
+    );
+    if (attivo) {
+      return [intestazione, const SizedBox(height: 8), ...figli];
+    }
+    return [
+      intestazione,
+      const SizedBox(height: 8),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.lock_outline),
+          title: const Text('Statistica premium'),
+          subtitle: const Text(
+            'Tocca per sbloccare con Volley Stratego '
+            'Premium.',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PaywallScreen()),
+          ),
+        ),
+      ),
+    ];
   }
 
   void _apriTraiettorie(Fondamentale fondamentale) {

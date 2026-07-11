@@ -15,8 +15,11 @@
       - FREE: scout completo, 1-2 squadre, statistiche di base.
       - PREMIUM: squadre illimitate, statistiche avanzate (per fase/rotazione,
         heatmap traiettorie), export PDF/CSV, doppio libero.
-      - DECISO (primo giro, 2026-07-12): gate SOLO su export PDF/CSV;
-        il resto della linea si definisce dopo.
+      - DECISO (2026-07-12): gate su export PDF/CSV, traiettorie (live
+        silenzioso + menu/report con paywall) e UNA sola squadra / UNA sola
+        partita (gate solo sulla CREAZIONE: dati esistenti sempre visibili,
+        modificabili e cancellabili — si deve poter scendere a una squadra
+        cancellando le altre). Il resto della linea si definisce dopo.
 - [ ] **Prezzo** — abbonamento annuale (riferimento competitor: ~30 EUR/anno).
       Ricordare commissioni store (15% sotto 1M USD/anno con il programma
       "small business", altrimenti 30%).

@@ -12,6 +12,9 @@ class PaywallScreen extends StatelessWidget {
   const PaywallScreen({super.key});
 
   static const _vantaggi = [
+    (Icons.groups, 'Squadre e partite illimitate',
+        'Crea tutte le squadre e le partite che vuoi (versione free: una '
+            'squadra e una partita).'),
     (Icons.gesture, 'Traiettorie di battuta e attacco',
         'Disegnale durante lo scout e rivedile filtrate per set, giocatore '
             'e rotazione.'),
