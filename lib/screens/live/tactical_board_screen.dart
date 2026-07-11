@@ -46,7 +46,7 @@ const Map<String, Offset> _kChipDefault = {
 const List<Color> _kColoriTratto = [
   Colors.white,
   Colors.red,
-  AppColors.success,
+  Color.fromARGB(255, 0, 255, 94),
 ];
 
 // Un tratto disegnato: polilinea di punti normalizzati + il suo colore.
