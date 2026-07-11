@@ -16,11 +16,11 @@ const _kCourtImage = 'assets/images/court_bg.png';
 // il cerchio del libero — in pallavolo il libero indossa sempre una maglia
 // di colore diverso dai compagni.
 Color _invertedColor(Color color) => Color.from(
-      alpha: color.a,
-      red: 1.0 - color.r,
-      green: 1.0 - color.g,
-      blue: 1.0 - color.b,
-    );
+  alpha: color.a,
+  red: 1.0 - color.r,
+  green: 1.0 - color.g,
+  blue: 1.0 - color.b,
+);
 
 // Counter-clockwise selection order
 const _kCourtOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
@@ -40,11 +40,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   String _selectedSlot = 'P1';
   final Map<String, Player> _assignments = {};
 
-  List<String> get _allSlots => [
-        ..._kCourtOrder,
-        'L1',
-        if (_doppiLibero) 'L2',
-      ];
+  List<String> get _allSlots => [..._kCourtOrder, 'L1', if (_doppiLibero) 'L2'];
 
   bool get _canConfirm =>
       _kCourtOrder.every((s) => _assignments.containsKey(s));
@@ -128,8 +124,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
         ],
       ),
       body: playersAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Errore: $e')),
         data: (players) => Row(
           children: [
@@ -156,17 +151,26 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
           // del libero sotto non ci stavano (sbordava). Il libero va di
           // fianco a destra invece che sotto, così l'altezza totale resta
           // quella del solo campo.
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            // .end (non .center): il libero si ancora in basso, così si
-            // allinea con la riga di fondo del campo (P5-P6-P1 — la rete è
-            // in alto, vedi _buildCourtGrid).
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              SizedBox(width: 460, height: 460, child: _buildCourtGrid()),
-              const SizedBox(width: 14),
-              _buildLiberoColumn(),
-            ],
+          // FittedBox(scaleDown): su smartphone il blocco campo+libero
+          // (~627dp di larghezza) si rimpicciolisce in proporzione per
+          // stare nel pannello; su tablet scala = 1, nessuna differenza.
+          // Stessa tecnica delle card formazione del report (i margini
+          // interni fissi non reggono un SizedBox più piccolo, la scala
+          // proporzionale sì — gesture comprese).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              // .end (non .center): il libero si ancora in basso, così si
+              // allinea con la riga di fondo del campo (P5-P6-P1 — la rete è
+              // in alto, vedi _buildCourtGrid).
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                SizedBox(width: 460, height: 460, child: _buildCourtGrid()),
+                const SizedBox(width: 14),
+                _buildLiberoColumn(),
+              ],
+            ),
           ),
         ],
       ),
@@ -258,8 +262,10 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
         SizedBox(
           width: cellWidth,
           height: cellHeight,
-          child: _buildSlot('L1',
-              phaseLabel: _doppiLibero ? 'Ricezione' : null),
+          child: _buildSlot(
+            'L1',
+            phaseLabel: _doppiLibero ? 'Ricezione' : null,
+          ),
         ),
         if (_doppiLibero) ...[
           const SizedBox(height: 12),
@@ -273,9 +279,11 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     );
   }
 
-  Widget _buildSlot(String slot,
-      {EdgeInsets margin = const EdgeInsets.fromLTRB(16, 12, 16, 108),
-      String? phaseLabel}) {
+  Widget _buildSlot(
+    String slot, {
+    EdgeInsets margin = const EdgeInsets.fromLTRB(16, 12, 16, 108),
+    String? phaseLabel,
+  }) {
     final player = _assignments[slot];
     final isSelected = _selectedSlot == slot;
 
@@ -288,8 +296,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
             child: Container(
               margin: margin,
               decoration: BoxDecoration(
-                color:
-                    player == null ? Colors.lightBlueAccent : Colors.white,
+                color: player == null ? Colors.lightBlueAccent : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected ? Colors.red : Colors.transparent,
@@ -301,7 +308,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                           color: Colors.red.withAlpha(80),
                           blurRadius: 6,
                           spreadRadius: 1,
-                        )
+                        ),
                       ]
                     : null,
               ),
@@ -324,11 +331,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.close,
-                  size: 14,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
             ),
           ),
@@ -435,18 +438,16 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
               children: [
                 Text(
                   'Giocatori',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(color: Colors.white),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: Colors.white),
                 ),
                 const Spacer(),
                 FilledButton.icon(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          PlayerFormScreen(teamId: widget.team.id),
+                      builder: (_) => PlayerFormScreen(teamId: widget.team.id),
                     ),
                   ),
                   icon: const Icon(Icons.person_add),
@@ -475,10 +476,12 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                       final baseColor = p.ruolo == Ruolo.libero
                           ? _invertedColor(teamColor)
                           : teamColor;
-                      final cardColor =
-                          assigned ? Colors.grey.shade300 : Colors.white;
-                      final avatarColor =
-                          assigned ? baseColor.withAlpha(120) : baseColor;
+                      final cardColor = assigned
+                          ? Colors.grey.shade300
+                          : Colors.white;
+                      final avatarColor = assigned
+                          ? baseColor.withAlpha(120)
+                          : baseColor;
                       final avatarTextColor = contrastingTextColor(baseColor);
                       return Material(
                         color: cardColor,
@@ -486,7 +489,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                         clipBehavior: Clip.antiAlias,
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           leading: CircleAvatar(
                             radius: 24,
                             backgroundColor: avatarColor,
@@ -513,9 +518,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                             p.ruolo.label,
                             style: TextStyle(
                               fontSize: 16,
-                              color: assigned
-                                  ? Colors.grey.shade500
-                                  : null,
+                              color: assigned ? Colors.grey.shade500 : null,
                             ),
                           ),
                           trailing: Row(
@@ -556,4 +559,3 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
     );
   }
 }
-

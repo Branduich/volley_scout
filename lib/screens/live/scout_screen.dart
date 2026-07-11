@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,11 +37,11 @@ const double _kCourtTopMargin = 16.0;
 // il cerchio del libero — in pallavolo il libero indossa sempre una maglia
 // di colore diverso dai compagni. Stessa logica di lineup_screen.dart.
 Color _invertedColor(Color color) => Color.from(
-      alpha: color.a,
-      red: 1.0 - color.r,
-      green: 1.0 - color.g,
-      blue: 1.0 - color.b,
-    );
+  alpha: color.a,
+  red: 1.0 - color.r,
+  green: 1.0 - color.g,
+  blue: 1.0 - color.b,
+);
 
 // Ancoraggio del badge di rotazione sul campo piccolo, per slot del
 // palleggiatore. Il campo piccolo è ruotato di 90° in senso orario rispetto
@@ -354,8 +354,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       azioni: azioni,
       servizioIniziale: set.squadraServizioIniziale,
       rotazioneIniziale: _rotazioneInizialeMap,
-      palleggiatoreInizialeId:
-          widget.assignments[widget.palleggiatoreSlot]?.id,
+      palleggiatoreInizialeId: widget.assignments[widget.palleggiatoreSlot]?.id,
       ruoloCambiLiberoIniziale: widget.ruoloCambiLibero,
       liberoInizialeId: widget.assignments['L1']?.id,
       libero2InizialeId: widget.assignments['L2']?.id,
@@ -370,8 +369,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // emetta (evita token vuoti alla ripresa).
   Map<int, Player> get _rosterById {
     final map = {for (final p in widget.assignments.values) p.id: p};
-    final roster =
-        ref.watch(playersStreamProvider(widget.team.id)).value;
+    final roster = ref.watch(playersStreamProvider(widget.team.id)).value;
     if (roster != null) {
       for (final p in roster) {
         map[p.id] = p;
@@ -429,7 +427,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Squadra? get _squadraAlServizio => _testModeEnabled
       ? _testServizio
       : (_statoSetReale?.squadraAlServizio ??
-          _setCorrente?.squadraServizioIniziale);
+            _setCorrente?.squadraServizioIniziale);
 
   // True se siamo nella sotto-fase "dopo" dello scambio corrente (palla in
   // gioco, voto già dato) — in modalità test deriva da _testDopo (ciclato a
@@ -709,7 +707,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       _ => 'nonSpecificato',
     };
 
-    await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
+    await ref
+        .read(scoutActionRepositoryProvider)
+        .registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
           giocatoreId: inCorso.giocatore.id,
@@ -771,8 +771,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final map = tabella[_currentSlot];
     if (map == null) return null;
     final unaSolaSostituita =
-        map.containsKey(coppiaSostituita[0]) != map.containsKey(coppiaSostituita[1]);
-    final completa = map.containsKey('P') &&
+        map.containsKey(coppiaSostituita[0]) !=
+        map.containsKey(coppiaSostituita[1]);
+    final completa =
+        map.containsKey('P') &&
         map.containsKey('O') &&
         map.containsKey('Libero') &&
         coppiaFissa.every(map.containsKey) &&
@@ -798,8 +800,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // distinguerli guardando `stato`.
   Future<void> _avviaOCaricaSet() async {
     final setRepo = ref.read(matchSetRepositoryProvider);
-    final esistente =
-        await setRepo.caricaSet(widget.match.id, widget.match.setCorrente);
+    final esistente = await setRepo.caricaSet(
+      widget.match.id,
+      widget.match.setCorrente,
+    );
     if (!mounted) return;
     if (esistente != null) {
       // Riprendere lo scout (anche da MatchesScreen → "Riprendi" su una
@@ -808,9 +812,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       // dire "scout non in corso ora", quindi torna `inCorso` — solo "Fine
       // Partita" la riporta a `terminata`.
       if (widget.match.stato != StatoPartita.inCorso) {
-        await ref.read(matchRepositoryProvider).updateMatch(
-              widget.match.copyWith(stato: StatoPartita.inCorso),
-            );
+        await ref
+            .read(matchRepositoryProvider)
+            .updateMatch(widget.match.copyWith(stato: StatoPartita.inCorso));
       }
       if (!mounted) return;
       setState(() => _setCorrente = esistente);
@@ -821,8 +825,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   Future<void> _chiediServizioIniziale() async {
     final avversario = widget.match.avversario?.trim();
-    final nomeAvversario =
-        (avversario != null && avversario.isNotEmpty) ? avversario : 'Avversari';
+    final nomeAvversario = (avversario != null && avversario.isNotEmpty)
+        ? avversario
+        : 'Avversari';
 
     final scelta = await showDialog<Squadra>(
       context: context,
@@ -830,7 +835,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Chi serve per primo?'),
         content: const Text(
-            'Indica quale squadra è al servizio per iniziare il set.'),
+          'Indica quale squadra è al servizio per iniziare il set.',
+        ),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context, Squadra.nostra),
@@ -858,9 +864,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       widget.match.copyWith(stato: StatoPartita.inCorso),
     );
     final set = await setRepo.creaSet(
-        widget.match.id, widget.match.setCorrente, servizioIniziale);
-    await setRepo.salvaRotazioneIniziale(set.id, widget.assignments,
-        ruoloCambiLibero: widget.ruoloCambiLibero);
+      widget.match.id,
+      widget.match.setCorrente,
+      servizioIniziale,
+    );
+    await setRepo.salvaRotazioneIniziale(
+      set.id,
+      widget.assignments,
+      ruoloCambiLibero: widget.ruoloCambiLibero,
+    );
 
     if (!mounted) return;
     setState(() => _setCorrente = set);
@@ -878,14 +890,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       // Il palleggiatore designato EFFETTIVO viene dallo stato derivato
       // (può cambiare con un cambio giocatore, override nell'evento) — il
       // fallback su widget copre solo stato senza palleggiatoreId.
-      final palleggiatoreId = stato.palleggiatoreId ??
+      final palleggiatoreId =
+          stato.palleggiatoreId ??
           widget.assignments[widget.palleggiatoreSlot]?.id;
       for (final entry in stato.rotazione.entries) {
         if (entry.value == palleggiatoreId) return 'P${entry.key}';
       }
     }
     final originalIndex = _kSlotOrder.indexOf(widget.palleggiatoreSlot);
-    return _kSlotOrder[_mod(originalIndex + _rotationSteps, _kSlotOrder.length)];
+    return _kSlotOrder[_mod(
+      originalIndex + _rotationSteps,
+      _kSlotOrder.length,
+    )];
   }
 
   // Mappa slot -> giocatore aggiornata in base alla rotazione corrente.
@@ -929,9 +945,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   void _toggleSide() => setState(() => _isRightSide = !_isRightSide);
 
-  Offset _displayPosition(Offset refPos) => _isRightSide
-      ? Offset(1200 - refPos.dx, 600 - refPos.dy)
-      : refPos;
+  Offset _displayPosition(Offset refPos) =>
+      _isRightSide ? Offset(1200 - refPos.dx, 600 - refPos.dy) : refPos;
 
   // "Nome nostro - Nome avversario" di default: il nome della squadra di cui
   // si fa lo scout va sempre sul lato dove sono disegnati i suoi giocatori
@@ -939,14 +954,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   String get _matchTitle {
     final nostro = widget.team.nome;
     final avversarioRaw = widget.match.avversario?.trim();
-    final avversario =
-        (avversarioRaw != null && avversarioRaw.isNotEmpty)
-            ? avversarioRaw
-            : 'AVVERSARI';
+    final avversario = (avversarioRaw != null && avversarioRaw.isNotEmpty)
+        ? avversarioRaw
+        : 'AVVERSARI';
     final nostroASinistra = !_isRightSide;
-    return nostroASinistra
-        ? '$nostro - $avversario'
-        : '$avversario - $nostro';
+    return nostroASinistra ? '$nostro - $avversario' : '$avversario - $nostro';
   }
 
   // Di default i token mostrano il numero di maglia; disattivando il toggle
@@ -991,22 +1003,28 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Future<void> _correggiPunteggio(Squadra squadra, int delta) async {
     final set = _setCorrente;
     if (set == null) return;
-    final aggiornato =
-        await ref.read(matchSetRepositoryProvider).correggiPunteggio(
-              set.id,
-              deltaNostro: squadra == Squadra.nostra ? delta : 0,
-              deltaAvversario: squadra == Squadra.avversari ? delta : 0,
-            );
+    final aggiornato = await ref
+        .read(matchSetRepositoryProvider)
+        .correggiPunteggio(
+          set.id,
+          deltaNostro: squadra == Squadra.nostra ? delta : 0,
+          deltaAvversario: squadra == Squadra.avversari ? delta : 0,
+        );
     if (!mounted) return;
     setState(() => _setCorrente = aggiornato);
   }
 
   Future<void> _registraAzioneRapida(
-      Squadra squadra, TipoAzione tipo, EsitoPunto esito,
-      {String tipoEsecuzione = 'nonSpecificato'}) async {
+    Squadra squadra,
+    TipoAzione tipo,
+    EsitoPunto esito, {
+    String tipoEsecuzione = 'nonSpecificato',
+  }) async {
     final set = _setCorrente;
     if (set == null) return;
-    await ref.read(scoutActionRepositoryProvider).registraAzioneRapida(
+    await ref
+        .read(scoutActionRepositoryProvider)
+        .registraAzioneRapida(
           setId: set.id,
           squadra: squadra,
           tipo: tipo,
@@ -1049,7 +1067,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           .read(scoutActionRepositoryProvider)
           .contaGruppoCambio(_setCorrente!.id, gruppo);
       if (n > 1) {
-        testoAzione = '$testoAzione\n(verranno annullati tutti '
+        testoAzione =
+            '$testoAzione\n(verranno annullati tutti '
             'i $n cambi confermati insieme)';
       }
       if (!mounted) return;
@@ -1101,7 +1120,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       // un cambio giocatore ha anch'esso esito `nessuno`, ma non giudica
       // alcun fondamentale — senza il check sul tipo, l'undo fino a una
       // riga cambio segnerebbe erroneamente la fase libera.
-      _fondamentaleGiudicatoRallyCorrente = nuovaUltima != null &&
+      _fondamentaleGiudicatoRallyCorrente =
+          nuovaUltima != null &&
           nuovaUltima.tipo == TipoAzione.scout &&
           nuovaUltima.esitoPunto == EsitoPunto.nessuno;
     });
@@ -1124,8 +1144,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final currentAssignments = _currentAssignments;
     final seiCorrenti = <String, Player>{
       for (final slot in _kSlotOrder)
-        if (currentAssignments[slot] != null)
-          slot: currentAssignments[slot]!,
+        if (currentAssignments[slot] != null) slot: currentAssignments[slot]!,
     };
     if (seiCorrenti.length != 6) return; // dato incoerente, niente cambio
     final palleggiatoreSlotCorrente = _currentSlot;
@@ -1167,10 +1186,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     ];
     final idsFinali = {for (final p in tuttiFinali) p.id};
     if (idsFinali.length != tuttiFinali.length) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
           content: Text(
-              'Sostituzione non valida: un giocatore comparirebbe due '
-              'volte in campo')));
+            'Sostituzione non valida: un giocatore comparirebbe due '
+            'volte in campo',
+          ),
+        ),
+      );
       return;
     }
 
@@ -1182,37 +1205,33 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     for (final slot in _kSlotOrder) {
       final originale = seiCorrenti[slot];
       final finale = risultato.seiFinali[slot];
-      if (originale != null &&
-          finale != null &&
-          originale.id != finale.id) {
+      if (originale != null && finale != null && originale.id != finale.id) {
         cambi.add((esceId: originale.id, entraId: finale.id));
       }
     }
     for (final key in const ['L1', 'L2']) {
       final originale = liberi[key];
       final finale = risultato.liberiFinali[key];
-      if (originale != null &&
-          finale != null &&
-          originale.id != finale.id) {
+      if (originale != null && finale != null && originale.id != finale.id) {
         cambi.add((esceId: originale.id, entraId: finale.id));
       }
     }
 
     // Override di configurazione: solo se diversi dai valori effettivi
     // correnti (null = invariato, la riga evento resta minimale).
-    final setterIdCorrente = _statoSetReale?.palleggiatoreId ??
+    final setterIdCorrente =
+        _statoSetReale?.palleggiatoreId ??
         widget.assignments[widget.palleggiatoreSlot]?.id;
-    final nuovoPalleggiatore =
-        risultato.seiFinali[risultato.palleggiatoreSlot];
+    final nuovoPalleggiatore = risultato.seiFinali[risultato.palleggiatoreSlot];
     final overridePalleggiatore =
-        (nuovoPalleggiatore != null && nuovoPalleggiatore.id != setterIdCorrente)
-            ? nuovoPalleggiatore.id
-            : null;
+        (nuovoPalleggiatore != null &&
+            nuovoPalleggiatore.id != setterIdCorrente)
+        ? nuovoPalleggiatore.id
+        : null;
     final ruoloCambiCorrente = _ruoloCambiLiberoEffettivo;
-    final overrideRuoloCambi =
-        risultato.ruoloCambiLibero != ruoloCambiCorrente
-            ? risultato.ruoloCambiLibero
-            : null;
+    final overrideRuoloCambi = risultato.ruoloCambiLibero != ruoloCambiCorrente
+        ? risultato.ruoloCambiLibero
+        : null;
 
     if (cambi.isEmpty &&
         overridePalleggiatore == null &&
@@ -1292,6 +1311,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 const scoreControlWidth = 116.0;
                 final leftScoreLeft =
                     headerConstraints.maxWidth * 0.30 - scoreControlWidth / 2;
+                // Offset dei pallini timeout dal bordo: 237 (allineati col
+                // bottone timeout della riga sotto, posizione fissa) quando
+                // c'è spazio, ma su schermi stretti (smartphone) quella X
+                // finirebbe SOPRA il gruppo punteggio al 30%/70% — in quel
+                // caso si spostano appena all'esterno del gruppo (verso il
+                // bordo), mai sotto le icone menu/undo (minimo 60).
+                final timeoutDotsOffset = math.max(
+                  60.0,
+                  math.min(237.0, leftScoreLeft - 34 - 8),
+                );
                 final rightScoreLeft =
                     headerConstraints.maxWidth * 0.70 - scoreControlWidth / 2;
                 return Stack(
@@ -1323,9 +1352,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       child: Center(
                         child: _isRightSide
                             ? _buildScoreDisplay(
-                                _punteggioAvversario, Squadra.avversari)
+                                _punteggioAvversario,
+                                Squadra.avversari,
+                              )
                             : _buildScoreDisplay(
-                                _punteggioNostro, Squadra.nostra),
+                                _punteggioNostro,
+                                Squadra.nostra,
+                              ),
                       ),
                     ),
                     Positioned(
@@ -1335,27 +1368,34 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       child: Center(
                         child: _isRightSide
                             ? _buildScoreDisplay(
-                                _punteggioNostro, Squadra.nostra)
+                                _punteggioNostro,
+                                Squadra.nostra,
+                              )
                             : _buildScoreDisplay(
-                                _punteggioAvversario, Squadra.avversari),
+                                _punteggioAvversario,
+                                Squadra.avversari,
+                              ),
                       ),
                     ),
                     // Pallini timeout: nell'header, alla stessa X del
                     // bottone timeout nella riga sottostante — centro
                     // bottone a 254px dal bordo (padding 24 + 44+8+44 +
-                    // gap 112 + 22), riga pallini larga 34 → offset 237.
+                    // gap 112 + 22), riga pallini larga 34 → offset 237,
+                    // clampato su schermi stretti (vedi timeoutDotsOffset).
                     // Il lato segue i gruppi punto/errore (_isRightSide).
                     Positioned(
-                      left: 237,
+                      left: timeoutDotsOffset,
                       bottom: 8,
                       child: _buildTimeoutDots(
-                          _isRightSide ? Squadra.avversari : Squadra.nostra),
+                        _isRightSide ? Squadra.avversari : Squadra.nostra,
+                      ),
                     ),
                     Positioned(
-                      right: 237,
+                      right: timeoutDotsOffset,
                       bottom: 8,
                       child: _buildTimeoutDots(
-                          _isRightSide ? Squadra.nostra : Squadra.avversari),
+                        _isRightSide ? Squadra.nostra : Squadra.avversari,
+                      ),
                     ),
                     Positioned(
                       left: 0,
@@ -1372,10 +1412,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                           const Spacer(),
                           IconButton(
                             icon: const Icon(Icons.undo, color: Colors.white),
-                            onPressed:
-                                _puoAnnullare
-                                    ? _confermaAnnullaUltimaAzione
-                                    : null,
+                            onPressed: _puoAnnullare
+                                ? _confermaAnnullaUltimaAzione
+                                : null,
                           ),
                         ],
                       ),
@@ -1406,8 +1445,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 // Margine sinistro/destro del 21% dello schermo: il campo
-                // occupa il restante 58% della larghezza, centrato.
-                final courtWidth = constraints.maxWidth * 0.58;
+                // occupa il restante 58% della larghezza, centrato — MA mai
+                // più alto dello spazio disponibile (su smartphone lo
+                // schermo è basso e il 58% della larghezza sborderebbe in
+                // verticale): l'altezza del campo è courtWidth/2, quindi si
+                // clampa la larghezza a (altezza utile)×2. Su tablet vince
+                // sempre il 58% e non cambia nulla. Sicuro per costruzione:
+                // token e overlay esterni (libero/battitore) ricevono tutti
+                // QUESTO courtWidth e le coordinate sono proporzionali.
+                final courtWidth = math.min(
+                  constraints.maxWidth * 0.58,
+                  (constraints.maxHeight - _kCourtTopMargin - 8) * 2,
+                );
                 // Campo piccolo: 5% di margine da top e 3% da left
                 // larghezza massima del 7% dello schermo (per mantenere proporzioni con il campo grande)
                 final smallCourtSize = constraints.maxWidth * 0.07;
@@ -1441,8 +1490,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                                   // disegnarlo comunque sopra.
                                   clipBehavior: Clip.none,
                                   children: [
-                                    Image.asset(_kCourtImage,
-                                        fit: BoxFit.contain),
+                                    Image.asset(
+                                      _kCourtImage,
+                                      fit: BoxFit.contain,
+                                    ),
                                     ..._buildCourtTokens(cw, ch),
                                   ],
                                 );
@@ -1468,8 +1519,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                             children: [
                               Transform.rotate(
                                 angle: _isRightSide ? math.pi : 0,
-                                child: Image.asset(_kSmallCourtImage,
-                                    fit: BoxFit.contain),
+                                child: Image.asset(
+                                  _kSmallCourtImage,
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                               _buildRotationBadge(smallCourtSize),
                             ],
@@ -1489,9 +1542,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             _buildRotationButton(
-                                Icons.rotate_right, _rotateBackward, smallCourtSize),
+                              Icons.rotate_right,
+                              _rotateBackward,
+                              smallCourtSize,
+                            ),
                             _buildRotationButton(
-                                Icons.rotate_left, _rotateForward, smallCourtSize),
+                              Icons.rotate_left,
+                              _rotateForward,
+                              smallCourtSize,
+                            ),
                           ],
                         ),
                       ),
@@ -1515,8 +1574,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return Drawer(
       backgroundColor: _kBg,
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // ListView, non Column: su smartphone (schermo basso) le voci non
+        // ci stanno tutte in altezza e la Column sborderebbe — così il
+        // drawer scrolla. Su tablet non cambia nulla.
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -1532,8 +1594,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             const Divider(color: Colors.white24, height: 1),
             ListTile(
               leading: const Icon(Icons.swap_horiz, color: Colors.white),
-              title: const Text('Cambia campo',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Cambia campo',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 _toggleSide();
                 _scaffoldKey.currentState?.closeDrawer();
@@ -1544,14 +1608,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             // cambio scrive un evento reale).
             ListTile(
               enabled: _bottoniRapidiAttivi,
-              leading: Icon(Icons.swap_vert,
-                  color:
-                      _bottoniRapidiAttivi ? Colors.white : Colors.white38),
-              title: Text('Sostituzione',
-                  style: TextStyle(
-                      color: _bottoniRapidiAttivi
-                          ? Colors.white
-                          : Colors.white38)),
+              leading: Icon(
+                Icons.swap_vert,
+                color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
+              ),
+              title: Text(
+                'Sostituzione',
+                style: TextStyle(
+                  color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
+                ),
+              ),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
                 _avviaSostituzione();
@@ -1561,8 +1627,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               value: _showJerseyNumbers,
               onChanged: (v) => setState(() => _showJerseyNumbers = v),
               title: Text(
-                  _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
-                  style: const TextStyle(color: Colors.white)),
+                _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
+                style: const TextStyle(color: Colors.white),
+              ),
               activeThumbColor: Colors.white,
               activeTrackColor: const Color(0xFF00008A),
               inactiveThumbColor: Colors.white70,
@@ -1570,23 +1637,29 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.bar_chart, color: Colors.white),
-              title: const Text('Statistiche',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Statistiche',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => PlayerStatsScreen(
-                        match: widget.match, team: widget.team),
+                      match: widget.match,
+                      team: widget.team,
+                    ),
                   ),
                 );
               },
             ),
             ListTile(
               leading: const Icon(Icons.arrow_forward, color: Colors.white),
-              title: const Text('Traiettorie battute',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Traiettorie battute',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
                 Navigator.push(
@@ -1603,8 +1676,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.trending_up, color: Colors.white),
-              title: const Text('Traiettorie attacco',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Traiettorie attacco',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
                 Navigator.push(
@@ -1623,8 +1698,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             SwitchListTile(
               value: _testModeEnabled,
               onChanged: _toggleTestMode,
-              title: const Text('Modalità test',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Modalità test',
+                style: TextStyle(color: Colors.white),
+              ),
               subtitle: const Text(
                 'Bottone per scorrere rotazione × chi serve',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
@@ -1637,8 +1714,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             SwitchListTile(
               value: _showActionLog,
               onChanged: (v) => setState(() => _showActionLog = v),
-              title: const Text('Log azioni',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Log azioni',
+                style: TextStyle(color: Colors.white),
+              ),
               subtitle: const Text(
                 'Lista delle azioni del set corrente',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
@@ -1668,8 +1747,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.arrow_back, color: Colors.white),
-              title: const Text('Indietro',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(
+                'Indietro',
+                style: TextStyle(color: Colors.white),
+              ),
               // Il Drawer registra una "local history entry" sulla route:
               // mentre è aperto, Navigator.pop(context) chiude SOLO il
               // drawer (consuma quella entry) invece di tornare alla
@@ -1742,7 +1823,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (set == null) return const [];
     final righe =
         ref.watch(scoutAzioniStreamProvider(set.id)).value ??
-            const <ScoutAction>[];
+        const <ScoutAction>[];
     // Punteggio parziale dopo ogni azione che chiude un rally (esito non
     // "nessuno"): replay leggero dei soli esiti, in ordine. Non include le
     // correzioni manuali del punteggio (vivono su MatchSet, non nel log).
@@ -1800,43 +1881,47 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Text.rich(
-                        TextSpan(children: [
-                          TextSpan(
-                            text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
-                            style: const TextStyle(
-                                color: Colors.white38, fontSize: 13),
-                          ),
-                          TextSpan(
-                            text: desc.testo,
-                            style: TextStyle(
-                              // Per punto/errore/cambio (voto assente) il
-                              // colore semantico va sul testo; per i voti
-                              // resta sul solo simbolo, più leggibile.
-                              color: desc.voto == null
-                                  ? coloreTesto
-                                  : Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                          if (desc.voto != null)
+                        TextSpan(
+                          children: [
                             TextSpan(
-                              text: '  ${desc.voto}',
-                              style: TextStyle(
-                                color: coloreTesto,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          if (parziali[a.id] != null)
-                            TextSpan(
-                              text: '  ${parziali[a.id]}',
+                              text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
                               style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                color: Colors.white38,
+                                fontSize: 13,
                               ),
                             ),
-                        ]),
+                            TextSpan(
+                              text: desc.testo,
+                              style: TextStyle(
+                                // Per punto/errore/cambio (voto assente) il
+                                // colore semantico va sul testo; per i voti
+                                // resta sul solo simbolo, più leggibile.
+                                color: desc.voto == null
+                                    ? coloreTesto
+                                    : Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (desc.voto != null)
+                              TextSpan(
+                                text: '  ${desc.voto}',
+                                style: TextStyle(
+                                  color: coloreTesto,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            if (parziali[a.id] != null)
+                              TextSpan(
+                                text: '  ${parziali[a.id]}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -1856,7 +1941,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // a "perfetto" che a "positivo") e rosso per gli errori — stessi colori
   // dei bottoni che li generano (vedi _buildQuickActionButton).
   ({String testo, String? voto, Color colore}) _descrizioneAzione(
-      ScoutAction azione) {
+    ScoutAction azione,
+  ) {
     final player = _playerPerId(azione.giocatoreId);
     final fondamentale = azione.fondamentale;
     final voto = azione.voto;
@@ -1887,8 +1973,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // Timeout: stesso colore neutro del cambio (nessun punto per nessuno),
     // nome squadra come per punto/errore qui sotto.
     if (azione.tipo == TipoAzione.timeout) {
-      final squadraLabel =
-          azione.squadra == Squadra.nostra ? widget.team.nome : 'avversario';
+      final squadraLabel = azione.squadra == Squadra.nostra
+          ? widget.team.nome
+          : 'avversario';
       return (
         testo: 'Timeout $squadraLabel',
         voto: null,
@@ -1901,8 +1988,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // funzione). Per l'avversario resta "avversario": il nome può non
     // essere impostato (vedi _matchTitle), quindi non c'è un equivalente
     // sempre disponibile.
-    final squadraLabel =
-        azione.squadra == Squadra.nostra ? widget.team.nome : 'avversario';
+    final squadraLabel = azione.squadra == Squadra.nostra
+        ? widget.team.nome
+        : 'avversario';
     final isPunto = azione.tipo == TipoAzione.puntoManuale;
     var testo = '${isPunto ? "Punto" : "Errore"} $squadraLabel';
     // Motivo dell'errore (scelto con la pressione prolungata sul bottone
@@ -1977,9 +2065,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       children: [
         _buildScoreAdjustButton(
           Icons.remove,
-          attivo && score > 0
-              ? () => _correggiPunteggio(squadra, -1)
-              : null,
+          attivo && score > 0 ? () => _correggiPunteggio(squadra, -1) : null,
         ),
         SizedBox(
           width: 32,
@@ -2035,8 +2121,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         icon: Icons.close,
         color: Colors.red,
         onTap: _bottoniRapidiAttivi
-            ? () => _registraAzioneRapida(Squadra.nostra,
-                TipoAzione.erroreGenerico, EsitoPunto.puntoAvversario)
+            ? () => _registraAzioneRapida(
+                Squadra.nostra,
+                TipoAzione.erroreGenerico,
+                EsitoPunto.puntoAvversario,
+              )
             : null,
       ),
       const SizedBox(width: 8),
@@ -2044,8 +2133,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         icon: Icons.check,
         color: AppColors.success,
         onTap: _bottoniRapidiAttivi
-            ? () => _registraAzioneRapida(Squadra.nostra,
-                TipoAzione.puntoManuale, EsitoPunto.puntoNostro)
+            ? () => _registraAzioneRapida(
+                Squadra.nostra,
+                TipoAzione.puntoManuale,
+                EsitoPunto.puntoNostro,
+              )
             : null,
       ),
     ];
@@ -2056,7 +2148,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       // Gruppo a sinistra (default): timeout in coda; coi lati invertiti il
       // gruppo va a destra e il timeout passa in testa — resta verso il
       // centro in entrambi i casi.
-      children: _isRightSide ? [timeout, gap, ...base] : [...base, gap, timeout],
+      children: _isRightSide
+          ? [timeout, gap, ...base]
+          : [...base, gap, timeout],
     );
   }
 
@@ -2068,8 +2162,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         icon: Icons.check,
         color: AppColors.success,
         onTap: _bottoniRapidiAttivi
-            ? () => _registraAzioneRapida(Squadra.avversari,
-                TipoAzione.puntoManuale, EsitoPunto.puntoAvversario)
+            ? () => _registraAzioneRapida(
+                Squadra.avversari,
+                TipoAzione.puntoManuale,
+                EsitoPunto.puntoAvversario,
+              )
             : null,
       ),
       const SizedBox(width: 8),
@@ -2077,9 +2174,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         icon: Icons.close,
         color: Colors.red,
         onTap: _bottoniRapidiAttivi
-            ? () => _registraAzioneRapida(Squadra.avversari,
-                TipoAzione.erroreGenerico, EsitoPunto.puntoNostro,
-                tipoEsecuzione: MotivoErrore.generico.name)
+            ? () => _registraAzioneRapida(
+                Squadra.avversari,
+                TipoAzione.erroreGenerico,
+                EsitoPunto.puntoNostro,
+                tipoEsecuzione: MotivoErrore.generico.name,
+              )
             : null,
         // Pressione prolungata: scegli il motivo dell'errore (Battuta/
         // Fallo di posizione/Invasione) invece del default "Generico"
@@ -2096,7 +2196,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       mainAxisSize: MainAxisSize.min,
       // Gruppo a destra (default): timeout in testa; specchiato con
       // _isRightSide — vedi _buildBottoniNostri.
-      children: _isRightSide ? [...base, gap, timeout] : [timeout, gap, ...base],
+      children: _isRightSide
+          ? [...base, gap, timeout]
+          : [timeout, gap, ...base],
     );
   }
 
@@ -2106,7 +2208,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   int _timeoutChiamati(Squadra squadra) {
     final set = _setCorrente;
     if (set == null) return 0;
-    final righe = ref.watch(scoutAzioniStreamProvider(set.id)).value ??
+    final righe =
+        ref.watch(scoutAzioniStreamProvider(set.id)).value ??
         const <ScoutAction>[];
     return righe
         .where((a) => a.tipo == TipoAzione.timeout && a.squadra == squadra)
@@ -2161,13 +2264,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (set == null || _testModeEnabled) return;
     // Riconteggio con ref.read (siamo in un callback, non nel build): il
     // bottone è già disabilitato a 2, questa è solo una guardia in più.
-    final righe = ref.read(scoutAzioniStreamProvider(set.id)).value ??
+    final righe =
+        ref.read(scoutAzioniStreamProvider(set.id)).value ??
         const <ScoutAction>[];
     final chiamati = righe
         .where((a) => a.tipo == TipoAzione.timeout && a.squadra == squadra)
         .length;
     if (chiamati >= 2) return;
-    await ref.read(scoutActionRepositoryProvider).registraAzioneRapida(
+    await ref
+        .read(scoutActionRepositoryProvider)
+        .registraAzioneRapida(
           setId: set.id,
           squadra: squadra,
           tipo: TipoAzione.timeout,
@@ -2179,16 +2285,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final scelto = await showMenu<MotivoErrore>(
       context: context,
       position: RelativeRect.fromLTRB(
-          posizione.dx, posizione.dy, posizione.dx, posizione.dy),
+        posizione.dx,
+        posizione.dy,
+        posizione.dx,
+        posizione.dy,
+      ),
       items: [
         for (final motivo in MotivoErrore.values)
           PopupMenuItem(value: motivo, child: Text(motivo.label)),
       ],
     );
     if (scelto == null) return;
-    _registraAzioneRapida(Squadra.avversari, TipoAzione.erroreGenerico,
-        EsitoPunto.puntoNostro,
-        tipoEsecuzione: scelto.name);
+    _registraAzioneRapida(
+      Squadra.avversari,
+      TipoAzione.erroreGenerico,
+      EsitoPunto.puntoNostro,
+      tipoEsecuzione: scelto.name,
+    );
   }
 
   Widget _buildQuickActionButton({
@@ -2301,88 +2414,106 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ),
       Positioned(
         right: 16,
-        top: 12,
-        bottom: 16,
+        // Margini verticali minimi: su smartphone la scala del pannello è
+        // vincolata dall'altezza disponibile (vedi FittedBox sotto), ogni
+        // px recuperato qui ingrandisce la bottoniera dei voti.
+        top: 4,
+        bottom: 4,
         child: Align(
           alignment: Alignment.topCenter,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              decoration: BoxDecoration(
-                color: _kTopBarBg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 100,
-                    child: Column(
-                      children: [
-                        Text(
-                          '${player.numero}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 22,
-                          ),
-                        ),
-                        Text(
-                          player.cognome,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 12),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (inCorso.fondamentale == null) ...[
-                    const SizedBox(height: 4),
-                    _buildSceltaFondamentale(),
-                  ] else ...[
-                    Text(
-                      inCorso.fondamentale!.label,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    for (final voto in Voto.values) ...[
-                      GestureDetector(
-                        onTap: () => _registraVoto(voto),
-                        child: Container(
-                          width: 100,
-                          height: 64,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: CourtStyle.votoColor(voto),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(120),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            voto.simbolo,
+          // FittedBox(scaleDown): su smartphone l'altezza non basta per la
+          // colonna dei 5 voti (5×64 + header) e il pannello sborderebbe —
+          // si rimpicciolisce in proporzione (tap compresi, il
+          // GestureDetector sta DENTRO la scala). Su tablet scala = 1.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: _kTopBarBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      child: Column(
+                        children: [
+                          Text(
+                            '${player.numero}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 28,
+                              fontSize: 22,
+                            ),
+                          ),
+                          Text(
+                            player.cognome,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (inCorso.fondamentale == null) ...[
+                      const SizedBox(height: 4),
+                      _buildSceltaFondamentale(),
+                    ] else ...[
+                      Text(
+                        inCorso.fondamentale!.label,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final voto in Voto.values) ...[
+                        GestureDetector(
+                          onTap: () => _registraVoto(voto),
+                          child: Container(
+                            width: 100,
+                            height: 64,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: CourtStyle.votoColor(voto),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(120),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              voto.simbolo,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 28,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      if (voto != Voto.values.last) const SizedBox(height: 12),
+                        if (voto != Voto.values.last)
+                          const SizedBox(height: 12),
+                      ],
                     ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -2392,7 +2523,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   Widget _buildRotationButton(
-      IconData icon, VoidCallback onTap, double smallCourtSize) {
+    IconData icon,
+    VoidCallback onTap,
+    double smallCourtSize,
+  ) {
     final buttonSize = smallCourtSize * 0.45;
     return GestureDetector(
       onTap: onTap,
@@ -2430,8 +2564,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         : const {'S1', 'S2'};
     const secondaLinea = {'P5', 'P6', 'P1'};
     for (final entry in roleLabels.entries) {
-      if (secondaLinea.contains(entry.key) &&
-          etichette.contains(entry.value)) {
+      if (secondaLinea.contains(entry.key) && etichette.contains(entry.value)) {
         return entry.key;
       }
     }
@@ -2456,27 +2589,33 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         for (final entry in currentAssignments.entries)
           if (entry.key != slotCentrale)
             _buildPlayerToken(
-                roleLabels[entry.key] ?? entry.key,
-                entry.value,
-                _displayPosition(_attackPosition(entry.key, roleLabels)),
-                cw,
-                ch,
-                onTap: _tapHandlerPerGiocatore(entry.value, slot: entry.key)),
+              roleLabels[entry.key] ?? entry.key,
+              entry.value,
+              _displayPosition(_attackPosition(entry.key, roleLabels)),
+              cw,
+              ch,
+              onTap: _tapHandlerPerGiocatore(entry.value, slot: entry.key),
+            ),
       ];
     }
 
-    final slotPerRuolo = {
-      for (final e in roleLabels.entries) e.value: e.key,
-    };
+    final slotPerRuolo = {for (final e in roleLabels.entries) e.value: e.key};
     final tokens = <Widget>[];
     for (final entry in defenseMap.entries) {
       if (entry.key == 'Libero') continue; // gestito nello Stack esterno
       final slot = slotPerRuolo[entry.key];
       final player = slot == null ? null : currentAssignments[slot];
       if (player != null) {
-        tokens.add(_buildPlayerToken(
-            entry.key, player, _displayPosition(entry.value), cw, ch,
-            onTap: _tapHandlerPerGiocatore(player, slot: slot)));
+        tokens.add(
+          _buildPlayerToken(
+            entry.key,
+            player,
+            _displayPosition(entry.value),
+            cw,
+            ch,
+            onTap: _tapHandlerPerGiocatore(player, slot: slot),
+          ),
+        );
       }
     }
     return tokens;
@@ -2489,7 +2628,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // in QUESTO Stack esterno (coordinate schermo assolute), non in quello
   // interno del campo grande. Stessa key (player.id) sia in campo sia in
   // panchina: AnimatedPositioned anima il movimento in entrambi i casi.
-  List<Widget> _buildLiberoSwapTokens(BoxConstraints constraints, double courtWidth) {
+  List<Widget> _buildLiberoSwapTokens(
+    BoxConstraints constraints,
+    double courtWidth,
+  ) {
     final liberiEffettivi = _liberiEffettivi;
     final liberoKey = _liberoAttivoKey;
     final libero = liberiEffettivi[liberoKey];
@@ -2504,12 +2646,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // il movimento quando attivo e inattivo si scambiano (stesso key, nuova
     // posizione → AnimatedPositioned interpola fluidamente tra le due).
     final inattivoKey = _liberoInattivoKey;
-    final inattivo =
-        inattivoKey != null ? liberiEffettivi[inattivoKey] : null;
+    final inattivo = inattivoKey != null ? liberiEffettivi[inattivoKey] : null;
     final bench1Token = inattivo != null
-        ? _buildAbsoluteToken(inattivoKey!, inattivo, bench1, radius,
+        ? _buildAbsoluteToken(
+            inattivoKey!,
+            inattivo,
+            bench1,
+            radius,
             isLibero: true,
-            onTap: () => setState(() => _liberoOverride = inattivoKey))
+            onTap: () => setState(() => _liberoOverride = inattivoKey),
+          )
         : null;
 
     final currentAssignments = _currentAssignments;
@@ -2540,9 +2686,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final courtLeft = (constraints.maxWidth - courtWidth) / 2;
     final courtTop = _kCourtTopMargin;
     Offset toScreen(Offset ref) => Offset(
-          courtLeft + (ref.dx / 1200) * courtWidth,
-          courtTop + (ref.dy / 600) * courtHeight,
-        );
+      courtLeft + (ref.dx / 1200) * courtWidth,
+      courtTop + (ref.dy / 600) * courtHeight,
+    );
 
     if (sostituzioneAttiva) {
       // In ricezione il libero ha una sua posizione dedicata (mappa di
@@ -2553,12 +2699,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           ? defenseMap['Libero']!
           : (_activeAttackMap?['Libero'] ?? _refPositionFor(slotCentrale));
       return [
-        _buildAbsoluteToken(liberoKey, libero,
-            toScreen(_displayPosition(liberoRef)), radius,
-            isLibero: true, onTap: _tapHandlerPerGiocatore(libero)),
+        _buildAbsoluteToken(
+          liberoKey,
+          libero,
+          toScreen(_displayPosition(liberoRef)),
+          radius,
+          isLibero: true,
+          onTap: _tapHandlerPerGiocatore(libero),
+        ),
         // Il sostituito è in panchina (slot 0): non tappabile.
-        _buildAbsoluteToken(roleLabels[slotCentrale] ?? slotCentrale,
-            giocatoreCoppia, bench0, radius),
+        _buildAbsoluteToken(
+          roleLabels[slotCentrale] ?? slotCentrale,
+          giocatoreCoppia,
+          bench0,
+          radius,
+        ),
         ?bench1Token,
       ];
     }
@@ -2567,11 +2722,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // libero attivo va in panchina (slot 0, non tappabile).
     return [
       _buildAbsoluteToken(
-          roleLabels[slotCentrale] ?? slotCentrale,
-          giocatoreCoppia,
-          toScreen(_displayPosition(_attackPosition(slotCentrale, roleLabels))),
-          radius,
-          onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale)),
+        roleLabels[slotCentrale] ?? slotCentrale,
+        giocatoreCoppia,
+        toScreen(_displayPosition(_attackPosition(slotCentrale, roleLabels))),
+        radius,
+        onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale),
+      ),
       _buildAbsoluteToken(liberoKey, libero, bench0, radius, isLibero: true),
       ?bench1Token,
     ];
@@ -2592,7 +2748,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // battitore è rientrato in posizione di attacco, di nuovo coperto dal
   // proprio token normale.
   List<Widget> _buildBattitoreTapCatcher(
-      BoxConstraints constraints, double courtWidth) {
+    BoxConstraints constraints,
+    double courtWidth,
+  ) {
     if (_squadraAlServizio != Squadra.nostra) return const [];
     if (_faseDopo) return const [];
     final player = _currentAssignments['P1'];
@@ -2634,8 +2792,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Offset _benchScreenPos(BoxConstraints constraints, double radius) {
     final margin = constraints.maxWidth * 0.03;
     final size = radius * 2;
-    final left =
-        _isRightSide ? constraints.maxWidth - size - margin : margin;
+    final left = _isRightSide ? constraints.maxWidth - size - margin : margin;
     final top = constraints.maxHeight - margin - size;
     return Offset(left + radius, top + radius);
   }
@@ -2655,8 +2812,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // perché questo Stack esterno copre sia l'area del campo sia l'area
   // "panchina" ancorata ai bordi schermo.
   Widget _buildAbsoluteToken(
-      String roleLabel, Player player, Offset center, double radius,
-      {bool isLibero = false, VoidCallback? onTap}) {
+    String roleLabel,
+    Player player,
+    Offset center,
+    double radius, {
+    bool isLibero = false,
+    VoidCallback? onTap,
+  }) {
     final fillColor = isLibero
         ? _invertedColor(Color(widget.team.coloreDivisa))
         : Color(widget.team.coloreDivisa);
@@ -2699,8 +2861,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   }
 
   Widget _buildPlayerToken(
-      String roleLabel, Player player, Offset refPos, double cw, double ch,
-      {VoidCallback? onTap}) {
+    String roleLabel,
+    Player player,
+    Offset refPos,
+    double cw,
+    double ch, {
+    VoidCallback? onTap,
+  }) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
     // spazio di riferimento, quindi un ventesimo equivale a ch/20), scalato
     // da _kTokenSizeScale.
@@ -2760,5 +2927,4 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           : GestureDetector(onTap: onTap, child: tokenVisual),
     );
   }
-
 }

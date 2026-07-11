@@ -98,8 +98,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
       widget.assignments.containsKey('L2');
 
   bool get _canConfirm =>
-      _palleggiatoreSlot != null &&
-      (!_hasLibero || _centraliSlots.length == 2);
+      _palleggiatoreSlot != null && (!_hasLibero || _centraliSlots.length == 2);
 
   void _onPalleggiatoreSlotTap(String slot) {
     setState(() {
@@ -107,7 +106,9 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
         _palleggiatoreSlot = null;
       } else {
         _palleggiatoreSlot = slot;
-        _centraliSlots.remove(slot); // un giocatore non può essere anche centrale
+        _centraliSlots.remove(
+          slot,
+        ); // un giocatore non può essere anche centrale
       }
     });
   }
@@ -131,9 +132,12 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
           // Per undefined: pairing posizionale (i due che si alternano in
           // seconda linea sono sempre 3 posizioni di distanza nel ring).
           const opposites = {
-            'P1': 'P4', 'P4': 'P1',
-            'P2': 'P5', 'P5': 'P2',
-            'P3': 'P6', 'P6': 'P3',
+            'P1': 'P4',
+            'P4': 'P1',
+            'P2': 'P5',
+            'P5': 'P2',
+            'P3': 'P6',
+            'P6': 'P3',
           };
           _centraliSlots.add(slot);
           final opp = opposites[slot];
@@ -223,7 +227,8 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
             child: FilledButton(
               onPressed: _canConfirm ? _onAvanti : null,
               child: Text(
-                  widget.modalitaConferma ? 'Conferma' : 'Inizia scout'),
+                widget.modalitaConferma ? 'Conferma' : 'Inizia scout',
+              ),
             ),
           ),
         ],
@@ -252,68 +257,67 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                   iconEnabledColor: Colors.white,
                   underline: Container(height: 1, color: Colors.white38),
                   items: SistemaGioco.values
-                      .map((s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(s.label),
-                          ))
+                      .map(
+                        (s) => DropdownMenuItem(value: s, child: Text(s.label)),
+                      )
                       .toList(),
                   onChanged: (v) => setState(() => _sistema = v!),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            // Due campi affiancati a dimensioni fisse (460×460 come LineupScreen).
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width - 48,
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+            // Due campi affiancati a dimensioni fisse (460×460 come
+            // LineupScreen), centrati. FittedBox(scaleDown): su schermi
+            // stretti (smartphone) il blocco si rimpicciolisce in
+            // proporzione invece di scrollare in orizzontale (sostituisce
+            // il vecchio pattern SingleChildScrollView + ConstrainedBox);
+            // su tablet scala = 1, identico a prima.
+            Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LabeledCourt(
+                      title: 'Palleggiatore',
+                      subtitle: 'Conferma il palleggiatore',
+                      subtitleColor: Colors.white54,
+                      child: CourtView(
+                        assignments: widget.assignments,
+                        selectedSlots: _palleggiatoreSlot != null
+                            ? {_palleggiatoreSlot!}
+                            : {},
+                        selectionColor: Colors.red,
+                        onSlotTap: _onPalleggiatoreSlotTap,
+                      ),
+                    ),
+                    if (_hasLibero) ...[
+                      const SizedBox(width: 24),
                       LabeledCourt(
-                        title: 'Palleggiatore',
-                        subtitle: 'Conferma il palleggiatore',
-                        subtitleColor: Colors.white54,
+                        title: 'Cambi del libero',
+                        subtitle:
+                            'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
+                        subtitleColor: _centraliSlots.length == 2
+                            ? Colors.lightBlue
+                            : Colors.white54,
                         child: CourtView(
                           assignments: widget.assignments,
-                          selectedSlots: _palleggiatoreSlot != null
-                              ? {_palleggiatoreSlot!}
-                              : {},
+                          selectedSlots: _centraliSlots,
                           selectionColor: Colors.red,
-                          onSlotTap: _onPalleggiatoreSlotTap,
+                          disabledSlots: {
+                            ?_palleggiatoreSlot,
+                            for (final e in widget.assignments.entries)
+                              if (e.value.ruolo != Ruolo.centrale &&
+                                  e.value.ruolo != Ruolo.schiacciatore &&
+                                  e.value.ruolo != Ruolo.undefined)
+                                e.key,
+                          },
+                          onSlotTap: _onCentraleSlotTap,
                         ),
                       ),
-                      if (_hasLibero) ...[
-                        const SizedBox(width: 24),
-                        LabeledCourt(
-                          title: 'Cambi del libero',
-                          subtitle:
-                              'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
-                          subtitleColor: _centraliSlots.length == 2
-                              ? Colors.lightBlue
-                              : Colors.white54,
-                          child: CourtView(
-                            assignments: widget.assignments,
-                            selectedSlots: _centraliSlots,
-                            selectionColor: Colors.red,
-                            disabledSlots: {
-                              ?_palleggiatoreSlot,
-                              for (final e in widget.assignments.entries)
-                                if (e.value.ruolo != Ruolo.centrale &&
-                                    e.value.ruolo != Ruolo.schiacciatore &&
-                                    e.value.ruolo != Ruolo.undefined)
-                                  e.key,
-                            },
-                            onSlotTap: _onCentraleSlotTap,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),

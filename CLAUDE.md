@@ -93,6 +93,28 @@ fallisce anche dopo `flutter clean`/stop dei daemon.
    figlio in `Positioned.fill(child: ...)` (così riceve vincoli rigidi a piena
    dimensione) e usare `Positioned` per gli elementi overlay (badge, icone).
 
+9. **Supporto smartphone = design fisso + `FittedBox(scaleDown)`**: l'app è
+   pensata per tablet ma deve restare usabile su telefono (sempre
+   landscape). Le schermate costruite attorno al campo a 460×460dp fisso
+   (`LineupScreen`, `FormationConfigScreen`, `SostituzioneScreen`) e il
+   trailing della card partite (`MatchesScreen`) NON vanno ridisegnate in
+   modo responsive: il blocco a misura fissa si avvolge in
+   `FittedBox(fit: BoxFit.scaleDown)` — scala tutto in proporzione (card,
+   font, gesture/hit-test compresi) solo quando manca spazio; su tablet
+   scala = 1, zero differenze. Stessa tecnica già usata dalle card
+   formazione del report (i margini interni fissi di `CourtView` non
+   reggono un SizedBox più piccolo, la scala proporzionale sì).
+   `ScoutScreen`/`TrajectoryScreen` sono già proporzionali (percentuali
+   dello schermo) e non hanno bisogno del FittedBox, ma su schermi BASSI
+   servono ritocchi dedicati (fatti): campo clampato in altezza
+   (`courtWidth = min(58% larghezza, altezza utile × 2)` — in
+   TrajectoryScreen riservando ~84px per la riga chip), drawer di utilità
+   come `ListView` (scrolla invece di sbordare), pannello voto in
+   `FittedBox(scaleDown)` con margini verticali minimi (4/4), offset dei
+   pallini timeout nell'header clampato fuori dal gruppo punteggio
+   (`timeoutDotsOffset`: 237 fisso quando c'è spazio, altrimenti
+   all'esterno del punteggio al 30%/70%, mai sotto menu/undo).
+
 ---
 
 ## Struttura cartelle

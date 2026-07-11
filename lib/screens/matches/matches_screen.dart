@@ -25,12 +25,14 @@ class MatchesScreen extends ConsumerWidget {
   // iniziato, incluso il primissimo della partita) non ha rotazione salvata
   // e teamId può essere ancora null: si passa dal flusso normale.
   Future<void> _avviaOContinua(
-      BuildContext context, WidgetRef ref, VolleyMatch match) async {
+    BuildContext context,
+    WidgetRef ref,
+    VolleyMatch match,
+  ) async {
     final teamId = match.teamId;
     if (teamId != null) {
       final setRepo = ref.read(matchSetRepositoryProvider);
-      final setEsistente =
-          await setRepo.caricaSet(match.id, match.setCorrente);
+      final setEsistente = await setRepo.caricaSet(match.id, match.setCorrente);
       final formazione = setEsistente == null
           ? null
           : await setRepo.caricaFormazione(setEsistente.id);
@@ -68,7 +70,10 @@ class MatchesScreen extends ConsumerWidget {
   // azioni per set, roster per la join sui nomi. Poi delega a
   // condividiCsvPartita (lib/data/match_csv_exporter.dart).
   Future<void> _esportaCsv(
-      BuildContext context, WidgetRef ref, VolleyMatch match) async {
+    BuildContext context,
+    WidgetRef ref,
+    VolleyMatch match,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final teamRepo = ref.read(teamRepositoryProvider);
@@ -85,8 +90,9 @@ class MatchesScreen extends ConsumerWidget {
       final azioniPerSet = <int, List<ScoutAction>>{
         for (final s in sets) s.id: await azioniRepo.caricaAzioni(s.id),
       };
-      final players =
-          team == null ? const <Player>[] : await teamRepo.getPlayersForTeam(team.id);
+      final players = team == null
+          ? const <Player>[]
+          : await teamRepo.getPlayersForTeam(team.id);
 
       await condividiCsvPartita(
         match: match,
@@ -117,14 +123,16 @@ class MatchesScreen extends ConsumerWidget {
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 try {
-                  final nome =
-                      await DemoMatchImporter(ref.read(appDatabaseProvider))
-                          .importa();
+                  final nome = await DemoMatchImporter(
+                    ref.read(appDatabaseProvider),
+                  ).importa();
                   messenger.showSnackBar(
-                      SnackBar(content: Text('Importata "$nome"')));
+                    SnackBar(content: Text('Importata "$nome"')),
+                  );
                 } catch (e) {
                   messenger.showSnackBar(
-                      SnackBar(content: Text('Import demo fallito: $e')));
+                    SnackBar(content: Text('Import demo fallito: $e')),
+                  );
                 }
               },
             ),
@@ -153,40 +161,40 @@ class MatchesScreen extends ConsumerWidget {
           // Due sezioni separate: partite da iniziare/continuare (qualunque
           // stato tranne terminata) e partite terminate — vedi CLAUDE.md
           // sulla semantica di StatoPartita.
-          final attive =
-              matches.where((m) => m.stato != StatoPartita.terminata).toList();
-          final terminate =
-              matches.where((m) => m.stato == StatoPartita.terminata).toList();
+          final attive = matches
+              .where((m) => m.stato != StatoPartita.terminata)
+              .toList();
+          final terminate = matches
+              .where((m) => m.stato == StatoPartita.terminata)
+              .toList();
 
           Widget buildCard(VolleyMatch match) => _MatchCard(
-                match: match,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MatchFormScreen(match: match),
-                  ),
-                ),
-                onStart: () => _avviaOContinua(context, ref, match),
-                onOpenPdf: match.stato == StatoPartita.terminata
-                    ? () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MatchPdfScreen(match: match),
-                          ),
-                        )
-                    : null,
-                onExportCsv: match.stato == StatoPartita.terminata
-                    ? () => _esportaCsv(context, ref, match)
-                    : null,
-                onOpenReport: match.stato == StatoPartita.terminata
-                    ? () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MatchReportScreen(match: match),
-                          ),
-                        )
-                    : null,
-              );
+            match: match,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MatchFormScreen(match: match)),
+            ),
+            onStart: () => _avviaOContinua(context, ref, match),
+            onOpenPdf: match.stato == StatoPartita.terminata
+                ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MatchPdfScreen(match: match),
+                    ),
+                  )
+                : null,
+            onExportCsv: match.stato == StatoPartita.terminata
+                ? () => _esportaCsv(context, ref, match)
+                : null,
+            onOpenReport: match.stato == StatoPartita.terminata
+                ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MatchReportScreen(match: match),
+                    ),
+                  )
+                : null,
+          );
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
@@ -225,9 +233,9 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Colors.black54,
-              fontWeight: FontWeight.bold,
-            ),
+          color: Colors.black54,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -293,54 +301,59 @@ class _MatchCard extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: const Icon(Icons.sports_volleyball, size: 32),
-        title: Text(
-          match.nome,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        title: Text(match.nome, style: Theme.of(context).textTheme.titleMedium),
         subtitle: Text(
           match.palestra != null ? '$dateStr  •  ${match.palestra}' : dateStr,
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _CasaBadge(inCasa: match.inCasa),
-            const SizedBox(width: 12),
-            if (onExportCsv != null) ...[
-              OutlinedButton.icon(
-                onPressed: onExportCsv,
-                icon: const Icon(Icons.table_view),
-                label: const Text('CSV'),
+        // FittedBox(scaleDown): su smartphone la fila di bottoni (badge +
+        // CSV/PDF/Report + bottone Inizia da 160) non ci sta nel trailing
+        // e sborderebbe — si rimpicciolisce in proporzione. Su tablet
+        // scala = 1, nessuna differenza (stessa convenzione delle
+        // schermate formazione, vedi CLAUDE.md "supporto smartphone").
+        trailing: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _CasaBadge(inCasa: match.inCasa),
+              const SizedBox(width: 12),
+              if (onExportCsv != null) ...[
+                OutlinedButton.icon(
+                  onPressed: onExportCsv,
+                  icon: const Icon(Icons.table_view),
+                  label: const Text('CSV'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (onOpenPdf != null) ...[
+                OutlinedButton.icon(
+                  onPressed: onOpenPdf,
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text('PDF'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (onOpenReport != null) ...[
+                OutlinedButton.icon(
+                  onPressed: onOpenReport,
+                  icon: const Icon(Icons.bar_chart),
+                  label: const Text('Report'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // Larghezza fissa (non solo "circa uguale"): altrimenti il
+              // bottone si restringe per "Inizia" rispetto a "Continua"/
+              // "Riprendi", più lunghe — stessa larghezza per tutte le label.
+              SizedBox(
+                width: 160,
+                child: FilledButton.icon(
+                  onPressed: onStart,
+                  icon: Icon(_iconaBottone()),
+                  label: Text(_labelBottone()),
+                ),
               ),
-              const SizedBox(width: 8),
             ],
-            if (onOpenPdf != null) ...[
-              OutlinedButton.icon(
-                onPressed: onOpenPdf,
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('PDF'),
-              ),
-              const SizedBox(width: 8),
-            ],
-            if (onOpenReport != null) ...[
-              OutlinedButton.icon(
-                onPressed: onOpenReport,
-                icon: const Icon(Icons.bar_chart),
-                label: const Text('Report'),
-              ),
-              const SizedBox(width: 8),
-            ],
-            // Larghezza fissa (non solo "circa uguale"): altrimenti il
-            // bottone si restringe per "Inizia" rispetto a "Continua"/
-            // "Riprendi", più lunghe — stessa larghezza per tutte le label.
-            SizedBox(
-              width: 160,
-              child: FilledButton.icon(
-                onPressed: onStart,
-                icon: Icon(_iconaBottone()),
-                label: Text(_labelBottone()),
-              ),
-            ),
-          ],
+          ),
         ),
         onTap: onTap,
       ),

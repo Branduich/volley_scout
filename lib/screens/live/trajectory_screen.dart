@@ -407,8 +407,14 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, screenConstraints) {
-                final courtWidth =
-                    screenConstraints.maxWidth * _kCourtWidthFraction;
+                // Come in ScoutScreen, il campo è il 58% della larghezza MA
+                // mai più alto dello spazio disponibile (smartphone): qui
+                // sotto al campo va riservata anche la riga dei chip tipo
+                // battuta/attacco (offset 24 + chip 52 + margine 8 ≈ 84px).
+                final courtWidth = math.min(
+                  screenConstraints.maxWidth * _kCourtWidthFraction,
+                  (screenConstraints.maxHeight - _kCourtTopMargin - 84) * 2,
+                );
                 final courtHeight = courtWidth / 2; // aspect ratio 1200/600
                 final courtLeft =
                     (screenConstraints.maxWidth - courtWidth) / 2;
