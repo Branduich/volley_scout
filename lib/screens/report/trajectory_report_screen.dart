@@ -12,6 +12,19 @@ const _kTopBarBg = Color(0xFF0D2738);
 
 const _kSlots = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 
+// Filtro attacchi (solo fondamentale attacco): stessa partizione binaria di
+// PlayerStatsScreen/report — "su ricezione" = primo attacco dopo un voto di
+// ricezione nello stesso scambio (idAttacchiSuRicezione), il resto "su
+// difesa".
+enum _FiltroAttacco {
+  tutti('Tutti gli attacchi'),
+  suRicezione('Su ricezione'),
+  suDifesa('Su difesa');
+
+  final String label;
+  const _FiltroAttacco(this.label);
+}
+
 // Stessa logica di _ruotata in ricalcola_stato.dart (privata lì) — chi era
 // in posizione p+1 si sposta in posizione p al momento di un sideout.
 Map<int, int> _ruotata(Map<int, int> rot) =>
@@ -61,9 +74,21 @@ class _TrajectoryReportScreenState
   MatchSet? _setFiltro;     // null = partita intera
   Player? _playerFiltro;    // null = tutti i giocatori
   String? _rotazioneFiltro; // null = tutte; 'P1'..'P6' — solo attacco
+  _FiltroAttacco _filtroAttacco = _FiltroAttacco.tutti; // solo attacco
 
   // actionId → slot del palleggiatore al momento dell'azione (solo attacco).
   Map<int, String> _slotPerAzioneId = {};
+
+  // Id degli attacchi "su ricezione" (helper condiviso, calcolato una volta
+  // in _carica — solo attacco); il complemento è "su difesa".
+  Set<int> _idSuRicezione = {};
+
+  // Vero se l'azione passa il filtro attacchi corrente.
+  bool _passaFiltroAttacco(ScoutAction a) => switch (_filtroAttacco) {
+        _FiltroAttacco.tutti => true,
+        _FiltroAttacco.suRicezione => _idSuRicezione.contains(a.id),
+        _FiltroAttacco.suDifesa => !_idSuRicezione.contains(a.id),
+      };
 
   @override
   void initState() {
@@ -86,8 +111,10 @@ class _TrajectoryReportScreenState
     // Per l'attacco: calcola in quale rotazione era la squadra al momento
     // di ogni azione (O(n) per set, identico a ricalcolaStato).
     Map<int, String> slotPerAzioneId = {};
+    Set<int> idSuRicezione = {};
     if (widget.fondamentale == Fondamentale.attacco) {
       slotPerAzioneId = await _computeRotazioni(sets, azioniPerSet);
+      idSuRicezione = idAttacchiSuRicezione(azioniPerSet.values);
     }
 
     if (!mounted) return;
@@ -96,6 +123,7 @@ class _TrajectoryReportScreenState
       _players = players;
       _azioniPerSet = azioniPerSet;
       _slotPerAzioneId = slotPerAzioneId;
+      _idSuRicezione = idSuRicezione;
       if (widget.setCorrenteAllAvvio && sets.isNotEmpty) {
         _setFiltro = sets.firstWhere(
           (s) => s.numero == widget.match.setCorrente,
@@ -202,6 +230,7 @@ class _TrajectoryReportScreenState
         .where((a) =>
             _rotazioneFiltro == null ||
             _slotPerAzioneId[a.id] == _rotazioneFiltro)
+        .where(_passaFiltroAttacco)
         .toList();
   }
 
@@ -225,6 +254,7 @@ class _TrajectoryReportScreenState
         .where((a) =>
             _rotazioneFiltro == null ||
             _slotPerAzioneId[a.id] == _rotazioneFiltro)
+        .where(_passaFiltroAttacco)
         .map((a) => a.giocatoreId)
         .whereType<int>()
         .toSet();
@@ -351,6 +381,22 @@ class _TrajectoryReportScreenState
                 onChanged: (v) {
                   setState(() {
                     _rotazioneFiltro = v;
+                    _validaFiltri();
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildDropdown<_FiltroAttacco>(
+                value: _filtroAttacco,
+                items: [
+                  for (final f in _FiltroAttacco.values)
+                    DropdownMenuItem(value: f, child: Text(f.label)),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _filtroAttacco = v ?? _FiltroAttacco.tutti;
                     _validaFiltri();
                   });
                 },

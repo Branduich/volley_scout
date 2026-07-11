@@ -12,6 +12,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../report/match_report_screen.dart';
 import '../report/player_stats_screen.dart';
 import '../report/trajectory_report_screen.dart';
 import 'end_set_screen.dart';
@@ -1623,22 +1624,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 _avviaSostituzione();
               },
             ),
-            SwitchListTile(
-              value: _showJerseyNumbers,
-              onChanged: (v) => setState(() => _showJerseyNumbers = v),
-              title: Text(
-                _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
-                style: const TextStyle(color: Colors.white),
-              ),
-              activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF00008A),
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white24,
-            ),
+            const Divider(color: Colors.white24, height: 1),
             ListTile(
               leading: const Icon(Icons.bar_chart, color: Colors.white),
               title: const Text(
-                'Statistiche',
+                'Statistiche fondamentali',
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
@@ -1650,6 +1640,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       match: widget.match,
                       team: widget.team,
                     ),
+                  ),
+                );
+              },
+            ),
+            // Report completo della partita (la stessa pagina del bottone
+            // "Report" di MatchesScreen): consultabile anche a partita in
+            // corso — i dati si ricaricano ad ogni apertura, come per le
+            // statistiche.
+            ListTile(
+              leading: const Icon(Icons.description, color: Colors.white),
+              title: const Text(
+                'Report',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                _scaffoldKey.currentState?.closeDrawer();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MatchReportScreen(match: widget.match),
                   ),
                 );
               },
@@ -1696,6 +1706,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
             const Divider(color: Colors.white24, height: 1),
             SwitchListTile(
+              value: _showJerseyNumbers,
+              onChanged: (v) => setState(() => _showJerseyNumbers = v),
+              title: Text(
+                _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
+                style: const TextStyle(color: Colors.white),
+              ),
+              activeThumbColor: Colors.white,
+              activeTrackColor: const Color(0xFF00008A),
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white24,
+            ),
+            SwitchListTile(
               value: _testModeEnabled,
               onChanged: _toggleTestMode,
               title: const Text(
@@ -1703,7 +1725,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               subtitle: const Text(
-                'Bottone per scorrere rotazione × chi serve',
+                'Bottone visualizzazione rotazioni',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
               activeThumbColor: Colors.white,
