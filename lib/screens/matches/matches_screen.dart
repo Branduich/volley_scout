@@ -6,8 +6,11 @@ import '../../data/demo_match_importer.dart';
 import '../../data/match_csv_exporter.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/premium_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/premium_badge.dart';
 import '../live/scout_screen.dart';
+import '../premium/paywall_screen.dart';
 import '../report/match_pdf_screen.dart';
 import '../report/match_report_screen.dart';
 import 'match_form_screen.dart';
@@ -69,11 +72,24 @@ class MatchesScreen extends ConsumerWidget {
   // inferisciSquadraDaRotazioni per le partite pre-fix del teamId), set,
   // azioni per set, roster per la join sui nomi. Poi delega a
   // condividiCsvPartita (lib/data/match_csv_exporter.dart).
+  // Gate premium (vedi docs/TODO_strada_A.md): gli export PDF/CSV sono
+  // feature premium — bottoni sempre visibili (vetrina), ma per un utente
+  // free il tap apre il paywall invece dell'azione.
+  bool _richiedePremium(BuildContext context, WidgetRef ref) {
+    if (ref.read(statoPremiumProvider).attivo) return false;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaywallScreen()),
+    );
+    return true;
+  }
+
   Future<void> _esportaCsv(
     BuildContext context,
     WidgetRef ref,
     VolleyMatch match,
   ) async {
+    if (_richiedePremium(context, ref)) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
       final teamRepo = ref.read(teamRepositoryProvider);
@@ -176,12 +192,15 @@ class MatchesScreen extends ConsumerWidget {
             ),
             onStart: () => _avviaOContinua(context, ref, match),
             onOpenPdf: match.stato == StatoPartita.terminata
-                ? () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MatchPdfScreen(match: match),
-                    ),
-                  )
+                ? () {
+                    if (_richiedePremium(context, ref)) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MatchPdfScreen(match: match),
+                      ),
+                    );
+                  }
                 : null,
             onExportCsv: match.stato == StatoPartita.terminata
                 ? () => _esportaCsv(context, ref, match)
@@ -321,7 +340,10 @@ class _MatchCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onExportCsv,
                   icon: const Icon(Icons.table_view),
-                  label: const Text('CSV'),
+                  label: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text('CSV'), PremiumBadge()],
+                  ),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -329,7 +351,10 @@ class _MatchCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onOpenPdf,
                   icon: const Icon(Icons.picture_as_pdf),
-                  label: const Text('PDF'),
+                  label: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text('PDF'), PremiumBadge()],
+                  ),
                 ),
                 const SizedBox(width: 8),
               ],

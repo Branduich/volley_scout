@@ -9,9 +9,12 @@ import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../../widgets/premium_badge.dart';
+import '../premium/paywall_screen.dart';
 import '../report/match_report_screen.dart';
 import '../report/player_stats_screen.dart';
 import '../report/trajectory_report_screen.dart';
@@ -679,9 +682,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // vive su TrajectoryScreen, quindi resta 'nonSpecificato' — accettato
     // per ora (flusso ultra-veloce), eventuale rientro dei chip nel
     // pannello voto da valutare in futuro.
+    // GATE PREMIUM: per un utente free le traiettorie sono spente a
+    // prescindere dal toggle (come se fosse disabilitato) — dopo il voto si
+    // procede subito, nessun paywall in mezzo alla presa dati (il paywall
+    // compare solo dalle voci di menu/report, azioni deliberate).
     Traiettoria? traiettoria;
     if (fondamentale.richiedeTraiettoria &&
-        ref.read(impostazioniProvider).traiettorieAbilitate) {
+        ref.read(impostazioniProvider).traiettorieAbilitate &&
+        ref.read(statoPremiumProvider).attivo) {
       traiettoria = await Navigator.push<Traiettoria>(
         context,
         MaterialPageRoute(
@@ -1571,6 +1579,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   // Pannello laterale per i bottoni "di utilità" usati raramente (es.
   // cambio campo), per non affollare l'area sopra il campo grande.
+  // Gate premium (vedi docs/TODO_strada_A.md): true = utente free, apre il
+  // paywall e il chiamante NON deve procedere — stesso pattern di
+  // MatchesScreen._richiedePremium.
+  bool _richiedePremium() {
+    if (ref.read(statoPremiumProvider).attivo) return false;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaywallScreen()),
+    );
+    return true;
+  }
+
   Widget _buildUtilityDrawer() {
     return Drawer(
       backgroundColor: _kBg,
@@ -1670,8 +1690,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 'Traiettorie battute',
                 style: TextStyle(color: Colors.white),
               ),
+              trailing: const PremiumBadge(),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
+                if (_richiedePremium()) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1690,8 +1712,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 'Traiettorie attacco',
                 style: TextStyle(color: Colors.white),
               ),
+              trailing: const PremiumBadge(),
               onTap: () {
                 _scaffoldKey.currentState?.closeDrawer();
+                if (_richiedePremium()) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(

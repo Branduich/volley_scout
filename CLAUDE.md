@@ -147,6 +147,8 @@ lib/
 │                                   sheet — bottone "CSV" in MatchesScreen,
 │                                   vedi Export CSV in Fase 4)
 ├── providers/
+│   ├── premium_provider.dart     (StatoPremium + statoPremiumProvider — stub
+│   │                               del freemium gate, vedi sezione Premium)
 │   ├── database_provider.dart    (TeamRepository + MatchRepository,
 │   │                               tutti i provider: teamsStream, playersStream,
 │   │                               matchesStream; helper condivisi su righe
@@ -200,10 +202,16 @@ lib/
 │   │                                      set/giocatore e, per attacco, rotazione P1-P6 —
 │   │                                      dal drawer di ScoutScreen e dai bottoni di
 │   │                                      MatchReportScreen, vedi Fase 4)
+│   ├── premium/
+│   │   └── paywall_screen.dart           (paywall placeholder — vedi sezione Premium)
 │   └── settings/
-│       └── settings_screen.dart          (Impostazioni — bottone in fondo al menu di
-│                                          HomeScreen; per ora solo il toggle
-│                                          traiettorie, vedi sezione Impostazioni)
+│       ├── settings_screen.dart          (Impostazioni — toggle traiettorie, toggle
+│       │                                  debug "Simula utente free", voce
+│       │                                  Informazioni; vedi sezioni Impostazioni
+│       │                                  e Premium)
+│       └── about_screen.dart             (Informazioni: versione, link legali
+│                                          placeholder, supporto, ID supporto —
+│                                          vedi sezione Premium)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -1741,6 +1749,51 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
 - **Pensata per il gating premium futuro** (es. traiettorie solo premium):
   il resto del codice legge solo `impostazioniProvider`, il gating potrà
   limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.
+
+---
+
+## Premium — Strada A (in corso)
+
+Percorso di pubblicazione/monetizzazione: roadmap completa in
+**`docs/TODO_strada_A.md`** (nessun account, dati locali, abbonamento Play
+Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
+(sezione 2 della roadmap, "freemium gate"):
+
+- **`lib/providers/premium_provider.dart`**: `StatoPremium`
+  (`free/trial/premium`, estensione `attivo`) + `statoPremiumProvider` —
+  UNICO punto di verità del gate, mai logica sparsa nelle schermate. Oggi è
+  uno **STUB**: default `premium` (nessuna regressione finché non c'è il
+  billing); in debug il toggle "Simula utente free" in `SettingsScreen`
+  (chiave `premium.simulaFree`, ignorata in release) forza `free` per
+  provare gate e paywall. RevenueCat si aggancerà SOLO qui.
+- **Gate attivi**: (1) bottoni PDF e CSV in `MatchesScreen` — sempre
+  visibili (vetrina), ma `_richiedePremium()` apre `PaywallScreen` invece
+  dell'azione per un utente free; (2) **traiettorie**: durante il live, per
+  un utente free è come se il toggle traiettorie fosse spento
+  (`_registraVoto` controlla anche `statoPremiumProvider` — dopo il voto si
+  procede subito, MAI un paywall in mezzo alla presa dati); le voci
+  "Traiettorie battute/attacco" del drawer di `ScoutScreen`
+  (`_richiedePremium()`) e i bottoni traiettorie di `MatchReportScreen`
+  (`_apriTraiettorie`) aprono invece il paywall; il toggle in
+  `SettingsScreen` è disabilitato con nota "Funzione premium".
+- **`lib/widgets/premium_badge.dart`**: `PremiumBadge` — iconcina
+  `workspace_premium` ambra (stessa del paywall) da affiancare alle feature
+  gated, visibile SOLO per utente free (osserva `statoPremiumProvider`,
+  `SizedBox.shrink()` con premium attivo — niente `if` nei punti d'uso).
+  Piazzata su: bottoni CSV/PDF (`MatchesScreen`), bottoni traiettorie del
+  report, voci traiettorie del drawer live, toggle traiettorie in
+  `SettingsScreen` (`secondary`). MAI nel flusso di voto live (gate
+  silenzioso, per scelta).
+- **`lib/screens/premium/paywall_screen.dart`**: paywall placeholder
+  (vantaggi + "Abbonati" e "Ripristina acquisti" → SnackBar "Disponibile
+  prossimamente" — lì andranno acquisto/restore RevenueCat).
+- **`lib/screens/settings/about_screen.dart`**: "Informazioni" (voce in
+  fondo a `SettingsScreen`) — versione via `package_info_plus`, link
+  Privacy/Terms **placeholder** (costanti `_kUrl*` null finché non esistono
+  gli URL iubenda — requisito Play: policy raggiungibile in-app), email
+  supporto placeholder, "Gestisci abbonamento" (deep link sottoscrizioni
+  Play via `url_launcher`), riga "ID supporto" (arriverà da
+  `Purchases.appUserID`, bottone Copia già pronto).
 
 ---
 

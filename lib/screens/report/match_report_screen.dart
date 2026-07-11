@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/premium_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 import '../../widgets/court_view.dart';
 import '../../widgets/debug_paint_toggle.dart';
+import '../../widgets/premium_badge.dart';
+import '../premium/paywall_screen.dart';
 import 'trajectory_report_screen.dart';
 
 // Punteggio finale (eventi + correzione manuale) di un singolo set +
@@ -733,12 +736,24 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   children: [
                     OutlinedButton.icon(
                       icon: const Icon(Icons.arrow_forward),
-                      label: const Text('Traiettorie battute'),
+                      label: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Traiettorie battute'),
+                          PremiumBadge(),
+                        ],
+                      ),
                       onPressed: () => _apriTraiettorie(Fondamentale.battuta),
                     ),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.trending_up),
-                      label: const Text('Traiettorie attacco'),
+                      label: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Traiettorie attacco'),
+                          PremiumBadge(),
+                        ],
+                      ),
                       onPressed: () => _apriTraiettorie(Fondamentale.attacco),
                     ),
                   ],
@@ -1265,6 +1280,15 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   void _apriTraiettorie(Fondamentale fondamentale) {
     final team = _team;
     if (team == null) return;
+    // Gate premium: le traiettorie sono feature premium (vedi
+    // docs/TODO_strada_A.md) — per un utente free si apre il paywall.
+    if (!ref.read(statoPremiumProvider).attivo) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
