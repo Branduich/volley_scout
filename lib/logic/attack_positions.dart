@@ -80,8 +80,11 @@ const Map<String, Map<String, Offset>> kAttackDopoBattutaCentrali = {
     'S2': Offset(200, 300),
   },
   'P2': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
+    // P e O invertiti tra loro rispetto alla versione iniziale (bug: dopo
+    // battuta in P2 il palleggiatore va a rete a destra, l'opposto in
+    // seconda linea a sinistra — coerente con Dopo_Ricezione P2).
+    'P': Offset(530, 470),
+    'O': Offset(200, 470),
     'C1': Offset(530, 300),
     'S1': Offset(530, 130),
     'C2': Offset(200, 130),
@@ -244,8 +247,9 @@ const Map<String, Map<String, Offset>> kAttackDopoBattutaSchiacciatori = {
     'Libero': Offset(200, 300),
   },
   'P2': {
-    'P': Offset(200, 470),
-    'O': Offset(530, 470),
+    // P e O invertiti tra loro (stesso bug/fix della variante centrali).
+    'P': Offset(530, 470),
+    'O': Offset(200, 470),
     'C1': Offset(530, 300),
     'S1': Offset(530, 130),
     'C2': Offset(200, 130),
