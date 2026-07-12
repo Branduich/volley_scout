@@ -58,11 +58,13 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.sm),
             Card(
               child: SwitchListTile(
-                title: Text(l.settingsSimulateFree),
-                subtitle: Text(l.settingsSimulateFreeSubtitle),
-                value: !ref.watch(statoPremiumProvider).attivo,
-                onChanged: (v) =>
-                    ref.read(statoPremiumProvider.notifier).setSimulaFree(v),
+                title: Text(l.settingsSimulatePremium),
+                subtitle: Text(l.settingsSimulatePremiumSubtitle),
+                value:
+                    ref.watch(statoPremiumProvider.notifier).debugForzaPremium,
+                onChanged: (v) => ref
+                    .read(statoPremiumProvider.notifier)
+                    .setDebugForzaPremium(v),
               ),
             ),
           ],

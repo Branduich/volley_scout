@@ -81,17 +81,21 @@
 
 ## 4. Integrazione RevenueCat
 
-- [ ] Creare progetto su RevenueCat, collegare l'app Google Play
-      (service account credentials per l'API di Google).
-- [ ] Aggiungere il SDK Flutter: `purchases_flutter`.
-- [ ] Configurare in RevenueCat: Entitlement `premium` — Product (abbonamento)
-      — Offering di default.
-- [ ] Collegare lo stato RevenueCat a `statoPremiumProvider`
-      (in trial = premium attivo; scaduto = free).
-- [ ] Implementare "Ripristina acquisti".
-- [ ] Gestire gli stati scadenza / rinnovo / rimborso esposti da RC.
+- [x] Creare progetto su RevenueCat, entitlement `premium` + offering
+      `default` (fatto dall'utente). Service account Google: DA FARE (serve
+      per la validazione, non per far comparire la SDK key).
+- [x] Aggiungere il SDK Flutter: `purchases_flutter` (^8.0.0 → 8.11.0).
+- [x] Configurare in RevenueCat: Entitlement `premium` + Offering `default`
+      (l'app Google Play su RevenueCat va creata col package
+      `it.branduich.volleystratego` per far comparire la SDK key `goog_...`).
+- [x] Collegare lo stato RevenueCat a `statoPremiumProvider` (listener SDK;
+      trial/premium = attivo; scaduto/assente = free).
+- [x] Implementare "Ripristina acquisti" (PaywallScreen).
+- [ ] Gestire gli stati scadenza / rinnovo / rimborso: il listener già
+      aggiorna lo stato; eventuali UI dedicate DA VALUTARE.
 - [ ] Test degli acquisti con **license testers** (sezione 5): per loro gli
-      acquisti sono simulati, non addebitati.
+      acquisti sono simulati, non addebitati. RICHIEDE l'app su una traccia
+      Play + prodotto abbonamento attivo (sezione 3).
 
 ## 5. Closed testing su Play Console (feedback amici + requisito Google)
 

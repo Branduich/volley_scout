@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kDebugMode, TargetPlatform, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'config/revenuecat.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/lingua_provider.dart';
 import 'providers/settings_provider.dart';
@@ -21,6 +25,19 @@ Future<void> main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+  // RevenueCat: configura la SDK prima di runApp (solo Android per ora — la
+  // key è quella Android; iOS avrà la sua). try/catch: un fallimento non
+  // deve bloccare l'avvio — lo statoPremiumProvider resta free finché la SDK
+  // non risponde. Gli acquisti/offerte reali funzionano solo con l'app su
+  // una traccia Play + license testers (vedi docs/TODO_strada_A.md).
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
+      await Purchases.configure(PurchasesConfiguration(kRevenueCatAndroidKey));
+    } catch (e) {
+      debugPrint('RevenueCat: configure fallita: $e');
+    }
+  }
   runApp(ProviderScope(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
     child: const VolleyScoutApp(),

@@ -29,8 +29,11 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.volley_scout"
+        // Identità pubblica dell'app su Google Play — DEFINITIVA, non si può
+        // più cambiare dopo la pubblicazione (deve combaciare col package
+        // dell'app Google Play su RevenueCat). Il `namespace` interno sopra
+        // resta com'è (non visibile allo store).
+        applicationId = "it.branduich.volleystratego"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

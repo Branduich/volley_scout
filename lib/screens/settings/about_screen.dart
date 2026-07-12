@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/app_spacing.dart';
@@ -29,9 +30,11 @@ class AboutScreen extends StatefulWidget {
 class _AboutScreenState extends State<AboutScreen> {
   String _versione = '';
 
-  // ID supporto: arriverà da `Purchases.appUserID` (RevenueCat). Finché è
-  // null la riga mostra "non disponibile" e il bottone Copia è spento.
-  final String? _idSupporto = null;
+  // ID supporto = app user ID di RevenueCat (serve per assistenza e per i
+  // granted entitlements agli amici, vedi docs/TODO_strada_A.md sez. 6).
+  // Null finché non arriva (o se la SDK non è configurata): la riga mostra
+  // "non disponibile" e il bottone Copia è spento.
+  String? _idSupporto;
 
   @override
   void initState() {
@@ -39,6 +42,12 @@ class _AboutScreenState extends State<AboutScreen> {
     PackageInfo.fromPlatform().then((info) {
       if (!mounted) return;
       setState(() => _versione = '${info.version} (${info.buildNumber})');
+    });
+    Purchases.appUserID.then((id) {
+      if (!mounted) return;
+      setState(() => _idSupporto = id);
+    }).catchError((_) {
+      // SDK non configurata (es. piattaforma non supportata): resta null.
     });
   }
 
@@ -132,7 +141,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   onPressed: _idSupporto == null
                       ? null
                       : () {
-                          Clipboard.setData(ClipboardData(text: _idSupporto));
+                          Clipboard.setData(ClipboardData(text: _idSupporto!));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('ID copiato')),
                           );

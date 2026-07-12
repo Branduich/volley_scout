@@ -1,18 +1,20 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../config/revenuecat.dart';
 import 'settings_provider.dart';
 
 /// Stato premium dell'utente — UNICO punto di verità per il freemium gate
 /// (Strada A, vedi docs/TODO_strada_A.md): ogni feature premium controlla
 /// questo provider, mai logica sparsa nelle schermate.
 ///
-/// STUB in attesa di RevenueCat: il default è `premium` (l'app resta
-/// completa per utente e tester — nessuna regressione finché non esiste il
-/// billing vero); in debug il toggle "Simula utente free" delle
-/// Impostazioni forza `free` per provare gate e paywall. Quando arriverà
-/// RevenueCat, `build()` leggerà l'entitlement reale e il resto dell'app
-/// non cambierà.
+/// Lo stato reale viene da RevenueCat (entitlement `premium`): `free` finché
+/// non c'è un abbonamento attivo, `trial` durante la prova, `premium` da
+/// abbonati. Aggiornato in tempo reale dal listener della SDK (acquisto,
+/// rinnovo, scadenza, restore). In **debug** il toggle "Simula premium" in
+/// `SettingsScreen` forza `premium` per sviluppare le feature senza un
+/// acquisto reale (in release la chiave è ignorata).
 enum StatoPremium { free, trial, premium }
 
 extension StatoPremiumX on StatoPremium {
@@ -20,26 +22,65 @@ extension StatoPremiumX on StatoPremium {
   bool get attivo => this != StatoPremium.free;
 }
 
+StatoPremium _daCustomerInfo(CustomerInfo info) {
+  final ent = info.entitlements.active[kEntitlementPremium];
+  if (ent == null) return StatoPremium.free;
+  return ent.periodType == PeriodType.trial
+      ? StatoPremium.trial
+      : StatoPremium.premium;
+}
+
 class StatoPremiumNotifier extends Notifier<StatoPremium> {
-  static const _kSimulaFree = 'premium.simulaFree';
+  static const _kDebugForzaPremium = 'premium.debugForzaPremium';
+
+  // invalidateSelf() (dal toggle debug) crea una NUOVA istanza: il flag,
+  // settato via onDispose della vecchia, evita che una getCustomerInfo()
+  // ancora in volo scriva lo stato su un notifier già dismesso.
+  bool _disposed = false;
 
   @override
   StatoPremium build() {
-    final prefs = ref.watch(sharedPreferencesProvider);
-    // La simulazione vale SOLO in debug: una release con la chiave rimasta
-    // a true non deve mai declassare un utente reale.
-    if (kDebugMode && (prefs.getBool(_kSimulaFree) ?? false)) {
-      return StatoPremium.free;
+    ref.onDispose(() => _disposed = true);
+
+    // Debug: forza il premium (in release la chiave viene ignorata).
+    if (kDebugMode &&
+        (ref.watch(sharedPreferencesProvider).getBool(_kDebugForzaPremium) ??
+            false)) {
+      return StatoPremium.premium;
     }
-    return StatoPremium.premium;
+
+    // Ascolta gli aggiornamenti di RevenueCat: aggiornano lo stato appena
+    // cambia l'entitlement (acquisto/rinnovo/scadenza/restore).
+    void listener(CustomerInfo info) {
+      if (!_disposed) state = _daCustomerInfo(info);
+    }
+
+    try {
+      Purchases.addCustomerInfoUpdateListener(listener);
+      ref.onDispose(() => Purchases.removeCustomerInfoUpdateListener(listener));
+    } catch (_) {
+      // Purchases non configurato (piattaforma non supportata): resta free.
+    }
+
+    _caricaIniziale();
+    return StatoPremium.free; // finché non arriva l'info reale (cache RC)
   }
 
-  /// Vero se la simulazione "utente free" è attiva (solo debug).
-  bool get simulaFree =>
-      ref.read(sharedPreferencesProvider).getBool(_kSimulaFree) ?? false;
+  Future<void> _caricaIniziale() async {
+    try {
+      final info = await Purchases.getCustomerInfo();
+      if (!_disposed) state = _daCustomerInfo(info);
+    } catch (_) {
+      // Offline al primo avvio o SDK non pronta: resta free.
+    }
+  }
 
-  Future<void> setSimulaFree(bool value) async {
-    await ref.read(sharedPreferencesProvider).setBool(_kSimulaFree, value);
+  /// Vero se il toggle debug "Simula premium" è attivo (solo debug).
+  bool get debugForzaPremium =>
+      ref.read(sharedPreferencesProvider).getBool(_kDebugForzaPremium) ?? false;
+
+  Future<void> setDebugForzaPremium(bool value) async {
+    await ref.read(sharedPreferencesProvider).setBool(_kDebugForzaPremium, value);
     ref.invalidateSelf();
   }
 }

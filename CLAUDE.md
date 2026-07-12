@@ -1796,11 +1796,18 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
 
 - **`lib/providers/premium_provider.dart`**: `StatoPremium`
   (`free/trial/premium`, estensione `attivo`) + `statoPremiumProvider` —
-  UNICO punto di verità del gate, mai logica sparsa nelle schermate. Oggi è
-  uno **STUB**: default `premium` (nessuna regressione finché non c'è il
-  billing); in debug il toggle "Simula utente free" in `SettingsScreen`
-  (chiave `premium.simulaFree`, ignorata in release) forza `free` per
-  provare gate e paywall. RevenueCat si aggancerà SOLO qui.
+  UNICO punto di verità del gate, mai logica sparsa nelle schermate.
+  **Collegato a RevenueCat** (sezione 4 della roadmap FATTA): lo stato viene
+  dall'entitlement `premium` (`_daCustomerInfo`: `free` senza abbonamento,
+  `trial` in prova, `premium` da abbonati), aggiornato in tempo reale dal
+  listener `addCustomerInfoUpdateListener`. Config in
+  `lib/config/revenuecat.dart` (SDK key Android pubblica via
+  `String.fromEnvironment` con fallback, entitlement/offering id);
+  `Purchases.configure` in `main()` (solo Android, in try/catch — un
+  fallimento non blocca l'avvio, resta `free`). **Nuovo default reale =
+  `free`** (prima lo stub era `premium`): in debug il toggle "Simula
+  premium" in `SettingsScreen` (chiave `premium.debugForzaPremium`, ignorata
+  in release) forza `premium` per sviluppare le feature senza acquisto.
 - **Gate attivi**: (1) bottoni PDF e CSV in `MatchesScreen` — sempre
   visibili (vetrina), ma `_richiedePremium()` apre `PaywallScreen` invece
   dell'azione per un utente free; (2) **traiettorie**: durante il live, per
@@ -1835,16 +1842,25 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   report, voci traiettorie del drawer live, toggle traiettorie in
   `SettingsScreen` (`secondary`). MAI nel flusso di voto live (gate
   silenzioso, per scelta).
-- **`lib/screens/premium/paywall_screen.dart`**: paywall placeholder
-  (vantaggi + "Abbonati" e "Ripristina acquisti" → SnackBar "Disponibile
-  prossimamente" — lì andranno acquisto/restore RevenueCat).
+- **`lib/screens/premium/paywall_screen.dart`**: paywall REALE — carica
+  `offerings.current` (fallback `all['default']`), mostra un bottone per
+  pacchetto con `storeProduct.priceString`, "Abbonati" →
+  `purchasePackage` (chiude se l'entitlement diventa attivo; cancel
+  ignorato via `PurchasesErrorHelper`), "Ripristina acquisti" →
+  `restorePurchases`. Offerte vuote (build non su Play) → messaggio
+  "Offerte non disponibili", il resto della pagina resta.
 - **`lib/screens/settings/about_screen.dart`**: "Informazioni" (voce in
   fondo a `SettingsScreen`) — versione via `package_info_plus`, link
   Privacy/Terms **placeholder** (costanti `_kUrl*` null finché non esistono
   gli URL iubenda — requisito Play: policy raggiungibile in-app), email
   supporto placeholder, "Gestisci abbonamento" (deep link sottoscrizioni
-  Play via `url_launcher`), riga "ID supporto" (arriverà da
-  `Purchases.appUserID`, bottone Copia già pronto).
+  Play via `url_launcher`), riga "ID supporto" = `Purchases.appUserID`
+  (bottone Copia).
+- **Package name Android**: `it.branduich.volleystratego` (identità
+  definitiva su Play — `applicationId` in `android/app/build.gradle.kts`; il
+  `namespace` interno resta `com.example.volley_scout`, non visibile allo
+  store). Deve combaciare con l'app Google Play su RevenueCat e su Play
+  Console.
 
 ---
 

@@ -12,8 +12,8 @@
   "settingsTrajectoriesSubtitle": "After rating a serve or attack you'll be asked to draw its trajectory. Turning this off makes scouting faster, but the trajectory reports stay empty.",
   "settingsTrajectoriesSubtitlePremium": "Premium feature: trajectories are disabled.",
   "settingsSectionDev": "Development",
-  "settingsSimulateFree": "Simulate free user",
-  "settingsSimulateFreeSubtitle": "Disable premium to test the gates and paywall (debug builds only).",
+  "settingsSimulatePremium": "Simulate premium",
+  "settingsSimulatePremiumSubtitle": "Force premium to try the features without a real purchase (debug builds only).",
   "settingsAbout": "About",
   "settingsAboutSubtitle": "Version, privacy policy, support and subscription",
 

@@ -12,8 +12,8 @@
   "settingsTrajectoriesSubtitle": "Dopo il voto di battuta e attacco chiede di disegnare la traiettoria. Disattivandola lo scout è più veloce, ma i report delle traiettorie restano vuoti.",
   "settingsTrajectoriesSubtitlePremium": "Funzione premium: le traiettorie sono disattivate.",
   "settingsSectionDev": "Sviluppo",
-  "settingsSimulateFree": "Simula utente free",
-  "settingsSimulateFreeSubtitle": "Disattiva il premium per provare i gate e il paywall (solo build di debug).",
+  "settingsSimulatePremium": "Simula premium",
+  "settingsSimulatePremiumSubtitle": "Forza il premium per provare le funzioni senza un acquisto reale (solo build di debug).",
   "settingsAbout": "Informazioni",
   "settingsAboutSubtitle": "Versione, privacy policy, supporto e abbonamento",
 
