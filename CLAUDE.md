@@ -1805,9 +1805,13 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   `String.fromEnvironment` con fallback, entitlement/offering id);
   `Purchases.configure` in `main()` (solo Android, in try/catch — un
   fallimento non blocca l'avvio, resta `free`). **Nuovo default reale =
-  `free`** (prima lo stub era `premium`): in debug il toggle "Simula
-  premium" in `SettingsScreen` (chiave `premium.debugForzaPremium`, ignorata
-  in release) forza `premium` per sviluppare le feature senza acquisto.
+  `free`** (prima lo stub era `premium`): il toggle "Simula premium" in
+  `SettingsScreen` (chiave `premium.debugForzaPremium`) forza `premium` per
+  sviluppare/provare le feature senza acquisto — disponibile in debug
+  sempre, in **release** solo con la build compilata
+  `--dart-define=PREMIUM_OVERRIDE=true` (APK "per tester"; vedi
+  `kPremiumOverrideConsentito`/`overridePremiumDisponibile`). La build di
+  produzione (senza flag) non lo mostra e ignora la chiave.
 - **Gate attivi**: (1) bottoni PDF e CSV in `MatchesScreen` — sempre
   visibili (vetrina), ma `_richiedePremium()` apre `PaywallScreen` invece
   dell'azione per un utente free; (2) **traiettorie**: durante il live, per

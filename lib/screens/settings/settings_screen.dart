@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,10 +47,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           _buildLinguaCard(context, ref, l),
-          // Solo in debug: simula un utente free per provare gate e paywall
-          // (vedi premium_provider.dart — in release il toggle non esiste e
-          // la chiave viene ignorata).
-          if (kDebugMode) ...[
+          // Toggle "Simula premium": in debug sempre, in release solo con
+          // --dart-define=PREMIUM_OVERRIDE=true (APK "per tester"). Nella
+          // build di produzione non compare e la chiave viene ignorata
+          // (vedi premium_provider.dart).
+          if (overridePremiumDisponibile) ...[
             const SizedBox(height: AppSpacing.lg),
             Text(l.settingsSectionDev,
                 style: Theme.of(context).textTheme.titleLarge),

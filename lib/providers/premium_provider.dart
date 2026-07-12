@@ -22,6 +22,16 @@ extension StatoPremiumX on StatoPremium {
   bool get attivo => this != StatoPremium.free;
 }
 
+/// Consente il toggle debug "Simula premium" anche in release, SOLO se la
+/// build è compilata con `--dart-define=PREMIUM_OVERRIDE=true` (APK "per
+/// tester", per provare le feature premium prima che il billing Play sia
+/// pronto). La build di produzione (senza flag) resta gated.
+const bool kPremiumOverrideConsentito = bool.fromEnvironment('PREMIUM_OVERRIDE');
+
+/// Vero quando il toggle "Simula premium" deve essere disponibile: sempre in
+/// debug, in release solo con il flag sopra.
+bool get overridePremiumDisponibile => kDebugMode || kPremiumOverrideConsentito;
+
 StatoPremium _daCustomerInfo(CustomerInfo info) {
   final ent = info.entitlements.active[kEntitlementPremium];
   if (ent == null) return StatoPremium.free;
@@ -42,8 +52,9 @@ class StatoPremiumNotifier extends Notifier<StatoPremium> {
   StatoPremium build() {
     ref.onDispose(() => _disposed = true);
 
-    // Debug: forza il premium (in release la chiave viene ignorata).
-    if (kDebugMode &&
+    // Toggle "Simula premium": forza il premium in debug (o in release con
+    // il flag PREMIUM_OVERRIDE). In produzione la chiave viene ignorata.
+    if (overridePremiumDisponibile &&
         (ref.watch(sharedPreferencesProvider).getBool(_kDebugForzaPremium) ??
             false)) {
       return StatoPremium.premium;
