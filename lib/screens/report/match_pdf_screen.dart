@@ -121,6 +121,38 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
   // formato pagina): carica dati e font ogni volta — costo trascurabile per
   // una partita, e niente stato da tenere sincronizzato.
   Future<Uint8List> _buildPdf(PdfPageFormat format) async {
+    // Fallback: se la generazione lancia un'eccezione, invece di lasciare
+    // l'anteprima vuota/bloccata si rende un PDF con messaggio + stack, così
+    // l'errore è visibile e diagnosticabile (successo un fallimento
+    // transitorio non riprodotto, meglio non restare al buio se ricapita).
+    try {
+      return await _buildPdfInterno(format);
+    } catch (e, st) {
+      return _buildPdfErrore(format, e, st);
+    }
+  }
+
+  Future<Uint8List> _buildPdfErrore(
+      PdfPageFormat format, Object errore, StackTrace st) async {
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        build: (context) => [
+          pw.Text('ERRORE generazione PDF',
+              style:
+                  pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 8),
+          pw.Text('$errore', style: const pw.TextStyle(fontSize: 10)),
+          pw.SizedBox(height: 12),
+          pw.Text('$st', style: const pw.TextStyle(fontSize: 7)),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<Uint8List> _buildPdfInterno(PdfPageFormat format) async {
     final match = widget.match;
     final setRepo = ref.read(matchSetRepositoryProvider);
     final azioniRepo = ref.read(scoutActionRepositoryProvider);
