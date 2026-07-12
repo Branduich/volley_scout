@@ -87,17 +87,18 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Row(
         children: [
-          // Area principale vuota (per ora)
+          // Area principale: immagine brand a tutto riquadro finché non si
+          // decide quali dati mostrare qui. BoxFit.cover riempie l'area (2/3
+          // della larghezza landscape × altezza piena) ritagliando i bordi:
+          // il logo resta centrato sia su tablet (quasi quadrato) sia su
+          // telefono (largo).
           Expanded(
             flex: 2,
-            child: Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: Center(
-                child: Text(
-                  l.homeMainArea,
-                  style: const TextStyle(fontSize: 18, color: Colors.black54),
-                ),
-              ),
+            child: Image.asset(
+              'assets/images/main_image.png',
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
             ),
           ),
           // Colonna dei tre bottoni
