@@ -7,10 +7,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_spacing.dart';
 
 // Requisito Google Play: il link alla privacy policy deve essere
-// raggiungibile ANCHE dentro l'app. PLACEHOLDER finché gli URL iubenda e
-// l'email di supporto non esistono (vedi docs/TODO_strada_A.md, sezioni 2
-// e 7) — quando ci sono, basta valorizzarli qui e le voci si abilitano.
-const String? _kUrlPrivacyPolicy = null;
+// raggiungibile ANCHE dentro l'app. Termini di utilizzo ed email di supporto
+// ancora PLACEHOLDER (vedi docs/TODO_strada_A.md, sezioni 2 e 7) — quando ci
+// sono, basta valorizzarli qui e le voci si abilitano.
+const String _kUrlPrivacyPolicy =
+    'https://sites.google.com/view/volleystratego/privacy-policy';
 const String? _kUrlTermsOfUse = null;
 const String? _kEmailSupporto = null;
 const String _kUrlAbbonamenti =
