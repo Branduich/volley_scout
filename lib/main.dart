@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config/revenuecat.dart';
+import 'data/default_team_seeder.dart';
 import 'l10n/app_localizations.dart';
+import 'providers/database_provider.dart';
 import 'providers/lingua_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/matches/matches_screen.dart';
@@ -38,8 +40,16 @@ Future<void> main() async {
       debugPrint('RevenueCat: configure fallita: $e');
     }
   }
-  runApp(ProviderScope(
+  // Container condiviso: lo stesso AppDatabase serve sia al seeding della
+  // squadra di default (prima di runApp) sia all'app. Uso
+  // UncontrolledProviderScope per non crearne un secondo.
+  final container = ProviderContainer(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
+  await seedDefaultTeamSeNecessario(container.read(appDatabaseProvider), prefs);
+
+  runApp(UncontrolledProviderScope(
+    container: container,
     child: const VolleyScoutApp(),
   ));
 }
