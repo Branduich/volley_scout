@@ -1762,22 +1762,27 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               inactiveThumbColor: Colors.white70,
               inactiveTrackColor: Colors.white24,
             ),
-            SwitchListTile(
-              value: _testModeEnabled,
-              onChanged: _toggleTestMode,
-              title: const Text(
-                'Modalità test',
-                style: TextStyle(color: Colors.white),
+            // Strumento di sviluppo per visualizzare a video tutte le
+            // combinazioni rotazione × fase: in debug sempre, in release solo
+            // negli APK "per tester" (--dart-define=PREMIUM_OVERRIDE=true),
+            // come il toggle "Simula premium". Nascosto in produzione.
+            if (overridePremiumDisponibile)
+              SwitchListTile(
+                value: _testModeEnabled,
+                onChanged: _toggleTestMode,
+                title: const Text(
+                  'Modalità test',
+                  style: TextStyle(color: Colors.white),
+                ),
+                subtitle: const Text(
+                  'Bottone visualizzazione rotazioni',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                activeThumbColor: Colors.white,
+                activeTrackColor: const Color(0xFF00008A),
+                inactiveThumbColor: Colors.white70,
+                inactiveTrackColor: Colors.white24,
               ),
-              subtitle: const Text(
-                'Bottone visualizzazione rotazioni',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF00008A),
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white24,
-            ),
             SwitchListTile(
               value: _showActionLog,
               onChanged: (v) => setState(() => _showActionLog = v),
