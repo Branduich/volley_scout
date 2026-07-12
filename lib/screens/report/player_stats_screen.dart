@@ -292,7 +292,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
             ],
           ),
         TableRow(
-          decoration: BoxDecoration(color: const Color.fromARGB(255, 213, 242, 255)),
+          decoration: const BoxDecoration(color: AppColors.surfaceDim),
           children: [
             _headerCell('Totale', allineaSinistra: true),
             for (final v in voti)
@@ -310,18 +310,21 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
   // di cui i murati sono un sottoinsieme).
   Widget _muratiCell(int count, int totale) {
     final pct = totale == 0 ? 0 : (count * 100 / totale).round();
+    // Stesso neutro scurito del 15% dei voti neutri (mezzoPunto/negativo),
+    // per coerenza dei grigi nella tabella.
+    final coloreMurati = AppColors.darken(AppColors.neutral, 0.15);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('$count',
-              style: const TextStyle(
-                  color: AppColors.neutral,
+              style: TextStyle(
+                  color: coloreMurati,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16)),
+                  fontSize: 18)),
           Text('$pct%',
-              style: const TextStyle(color: AppColors.neutral, fontSize: 14)),
+              style: TextStyle(color: coloreMurati, fontSize: 16)),
         ],
       ),
     );
@@ -363,28 +366,34 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
         ),
       );
 
+  // Colori dei voti scuriti del 15% (HSL) SOLO in questa tabella — più
+  // leggibili sulle righe chiare — senza toccare CourtStyle.votoColor, che
+  // resta condiviso con scout/report/PDF.
+  Color _coloreVoto(Voto voto) =>
+      AppColors.darken(CourtStyle.votoColor(voto), 0.15);
+
   Widget _votoCell(int count, int totale, Voto voto) {
     final pct = totale == 0 ? 0 : (count * 100 / totale).round();
-    final color = CourtStyle.votoColor(voto);
+    final color = _coloreVoto(voto);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('$count',
               style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 16)),
-          Text('$pct%', style: TextStyle(color: color, fontSize: 14)),
+                  color: color, fontWeight: FontWeight.bold, fontSize: 18)),
+          Text('$pct%', style: TextStyle(color: color, fontSize: 16)),
         ],
       ),
     );
   }
 
   Widget _totaleCell(int totale) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Center(
           child: Text('$totale',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         ),
       );
 }

@@ -641,10 +641,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                       ],
                       // Riga Totale: punti fatti-subiti su tutta la partita,
                       // pallino sull'esito della PARTITA (set vinti, non
-                      // punti) e durata totale. Sfondo azzurro come la riga
+                      // punti) e durata totale. Sfondo grigio come la riga
                       // "Totale" di PlayerStatsScreen.
                       ListTile(
-                        tileColor: const Color.fromARGB(255, 213, 242, 255),
+                        tileColor: AppColors.surfaceDim,
                         title: const Text(
                           'Totale',
                           style: TextStyle(fontWeight: FontWeight.bold),
@@ -1415,7 +1415,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   ),
                   for (final v in voti)
                     _votoCell(righe[i].conteggi[v] ?? 0, righe[i].totale, v),
-                  _totaleCell(righe[i].totale),
+                  _totaleCell(righe[i].totale, fontSize: 18, paddingV: 4),
                 ],
               ),
           ],
@@ -1527,11 +1527,17 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     ),
   );
 
+  // Colori dei voti scuriti del 15% (HSL) SOLO nel riepilogo fondamentali —
+  // più leggibili sulle righe chiare — senza toccare CourtStyle.votoColor,
+  // condiviso con scout/PDF (stessa scelta di PlayerStatsScreen).
+  Color _coloreVoto(Voto voto) =>
+      AppColors.darken(CourtStyle.votoColor(voto), 0.15);
+
   Widget _votoCell(int count, int totale, Voto voto) {
     final pct = totale == 0 ? 0 : (count * 100 / totale).round();
-    final color = CourtStyle.votoColor(voto);
+    final color = _coloreVoto(voto);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1540,21 +1546,24 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: 18,
             ),
           ),
-          Text('$pct%', style: TextStyle(color: color, fontSize: 14)),
+          Text('$pct%', style: TextStyle(color: color, fontSize: 16)),
         ],
       ),
     );
   }
 
-  Widget _totaleCell(int totale) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+  // fontSize/paddingV opzionali: il riepilogo fondamentali passa 18/4 (come
+  // le celle voto), la tabella generici resta ai default 16/6.
+  Widget _totaleCell(int totale, {double fontSize = 16, double paddingV = 6}) =>
+      Padding(
+    padding: EdgeInsets.symmetric(vertical: paddingV),
     child: Center(
       child: Text(
         '$totale',
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSize),
       ),
     ),
   );

@@ -212,7 +212,13 @@ class CourtView extends StatelessWidget {
 
   Widget _slotPlayer(Player player, bool dimmed) {
     final color = dimmed ? Colors.black38 : Colors.black87;
-    final subColor = dimmed ? Colors.black26 : Colors.black54;
+    // Nome e ruolo scuriti di 0.15: il colore è nero con opacità (54%/26%)
+    // sul bianco della card, quindi +0.15 di opacità = −0.15 di luminosità
+    // effettiva (black54→α176, black26→α104). CourtView è condiviso (report
+    // formazioni, setup formazione, sostituzione): cambia ovunque, come
+    // richiesto.
+    final subColor =
+        dimmed ? Colors.black.withAlpha(104) : Colors.black.withAlpha(176);
     const nameStyle = TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
@@ -249,8 +255,11 @@ class CourtView extends StatelessWidget {
             right: 0,
             child: Text(
               player.ruolo.label,
+              // Ruolo ingrandito di un paio di punti rispetto al nome (13→15).
               style: nameStyle.copyWith(
-                  color: subColor, fontWeight: FontWeight.normal),
+                  color: subColor,
+                  fontWeight: FontWeight.normal,
+                  fontSize: 15),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
