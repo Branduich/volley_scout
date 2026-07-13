@@ -578,9 +578,9 @@ fondamentale+voto (`ScoutScreen._esitoVoto()`, IMPLEMENTATO): qualunque
 fondamentale con voto `=` → `puntoAvversario`; solo battuta/attacco/muro con
 voto `#` → `puntoNostro` (ace, schiacciata vincente, muro punto — ricezione/
 alzata/difesa non vincono mai punti da sole, preparano solo la giocata
-successiva). **Non ancora modificabile** prima di confermare l'azione (idea
-annotata nel modello originale, non implementata — nessun bottone "cambia
-esito" in UI).
+successiva). L'esito **non è modificabile** prima di confermare l'azione:
+idea annotata nel modello originale ma **scartata** (2026-07-13, non verrà
+implementata) — l'automatismo fondamentale+voto è sufficiente.
 
 **Enum Fondamentale**: battuta, ricezione, alzata, attacco, muro, difesa, errore.
 Tutti tranne `errore` (mai assegnato da `ScoutScreen`, riservato a un possibile
@@ -1958,9 +1958,9 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   - [x] Traiettoria battuta/attacco: `TrajectoryScreen` dedicata, drag per
         disegnare la freccia, back per saltare — vedi "Interfaccia di
         scout" per i dettagli.
-  - [ ] **PROSSIMO**: rendere modificabile l'esito automatico prima di
-        confermare l'azione (idea annotata nel Modello dati, non ancora in
-        UI).
+  - [~] Esito modificabile prima di confermare l'azione (idea annotata nel
+        Modello dati) — **SCARTATA** (2026-07-13): non verrà implementata,
+        l'esito automatico fondamentale+voto basta. Non riproporla.
   - [x] Override manuale punteggio: bottoni "+"/"-" (`Icons.add`/
         `Icons.remove`, 22×22) accanto a ciascun numero in barra superiore,
         dentro `_buildScoreDisplay` (ora prende anche `Squadra` per sapere
@@ -1980,16 +1980,29 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
         Bottoni disabilitati con le stesse condizioni dei bottoni rapidi
         (`_bottoniRapidiAttivi`); "-" disabilitato anche a punteggio già a
         0 (un punteggio reale non scende mai sotto zero).
-  - [ ] Correzione manuale rotazione (per errori di scout/segnapunti — vale
-        la situazione reale in campo): decisione già presa, non ancora
-        implementata. **Va loggata** come evento di "cambio di
-        configurazione" (al contrario del punteggio) — qui l'event-sourcing
-        resta valido (undo, riprendi partita coerenti). Richiede estendere
-        `ricalcolaStato()`/`AzioneScout` con un evento dedicato che sposta
-        esplicitamente la rotazione in quel punto della sequenza (oggi
-        cambia solo come effetto derivato di un sideout su `esitoPunto`).
-        Dettagli di schema (nuovo `TipoAzione`? campo dedicato?) da
-        decidere.
+  - [x] **Correzione manuale rotazione** (per errori di scout/segnapunti) —
+        IMPLEMENTATA come evento loggato `TipoAzione.correzioneRotazione`
+        (nessuna migrazione: il verso `DirezioneRotazione{avanti,indietro}`
+        va nel `.name` dentro la colonna polimorfica `tipoEsecuzione`).
+        `AzioneScout.correzioneRotazione` + helper `_ruotataIndietro`
+        (inversa di `_ruotata`) in `ricalcola_stato.dart`: ruota SOLO le
+        posizioni, non punteggio/servizio (`esitoPunto = nessuno`).
+        `ScoutActionRepository.registraCorrezioneRotazione(setId, direzione)`
+        (rallyId standalone, escluso dall'ereditarietà come il timeout).
+        UI: due bottoni sotto la mini-mappa (`_buildRotationCorrectionButton`,
+        stile/dimensione di `_buildRotationButton`) visibili in gioco reale
+        (`_bottoniRapidiAttivi`), label = rotazione di ARRIVO calcolata live
+        (`_slotDestinazioneCorrezione`: avanti = slot−1 P1→P6 a sinistra,
+        indietro = slot+1 P1→P2 a destra); applicazione immediata, undo
+        standard (è una riga come le altre). Banner/log: "Rotazione
+        P{iniziale} → P{finale}" corretta al momento di OGNI correzione —
+        `_computeLabelsCorrezione()` calcola gli slot prima/dopo riusando
+        `ricalcolaStato()` sui prefissi (non `_currentSlot`, che sarebbe
+        uguale per tutte le voci storiche). Le freccette rotazione
+        pre-esistenti restano solo per la modalità test. CSV: riga
+        "Correzione rotazione" con verso "Avanti"/"Indietro". Test in
+        `ricalcola_stato_test.dart` (avanti, indietro, avanti+indietro =
+        identità, no-touch punteggio/servizio, mista con un sideout).
   - [x] **Sostituzione giocatore a set in corso ("cambio giocatore")** —
         IMPLEMENTATA (evento `TipoAzione.cambioGiocatore`, schema v11+v12).
         Vincolo chiave confermato dallo sviluppatore: il cambio NON altera
