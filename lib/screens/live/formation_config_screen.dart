@@ -266,62 +266,78 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            // Due campi affiancati a dimensioni fisse (460×460 come
-            // LineupScreen), centrati. FittedBox(scaleDown): su schermi
-            // stretti (smartphone) il blocco si rimpicciolisce in
-            // proporzione invece di scrollare in orizzontale (sostituisce
-            // il vecchio pattern SingleChildScrollView + ConstrainedBox);
-            // su tablet scala = 1, identico a prima.
-            Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LabeledCourt(
-                      title: 'Palleggiatore',
-                      subtitle: 'Conferma il palleggiatore',
-                      subtitleColor: Colors.white54,
-                      child: CourtView(
-                        assignments: widget.assignments,
-                        selectedSlots: _palleggiatoreSlot != null
-                            ? {_palleggiatoreSlot!}
-                            : {},
-                        selectionColor: Colors.red,
-                        onSlotTap: _onPalleggiatoreSlotTap,
-                      ),
-                    ),
-                    if (_hasLibero) ...[
-                      const SizedBox(width: 24),
-                      LabeledCourt(
-                        title: 'Cambi del libero',
-                        subtitle:
-                            'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
-                        subtitleColor: _centraliSlots.length == 2
-                            ? Colors.lightBlue
-                            : Colors.white54,
-                        child: CourtView(
-                          assignments: widget.assignments,
-                          selectedSlots: _centraliSlots,
-                          selectionColor: Colors.red,
-                          disabledSlots: {
-                            ?_palleggiatoreSlot,
-                            for (final e in widget.assignments.entries)
-                              if (e.value.ruolo != Ruolo.centrale &&
-                                  e.value.ruolo != Ruolo.schiacciatore &&
-                                  e.value.ruolo != Ruolo.undefined)
-                                e.key,
-                          },
-                          onSlotTap: _onCentraleSlotTap,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+            _buildCampi(),
           ],
+        ),
+      ),
+    );
+  }
+
+  // I due campi (palleggiatore + cambi libero) sempre AFFIANCATI, ma alla
+  // stessa "taglia" del campo della schermata di formazione (LineupScreen):
+  // lì un campo occupa ~1/3 della larghezza schermo, quindi qui punto a
+  // ~33% per campo invece di riempire la larghezza (che li rendeva troppo
+  // grandi). Su tablet la scala è ~1 (campi a piena dimensione). Un solo
+  // campo (senza libero) usa la stessa taglia.
+  Widget _buildCampi() {
+    final campoPalleggiatore = LabeledCourt(
+      title: 'Palleggiatore',
+      subtitle: 'Conferma il palleggiatore',
+      subtitleColor: Colors.white54,
+      child: CourtView(
+        assignments: widget.assignments,
+        selectedSlots:
+            _palleggiatoreSlot != null ? {_palleggiatoreSlot!} : {},
+        selectionColor: Colors.red,
+        onSlotTap: _onPalleggiatoreSlotTap,
+      ),
+    );
+    final campoLibero = !_hasLibero
+        ? null
+        : LabeledCourt(
+            title: 'Cambi del libero',
+            subtitle:
+                'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
+            subtitleColor:
+                _centraliSlots.length == 2 ? Colors.lightBlue : Colors.white54,
+            child: CourtView(
+              assignments: widget.assignments,
+              selectedSlots: _centraliSlots,
+              selectionColor: Colors.red,
+              disabledSlots: {
+                ?_palleggiatoreSlot,
+                for (final e in widget.assignments.entries)
+                  if (e.value.ruolo != Ruolo.centrale &&
+                      e.value.ruolo != Ruolo.schiacciatore &&
+                      e.value.ruolo != Ruolo.undefined)
+                    e.key,
+              },
+              onSlotTap: _onCentraleSlotTap,
+            ),
+          );
+
+    // Taglia target di un campo = ~33% della larghezza schermo (come in
+    // LineupScreen), mai oltre il nativo 460. Il FittedBox scala l'intera
+    // riga (nativa: 460, o 460+24+460=944 con due campi) a questa larghezza.
+    final w = MediaQuery.of(context).size.width;
+    final scala = ((w * 0.33) / 460).clamp(0.0, 1.0);
+    final larghezzaNativa = campoLibero != null ? 944.0 : 460.0;
+    return Center(
+      child: SizedBox(
+        width: larghezzaNativa * scala,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              campoPalleggiatore,
+              if (campoLibero != null) ...[
+                const SizedBox(width: 24),
+                campoLibero,
+              ],
+            ],
+          ),
         ),
       ),
     );

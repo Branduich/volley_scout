@@ -106,6 +106,12 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
   @override
   Widget build(BuildContext context) {
     final playersAsync = ref.watch(playersStreamProvider(widget.team.id));
+    // Su smartphone landscape (altezza bassa) il campo occupa troppo e
+    // schiaccia la lista giocatori (nomi a capo su 3 righe): riduco il campo
+    // e do più spazio al menu. Su tablet resta 6:4 come prima.
+    final compact = MediaQuery.of(context).size.height < 500;
+    final courtFlex = compact ? 5 : 6;
+    final panelFlex = compact ? 5 : 4;
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -128,8 +134,8 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
         error: (e, _) => Center(child: Text('Errore: $e')),
         data: (players) => Row(
           children: [
-            Expanded(flex: 6, child: _buildCourtSection()),
-            Expanded(flex: 4, child: _buildPlayerPanel(players)),
+            Expanded(flex: courtFlex, child: _buildCourtSection()),
+            Expanded(flex: panelFlex, child: _buildPlayerPanel(players)),
           ],
         ),
       ),
@@ -426,6 +432,21 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
 
   Widget _buildPlayerPanel(List<Player> players) {
     final assignedIds = _assignments.values.map((p) => p.id).toSet();
+    // Dimensioni delle card SCALATE con continuità sull'altezza schermo:
+    // telefono (<=400dp) → compatto, tablet (>=760dp) → pieno di prima.
+    final h = MediaQuery.of(context).size.height;
+    final t = ((h - 400) / 360).clamp(0.0, 1.0);
+    double sc(double telefono, double tablet) =>
+        telefono + (tablet - telefono) * t;
+    final avatarRadius = sc(15, 24);
+    final numeroSize = sc(13, 20);
+    final titleSize = sc(14, 20);
+    final subtitleSize = sc(12, 16);
+    final editIconSize = sc(18, 24);
+    final trailingIconSize = sc(20, 28);
+    final minTileHeight = sc(40, 64);
+    final rowPaddingV = sc(2, 8);
+    final dense = t < 0.5;
 
     return Container(
       color: _kBg,
@@ -488,12 +509,15 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         clipBehavior: Clip.antiAlias,
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
+                          dense: dense,
+                          minTileHeight: minTileHeight,
+                          minVerticalPadding: rowPaddingV,
+                          contentPadding: EdgeInsets.symmetric(
                             horizontal: 14,
-                            vertical: 8,
+                            vertical: rowPaddingV,
                           ),
                           leading: CircleAvatar(
-                            radius: 24,
+                            radius: avatarRadius,
                             backgroundColor: avatarColor,
                             child: Text(
                               '${p.numero}',
@@ -502,14 +526,14 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                                     ? avatarTextColor.withAlpha(179)
                                     : avatarTextColor,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
+                                fontSize: numeroSize,
                               ),
                             ),
                           ),
                           title: Text(
                             '${p.cognome} ${p.nome}',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: titleSize,
                               fontWeight: FontWeight.w600,
                               color: assigned ? Colors.grey : null,
                             ),
@@ -517,7 +541,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                           subtitle: Text(
                             p.ruolo.label,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: subtitleSize,
                               color: assigned ? Colors.grey.shade500 : null,
                             ),
                           ),
@@ -527,7 +551,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                               CertificatoDot(scadenza: p.scadenzaCertificato),
                               if (!assigned)
                                 IconButton(
-                                  icon: const Icon(Icons.edit, size: 24),
+                                  icon: Icon(Icons.edit, size: editIconSize),
                                   tooltip: 'Modifica giocatore',
                                   onPressed: () => Navigator.push(
                                     context,
@@ -543,7 +567,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                                 assigned
                                     ? Icons.check_circle_outline
                                     : Icons.chevron_right,
-                                size: 28,
+                                size: trailingIconSize,
                                 color: assigned ? Colors.green : null,
                               ),
                             ],

@@ -29,8 +29,7 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
     super.initState();
     final m = widget.match;
     _nomeController = TextEditingController(text: m?.nome ?? '');
-    _avversarioController =
-        TextEditingController(text: m?.avversario ?? '');
+    _avversarioController = TextEditingController(text: m?.avversario ?? '');
     _palestraController = TextEditingController(text: m?.palestra ?? '');
     final dt = m?.dataOra ?? DateTime.now();
     _selectedDate = DateTime(dt.year, dt.month, dt.day);
@@ -80,30 +79,36 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
       _selectedTime.minute,
     );
     final palestraTrimmed = _palestraController.text.trim();
-    final palestraValue =
-        Value(palestraTrimmed.isEmpty ? null : palestraTrimmed);
+    final palestraValue = Value(
+      palestraTrimmed.isEmpty ? null : palestraTrimmed,
+    );
     final avversarioTrimmed = _avversarioController.text.trim();
-    final avversarioValue =
-        Value(avversarioTrimmed.isEmpty ? null : avversarioTrimmed);
+    final avversarioValue = Value(
+      avversarioTrimmed.isEmpty ? null : avversarioTrimmed,
+    );
 
     if (isEditing) {
-      await repo.updateMatch(widget.match!.copyWith(
-        nome: _nomeController.text.trim(),
-        dataOra: dataOra,
-        inCasa: _inCasa,
-        palestra: palestraValue,
-        avversario: avversarioValue,
-      ));
+      await repo.updateMatch(
+        widget.match!.copyWith(
+          nome: _nomeController.text.trim(),
+          dataOra: dataOra,
+          inCasa: _inCasa,
+          palestra: palestraValue,
+          avversario: avversarioValue,
+        ),
+      );
     } else {
-      await repo.addMatch(VolleyMatchesCompanion.insert(
-        nome: _nomeController.text.trim(),
-        dataOra: dataOra,
-        inCasa: _inCasa,
-        palestra: palestraValue,
-        avversario: avversarioValue,
-        stato: StatoPartita.configurazione,
-        setCorrente: 1,
-      ));
+      await repo.addMatch(
+        VolleyMatchesCompanion.insert(
+          nome: _nomeController.text.trim(),
+          dataOra: dataOra,
+          inCasa: _inCasa,
+          palestra: palestraValue,
+          avversario: avversarioValue,
+          stato: StatoPartita.configurazione,
+          setCorrente: 1,
+        ),
+      );
     }
     if (mounted) Navigator.pop(context);
   }
@@ -144,80 +149,91 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
             ),
         ],
       ),
+      // SingleChildScrollView a TUTTA larghezza (non più ListView dentro un
+      // SizedBox centrato): così il gesto di scroll prende su tutto lo
+      // schermo, non solo sulla colonna centrale da 520. Il contenuto resta
+      // centrato e largo max 520 (Center + SizedBox interni).
       body: Form(
         key: _formKey,
-        child: Center(
-          child: SizedBox(
-            width: 520,
-            child: ListView(
-              padding: const EdgeInsets.all(32),
-              children: [
-                TextFormField(
-                  controller: _nomeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome partita',
-                    border: OutlineInputBorder(),
-                    hintText: 'es. Amichevole vs Verona',
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Inserisci un nome'
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                Row(
+        child: SingleChildScrollView(
+          child: Center(
+            child: SizedBox(
+              width: 520,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickDate,
-                        icon: const Icon(Icons.calendar_today),
-                        label: Text(_formatDate(_selectedDate)),
+                    TextFormField(
+                      controller: _nomeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome partita',
+                        border: OutlineInputBorder(),
+                        hintText: 'es. Amichevole vs Verona',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Inserisci un nome'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickDate,
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text(_formatDate(_selectedDate)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickTime,
+                            icon: const Icon(Icons.access_time),
+                            label: Text(_formatTime(_selectedTime)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _avversarioController,
+                      decoration: const InputDecoration(
+                        labelText: 'Squadra avversaria',
+                        border: OutlineInputBorder(),
+                        hintText: 'opzionale',
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickTime,
-                        icon: const Icon(Icons.access_time),
-                        label: Text(_formatTime(_selectedTime)),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      title: const Text('In casa'),
+                      subtitle: Text(
+                        _inCasa ? 'Partita casalinga' : 'In trasferta',
+                      ),
+                      value: _inCasa,
+                      onChanged: (v) => setState(() => _inCasa = v),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _palestraController,
+                      decoration: const InputDecoration(
+                        labelText: 'Palestra / struttura',
+                        border: OutlineInputBorder(),
+                        hintText: 'opzionale',
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    FilledButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.save),
+                      label: Text(
+                        isEditing ? 'Salva modifiche' : 'Crea partita',
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _avversarioController,
-                  decoration: const InputDecoration(
-                    labelText: 'Squadra avversaria',
-                    border: OutlineInputBorder(),
-                    hintText: 'opzionale',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  title: const Text('In casa'),
-                  subtitle:
-                      Text(_inCasa ? 'Partita casalinga' : 'In trasferta'),
-                  value: _inCasa,
-                  onChanged: (v) => setState(() => _inCasa = v),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _palestraController,
-                  decoration: const InputDecoration(
-                    labelText: 'Palestra / struttura',
-                    border: OutlineInputBorder(),
-                    hintText: 'opzionale',
-                  ),
-                ),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.save),
-                  label:
-                      Text(isEditing ? 'Salva modifiche' : 'Crea partita'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
