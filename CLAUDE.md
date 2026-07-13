@@ -331,7 +331,25 @@ campo/token libero in `ScoutScreen` (`_buildRotationBadge`,
 **Enum SistemaGioco** (in `enums.dart`, usato in `FormationConfigScreen`):
 palleggiatoreUnico ("Palleggiatore unico (5-1)"), doppioPalleggiatore
 ("Doppio palleggiatore (6-2)"). Per ora solo `palleggiatoreUnico` ha logica
-implementata.
+implementata. La scelta nel dropdown NON è persistita né passata allo scout.
+
+**BACKLOG POST-LANCIO — Configuratore posizioni + modulo 6-2** (differito
+2026-07-13, si va live con solo 5-1). Design completo nel file di piano
+`~/.claude/plans/ok-siamo-pronti-per-witty-lagoon.md`. In sintesi: un
+configuratore visuale per far posizionare all'allenatore le proprie
+coordinate (attacco + ricezione, per modulo/variante/fase/rotazione/ruolo)
+sulla mappa, con il default hardcodato sempre come fallback; set custom
+**globale per modulo**. Innesti già centralizzati: `attackMapFor`
+(`logic/attack_positions.dart`) e `_activeDefenseMap` (`scout_screen.dart`)
+→ farli passare da un resolver "custom-first, default-fallback" + tabella
+drift di override. Fasi: (1) estrarre le tabelle di difesa in
+`logic/defense_positions.dart` con `defenseMapFor`; (2) store override +
+resolver + persistere `SistemaGioco`; (3) editor visuale (token
+trascinabili, riusa `tactical_board_screen`); (4, separata) modulo **6-2**
+— NON solo coordinate: `roleLabelsFor` assume 1P+1O+2S+2C, il 6-2 ha 2
+palleggiatori e nessun opposto fisso, quindi vanno riscritte etichettatura
+ruoli, ancora rotazione e regole libero (serve input pallavolistico
+dell'utente).
 
 ### Implementato (Fase 2 — parziale)
 
