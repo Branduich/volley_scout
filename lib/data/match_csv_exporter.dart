@@ -54,6 +54,7 @@ String _labelTipoAzione(TipoAzione tipo) => switch (tipo) {
       TipoAzione.erroreGenerico => 'Errore generico',
       TipoAzione.cambioGiocatore => 'Cambio giocatore',
       TipoAzione.timeout => 'Timeout',
+      TipoAzione.correzioneRotazione => 'Correzione rotazione',
     };
 
 // La colonna `tipoEsecuzione` è polimorfica (vedi CLAUDE.md): il .name che
@@ -70,6 +71,15 @@ String _labelTipoEsecuzione(ScoutAction a) {
         MotivoErrore.values.where((m) => m.name == nome).firstOrNull;
     if (motivo == MotivoErrore.generico) return '';
     return motivo?.label ?? nome;
+  }
+  // Correzione rotazione: la colonna porta il verso (DirezioneRotazione).
+  if (a.tipo == TipoAzione.correzioneRotazione) {
+    return switch (
+        DirezioneRotazione.values.where((d) => d.name == nome).firstOrNull) {
+      DirezioneRotazione.avanti => 'Avanti',
+      DirezioneRotazione.indietro => 'Indietro',
+      null => nome,
+    };
   }
   return switch (a.fondamentale) {
     Fondamentale.battuta =>

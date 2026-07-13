@@ -31,11 +31,15 @@ class AzioneScout {
   final int ordine;
   final EsitoPunto esitoPunto;
   final SostituzioneGiocatore? sostituzione; // null per le azioni normali
+  // Correzione manuale della rotazione: ruota SOLO le posizioni (non
+  // punteggio/servizio) nel verso indicato. null per le azioni normali.
+  final DirezioneRotazione? correzioneRotazione;
 
   const AzioneScout({
     required this.ordine,
     required this.esitoPunto,
     this.sostituzione,
+    this.correzioneRotazione,
   });
 }
 
@@ -173,6 +177,18 @@ StatoSet ricalcolaStato({
       }
     }
 
+    // Correzione manuale della rotazione: sposta SOLO le posizioni, senza
+    // toccare punteggio/servizio (esitoPunto è sempre `nessuno`). `avanti` =
+    // stessa rotazione di un sideout (`_ruotata`), `indietro` = inversa.
+    switch (azione.correzioneRotazione) {
+      case DirezioneRotazione.avanti:
+        rotazione = _ruotata(rotazione);
+      case DirezioneRotazione.indietro:
+        rotazione = _ruotataIndietro(rotazione);
+      case null:
+        break;
+    }
+
     switch (azione.esitoPunto) {
       case EsitoPunto.nessuno:
         break;
@@ -209,5 +225,15 @@ StatoSet ricalcolaStato({
 Map<int, int> _ruotata(Map<int, int> rotazione) {
   return {
     for (var pos = 1; pos <= 6; pos++) pos: rotazione[(pos % 6) + 1]!,
+  };
+}
+
+/// Rotazione inversa di `_ruotata` (usata dalla correzione manuale "indietro"):
+/// chi era in posizione p−1 si sposta in posizione p (la posizione 1 eredita
+/// chi era in posizione 6). Applicare `_ruotata` poi `_ruotataIndietro` (o
+/// viceversa) riporta la rotazione identica.
+Map<int, int> _ruotataIndietro(Map<int, int> rotazione) {
+  return {
+    for (var pos = 1; pos <= 6; pos++) pos: rotazione[pos == 1 ? 6 : pos - 1]!,
   };
 }

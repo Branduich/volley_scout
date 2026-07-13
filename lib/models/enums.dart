@@ -96,7 +96,25 @@ enum Fondamentale {
 /// `timeout` = timeout chiamato da una squadra (max 2 per set per
 /// allenatore) — `esitoPunto = nessuno`, nessun giocatore: no-op nel replay
 /// di ricalcolaStato(), serve solo al conteggio per set e all'undo.
-enum TipoAzione { scout, puntoManuale, erroreGenerico, cambioGiocatore, timeout }
+/// `correzioneRotazione` = correzione manuale della rotazione (errore di
+/// scout/segnapunti) — `esitoPunto = nessuno`, nessun giocatore; ruota SOLO
+/// le posizioni in campo (non punteggio/servizio), verso in `tipoEsecuzione`
+/// (`.name` di DirezioneRotazione, colonna polimorfica) — vedi ricalcolaStato().
+enum TipoAzione {
+  scout,
+  puntoManuale,
+  erroreGenerico,
+  cambioGiocatore,
+  timeout,
+  correzioneRotazione,
+}
+
+/// Verso di una `TipoAzione.correzioneRotazione`, salvato come `.name` nella
+/// colonna polimorfica `tipoEsecuzione` (stessa tecnica di MotivoErrore) —
+/// nessuna colonna/migrazione dedicata. `avanti` = rotazione di gioco
+/// (sideout, come `_ruotata`): il palleggiatore passa a slot−1 (P1→P6);
+/// `indietro` = inversa (P1→P2).
+enum DirezioneRotazione { avanti, indietro }
 
 /// Motivo di un `TipoAzione.erroreGenerico` dell'avversario — salvato nella
 /// stessa colonna polimorfica `tipoEsecuzione` usata da TipoBattuta/

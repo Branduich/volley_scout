@@ -942,6 +942,74 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   void _rotateForward() => setState(() => _rotationSteps++);
 
+  // Slot (1-6) del palleggiatore DOPO una correzione rotazione nel verso dato,
+  // per la label del bottone: `avanti` (rotazione di gioco/sideout) porta il
+  // palleggiatore a slot−1 (P1→P6), `indietro` a slot+1 (P1→P2).
+  int _slotDestinazioneCorrezione(DirezioneRotazione direzione) {
+    final s = int.parse(_currentSlot.substring(1));
+    return direzione == DirezioneRotazione.avanti
+        ? (s == 1 ? 6 : s - 1)
+        : (s == 6 ? 1 : s + 1);
+  }
+
+  // Correzione manuale della rotazione (bottoni sotto la mini-mappa): registra
+  // l'evento loggato — punteggio/rotazione si ri-derivano da _statoSetReale,
+  // undo standard la annulla. Non tocca _fondamentaleGiudicatoRallyCorrente
+  // (una correzione non giudica un fondamentale né apre/chiude uno scambio).
+  Future<void> _correggiRotazione(DirezioneRotazione direzione) async {
+    final set = _setCorrente;
+    if (set == null || _testModeEnabled) return;
+    await ref
+        .read(scoutActionRepositoryProvider)
+        .registraCorrezioneRotazione(setId: set.id, direzione: direzione);
+  }
+
+  // Slot (1-6) del palleggiatore in uno stato derivato — posizione che tiene
+  // il palleggiatore designato effettivo; fallback sullo slot iniziale.
+  int _slotPalleggiatore(StatoSet stato) {
+    final id = stato.palleggiatoreId ??
+        widget.assignments[widget.palleggiatoreSlot]?.id;
+    for (final entry in stato.rotazione.entries) {
+      if (entry.value == id) return entry.key;
+    }
+    return int.tryParse(widget.palleggiatoreSlot.substring(1)) ?? 1;
+  }
+
+  // Etichetta "Rotazione P{iniziale} → P{finale}" per ogni correzione
+  // rotazione del set: lo slot del palleggiatore PRIMA e DOPO ciascuna, così
+  // ogni voce del log è corretta al suo momento (non la rotazione attuale).
+  // Riusa ricalcolaStato() sui prefissi delle azioni (nessuna duplicazione
+  // della logica di replay). Calcolata solo se c'è almeno una correzione.
+  Map<int, String> _computeLabelsCorrezione() {
+    final set = _setCorrente;
+    if (set == null) return const {};
+    final righe =
+        ref.watch(scoutAzioniStreamProvider(set.id)).value ??
+            const <ScoutAction>[];
+    if (!righe.any((r) => r.tipo == TipoAzione.correzioneRotazione)) {
+      return const {};
+    }
+    final eventi = [for (final r in righe) azioneScoutDaRiga(r)];
+    StatoSet prefisso(int count) => ricalcolaStato(
+          azioni: eventi.sublist(0, count),
+          servizioIniziale: set.squadraServizioIniziale,
+          rotazioneIniziale: _rotazioneInizialeMap,
+          palleggiatoreInizialeId:
+              widget.assignments[widget.palleggiatoreSlot]?.id,
+          ruoloCambiLiberoIniziale: widget.ruoloCambiLibero,
+          liberoInizialeId: widget.assignments['L1']?.id,
+          libero2InizialeId: widget.assignments['L2']?.id,
+        );
+    final result = <int, String>{};
+    for (var i = 0; i < righe.length; i++) {
+      if (righe[i].tipo != TipoAzione.correzioneRotazione) continue;
+      final iniziale = _slotPalleggiatore(prefisso(i));
+      final finale = _slotPalleggiatore(prefisso(i + 1));
+      result[righe[i].id] = 'Rotazione P$iniziale → P$finale';
+    }
+    return result;
+  }
+
   // Quando la squadra ataca dal campo di destra, le posizioni vanno
   // riflesse rispetto al centro dell'immagine doppia (rotazione di 180°,
   // non un semplice mirror orizzontale): chi era in basso a sinistra finisce
@@ -1293,8 +1361,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // actionId → "Rotazione P{iniziale} → P{finale}" per ogni correzione
+  // rotazione del set, ricalcolata a ogni build (vedi _computeLabelsCorrezione)
+  // e letta da _descrizioneAzione per banner e log azioni — così ogni voce
+  // mostra la rotazione al SUO momento, non quella attuale.
+  Map<int, String> _labelsCorrezione = const {};
+
   @override
   Widget build(BuildContext context) {
+    _labelsCorrezione = _computeLabelsCorrezione();
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: _kBg,
@@ -1559,6 +1634,33 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                             _buildRotationButton(
                               Icons.rotate_left,
                               _rotateForward,
+                              smallCourtSize,
+                            ),
+                          ],
+                        ),
+                      ),
+                    // Correzione manuale della rotazione (gioco reale): due
+                    // bottoni con label = rotazione di ARRIVO (avanti a
+                    // sinistra, es. P1→P6; indietro a destra, P1→P2). Evento
+                    // loggato via _correggiRotazione, undo standard.
+                    if (_bottoniRapidiAttivi)
+                      Positioned(
+                        top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
+                        left: minimapLeft,
+                        width: smallCourtSize,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildRotationCorrectionButton(
+                              'P${_slotDestinazioneCorrezione(DirezioneRotazione.avanti)}',
+                              () =>
+                                  _correggiRotazione(DirezioneRotazione.avanti),
+                              smallCourtSize,
+                            ),
+                            _buildRotationCorrectionButton(
+                              'P${_slotDestinazioneCorrezione(DirezioneRotazione.indietro)}',
+                              () => _correggiRotazione(
+                                  DirezioneRotazione.indietro),
                               smallCourtSize,
                             ),
                           ],
@@ -2046,6 +2148,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         colore: AppColors.brandPrimary,
       );
     }
+    // Correzione rotazione: colore neutro come cambio/timeout. Etichetta
+    // "Rotazione P{iniziale} → P{finale}" precalcolata per actionId in
+    // _computeLabelsCorrezione (rotazione al momento di QUELLA azione, non
+    // quella attuale) — così ogni voce del log resta corretta.
+    if (azione.tipo == TipoAzione.correzioneRotazione) {
+      return (
+        testo: _labelsCorrezione[azione.id] ?? 'Rotazione corretta',
+        voto: null,
+        colore: AppColors.brandPrimary,
+      );
+    }
     // Timeout: stesso colore neutro del cambio (nessun punto per nessuno),
     // nome squadra come per punto/errore qui sotto.
     if (azione.tipo == TipoAzione.timeout) {
@@ -2143,6 +2256,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           Icons.remove,
           attivo && score > 0 ? () => _correggiPunteggio(squadra, -1) : null,
         ),
+        // Distacco tra bottoni e numero (prima erano attaccati).
+        const SizedBox(width: 8),
         SizedBox(
           width: 32,
           child: Text(
@@ -2155,6 +2270,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
           ),
         ),
+        const SizedBox(width: 8),
         _buildScoreAdjustButton(
           Icons.add,
           attivo ? () => _correggiPunteggio(squadra, 1) : null,
@@ -2167,17 +2283,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 22,
-        height: 22,
+        width: 28,
+        height: 28,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.white.withAlpha(onTap != null ? 30 : 10),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Icon(
           icon,
           color: onTap != null ? Colors.white : Colors.white38,
-          size: 16,
+          size: 20,
         ),
       ),
     );
@@ -2621,6 +2737,50 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           ],
         ),
         child: Icon(icon, color: Colors.white, size: buttonSize * 0.55),
+      ),
+    );
+  }
+
+  // Bottone di correzione rotazione: stesso stile/dimensione di
+  // _buildRotationButton ma con una label testuale (la rotazione di ARRIVO,
+  // es. "P6") invece dell'icona. FittedBox così la label sta sempre dentro il
+  // bottone anche su schermi piccoli.
+  Widget _buildRotationCorrectionButton(
+    String label,
+    VoidCallback onTap,
+    double smallCourtSize,
+  ) {
+    final buttonSize = smallCourtSize * 0.45;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: buttonSize,
+        height: buttonSize,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF00008A),
+          borderRadius: BorderRadius.circular(buttonSize * 0.25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(120),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: EdgeInsets.all(buttonSize * 0.14),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

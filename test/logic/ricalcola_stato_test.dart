@@ -546,4 +546,101 @@ void main() {
       expect(a, isNot(b));
     });
   });
+
+  group('ricalcolaStato — correzione manuale rotazione', () {
+    test('avanti ruota come un sideout, senza toccare punteggio/servizio', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            correzioneRotazione: DirezioneRotazione.avanti,
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione, {1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 10});
+      expect(stato.punteggioNostro, 0);
+      expect(stato.punteggioAvversario, 0);
+      expect(stato.squadraAlServizio, Squadra.nostra);
+    });
+
+    test('indietro ruota nel verso inverso', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            correzioneRotazione: DirezioneRotazione.indietro,
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione, {1: 60, 2: 10, 3: 20, 4: 30, 5: 40, 6: 50});
+    });
+
+    test('avanti poi indietro = rotazione identica', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            correzioneRotazione: DirezioneRotazione.avanti,
+          ),
+          AzioneScout(
+            ordine: 2,
+            esitoPunto: EsitoPunto.nessuno,
+            correzioneRotazione: DirezioneRotazione.indietro,
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    test('la correzione non cambia chi è al servizio', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(
+            ordine: 1,
+            esitoPunto: EsitoPunto.nessuno,
+            correzioneRotazione: DirezioneRotazione.avanti,
+          ),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.squadraAlServizio, Squadra.avversari);
+      expect(stato.rotazione, {1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 10});
+    });
+
+    test('un sideout (avanti) annullato da una correzione indietro', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          // Sideout: ruota avanti e prendiamo il servizio.
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+          // Correzione manuale nel verso opposto: riporta la rotazione
+          // iniziale, ma NON tocca punteggio/servizio del sideout.
+          AzioneScout(
+            ordine: 2,
+            esitoPunto: EsitoPunto.nessuno,
+            correzioneRotazione: DirezioneRotazione.indietro,
+          ),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione, rotazioneIniziale);
+      expect(stato.punteggioNostro, 1);
+      expect(stato.squadraAlServizio, Squadra.nostra);
+    });
+  });
 }

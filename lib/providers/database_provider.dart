@@ -32,6 +32,13 @@ AzioneScout azioneScoutDaRiga(ScoutAction a) => AzioneScout(
               nuovoRuoloCambiLibero: a.nuovoRuoloCambiLibero,
             )
           : null,
+      // Verso della correzione rotazione dal .name in tipoEsecuzione (colonna
+      // polimorfica); riga incoerente → null = no-op nel replay.
+      correzioneRotazione: a.tipo == TipoAzione.correzioneRotazione
+          ? DirezioneRotazione.values
+              .where((d) => d.name == a.tipoEsecuzione)
+              .firstOrNull
+          : null,
     );
 
 /// Id delle azioni di attacco classificate "su ricezione": un attacco che
@@ -689,6 +696,25 @@ class ScoutActionRepository {
     );
   }
 
+  /// Registra una correzione manuale della rotazione (bottoni sotto la
+  /// mini-mappa in `ScoutScreen`): evento loggato con `esitoPunto = nessuno`,
+  /// nessun giocatore; il verso viaggia nel `.name` di `DirezioneRotazione`
+  /// dentro `tipoEsecuzione` (colonna polimorfica, nessuna migrazione). Ruota
+  /// SOLO le posizioni nel replay di ricalcolaStato() — non punteggio/servizio.
+  /// L'undo standard (riga con `ordine` massimo) la annulla.
+  Future<void> registraCorrezioneRotazione({
+    required int setId,
+    required DirezioneRotazione direzione,
+  }) {
+    return _registraAzione(
+      setId: setId,
+      squadra: Squadra.nostra,
+      tipo: TipoAzione.correzioneRotazione,
+      esitoPunto: EsitoPunto.nessuno,
+      tipoEsecuzione: direzione.name,
+    );
+  }
+
   Future<void> _registraAzione({
     required int setId,
     required Squadra squadra,
@@ -719,13 +745,14 @@ class ScoutActionRepository {
     // Se l'ultima azione del set è ancora "in corso" (esitoPunto = nessuno,
     // es. una battuta non terminale), questa azione fa parte dello stesso
     // scambio — stesso rallyId. Altrimenti inizia un nuovo scambio.
-    // Un timeout ha esito `nessuno` ma non apre né continua uno scambio:
-    // senza l'esclusione, l'azione successiva erediterebbe il suo rallyId
-    // invece di iniziarne uno nuovo.
+    // Un timeout o una correzione rotazione hanno esito `nessuno` ma non
+    // aprono né continuano uno scambio: senza l'esclusione, l'azione
+    // successiva erediterebbe il loro rallyId invece di iniziarne uno nuovo.
     final ultima = await ultimaAzione(setId);
     final rallyId = (ultima != null &&
             ultima.esitoPunto == EsitoPunto.nessuno &&
-            ultima.tipo != TipoAzione.timeout)
+            ultima.tipo != TipoAzione.timeout &&
+            ultima.tipo != TipoAzione.correzioneRotazione)
         ? ultima.rallyId
         : ordine;
 
