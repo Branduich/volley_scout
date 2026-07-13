@@ -321,13 +321,13 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 92,
-        height: 52,
+        width: 66,
+        height: 34,
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
           color: selezionato ? AppColors.brandAccent : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: selezionato ? AppColors.brandAccent : Colors.white38,
             width: selezionato ? 2 : 1,
@@ -340,7 +340,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 13,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -391,29 +391,28 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
               ],
             ),
           ),
-          // Spazio equivalente alla riga dei bottoni rapidi di ScoutScreen
-          // (Padding verticale 8 + bottoni 44 + 8 = 60px), assente qui —
-          // senza questo spacer banner e campo risulterebbero più in alto
-          // che in ScoutScreen, a parità di margine interno del campo.
-          const SizedBox(height: 60),
-          // Stesso banner di ScoutScreen (_buildBannerUltimaAzione), qui
-          // sull'azione in corso (non ancora registrata) invece che
-          // sull'ultima già salvata — stessa altezza fissa 36 per non far
-          // saltare il campo sottostante.
+          // Banner quasi attaccato alla barra superiore (piccolo gap): su
+          // smartphone lo spazio verticale serve al campo, che qui vogliamo
+          // grande — niente più spacer da 60px come in ScoutScreen.
+          const SizedBox(height: 8),
+          // Banner dell'azione in corso, STESSA dimensione di ScoutScreen
+          // (vedi _buildBanner). Riquadro basso per lasciare più spazio
+          // verticale al campo, che qui vogliamo grande.
           SizedBox(
-            height: 36,
+            height: 32,
             child: Center(child: _buildBanner()),
           ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, screenConstraints) {
-                // Come in ScoutScreen, il campo è il 58% della larghezza MA
-                // mai più alto dello spazio disponibile (smartphone): qui
-                // sotto al campo va riservata anche la riga dei chip tipo
-                // battuta/attacco (offset 24 + chip 52 + margine 8 ≈ 84px).
+                // Il campo è il 58% della larghezza MA mai più alto dello
+                // spazio disponibile (smartphone): sotto al campo va
+                // riservata la riga dei chip tipo (offset 12 + chip 34 +
+                // margine 8 ≈ 54px). Avendo tolto lo spacer da 60px sopra,
+                // qui c'è più altezza → su smartphone il campo cresce molto.
                 final courtWidth = math.min(
                   screenConstraints.maxWidth * _kCourtWidthFraction,
-                  (screenConstraints.maxHeight - _kCourtTopMargin - 84) * 2,
+                  (screenConstraints.maxHeight - _kCourtTopMargin - 54) * 2,
                 );
                 final courtHeight = courtWidth / 2; // aspect ratio 1200/600
                 final courtLeft =
@@ -483,7 +482,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                       // widget.fondamentale).
                       if (_mostraTipoBattuta || _mostraTipoAttacco)
                         Positioned(
-                          top: courtTop + courtHeight + 24,
+                          top: courtTop + courtHeight + 12,
                           left: 0,
                           right: 0,
                           child: Center(
