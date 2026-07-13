@@ -178,13 +178,24 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
           ],
           onChanged: (v) => setState(() => _coloreDivisa = v!),
         ),
-        const SizedBox(height: 32),
-        FilledButton.icon(
+      ],
+    );
+  }
+
+  // Bottone di salvataggio, pinnato in fondo alla colonna sinistra (fuori
+  // dallo scroll dei campi) così resta sempre visibile anche su schermi
+  // bassi (smartphone landscape), dove prima finiva sotto la piega.
+  Widget _buildSaveButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
           onPressed: _save,
           icon: const Icon(Icons.save),
           label: Text(isEditing ? 'Salva modifiche' : 'Crea squadra'),
         ),
-      ],
+      ),
     );
   }
 
@@ -208,7 +219,12 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
           children: [
             SizedBox(
               width: 360,
-              child: _buildFormFields(),
+              child: Column(
+                children: [
+                  Expanded(child: _buildFormFields()),
+                  _buildSaveButton(),
+                ],
+              ),
             ),
             if (isEditing) ...[
               const VerticalDivider(width: 1),
@@ -231,6 +247,23 @@ class _PlayersSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playersAsync = ref.watch(playersStreamProvider(team.id));
     final jerseyColor = Color(team.coloreDivisa);
+    // Dimensioni delle righe SCALATE con continuità in base all'altezza
+    // schermo: telefono (<=400dp) → compatto, tablet (>=760dp) → pieno (le
+    // dimensioni "da tablet" di prima), interpolazione lineare in mezzo. Su
+    // tablet resta identico a prima, su smartphone le righe sono molto più
+    // basse (avatar/font ridotti + minTileHeight/dense).
+    final h = MediaQuery.of(context).size.height;
+    final t = ((h - 400) / 360).clamp(0.0, 1.0);
+    double sc(double telefono, double tablet) =>
+        telefono + (tablet - telefono) * t;
+    final avatarRadius = sc(14, 24);
+    final numeroSize = sc(12, 20);
+    final titleSize = sc(14, 20);
+    final subtitleSize = sc(11.5, 16);
+    final chevronSize = sc(18, 28);
+    final rowPaddingV = sc(1, 8);
+    final minTileHeight = sc(34, 64);
+    final dense = t < 0.5;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -281,34 +314,37 @@ class _PlayersSection extends ConsumerWidget {
                       ? _invertedColor(jerseyColor)
                       : jerseyColor;
                   return ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    dense: dense,
+                    minTileHeight: minTileHeight,
+                    minVerticalPadding: rowPaddingV,
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16, vertical: rowPaddingV),
                     leading: CircleAvatar(
-                      radius: 24,
+                      radius: avatarRadius,
                       backgroundColor: avatarColor,
                       child: Text(
                         '${p.numero}',
                         style: TextStyle(
                           color: contrastingTextColor(avatarColor),
                           fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          fontSize: numeroSize,
                         ),
                       ),
                     ),
                     title: Text(
                       '${p.cognome} ${p.nome}',
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          fontSize: titleSize, fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
                       p.ruolo.label,
-                      style: const TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: subtitleSize),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CertificatoDot(scadenza: p.scadenzaCertificato),
-                        const Icon(Icons.chevron_right, size: 28),
+                        Icon(Icons.chevron_right, size: chevronSize),
                       ],
                     ),
                     onTap: () => Navigator.push(
