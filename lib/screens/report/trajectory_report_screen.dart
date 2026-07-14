@@ -466,6 +466,33 @@ class _TrajectoryReportScreenState
             ],
           );
 
+    // Su smartphone (schermo basso) il campo 2:1 a tutta larghezza + i dati
+    // sotto non ci stanno in verticale (il campo veniva tagliato e il footer
+    // finiva fuori schermo): rendo la pagina scrollabile con il campo a
+    // dimensione piena in alto e il footer scorrevole sotto. Su tablet resta
+    // il layout a Positioned (footer sotto al campo, tutto visibile).
+    final compact = MediaQuery.of(context).size.height < 500;
+    if (compact) {
+      final w = MediaQuery.of(context).size.width;
+      // Altezza del riquadro campo: margine top + altezza campo (metà della
+      // larghezza del campo, che è w × frazione) + un piccolo margine.
+      final courtRegionH = kCourtTopMargin + w * kCourtWidthFraction / 2 + 16;
+      return SingleChildScrollView(
+        child: Column(
+          children: [
+            SizedBox(
+              height: courtRegionH,
+              child: CourtTrajectoriesView(
+                  trajectories: trajectories, footer: null),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: footer,
+            ),
+          ],
+        ),
+      );
+    }
     return CourtTrajectoriesView(trajectories: trajectories, footer: footer);
   }
 

@@ -228,6 +228,13 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
   @override
   Widget build(BuildContext context) {
     final cambi = _slotCambiati.length + _liberiCambiati.length;
+    // Stessa impaginazione responsive di LineupScreen: su smartphone
+    // (altezza bassa) il campo si restringe (flex 5:5) e la panchina prende
+    // più spazio; su tablet 6:4 come prima. La panchina non è più a
+    // larghezza fissa 320 ma flessibile.
+    final compact = MediaQuery.of(context).size.height < 500;
+    final courtFlex = compact ? 5 : 6;
+    final panelFlex = compact ? 5 : 4;
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(
@@ -251,6 +258,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
           // di fianco le card dei liberi (come in LineupScreen: il libero
           // non ha uno slot di rotazione, sta fuori dal campo).
           Expanded(
+            flex: courtFlex,
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 4, 8, 16),
               child: Center(
@@ -306,8 +314,8 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
             ),
           ),
           // Destra: panchina.
-          SizedBox(
-            width: 320,
+          Expanded(
+            flex: panelFlex,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -460,30 +468,39 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
         ? _invertedColor(teamColor)
         : teamColor;
     final avatarColor = disabilitato ? baseColor.withAlpha(120) : baseColor;
+    // Dimensioni scalate con l'altezza schermo, IDENTICHE alla lista di
+    // LineupScreen: compatte su smartphone, piene su tablet (>=760dp).
+    final t = ((MediaQuery.of(context).size.height - 400) / 360)
+        .clamp(0.0, 1.0);
+    double sc(double telefono, double tablet) =>
+        telefono + (tablet - telefono) * t;
     return Material(
       color: disabilitato ? Colors.grey.shade300 : Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: ListTile(
         enabled: !disabilitato,
+        dense: t < 0.5,
+        minTileHeight: sc(40, 64),
+        minVerticalPadding: sc(2, 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: sc(2, 4)),
         leading: CircleAvatar(
-          radius: 24,
+          radius: sc(15, 24),
           backgroundColor: avatarColor,
           child: Text(
             '${p.numero}',
             style: TextStyle(
               color: contrastingTextColor(baseColor),
-              fontSize: 20,
+              fontSize: sc(13, 20),
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         title: Text(
           '${p.cognome} ${p.nome}',
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: sc(14, 20), fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(p.ruolo.label, style: const TextStyle(fontSize: 16)),
+        subtitle: Text(p.ruolo.label, style: TextStyle(fontSize: sc(12, 16))),
         onTap: disabilitato ? null : () => _onPanchinaTap(p),
       ),
     );

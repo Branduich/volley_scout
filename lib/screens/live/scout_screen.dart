@@ -1510,21 +1510,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Banner ultima azione al centro, tra i due gruppi (i timeout
+              // sono sui lati interni): non ha più una riga propria sotto.
               children: _isRightSide
-                  ? [_buildBottoniAvversario(), _buildBottoniNostri()]
-                  : [_buildBottoniNostri(), _buildBottoniAvversario()],
+                  ? [
+                      _buildBottoniAvversario(),
+                      _bannerCentrale(),
+                      _buildBottoniNostri(),
+                    ]
+                  : [
+                      _buildBottoniNostri(),
+                      _bannerCentrale(),
+                      _buildBottoniAvversario(),
+                    ],
             ),
-          ),
-          // Altezza fissa (anche senza azioni) per non far "saltare" il
-          // campo sottostante quando il banner appare/scompare — 36 invece
-          // di 32 per lasciare spazio al simbolo del voto, più grande del
-          // resto della riga (vedi _buildBannerUltimaAzione).
-          SizedBox(
-            height: 36,
-            child: Center(child: _buildBannerUltimaAzione()),
           ),
           Expanded(
             child: LayoutBuilder(
@@ -2022,6 +2024,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     for (final r in righe) {
       numeroRally.putIfAbsent(r.rallyId, () => numeroRally.length + 1);
     }
+    // Pannello log scalato con l'altezza schermo: su smartphone (~360dp)
+    // largo/testi ridotti, su tablet (>=760dp) i valori pieni di prima.
+    final h = MediaQuery.of(context).size.height;
+    final t = ((h - 360) / 400).clamp(0.0, 1.0);
+    double sc(double telefono, double tablet) =>
+        telefono + (tablet - telefono) * t;
     return [
       Positioned(
         top: 8,
@@ -2031,19 +2039,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         // sposta a sinistra per non finirci sopra.
         left: _isRightSide ? 8 : null,
         right: _isRightSide ? null : 8,
-        width: 240,
+        width: sc(160, 240),
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(sc(5, 8)),
           decoration: BoxDecoration(
             color: _kTopBarBg.withAlpha(235),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(sc(6, 8)),
             border: Border.all(color: Colors.white24),
           ),
           child: righe.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'Nessuna azione',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                    style:
+                        TextStyle(color: Colors.white54, fontSize: sc(10, 12)),
                   ),
                 )
               : ListView.builder(
@@ -2063,9 +2072,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                           children: [
                             TextSpan(
                               text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white38,
-                                fontSize: 13,
+                                fontSize: sc(10, 13),
                               ),
                             ),
                             TextSpan(
@@ -2077,7 +2086,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                                 color: desc.voto == null
                                     ? coloreTesto
                                     : Colors.white,
-                                fontSize: 14,
+                                fontSize: sc(11, 14),
                               ),
                             ),
                             if (desc.voto != null)
@@ -2085,16 +2094,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                                 text: '  ${desc.voto}',
                                 style: TextStyle(
                                   color: coloreTesto,
-                                  fontSize: 16,
+                                  fontSize: sc(12, 16),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             if (parziali[a.id] != null)
                               TextSpan(
                                 text: '  ${parziali[a.id]}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 14,
+                                  fontSize: sc(11, 14),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -2201,12 +2210,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Banner ultima azione al CENTRO della riga dei bottoni rapidi (nello
+  // spazio vuoto tra i due bottoni timeout), invece che in una riga propria
+  // sotto — così non occupa altezza dedicata e il campo è più grande.
+  // Expanded prende lo spazio centrale; FittedBox(scaleDown) rimpicciolisce
+  // il banner se il testo è più largo dello spazio (es. un cambio lungo).
+  Widget _bannerCentrale() {
+    final banner = _buildBannerUltimaAzione();
+    return Expanded(
+      child: banner == null
+          ? const SizedBox.shrink()
+          : FittedBox(fit: BoxFit.scaleDown, child: banner),
+    );
+  }
+
   Widget? _buildBannerUltimaAzione() {
     final azione = _ultimaAzione;
     if (azione == null) return null;
     final descrizione = _descrizioneAzione(azione);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: _sc(16, 20), vertical: _sc(6, 8)),
       decoration: BoxDecoration(
         color: descrizione.colore,
         borderRadius: BorderRadius.circular(8),
@@ -2217,10 +2240,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         children: [
           Text(
             descrizione.testo,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: 13,
+              fontSize: _sc(13, 15),
               height: 1.0,
             ),
           ),
@@ -2228,10 +2251,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             const SizedBox(width: 10),
             Text(
               descrizione.voto!,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: _sc(20, 22),
                 height: 1.0,
               ),
             ),
@@ -2496,6 +2519,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // Interpolazione lineare tra valore "telefono" e "tablet" in base
+  // all'altezza schermo (smartphone ~360dp → tablet >=760dp): usata per far
+  // tornare grandi su tablet gli elementi rimpiccioliti per lo smartphone
+  // (bottoni rapidi, banner). Stessa logica del pannello log.
+  double _sc(double telefono, double tablet) {
+    final t = ((MediaQuery.of(context).size.height - 360) / 400)
+        .clamp(0.0, 1.0);
+    return telefono + (tablet - telefono) * t;
+  }
+
   Widget _buildQuickActionButton({
     required IconData icon,
     required Color color,
@@ -2503,15 +2536,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     void Function(LongPressStartDetails)? onLongPressStart,
   }) {
     final abilitato = onTap != null;
+    final lato = _sc(36, 44);
     return GestureDetector(
       onTap: onTap,
       onLongPressStart: onLongPressStart,
       child: Container(
-        width: 44,
-        height: 44,
+        width: lato,
+        height: lato,
         decoration: BoxDecoration(
           color: abilitato ? color : color.withAlpha(80),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(_sc(8, 10)),
           boxShadow: abilitato
               ? [
                   BoxShadow(
@@ -2522,7 +2556,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                 ]
               : null,
         ),
-        child: Icon(icon, color: Colors.white, size: 24),
+        child: Icon(icon, color: Colors.white, size: _sc(20, 24)),
       ),
     );
   }

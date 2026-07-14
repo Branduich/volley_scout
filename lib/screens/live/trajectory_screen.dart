@@ -131,6 +131,15 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
 
   bool get _muroConsentito => widget.fondamentale == Fondamentale.attacco;
 
+  // Interpolazione tra valore "telefono" e "tablet" sull'altezza schermo
+  // (smartphone ~360dp → tablet >=760dp) — banner e chip tipo tornano grandi
+  // su tablet, restano piccoli su smartphone. Stessa logica di ScoutScreen.
+  double _sc(double telefono, double tablet) {
+    final t =
+        ((MediaQuery.of(context).size.height - 360) / 400).clamp(0.0, 1.0);
+    return telefono + (tablet - telefono) * t;
+  }
+
   @override
   void dispose() {
     _timerMuro?.cancel();
@@ -228,7 +237,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     final voto = widget.voto.simbolo;
     final colore = CourtStyle.votoColor(widget.voto);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: _sc(16, 20), vertical: _sc(6, 8)),
       decoration: BoxDecoration(
         color: colore,
         borderRadius: BorderRadius.circular(8),
@@ -239,20 +248,20 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
         children: [
           Text(
             testo,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: 13,
+              fontSize: _sc(13, 15),
               height: 1.0,
             ),
           ),
           const SizedBox(width: 10),
           Text(
             voto,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 20,
+              fontSize: _sc(20, 22),
               height: 1.0,
             ),
           ),
@@ -321,13 +330,13 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 66,
-        height: 34,
+        width: _sc(66, 92),
+        height: _sc(34, 52),
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
           color: selezionato ? AppColors.brandAccent : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(_sc(6, 8)),
           border: Border.all(
             color: selezionato ? AppColors.brandAccent : Colors.white38,
             width: selezionato ? 2 : 1,
@@ -338,9 +347,9 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
-            fontSize: 11,
+            fontSize: _sc(11, 13),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -399,7 +408,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
           // (vedi _buildBanner). Riquadro basso per lasciare più spazio
           // verticale al campo, che qui vogliamo grande.
           SizedBox(
-            height: 32,
+            height: _sc(32, 42),
             child: Center(child: _buildBanner()),
           ),
           Expanded(
