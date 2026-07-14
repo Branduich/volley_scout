@@ -69,6 +69,42 @@ class VolleyScoutApp extends ConsumerWidget {
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      // Su smartphone (schermo basso) rimpicciolisco l'AppBar di TUTTE le
+      // schermate — altezza barra + font del titolo — per dare più spazio
+      // verticale al contenuto. Fatto qui (MaterialApp.builder) così vale
+      // globalmente senza toccare ogni schermata; su tablet resta invariato.
+      // Riduco `textTheme.titleLarge` (il default M3 del titolo AppBar) e NON
+      // `appBarTheme.titleTextStyle`: così il `foregroundColor` continua a
+      // essere applicato al titolo anche sulle AppBar scure a testo bianco
+      // (LineupScreen/FormationConfig/Sostituzione) — vedi app_bar.dart:983.
+      builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
+        final theme = Theme.of(context);
+        if (MediaQuery.of(context).size.height >= 500) return child;
+        return Theme(
+          data: theme.copyWith(
+            appBarTheme: theme.appBarTheme.copyWith(toolbarHeight: 46),
+            textTheme: theme.textTheme.copyWith(
+              titleLarge: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
+            ),
+            // FilledButton compatti: senza, i bottoni nelle `actions`
+            // dell'AppBar (Avanti/Conferma/Inizia scout) restano ~50px
+            // (padding + tap-target minimo 48) e vengono tagliati nella barra
+            // da 46. shrinkWrap permette al bottone di scendere sotto i 48px.
+            filledButtonTheme: FilledButtonThemeData(
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          child: child,
+        );
+      },
       home: const HomeScreen(),
     );
   }

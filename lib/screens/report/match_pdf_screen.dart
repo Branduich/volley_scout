@@ -1663,6 +1663,12 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         initialPageFormat: PdfPageFormat.a4.landscape,
         canChangePageFormat: false,
         canChangeOrientation: false,
+        // Render ad alta risoluzione: lo zoom (doppio tap → pinch, integrato
+        // in PdfPreview, fino a 5×) mostra l'immagine già rasterizzata, quindi
+        // un dpi più alto la tiene nitida anche ingrandita — utile per le
+        // tabelle statistiche fitte. Le pagine si rasterizzano pigramente
+        // (solo quelle visibili), quindi il costo è contenuto.
+        dpi: 220,
         pdfFileName:
             'report_${widget.match.nome.replaceAll(RegExp(r'[^\w]+'), '_')}.pdf',
       ),
