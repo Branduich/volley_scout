@@ -1905,7 +1905,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ),
             const Divider(color: Colors.white24, height: 1),
             ListTile(
-              leading: const Icon(Icons.flag, color: Colors.white),
+              leading: const Icon(Icons.sports_score, color: Colors.white),
               title: const Text('Fine', style: TextStyle(color: Colors.white)),
               // A differenza di "Indietro" qui si fa un push, non un pop:
               // niente local history entry da gestire, basta chiudere il
