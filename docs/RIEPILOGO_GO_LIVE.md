@@ -1,73 +1,84 @@
 # Riepilogo passi mancanti per andare live (Strada A)
 
-> Aggiornato al 2026-07-12. Sintesi operativa; il dettaglio completo è in
+> Aggiornato al 2026-07-16. Sintesi operativa; il dettaglio completo è in
 > `docs/TODO_strada_A.md`.
 
-L'app e il codice sono sostanzialmente pronti: quasi tutto ciò che manca è
-lavoro nelle console (Play Console, RevenueCat, iubenda), non sviluppo.
+Il codice è **pronto**. Tutto ciò che resta è operativo (Play Console) più
+l'attesa obbligatoria del test chiuso: **12+ tester per 14 giorni consecutivi**,
+che è il vero collo di bottiglia verso la produzione.
 
 ---
 
-## Già fatto (contesto)
-- Core app completo: scout event-sourced, statistiche, report a video, PDF, CSV.
+## Già fatto
+
+### App e codice
+- Core completo: scout event-sourced, statistiche, report a video, PDF, CSV.
 - Freemium gate centralizzato (`statoPremiumProvider`) collegato all'entitlement
-  `premium` reale di RevenueCat; default = free; toggle "Simula premium" per
-  debug/tester (flag `--dart-define=PREMIUM_OVERRIDE=true`).
+  `premium` reale di RevenueCat; default = free; toggle "Simula premium" e
+  "Modalità test" visibili solo con `--dart-define=PREMIUM_OVERRIDE=true`.
 - Paywall reale (offerings / purchase / restore), schermata About, squadra demo
   pre-caricata, package name definitivo `it.branduich.volleystratego`.
-- Account Google Play Developer registrato + verifica identità completata.
+- Link legali e supporto completati in `about_screen.dart` (vedi sotto).
+
+### Play Console
+- Account developer registrato + verifica identità completata.
+- App creata, dichiarazioni di contenuto completate (Data Safety, content
+  rating IARC, dettagli di accesso, integrità app).
+- Scheda store completa: descrizione, icona, feature graphic, screenshot.
+- Profilo pagamenti configurato + iscrizione al programma **small business**
+  (commissione **15%** invece del 30%).
+- Abbonamento `premium_annual`, piano base `annual` **Attivo**, offerta con
+  **trial 15 giorni** **Attiva**.
+- **Test interni**: canale attivo, installazione verificata su device reale.
+- **License tester** configurato (`branduich@gmail.com`, RESPOND_NORMALLY) —
+  era la causa dell'errore `ITEM_UNAVAILABLE` al momento dell'acquisto.
+
+### RevenueCat — VERIFICATO END-TO-END
+- Service account Google collegato, credenziali valide (serviva il permesso
+  **Autorizzazioni app** sul service account, inizialmente vuoto).
+- Prodotto importato e pubblicato, entitlement `premium`, offering `default`.
+- **Flusso di acquisto provato con successo sul device**: Play → RevenueCat →
+  entitlement `premium` → sblocco dei gate nell'app. È il pezzo più fragile di
+  tutta la catena ed è confermato funzionante.
+
+### Legale
+- **Privacy Policy** e **Termini di utilizzo** pubblicati su **Google Sites**
+  (non iubenda — scelta finale):
+  - https://sites.google.com/view/volleystratego/privacy-policy
+  - https://sites.google.com/view/volleystratego/terms-of-use
+  - Bozza dei termini conservata in `docs/termini_di_utilizzo.md`.
+- Email di supporto: `volleystratego@gmail.com`.
 
 ---
 
-## Percorso critico (in ordine)
+## Percorso critico residuo
 
-### 1. Decisioni finali — carta e penna
-- Confermare la linea free/premium definitiva (i gate principali sono già
-  decisi e implementati).
-- Fissare il **prezzo** dell'abbonamento annuale + iscrizione al programma
-  "small business" di Google (commissione 15% invece del 30%).
-- Confermare la durata del **trial** (15 giorni, gestito dallo store).
-
-### 2. RevenueCat — service account Google
-- Creare/collegare il **service account Google** su RevenueCat (necessario alla
-  validazione server-side degli acquisti). È l'unico pezzo RevenueCat ancora
-  aperto.
-
-### 3. Prodotto abbonamento su Play Console
-- Creare l'abbonamento annuale auto-rinnovabile + offerta "new customer" con
-  free trial 15 giorni.
-- Attendere la propagazione (fino a 24h prima che sia visibile su dispositivo).
-
-### 4. Legale — iubenda + Data Safety
-- Generare **Privacy Policy** e **Terms of Use** con iubenda. Dichiarare:
-  acquisti in-app via Google, ID anonimo RevenueCat, eventuale Firebase; e
-  sottolineare che i dati di scout (squadre, giocatori, partite — spesso minori)
-  restano **LOCALI** sul dispositivo.
-- Ottenere gli **URL pubblici** della policy (ospitati da iubenda).
-- Compilare la sezione **Data Safety** su Play Console, coerente con la policy.
-
-### 5. Codice — riempire i placeholder di About (dipende dal punto 4)
-- In `lib/screens/settings/about_screen.dart`: inserire gli URL reali di
-  Privacy/Terms (costanti `_kUrl*`) e l'**email di supporto**.
-- (Verifica, non modifica) confermare che RevenueCat mantenga in cache l'ultimo
-  stato premium offline, così lo scout in palestra senza rete funziona.
-- Ricordare di incrementare `versionCode` (`+N`) in `pubspec.yaml` a ogni
-  upload su Play.
-
-### 6. Closed testing — obbligatorio per account personali
-- Build firmata **.aab**, release in traccia **Closed testing**.
-- Lista tester via email + aggiungerli come **license testers** (Play Console →
-  Impostazioni → License testing): provano l'intero flusso abbonamento/trial
-  senza addebiti reali.
+### 1. Test chiuso — IL COLLO DI BOTTIGLIA
+- Caricare l'AAB **1.0.0 (4)** sulla traccia **Test chiusi - Alpha** (paesi e
+  tester già selezionati). L'upload **fa partire il cronometro**.
+- Servono **12+ tester attivi per 14 giorni consecutivi** (requisito Google per
+  gli account personali). Aggiungerne altri dopo non azzera il conteggio, ma
+  devono restare iscritti per tutto il periodo.
 - Iterare sulle build finché scout → statistiche → export → paywall è solido.
-- Rispettare il numero minimo di tester / periodo richiesto da Google prima di
-  poter richiedere l'accesso alla produzione.
 
-### 7. Scheda store + lancio
-- Scheda Play Store: descrizione, **screenshot tablet landscape**, icona,
-  categoria, URL privacy policy, contatto di supporto.
-- (Opzionale) landing page semplice (Carrd/Framer o GitHub Pages).
-- Promozione dalla traccia closed testing → **produzione**.
+### 2. Richiesta di accesso alla produzione
+- Al termine dei 14 giorni: richiesta a Google + **revisione** (tempi variabili).
+- Promozione della traccia closed testing → **produzione**.
+
+---
+
+## Note operative ricorrenti
+
+- **Bump del `versionCode`** (`+N` in `pubspec.yaml`) a **ogni** upload, altrimenti
+  Play rifiuta il bundle. Attuale: `1.0.0+4`.
+- **Propagazione**: sia le installazioni dalle tracce di test sia le modifiche
+  agli abbonamenti richiedono tempo (fino a qualche ora). Più di un falso
+  allarme si è risolto da solo aspettando. In caso di dubbio: forza arresto /
+  svuota cache del Play Store sul device.
+- **Prezzo e IVA**: il prezzo su Play è **comprensivo di IVA**; Google incassa e
+  versa l'IVA UE al posto tuo. Netto al developer ≈ `prezzo × 0,697` per un
+  acquirente italiano (IVA 22% scorporata, poi 15% di commissione). L'IVA varia
+  col paese dell'acquirente.
 
 ---
 
@@ -76,18 +87,13 @@ lavoro nelle console (Play Console, RevenueCat, iubenda), non sviluppo.
   "ID supporto" della schermata About); eventuali promo code Play per campagne.
 - **Monitoraggio condivisione account**: osservare gli alias RevenueCat per
   decidere se in futuro servirà mai la Strada B (account + limite dispositivi).
-
----
-
-## Cosa tocca davvero il codice
-Quasi tutto il residuo è operativo. Unici interventi di codice:
-1. `about_screen.dart` — URL Privacy/Terms + email supporto (quando esistono).
-2. Verifica del comportamento offline di RevenueCat (probabile "nessuna
-   modifica", solo test).
-3. `pubspec.yaml` — bump `versionCode` a ogni upload.
-
-Tutto il resto (service account, prodotto abbonamento, iubenda, Data Safety,
-closed testing, scheda store) si fa nelle console Play / RevenueCat / iubenda.
+- **RTDN (Pub/Sub)**: opzionale, richiede il permesso IAM
+  `roles/pubsub.admin` per il service account RevenueCat.
+- **Aggiornamento plugin** (warning KGP in build): `package_info_plus` 9→10,
+  `purchases_flutter` 8→10, `share_plus` 12→13. Non blocca oggi, ma versioni
+  future di Flutter falliranno la build.
+- Titolo visibile della pagina Termini su Google Sites = slug `terms-of-use`
+  (cosmetico, rinominabile mantenendo l'URL).
 
 ---
 
@@ -100,5 +106,5 @@ closed testing, scheda store) si fa nelle console Play / RevenueCat / iubenda.
   ```
   flutter build appbundle --release
   ```
-- Prima del closed testing reale: `flutter test` verde + prova manuale del
-  flusso paywall con un license tester su una build `.aab` in traccia chiusa.
+  → `build\app\outputs\bundle\release\app-release.aab`
+- Prima di ogni upload: `flutter test` verde.
