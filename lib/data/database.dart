@@ -156,6 +156,12 @@ class MatchSets extends Table {
       integer().withDefault(const Constant(0))();
   IntColumn get correzionePuntiAvversari =>
       integer().withDefault(const Constant(0))();
+  // Slot 1-6 del palleggiatore avversario a inizio set (scelto dopo "Chi
+  // serve per primo?" quando lo scout avversari è attivo) — input a
+  // ricalcolaStato() per derivare la rotazione avversaria placeholder. null =
+  // scout avversari non usato in questo set (nessuna rotazione avversaria).
+  // Schema v14.
+  IntColumn get palleggiatoreAvversarioSlot => integer().nullable()();
 }
 
 class Rotations extends Table {
@@ -233,7 +239,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -377,6 +383,11 @@ class AppDatabase extends _$AppDatabase {
                 [c.label, c.name],
               );
             }
+          }
+          if (from < 14 &&
+              !await _hasColumn('match_sets', 'palleggiatore_avversario_slot')) {
+            await customStatement('ALTER TABLE match_sets ADD COLUMN '
+                'palleggiatore_avversario_slot INTEGER');
           }
         },
         beforeOpen: (details) async {

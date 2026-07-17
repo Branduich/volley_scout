@@ -363,6 +363,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ruoloCambiLiberoIniziale: widget.ruoloCambiLibero,
       liberoInizialeId: widget.assignments['L1']?.id,
       libero2InizialeId: widget.assignments['L2']?.id,
+      palleggiatoreAvversarioSlotIniziale: set.palleggiatoreAvversarioSlot,
     );
   }
 

@@ -329,6 +329,18 @@ class MatchSetRepository {
         .getSingle();
   }
 
+  /// Salva lo slot (1-6) del palleggiatore avversario a inizio set — scelto
+  /// dopo "Chi serve per primo?" quando lo scout avversari è attivo. Da qui
+  /// `ricalcolaStato()` deriva la rotazione avversaria placeholder. Ritorna il
+  /// `MatchSet` aggiornato (il chiamante ne aggiorna la copia locale, come per
+  /// `correggiPunteggio` — questo campo non ha uno stream da osservare).
+  Future<MatchSet> salvaPalleggiatoreAvversario(int setId, int? slot) async {
+    await (_db.update(_db.matchSets)..where((s) => s.id.equals(setId)))
+        .write(MatchSetsCompanion(palleggiatoreAvversarioSlot: Value(slot)));
+    return (_db.select(_db.matchSets)..where((s) => s.id.equals(setId)))
+        .getSingle();
+  }
+
   /// Salva la rotazione iniziale del set a partire dalla formazione
   /// confermata (slot 'P1'..'P6' -> Player). Il libero (L1/L2) e
   /// `ruoloCambiLibero` non hanno una posizione di rotazione, quindi non
@@ -580,6 +592,7 @@ class MatchSetRepository {
       azioni: azioni,
       servizioIniziale: set.squadraServizioIniziale,
       rotazioneIniziale: rotazioneIniziale,
+      palleggiatoreAvversarioSlotIniziale: set.palleggiatoreAvversarioSlot,
     );
   }
 
