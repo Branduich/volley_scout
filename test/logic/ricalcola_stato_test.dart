@@ -643,4 +643,109 @@ void main() {
       expect(stato.squadraAlServizio, Squadra.nostra);
     });
   });
+
+  group('ricalcolaStato — rotazione avversaria (scout avversari)', () {
+    test('senza slot iniziale non si traccia alcuna rotazione avversaria', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+          AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        // palleggiatoreAvversarioSlotIniziale omesso → resta null
+      );
+
+      expect(stato.palleggiatoreAvversarioSlot, isNull);
+    });
+
+    test('l\'avversario ruota sul SUO sideout (vince mentre servivamo noi)', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          // Servivamo noi: gli avversari spezzano il servizio → loro sideout.
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreAvversarioSlotIniziale: 1,
+      );
+
+      // Rotazione oraria: lo slot del palleggiatore scende (1 → 6).
+      expect(stato.palleggiatoreAvversarioSlot, 6);
+      expect(stato.squadraAlServizio, Squadra.avversari);
+    });
+
+    test('lo slot scende di 1 (caso non-wrap): 3 → 2', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreAvversarioSlotIniziale: 3,
+      );
+
+      expect(stato.palleggiatoreAvversarioSlot, 2);
+    });
+
+    test('l\'avversario NON ruota se serviva già (punto in battuta)', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          // Servivano loro e fanno punto: nessuna rotazione avversaria.
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoAvversario),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreAvversarioSlotIniziale: 3,
+      );
+
+      expect(stato.palleggiatoreAvversarioSlot, 3);
+    });
+
+    test('l\'avversario NON ruota sui NOSTRI punti (nostro sideout)', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          // Servivano loro, noi facciamo sideout: ruotiamo NOI, non loro.
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreAvversarioSlotIniziale: 3,
+      );
+
+      expect(stato.palleggiatoreAvversarioSlot, 3);
+      // La nostra rotazione invece è avanzata di un sideout.
+      expect(stato.rotazione, {1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 10});
+    });
+
+    test('sei sideout avversari riportano lo slot al valore iniziale', () {
+      // Ogni sideout avversario è preceduto da un nostro (per restituire il
+      // servizio): P avversario ruota solo sui 6 punti "puntoAvversario in
+      // ricezione", tornando dopo un giro completo alla posizione di partenza.
+      final azioni = <AzioneScout>[];
+      var ordine = 1;
+      for (var i = 0; i < 6; i++) {
+        // Avversari in ricezione (noi al servizio) → loro sideout, ruotano.
+        azioni.add(
+          AzioneScout(ordine: ordine++, esitoPunto: EsitoPunto.puntoAvversario),
+        );
+        // Noi in ricezione → nostro sideout, il servizio torna a noi (loro NON
+        // ruotano). Salto l'ultimo per lasciare il servizio agli avversari.
+        if (i < 5) {
+          azioni.add(
+            AzioneScout(ordine: ordine++, esitoPunto: EsitoPunto.puntoNostro),
+          );
+        }
+      }
+
+      final stato = ricalcolaStato(
+        azioni: azioni,
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        palleggiatoreAvversarioSlotIniziale: 4,
+      );
+
+      expect(stato.palleggiatoreAvversarioSlot, 4);
+    });
+  });
 }

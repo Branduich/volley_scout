@@ -46,8 +46,10 @@ class AzioneScout {
 /// Stato di un set calcolato rigiocando la sequenza di azioni: punteggio,
 /// rotazione corrente e configurazione effettiva (palleggiatore designato,
 /// coppia cambi-libero — possono cambiare a set in corso con un cambio
-/// giocatore). La rotazione riguarda solo la nostra squadra — per gli
-/// avversari (nome libero, senza roster) si traccia solo chi è al servizio.
+/// giocatore). La rotazione con roster riguarda solo la nostra squadra; per
+/// gli avversari (nome libero, senza roster) si traccia chi è al servizio e —
+/// se lo scout avversari è attivo — la sola posizione (slot 1-6) del loro
+/// palleggiatore, da cui si derivano i ruoli placeholder che ruotano.
 class StatoSet {
   final int punteggioNostro;
   final int punteggioAvversario;
@@ -57,6 +59,10 @@ class StatoSet {
   final Ruolo? ruoloCambiLibero; // coppia cambi-libero effettiva
   final int? liberoId; // libero L1 effettivo (cambia solo libero-per-libero)
   final int? libero2Id; // libero L2 effettivo
+  // Slot 1-6 del palleggiatore avversario nella rotazione CORRENTE (ruota sul
+  // sideout avversario). null = scout avversari non attivo / posizione non
+  // impostata: in quel caso non si traccia alcuna rotazione avversaria.
+  final int? palleggiatoreAvversarioSlot;
 
   const StatoSet({
     required this.punteggioNostro,
@@ -67,6 +73,7 @@ class StatoSet {
     this.ruoloCambiLibero,
     this.liberoId,
     this.libero2Id,
+    this.palleggiatoreAvversarioSlot,
   });
 
   @override
@@ -79,6 +86,7 @@ class StatoSet {
         other.ruoloCambiLibero != ruoloCambiLibero ||
         other.liberoId != liberoId ||
         other.libero2Id != libero2Id ||
+        other.palleggiatoreAvversarioSlot != palleggiatoreAvversarioSlot ||
         other.rotazione.length != rotazione.length) {
       return false;
     }
@@ -97,6 +105,7 @@ class StatoSet {
         ruoloCambiLibero,
         liberoId,
         libero2Id,
+        palleggiatoreAvversarioSlot,
         Object.hashAllUnordered(
           rotazione.entries.map((e) => Object.hash(e.key, e.value)),
         ),
@@ -107,7 +116,7 @@ class StatoSet {
       'StatoSet(nostro: $punteggioNostro, avversario: $punteggioAvversario, '
       'al servizio: $squadraAlServizio, rotazione: $rotazione, '
       'palleggiatore: $palleggiatoreId, cambiLibero: $ruoloCambiLibero, '
-      'liberi: $liberoId/$libero2Id)';
+      'liberi: $liberoId/$libero2Id, pAvversario: $palleggiatoreAvversarioSlot)';
 }
 
 /// Ricalcola punteggio e rotazione corrente di un set rigiocando, in ordine,
@@ -129,6 +138,7 @@ StatoSet ricalcolaStato({
   Ruolo? ruoloCambiLiberoIniziale,
   int? liberoInizialeId,
   int? libero2InizialeId,
+  int? palleggiatoreAvversarioSlotIniziale,
 }) {
   var punteggioNostro = 0;
   var punteggioAvversario = 0;
@@ -138,6 +148,7 @@ StatoSet ricalcolaStato({
   var ruoloCambiLibero = ruoloCambiLiberoIniziale;
   var liberoId = liberoInizialeId;
   var libero2Id = libero2InizialeId;
+  var palleggiatoreAvversarioSlot = palleggiatoreAvversarioSlotIniziale;
 
   final ordinate = [...azioni]..sort((a, b) => a.ordine.compareTo(b.ordine));
 
@@ -201,8 +212,16 @@ StatoSet ricalcolaStato({
         alServizio = Squadra.nostra;
       case EsitoPunto.puntoAvversario:
         punteggioAvversario++;
-        // Il sideout è degli avversari: passano al servizio, ma non
-        // tracciamo una loro rotazione (nessun roster avversario).
+        // Sideout avversario (mirror del nostro): se non servivano già,
+        // ruotano. Non tracciamo un loro roster, ma — se lo scout avversari è
+        // attivo — facciamo scorrere lo slot del loro palleggiatore, da cui si
+        // derivano i ruoli placeholder. Se non servivano prima significa che
+        // hanno spezzato il nostro servizio: cambio palla per loro.
+        if (alServizio != Squadra.avversari &&
+            palleggiatoreAvversarioSlot != null) {
+          palleggiatoreAvversarioSlot =
+              _slotRuotato(palleggiatoreAvversarioSlot);
+        }
         alServizio = Squadra.avversari;
     }
   }
@@ -216,6 +235,7 @@ StatoSet ricalcolaStato({
     ruoloCambiLibero: ruoloCambiLibero,
     liberoId: liberoId,
     libero2Id: libero2Id,
+    palleggiatoreAvversarioSlot: palleggiatoreAvversarioSlot,
   );
 }
 
@@ -237,3 +257,9 @@ Map<int, int> _ruotataIndietro(Map<int, int> rotazione) {
     for (var pos = 1; pos <= 6; pos++) pos: rotazione[pos == 1 ? 6 : pos - 1]!,
   };
 }
+
+/// Nuovo slot di un singolo giocatore dopo una rotazione oraria di sideout:
+/// chi era in posizione `s` si sposta in `s−1` (la posizione 1 va in 6),
+/// coerente con `_ruotata` sull'intera mappa. Usata per lo slot del
+/// palleggiatore avversario, di cui tracciamo solo la posizione.
+int _slotRuotato(int slot) => slot == 1 ? 6 : slot - 1;
