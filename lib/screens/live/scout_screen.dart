@@ -74,6 +74,22 @@ const Map<String, Offset> _kAttackPositions = {
   'P6': Offset(200, 300),
 };
 
+// Posizioni delle 6 zone AVVERSARIE (metà campo opposta): la riflessione delle
+// nostre attraverso il centro del campo doppio (1200-x, 600-y). La zona 1
+// avversaria è diagonalmente opposta alla nostra (i due angoli di battuta sono
+// sempre in diagonale) — usata dalla selezione sul campo del palleggiatore
+// avversario a inizio set e, in seguito, dai token placeholder avversari.
+// Passa comunque per _displayPosition() come le nostre, così segue il cambio
+// campo restando sempre sul lato opposto ai nostri token.
+const Map<int, Offset> _kOpponentZonePositions = {
+  1: Offset(1000, 130),
+  2: Offset(670, 130),
+  3: Offset(670, 300),
+  4: Offset(670, 470),
+  5: Offset(1000, 470),
+  6: Offset(1000, 300),
+};
+
 // Quando battiamo noi, chi è in P1 esce dal campo per servire: X = -70,
 // cioè il bordo del campo (x=0, la linea di fondo) meno 70 (era -60 con
 // token più piccoli, vedi _kTokenSizeScale — aumentato per mantenere lo
@@ -328,6 +344,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Set corrente: creato (con relativa rotazione iniziale) non appena si
   // risponde al dialog "Chi serve per primo?" — vedi _chiediServizioIniziale.
   MatchSet? _setCorrente;
+
+  // True mentre si sceglie sul campo la zona del palleggiatore avversario
+  // (inizio set, solo se lo scout avversari è attivo): overlay di zone
+  // tappabili sulla metà campo avversaria, scout normale sospeso finché non
+  // si tocca una zona — vedi _buildSelezionePAvversario/_confermaPAvversario.
+  bool _inSelezionePAvversario = false;
 
   // Rotazione di partenza (posizione 1-6 -> id giocatore), letta dalla
   // formazione confermata — stesso parsing di
@@ -888,76 +910,29 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (!mounted) return;
     setState(() => _setCorrente = set);
 
-    // Se lo scout avversari è attivo, chiedi la posizione del palleggiatore
-    // avversario a inizio set: da lì ricalcolaStato deriva la loro rotazione
-    // placeholder. Solo per i set nuovi (qui): alla ripresa lo slot è già
-    // persistito e si rilegge da _setCorrente.
+    // Se lo scout avversari è attivo, si sceglie sul campo la zona del
+    // palleggiatore avversario a inizio set: da lì ricalcolaStato deriva la
+    // loro rotazione placeholder. Solo per i set nuovi (qui): alla ripresa lo
+    // slot è già persistito e si rilegge da _setCorrente.
     if (ref.read(impostazioniProvider).scoutAvversariAbilitato) {
-      await _chiediPalleggiatoreAvversario(set);
+      setState(() => _inSelezionePAvversario = true);
     }
   }
 
-  /// Dialog di inizio set: in quale zona (1-6) si trova il palleggiatore
-  /// avversario. Salva lo slot sul MatchSet (`salvaPalleggiatoreAvversario`)
-  /// e aggiorna la copia locale. "Salta" lascia lo slot null → nessuna
-  /// rotazione avversaria tracciata per questo set.
-  Future<void> _chiediPalleggiatoreAvversario(MatchSet set) async {
-    // Layout zone come in campo (rete in alto): P4 P3 P2 / P5 P6 P1.
-    const righe = [
-      [4, 3, 2],
-      [5, 6, 1],
-    ];
-    final slot = await showDialog<int>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Palleggiatore avversario'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'In quale zona si trova il palleggiatore avversario a inizio set?',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            for (final riga in righe)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final zona in riga)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                          width: 72,
-                          height: 56,
-                          child: FilledButton.tonal(
-                            onPressed: () => Navigator.pop(context, zona),
-                            child: Text('P$zona',
-                                style: const TextStyle(fontSize: 18)),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Salta'),
-          ),
-        ],
-      ),
-    );
-    if (slot == null || !mounted) return;
+  /// Conferma la zona (1-6) toccata sul campo per il palleggiatore avversario:
+  /// salva lo slot sul MatchSet (`salvaPalleggiatoreAvversario`), aggiorna la
+  /// copia locale ed esce dalla modalità selezione.
+  Future<void> _confermaPAvversario(int zona) async {
+    final set = _setCorrente;
+    if (set == null) return;
     final aggiornato = await ref
         .read(matchSetRepositoryProvider)
-        .salvaPalleggiatoreAvversario(set.id, slot);
+        .salvaPalleggiatoreAvversario(set.id, zona);
     if (!mounted) return;
-    setState(() => _setCorrente = aggiornato);
+    setState(() {
+      _setCorrente = aggiornato;
+      _inSelezionePAvversario = false;
+    });
   }
 
   // Numero di rotazioni applicate da inizio set — usato SOLO in modalità
@@ -1142,7 +1117,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Disabilitati prima dell'inizio del set e durante la modalità test (per
   // non sporcare i dati reali del set con azioni di prova). Stessa
   // condizione usata per i bottoni di correzione punteggio (_correggiPunteggio).
-  bool get _bottoniRapidiAttivi => _setCorrente != null && !_testModeEnabled;
+  bool get _bottoniRapidiAttivi =>
+      _setCorrente != null &&
+      !_testModeEnabled &&
+      !_inSelezionePAvversario;
 
   // Override manuale del punteggio (bottoni +/- accanto al numero): somma
   // il delta alla correzione già persistita su MatchSet (mai loggato come
@@ -1742,6 +1720,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                     ..._buildBattitoreTapCatcher(constraints, courtWidth),
+                    ..._buildSelezionePAvversario(constraints, courtWidth),
                     ..._buildActionLog(),
                     ..._buildPannelloVoto(),
                   ],
@@ -3118,6 +3097,97 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         height: tokenRadius * 2,
         child: GestureDetector(onTap: onTap),
       ),
+    ];
+  }
+
+  // Overlay di selezione (inizio set, scout avversari attivo): 6 zone tappabili
+  // sulla metà campo avversaria + scrim che sospende lo scout normale finché
+  // non si sceglie. Coordinate schermo assolute (stesso Stack esterno di
+  // libero/battitore): _kOpponentZonePositions è già la metà opposta, passa
+  // per _displayPosition() così segue il cambio campo.
+  List<Widget> _buildSelezionePAvversario(
+    BoxConstraints constraints,
+    double courtWidth,
+  ) {
+    if (!_inSelezionePAvversario) return const [];
+    final courtHeight = courtWidth / 2;
+    final courtLeft = (constraints.maxWidth - courtWidth) / 2;
+    final courtTop = _kCourtTopMargin;
+    final radius = _swapTokenRadius(courtWidth);
+    Offset toScreen(Offset ref) => Offset(
+          courtLeft + (ref.dx / 1200) * courtWidth,
+          courtTop + (ref.dy / 600) * courtHeight,
+        );
+
+    return [
+      // Scrim: assorbe i tap sul resto del campo (i cerchi zona stanno sopra),
+      // leggero velo scuro per segnalare la modalità.
+      Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: Container(color: Colors.black.withAlpha(90)),
+        ),
+      ),
+      // Istruzione in alto, sopra il campo.
+      Positioned(
+        top: courtTop + 6,
+        left: 0,
+        right: 0,
+        child: Center(
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _kTopBarBg,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              'Tocca la zona del palleggiatore avversario',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+      // Le 6 zone avversarie tappabili.
+      for (final entry in _kOpponentZonePositions.entries)
+        () {
+          final center = toScreen(_displayPosition(entry.value));
+          return Positioned(
+            left: center.dx - radius,
+            top: center.dy - radius,
+            width: radius * 2,
+            height: radius * 2,
+            child: GestureDetector(
+              onTap: () => _confermaPAvversario(entry.key),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.brandAccent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black45,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'P${entry.key}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }(),
     ];
   }
 
