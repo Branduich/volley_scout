@@ -11,6 +11,8 @@
   "settingsTrajectoriesTitle": "Traiettorie durante lo scout",
   "settingsTrajectoriesSubtitle": "Dopo il voto di battuta e attacco chiede di disegnare la traiettoria. Disattivandola lo scout è più veloce, ma i report delle traiettorie restano vuoti.",
   "settingsTrajectoriesSubtitlePremium": "Funzione premium: le traiettorie sono disattivate.",
+  "settingsOpponentScoutTitle": "Scout avversari",
+  "settingsOpponentScoutSubtitle": "Registra attacchi, battute e muro della squadra avversaria con segnaposto per ruolo che ruotano. La posizione del palleggiatore avversario si imposta a inizio set.",
   "settingsSectionDev": "Sviluppo",
   "settingsSimulatePremium": "Simula premium",
   "settingsSimulatePremiumSubtitle": "Forza il premium per provare le funzioni senza un acquisto reale (solo build di debug).",

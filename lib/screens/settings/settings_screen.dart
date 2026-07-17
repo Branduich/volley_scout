@@ -45,6 +45,17 @@ class SettingsScreen extends ConsumerWidget {
                   : null,
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          Card(
+            child: SwitchListTile(
+              title: Text(l.settingsOpponentScoutTitle),
+              subtitle: Text(l.settingsOpponentScoutSubtitle),
+              value: impostazioni.scoutAvversariAbilitato,
+              onChanged: (v) => ref
+                  .read(impostazioniProvider.notifier)
+                  .setScoutAvversariAbilitato(v),
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           _buildLinguaCard(context, ref, l),
           // Toggle "Simula premium": in debug sempre, in release solo con

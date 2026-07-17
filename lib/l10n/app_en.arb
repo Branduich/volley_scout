@@ -11,6 +11,8 @@
   "settingsTrajectoriesTitle": "Trajectories while scouting",
   "settingsTrajectoriesSubtitle": "After rating a serve or attack you'll be asked to draw its trajectory. Turning this off makes scouting faster, but the trajectory reports stay empty.",
   "settingsTrajectoriesSubtitlePremium": "Premium feature: trajectories are disabled.",
+  "settingsOpponentScoutTitle": "Opponent scouting",
+  "settingsOpponentScoutSubtitle": "Track the opponent's attacks, serves and blocks with rotating role placeholders. You set the opponent setter's position at the start of each set.",
   "settingsSectionDev": "Development",
   "settingsSimulatePremium": "Simulate premium",
   "settingsSimulatePremiumSubtitle": "Force premium to try the features without a real purchase (debug builds only).",

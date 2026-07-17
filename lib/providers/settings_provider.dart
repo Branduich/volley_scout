@@ -18,23 +18,47 @@ class Impostazioni {
   /// In futuro candidata al gating premium.
   final bool traiettorieAbilitate;
 
-  const Impostazioni({required this.traiettorieAbilitate});
+  /// Se true (**default ON**), abilita lo scout leggero della squadra
+  /// avversaria (segnaposto per ruolo che ruotano sulla metà campo opposta,
+  /// registrazione di attacchi/battute/muro avversari, prompt della posizione
+  /// del palleggiatore avversario a inizio set). Se false, lo scout resta solo
+  /// sulla nostra squadra come prima. Flag di gating della feature — vedi
+  /// piano scout avversari.
+  final bool scoutAvversariAbilitato;
+
+  const Impostazioni({
+    required this.traiettorieAbilitate,
+    required this.scoutAvversariAbilitato,
+  });
 }
 
 class ImpostazioniNotifier extends Notifier<Impostazioni> {
   static const _kTraiettorie = 'scout.traiettorieAbilitate';
+  static const _kScoutAvversari = 'scout.scoutAvversariAbilitato';
 
   @override
   Impostazioni build() {
     final prefs = ref.watch(sharedPreferencesProvider);
     return Impostazioni(
       traiettorieAbilitate: prefs.getBool(_kTraiettorie) ?? true,
+      scoutAvversariAbilitato: prefs.getBool(_kScoutAvversari) ?? true,
     );
   }
 
   Future<void> setTraiettorieAbilitate(bool value) async {
     await ref.read(sharedPreferencesProvider).setBool(_kTraiettorie, value);
-    state = Impostazioni(traiettorieAbilitate: value);
+    state = Impostazioni(
+      traiettorieAbilitate: value,
+      scoutAvversariAbilitato: state.scoutAvversariAbilitato,
+    );
+  }
+
+  Future<void> setScoutAvversariAbilitato(bool value) async {
+    await ref.read(sharedPreferencesProvider).setBool(_kScoutAvversari, value);
+    state = Impostazioni(
+      traiettorieAbilitate: state.traiettorieAbilitate,
+      scoutAvversariAbilitato: value,
+    );
   }
 }
 
