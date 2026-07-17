@@ -138,8 +138,14 @@ lib/
 │                                   per slot; gli universali riempiono le
 │                                   etichette mancanti, vedi Interfaccia di scout)
 ├── data/
-│   ├── database.dart             (tabelle Teams, Players, VolleyMatches + AppDatabase)
+│   ├── database.dart             (tabelle Categorie, Teams, Players,
+│   │                               VolleyMatches + AppDatabase)
 │   ├── database.g.dart           (generato, non editare a mano)
+│   ├── default_categorie_seeder.dart (semina i 16 default della lista
+│   │                               categorie alla prima apertura — vedi
+│   │                               Modello dati → Categorie personalizzabili)
+│   ├── default_team_seeder.dart  (squadra demo "Volley Star" pre-caricata
+│   │                               al primo avvio, seed una-tantum via flag)
 │   ├── demo_match_importer.dart  (import partita demo da assets/demo/ —
 │   │                               solo debug, vedi Fase 4)
 │   └── match_csv_exporter.dart   (export CSV azioni partita: righeCsvPartita()
@@ -149,8 +155,9 @@ lib/
 ├── providers/
 │   ├── premium_provider.dart     (StatoPremium + statoPremiumProvider — stub
 │   │                               del freemium gate, vedi sezione Premium)
-│   ├── database_provider.dart    (TeamRepository + MatchRepository,
-│   │                               tutti i provider: teamsStream, playersStream,
+│   ├── database_provider.dart    (TeamRepository + CategoriaRepository +
+│   │                               MatchRepository, tutti i provider:
+│   │                               teamsStream, playersStream, categorieStream,
 │   │                               matchesStream; helper condivisi su righe
 │   │                               ScoutAction: azioneScoutDaRiga(),
 │   │                               idAttacchiSuRicezione(), attaccoMurato())
@@ -159,7 +166,12 @@ lib/
 │                                   sovrascritto in main() — vedi Impostazioni)
 ├── screens/
 │   ├── teams/
-│   │   ├── teams_screen.dart      (lista squadre + FAB nuova squadra)
+│   │   ├── teams_screen.dart      (lista squadre + due FAB in basso:
+│   │   │                           "Categorie" a sx tonale → CategorieScreen,
+│   │   │                           "Nuova squadra" a dx primaria)
+│   │   ├── categorie_screen.dart  (gestione lista categorie: aggiungi/
+│   │   │                           rinomina con cascata opzionale/elimina/
+│   │   │                           riordina — vedi Modello dati → Categorie)
 │   │   ├── team_form_screen.dart  (crea/modifica/elimina squadra;
 │   │   │                           layout 2 colonne: form | lista giocatori)
 │   │   └── player_form_screen.dart (crea/modifica/elimina giocatore)
@@ -295,8 +307,10 @@ dimensioni/pesi già definiti tramite `TextTheme.apply()`.
 
 ### Implementato (Fase 1)
 
-**Teams**: id (autoincrement), nome, categoria (enum Categoria), coloreDivisa
-(int ARGB).
+**Teams**: id (autoincrement), nome, categoria (**testo libero** — nome della
+categoria scelto da una lista modificabile, vedi Categorie personalizzabili;
+da schema v13, prima era `enum Categoria` via `CategoriaConverter`),
+coloreDivisa (int ARGB).
 
 **Players**: id (autoincrement), teamId (FK -> Teams, cascade delete), nome,
 cognome, numero (int), ruolo (enum Ruolo), scadenzaCertificato (DateTime nullable —
@@ -314,6 +328,52 @@ match_sets.ruolo_cambi_libero, scout_actions.nuovo_ruolo_cambi_libero).
 
 **Enum Categoria**: under11..under18, terzaDivisione, secondaDivisione,
 primaDivisione, serieD, serieC, serieB, serieB1, serieB2, serieA1, serieA2, serieA3.
+Da schema v13 **NON è più il tipo salvato** su `Teams.categoria` (ora testo
+libero): resta solo come **sorgente dei default** della lista `Categorie`
+(`default_categorie_seeder.dart` inserisce `Categoria.values[i].label`). Il
+`CategoriaConverter` è stato rimosso — salvare il `.name` era fragile
+(`byName()` lanciava se un valore veniva rinominato/rimosso, impossibile con
+una lista personalizzabile).
+
+**Categorie personalizzabili (tabella `Categorie`, schema v13)**: lista
+modificabile delle categorie di squadra. Colonne: id, nome (text), ordine
+(int, per il riordino manuale). Seminata coi 16 default alla PRIMA apertura
+(`default_categorie_seeder.dart`, flag `db.defaultCategorieSeeded` +
+condizione "tabella vuota" — copre sia install pulito sia aggiornamento da
+<v13, dove la migrazione crea la tabella vuota e il seeder la riempie).
+- **La squadra NON referenzia una riga qui**: salva il **nome** della
+  categoria come testo. Scelta deliberata (più semplice/sicuro di una FK):
+  eliminare o rinominare una voce NON può mai rompere una squadra esistente
+  (niente riferimenti pendenti, niente policy di integrità sul delete).
+- **Migrazione v12→v13**: crea la tabella `Categorie` + riscrive
+  `teams.categoria` dai nomi enum alle etichette (`UPDATE teams SET
+  categoria = <label> WHERE categoria = <name>` per ogni `Categoria.values`).
+  La colonna era già TEXT (il converter era solo Dart-side), quindi nessun
+  ALTER. Idempotente: a un retry i valori sono già etichette, nessuna riga
+  combacia coi nomi enum.
+- **`CategoriaRepository`** (`database_provider.dart`): `watchCategorie()`
+  (stream ordinato per `ordine`), `aggiungiCategoria(nome)` (in coda,
+  `ordine = max+1`), `rinominaCategoria({id, vecchioNome, nuovoNome,
+  aggiornaSquadre})` (se `aggiornaSquadre`, riscrive anche `teams.categoria`
+  dal vecchio al nuovo nome — cascata esplicita, ritorna il numero di squadre
+  toccate), `contaSquadreConCategoria(nome)` (per gli avvisi),
+  `eliminaCategoria(id)`, `riordina(idInOrdine)` (batch di UPDATE ordine).
+  Provider: `categoriaRepositoryProvider`, `categorieStreamProvider`.
+- **`CategorieScreen`** (`screens/teams/categorie_screen.dart`, da "Setup
+  squadre"): `ReorderableListView` con drag handle esplicito
+  (`buildDefaultDragHandles: false` + `ReorderableDragStartListener`, usa
+  `onReorderItem` — il `newIndex` è già l'indice finale, non il deprecato
+  `onReorder`). Aggiungi/rinomina via dialog con validazione (niente vuoti né
+  duplicati case-insensitive). Rinomina: se N squadre usano il vecchio nome,
+  dialog a 3 vie (Annulla / Solo la lista / Aggiorna le N squadre) — è qui che
+  vive la cascata opzionale (es. "Under 18" → "Under 19" a inizio stagione).
+  Elimina: avvisa se in uso ("N squadre resteranno marcate col vecchio testo,
+  la voce sparisce dalla lista").
+- **Dropdown categoria in `TeamFormScreen`**: letto da `categorieStreamProvider`.
+  Nuova squadra → default alla prima categoria della lista. Se una squadra ha
+  una categoria "legacy" non più in lista (rinominata/eliminata dopo la
+  creazione), il dropdown la mostra comunque come voce "(non in lista)" per
+  non perderla/crashare — stesso trucco del dropdown colore fuori palette.
 
 **jerseyPalette**: lista fissa di JerseyColor (nome + Color): Rosso, Blu, Verde,
 Giallo, Arancione, Viola, Nero, Bianco. Nello stesso file,
@@ -366,7 +426,7 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v12** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v13** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
@@ -375,7 +435,9 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   aggiunto `ScoutActions.giocatoreUscenteId`/`nuovoPalleggiatoreId`/
   `nuovoRuoloCambiLibero` per il cambio giocatore; v12 ha aggiunto
   `ScoutActions.gruppoCambio` per l'undo atomico dei cambi confermati
-  insieme — vedi "cambio giocatore" in Fase 3).
+  insieme — vedi "cambio giocatore" in Fase 3; v13 ha aggiunto la tabella
+  `Categorie` e trasformato `Teams.categoria` in testo libero — vedi
+  Categorie personalizzabili sopra).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 

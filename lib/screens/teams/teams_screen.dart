@@ -4,6 +4,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../widgets/premium_badge.dart';
 import '../premium/paywall_screen.dart';
+import 'categorie_screen.dart';
 import 'team_form_screen.dart';
 
 class TeamsScreen extends ConsumerWidget {
@@ -21,26 +22,52 @@ class TeamsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Setup squadre')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          if (giaUnaSquadra && !ref.read(statoPremiumProvider).attivo) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PaywallScreen()),
-            );
-            return;
-          }
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const TeamFormScreen()),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
+      // Due bottoni sulla stessa riga in basso: "Categorie" a sinistra
+      // (secondario, tonale) e "Nuova squadra" a destra (azione primaria).
+      // heroTag distinti: due FAB nella stessa route altrimenti collidono.
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
           children: [
-            const Text('Nuova squadra'),
-            if (giaUnaSquadra) const PremiumBadge(),
+            FloatingActionButton.extended(
+              heroTag: 'fab-categorie',
+              backgroundColor:
+                  Theme.of(context).colorScheme.secondaryContainer,
+              foregroundColor:
+                  Theme.of(context).colorScheme.onSecondaryContainer,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CategorieScreen()),
+              ),
+              icon: const Icon(Icons.label_outline),
+              label: const Text('Categorie'),
+            ),
+            const Spacer(),
+            FloatingActionButton.extended(
+              heroTag: 'fab-nuova-squadra',
+              onPressed: () {
+                if (giaUnaSquadra && !ref.read(statoPremiumProvider).attivo) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TeamFormScreen()),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Nuova squadra'),
+                  if (giaUnaSquadra) const PremiumBadge(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
