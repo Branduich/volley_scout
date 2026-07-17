@@ -8,14 +8,12 @@ import '../models/enums.dart';
 part 'database.g.dart';
 
 // --- Convertitori enum <-> testo nel DB ---
-class CategoriaConverter extends TypeConverter<Categoria, String> {
-  const CategoriaConverter();
-  @override
-  Categoria fromSql(String fromDb) => Categoria.values.byName(fromDb);
-  @override
-  String toSql(Categoria value) => value.name;
-}
-
+// NB: la categoria della squadra NON ha più un converter — da schema v13 è
+// testo libero (Teams.categoria), scelto da una lista modificabile
+// (tabella Categorie). L'enum Categoria resta solo come sorgente dei default
+// (vedi default_categorie_seeder.dart). Salvare il nome dell'enum era
+// fragile: Categoria.values.byName() lanciava se il valore veniva rinominato
+// o rimosso — impossibile con una lista personalizzabile.
 class RuoloConverter extends TypeConverter<Ruolo, String> {
   const RuoloConverter();
   @override
@@ -73,10 +71,24 @@ class EsitoPuntoConverter extends TypeConverter<EsitoPunto, String> {
 }
 
 // --- Tabelle ---
+// Lista modificabile delle categorie (default seminati alla prima apertura da
+// default_categorie_seeder.dart, poi personalizzabili dall'utente in
+// CategorieScreen). Non è referenziata da Teams: la squadra salva il NOME
+// della categoria come testo (scelta deliberata, vedi commento sul converter
+// rimosso sopra), quindi rinominare/eliminare una voce qui non può mai
+// rompere una squadra esistente.
+class Categorie extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nome => text().withLength(min: 1, max: 60)();
+  IntColumn get ordine => integer()(); // per il riordino manuale in lista
+}
+
 class Teams extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get nome => text().withLength(min: 1, max: 100)();
-  TextColumn get categoria => text().map(const CategoriaConverter())();
+  // Testo libero (nome della categoria), scelto dalla lista Categorie — vedi
+  // sopra. Da schema v13; prima era .map(CategoriaConverter).
+  TextColumn get categoria => text()();
   IntColumn get coloreDivisa => integer()(); // valore ARGB del colore
 }
 
@@ -209,6 +221,7 @@ class ScoutActions extends Table {
 
 // --- Database ---
 @DriftDatabase(tables: [
+  Categorie,
   Teams,
   Players,
   VolleyMatches,
@@ -220,7 +233,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -348,6 +361,22 @@ class AppDatabase extends _$AppDatabase {
               !await _hasColumn('scout_actions', 'gruppo_cambio')) {
             await customStatement('ALTER TABLE scout_actions ADD COLUMN '
                 'gruppo_cambio INTEGER');
+          }
+          if (from < 13) {
+            if (!await _hasTable('categorie')) {
+              await m.createTable(categorie);
+            }
+            // La colonna teams.categoria era TEXT anche prima (il converter
+            // era solo Dart-side), quindi niente ALTER: basta riscrivere i
+            // valori dal nome enum (es. 'under18') all'etichetta libera (es.
+            // 'Under 18'). Idempotente: a un eventuale retry i valori sono
+            // già etichette e nessuna riga combacia più coi nomi enum.
+            for (final c in Categoria.values) {
+              await customStatement(
+                'UPDATE teams SET categoria = ? WHERE categoria = ?',
+                [c.label, c.name],
+              );
+            }
           }
         },
         beforeOpen: (details) async {

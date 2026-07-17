@@ -30,8 +30,10 @@ Future<void> seedDefaultTeamSeNecessario(
 Future<void> _seed(AppDatabase db) async {
   final teamId = await db.into(db.teams).insert(
         TeamsCompanion.insert(
+          // Categoria ora è testo libero (nome della categoria): deve
+          // combaciare con una voce seminata da default_categorie_seeder.
           nome: 'Volley Star',
-          categoria: Categoria.primaDivisione,
+          categoria: Categoria.primaDivisione.label,
           coloreDivisa: 0xFFD32F2F, // rosso (jerseyPalette "Rosso")
         ),
       );

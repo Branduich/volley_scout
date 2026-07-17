@@ -67,7 +67,7 @@ class TeamsScreen extends ConsumerWidget {
                     backgroundColor: Color(team.coloreDivisa),
                   ),
                   title: Text(team.nome),
-                  subtitle: Text(team.categoria.label),
+                  subtitle: Text(team.categoria),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,

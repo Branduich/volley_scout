@@ -50,7 +50,8 @@ class DemoMatchImporter {
     final teamId = teamEsistente?.id ??
         await _db.into(_db.teams).insert(TeamsCompanion.insert(
               nome: teamNome,
-              categoria: Categoria.terzaDivisione,
+              // Categoria ora è testo libero (nome della categoria).
+              categoria: Categoria.terzaDivisione.label,
               coloreDivisa: json['coloreDivisa'] as int,
             ));
 

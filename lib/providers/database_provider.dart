@@ -172,6 +172,88 @@ final playersStreamProvider =
   return ref.watch(teamRepositoryProvider).watchPlayersForTeam(teamId);
 });
 
+// --- Categorie ---
+//
+// Lista modificabile delle categorie di squadra. Le squadre NON referenziano
+// una riga qui: salvano il NOME della categoria come testo (vedi database.dart)
+// — quindi eliminare/rinominare una voce non rompe mai una squadra esistente.
+// La rinomina può, su richiesta esplicita, propagarsi alle squadre che usano
+// il vecchio nome (cascata "on demand", vedi rinominaCategoria).
+class CategoriaRepository {
+  CategoriaRepository(this._db);
+  final AppDatabase _db;
+
+  Stream<List<CategorieData>> watchCategorie() {
+    return (_db.select(_db.categorie)
+          ..orderBy([(c) => OrderingTerm.asc(c.ordine)]))
+        .watch();
+  }
+
+  /// Inserisce una categoria in coda (ordine = max attuale + 1).
+  Future<int> aggiungiCategoria(String nome) async {
+    final maxOrdine = await (_db.selectOnly(_db.categorie)
+          ..addColumns([_db.categorie.ordine.max()]))
+        .map((r) => r.read(_db.categorie.ordine.max()))
+        .getSingleOrNull();
+    return _db.into(_db.categorie).insert(
+          CategorieCompanion.insert(nome: nome, ordine: (maxOrdine ?? -1) + 1),
+        );
+  }
+
+  /// Rinomina la categoria. Se [aggiornaSquadre], riscrive anche
+  /// `teams.categoria` dal vecchio al nuovo nome per le squadre che lo usano
+  /// (cascata esplicita — es. "Under 18" → "Under 19" a inizio stagione).
+  /// Ritorna il numero di squadre aggiornate (0 se [aggiornaSquadre] è false).
+  Future<int> rinominaCategoria({
+    required int id,
+    required String vecchioNome,
+    required String nuovoNome,
+    required bool aggiornaSquadre,
+  }) async {
+    await (_db.update(_db.categorie)..where((c) => c.id.equals(id)))
+        .write(CategorieCompanion(nome: Value(nuovoNome)));
+    if (!aggiornaSquadre) return 0;
+    return (_db.update(_db.teams)
+          ..where((t) => t.categoria.equals(vecchioNome)))
+        .write(TeamsCompanion(categoria: Value(nuovoNome)));
+  }
+
+  /// Numero di squadre attualmente marcate con [nome] — per avvisare l'utente
+  /// prima di rinominare/eliminare ("N squadre usano questa categoria").
+  Future<int> contaSquadreConCategoria(String nome) async {
+    final conteggio = _db.teams.id.count();
+    final q = _db.selectOnly(_db.teams)
+      ..addColumns([conteggio])
+      ..where(_db.teams.categoria.equals(nome));
+    return (await q.map((r) => r.read(conteggio)).getSingle()) ?? 0;
+  }
+
+  Future<int> eliminaCategoria(int id) {
+    return (_db.delete(_db.categorie)..where((c) => c.id.equals(id))).go();
+  }
+
+  /// Riscrive l'ordine secondo la sequenza di id fornita (posizione in lista).
+  Future<void> riordina(List<int> idInOrdine) async {
+    await _db.batch((b) {
+      for (var i = 0; i < idInOrdine.length; i++) {
+        b.update(
+          _db.categorie,
+          CategorieCompanion(ordine: Value(i)),
+          where: (c) => c.id.equals(idInOrdine[i]),
+        );
+      }
+    });
+  }
+}
+
+final categoriaRepositoryProvider = Provider<CategoriaRepository>((ref) {
+  return CategoriaRepository(ref.watch(appDatabaseProvider));
+});
+
+final categorieStreamProvider = StreamProvider<List<CategorieData>>((ref) {
+  return ref.watch(categoriaRepositoryProvider).watchCategorie();
+});
+
 // --- Partite ---
 
 class MatchRepository {

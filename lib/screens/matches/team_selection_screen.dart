@@ -137,7 +137,7 @@ class _TeamSelectCard extends StatelessWidget {
           radius: 20,
         ),
         title: Text(team.nome, style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(team.categoria.label),
+        subtitle: Text(team.categoria),
         trailing: FilledButton(
           onPressed: onTap,
           child: const Text('Seleziona'),

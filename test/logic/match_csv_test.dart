@@ -23,7 +23,7 @@ VolleyMatch _match({String? avversario, bool inCasa = true}) => VolleyMatch(
 Team _team() => Team(
       id: 10,
       nome: 'Nettunia',
-      categoria: Categoria.terzaDivisione,
+      categoria: 'Terza Divisione',
       coloreDivisa: 0xFF0000FF,
     );
 

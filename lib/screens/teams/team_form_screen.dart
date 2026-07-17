@@ -29,7 +29,10 @@ class TeamFormScreen extends ConsumerStatefulWidget {
 class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
-  late Categoria _categoria;
+  // Nome della categoria (testo libero, scelto dalla lista Categorie). null =
+  // non ancora scelta: per una nuova squadra si usa la prima categoria della
+  // lista come default (vedi _categoriaEffettiva).
+  String? _categoria;
   late int _coloreDivisa;
 
   bool get isEditing => widget.team != null;
@@ -38,10 +41,15 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
   void initState() {
     super.initState();
     _nomeController = TextEditingController(text: widget.team?.nome ?? '');
-    _categoria = widget.team?.categoria ?? Categoria.under14;
+    _categoria = widget.team?.categoria;
     _coloreDivisa =
         widget.team?.coloreDivisa ?? jerseyPalette.first.color.toARGB32();
   }
+
+  // Categoria da salvare: quella scelta, o (nuova squadra) la prima della
+  // lista. null solo se la lista è vuota (utente ha eliminato tutto).
+  String? _categoriaEffettiva(List<CategorieData> categorie) =>
+      _categoria ?? (categorie.isNotEmpty ? categorie.first.nome : null);
 
   @override
   void dispose() {
@@ -51,13 +59,23 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final categorie = ref.read(categorieStreamProvider).value ?? [];
+    final categoria = _categoriaEffettiva(categorie);
+    if (categoria == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nessuna categoria disponibile: creane una prima.'),
+        ),
+      );
+      return;
+    }
     final repo = ref.read(teamRepositoryProvider);
 
     if (isEditing) {
       await repo.updateTeam(
         widget.team!.copyWith(
           nome: _nomeController.text.trim(),
-          categoria: _categoria,
+          categoria: categoria,
           coloreDivisa: _coloreDivisa,
         ),
       );
@@ -65,7 +83,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
       await repo.addTeam(
         TeamsCompanion.insert(
           nome: _nomeController.text.trim(),
-          categoria: _categoria,
+          categoria: categoria,
           coloreDivisa: _coloreDivisa,
         ),
       );
@@ -111,17 +129,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
               (v == null || v.trim().isEmpty) ? 'Inserisci un nome' : null,
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<Categoria>(
-          initialValue: _categoria,
-          decoration: const InputDecoration(
-            labelText: 'Categoria',
-            border: OutlineInputBorder(),
-          ),
-          items: Categoria.values
-              .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-              .toList(),
-          onChanged: (v) => setState(() => _categoria = v!),
-        ),
+        _buildCategoriaField(),
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
           initialValue: _coloreDivisa,
@@ -179,6 +187,46 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
           onChanged: (v) => setState(() => _coloreDivisa = v!),
         ),
       ],
+    );
+  }
+
+  // Dropdown categoria letto dalla lista modificabile (stream). Se la squadra
+  // ha una categoria "legacy" non più in lista (rinominata/eliminata dopo la
+  // creazione), la mostro comunque come voce dedicata per non perderla — lo
+  // stesso trucco del dropdown colore per un colore fuori palette.
+  Widget _buildCategoriaField() {
+    final categorieAsync = ref.watch(categorieStreamProvider);
+    return categorieAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(),
+      ),
+      error: (e, _) => Text('Errore categorie: $e'),
+      data: (categorie) {
+        final nomi = categorie.map((c) => c.nome).toList();
+        final valore = _categoriaEffettiva(categorie);
+        return DropdownButtonFormField<String>(
+          initialValue: valore,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Categoria',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            if (valore != null && !nomi.contains(valore))
+              DropdownMenuItem(
+                value: valore,
+                child: Text('$valore (non in lista)'),
+              ),
+            ...nomi.map(
+              (n) => DropdownMenuItem(value: n, child: Text(n)),
+            ),
+          ],
+          onChanged: (v) => setState(() => _categoria = v),
+          validator: (v) =>
+              v == null ? 'Nessuna categoria: creane una prima' : null,
+        );
+      },
     );
   }
 

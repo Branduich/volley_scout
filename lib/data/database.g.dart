@@ -3,6 +3,256 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
+class $CategorieTable extends Categorie
+    with TableInfo<$CategorieTable, CategorieData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CategorieTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nomeMeta = const VerificationMeta('nome');
+  @override
+  late final GeneratedColumn<String> nome = GeneratedColumn<String>(
+    'nome',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 60,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ordineMeta = const VerificationMeta('ordine');
+  @override
+  late final GeneratedColumn<int> ordine = GeneratedColumn<int>(
+    'ordine',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, nome, ordine];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'categorie';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CategorieData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('nome')) {
+      context.handle(
+        _nomeMeta,
+        nome.isAcceptableOrUnknown(data['nome']!, _nomeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nomeMeta);
+    }
+    if (data.containsKey('ordine')) {
+      context.handle(
+        _ordineMeta,
+        ordine.isAcceptableOrUnknown(data['ordine']!, _ordineMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ordineMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CategorieData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CategorieData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      nome: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nome'],
+      )!,
+      ordine: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ordine'],
+      )!,
+    );
+  }
+
+  @override
+  $CategorieTable createAlias(String alias) {
+    return $CategorieTable(attachedDatabase, alias);
+  }
+}
+
+class CategorieData extends DataClass implements Insertable<CategorieData> {
+  final int id;
+  final String nome;
+  final int ordine;
+  const CategorieData({
+    required this.id,
+    required this.nome,
+    required this.ordine,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['nome'] = Variable<String>(nome);
+    map['ordine'] = Variable<int>(ordine);
+    return map;
+  }
+
+  CategorieCompanion toCompanion(bool nullToAbsent) {
+    return CategorieCompanion(
+      id: Value(id),
+      nome: Value(nome),
+      ordine: Value(ordine),
+    );
+  }
+
+  factory CategorieData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CategorieData(
+      id: serializer.fromJson<int>(json['id']),
+      nome: serializer.fromJson<String>(json['nome']),
+      ordine: serializer.fromJson<int>(json['ordine']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'nome': serializer.toJson<String>(nome),
+      'ordine': serializer.toJson<int>(ordine),
+    };
+  }
+
+  CategorieData copyWith({int? id, String? nome, int? ordine}) => CategorieData(
+    id: id ?? this.id,
+    nome: nome ?? this.nome,
+    ordine: ordine ?? this.ordine,
+  );
+  CategorieData copyWithCompanion(CategorieCompanion data) {
+    return CategorieData(
+      id: data.id.present ? data.id.value : this.id,
+      nome: data.nome.present ? data.nome.value : this.nome,
+      ordine: data.ordine.present ? data.ordine.value : this.ordine,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategorieData(')
+          ..write('id: $id, ')
+          ..write('nome: $nome, ')
+          ..write('ordine: $ordine')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, nome, ordine);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CategorieData &&
+          other.id == this.id &&
+          other.nome == this.nome &&
+          other.ordine == this.ordine);
+}
+
+class CategorieCompanion extends UpdateCompanion<CategorieData> {
+  final Value<int> id;
+  final Value<String> nome;
+  final Value<int> ordine;
+  const CategorieCompanion({
+    this.id = const Value.absent(),
+    this.nome = const Value.absent(),
+    this.ordine = const Value.absent(),
+  });
+  CategorieCompanion.insert({
+    this.id = const Value.absent(),
+    required String nome,
+    required int ordine,
+  }) : nome = Value(nome),
+       ordine = Value(ordine);
+  static Insertable<CategorieData> custom({
+    Expression<int>? id,
+    Expression<String>? nome,
+    Expression<int>? ordine,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nome != null) 'nome': nome,
+      if (ordine != null) 'ordine': ordine,
+    });
+  }
+
+  CategorieCompanion copyWith({
+    Value<int>? id,
+    Value<String>? nome,
+    Value<int>? ordine,
+  }) {
+    return CategorieCompanion(
+      id: id ?? this.id,
+      nome: nome ?? this.nome,
+      ordine: ordine ?? this.ordine,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (nome.present) {
+      map['nome'] = Variable<String>(nome.value);
+    }
+    if (ordine.present) {
+      map['ordine'] = Variable<int>(ordine.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategorieCompanion(')
+          ..write('id: $id, ')
+          ..write('nome: $nome, ')
+          ..write('ordine: $ordine')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -34,15 +284,17 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _categoriaMeta = const VerificationMeta(
+    'categoria',
+  );
   @override
-  late final GeneratedColumnWithTypeConverter<Categoria, String> categoria =
-      GeneratedColumn<String>(
-        'categoria',
-        aliasedName,
-        false,
-        type: DriftSqlType.string,
-        requiredDuringInsert: true,
-      ).withConverter<Categoria>($TeamsTable.$convertercategoria);
+  late final GeneratedColumn<String> categoria = GeneratedColumn<String>(
+    'categoria',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _coloreDivisaMeta = const VerificationMeta(
     'coloreDivisa',
   );
@@ -79,6 +331,14 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
     } else if (isInserting) {
       context.missing(_nomeMeta);
     }
+    if (data.containsKey('categoria')) {
+      context.handle(
+        _categoriaMeta,
+        categoria.isAcceptableOrUnknown(data['categoria']!, _categoriaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoriaMeta);
+    }
     if (data.containsKey('colore_divisa')) {
       context.handle(
         _coloreDivisaMeta,
@@ -107,12 +367,10 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
         DriftSqlType.string,
         data['${effectivePrefix}nome'],
       )!,
-      categoria: $TeamsTable.$convertercategoria.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.string,
-          data['${effectivePrefix}categoria'],
-        )!,
-      ),
+      categoria: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}categoria'],
+      )!,
       coloreDivisa: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}colore_divisa'],
@@ -124,15 +382,12 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
   $TeamsTable createAlias(String alias) {
     return $TeamsTable(attachedDatabase, alias);
   }
-
-  static TypeConverter<Categoria, String> $convertercategoria =
-      const CategoriaConverter();
 }
 
 class Team extends DataClass implements Insertable<Team> {
   final int id;
   final String nome;
-  final Categoria categoria;
+  final String categoria;
   final int coloreDivisa;
   const Team({
     required this.id,
@@ -145,11 +400,7 @@ class Team extends DataClass implements Insertable<Team> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['nome'] = Variable<String>(nome);
-    {
-      map['categoria'] = Variable<String>(
-        $TeamsTable.$convertercategoria.toSql(categoria),
-      );
-    }
+    map['categoria'] = Variable<String>(categoria);
     map['colore_divisa'] = Variable<int>(coloreDivisa);
     return map;
   }
@@ -171,7 +422,7 @@ class Team extends DataClass implements Insertable<Team> {
     return Team(
       id: serializer.fromJson<int>(json['id']),
       nome: serializer.fromJson<String>(json['nome']),
-      categoria: serializer.fromJson<Categoria>(json['categoria']),
+      categoria: serializer.fromJson<String>(json['categoria']),
       coloreDivisa: serializer.fromJson<int>(json['coloreDivisa']),
     );
   }
@@ -181,7 +432,7 @@ class Team extends DataClass implements Insertable<Team> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'nome': serializer.toJson<String>(nome),
-      'categoria': serializer.toJson<Categoria>(categoria),
+      'categoria': serializer.toJson<String>(categoria),
       'coloreDivisa': serializer.toJson<int>(coloreDivisa),
     };
   }
@@ -189,7 +440,7 @@ class Team extends DataClass implements Insertable<Team> {
   Team copyWith({
     int? id,
     String? nome,
-    Categoria? categoria,
+    String? categoria,
     int? coloreDivisa,
   }) => Team(
     id: id ?? this.id,
@@ -234,7 +485,7 @@ class Team extends DataClass implements Insertable<Team> {
 class TeamsCompanion extends UpdateCompanion<Team> {
   final Value<int> id;
   final Value<String> nome;
-  final Value<Categoria> categoria;
+  final Value<String> categoria;
   final Value<int> coloreDivisa;
   const TeamsCompanion({
     this.id = const Value.absent(),
@@ -245,7 +496,7 @@ class TeamsCompanion extends UpdateCompanion<Team> {
   TeamsCompanion.insert({
     this.id = const Value.absent(),
     required String nome,
-    required Categoria categoria,
+    required String categoria,
     required int coloreDivisa,
   }) : nome = Value(nome),
        categoria = Value(categoria),
@@ -267,7 +518,7 @@ class TeamsCompanion extends UpdateCompanion<Team> {
   TeamsCompanion copyWith({
     Value<int>? id,
     Value<String>? nome,
-    Value<Categoria>? categoria,
+    Value<String>? categoria,
     Value<int>? coloreDivisa,
   }) {
     return TeamsCompanion(
@@ -288,9 +539,7 @@ class TeamsCompanion extends UpdateCompanion<Team> {
       map['nome'] = Variable<String>(nome.value);
     }
     if (categoria.present) {
-      map['categoria'] = Variable<String>(
-        $TeamsTable.$convertercategoria.toSql(categoria.value),
-      );
+      map['categoria'] = Variable<String>(categoria.value);
     }
     if (coloreDivisa.present) {
       map['colore_divisa'] = Variable<int>(coloreDivisa.value);
@@ -3854,6 +4103,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $CategorieTable categorie = $CategorieTable(this);
   late final $TeamsTable teams = $TeamsTable(this);
   late final $PlayersTable players = $PlayersTable(this);
   late final $VolleyMatchesTable volleyMatches = $VolleyMatchesTable(this);
@@ -3865,6 +4115,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
+    categorie,
     teams,
     players,
     volleyMatches,
@@ -3954,18 +4205,167 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ]);
 }
 
+typedef $$CategorieTableCreateCompanionBuilder =
+    CategorieCompanion Function({
+      Value<int> id,
+      required String nome,
+      required int ordine,
+    });
+typedef $$CategorieTableUpdateCompanionBuilder =
+    CategorieCompanion Function({
+      Value<int> id,
+      Value<String> nome,
+      Value<int> ordine,
+    });
+
+class $$CategorieTableFilterComposer
+    extends Composer<_$AppDatabase, $CategorieTable> {
+  $$CategorieTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nome => $composableBuilder(
+    column: $table.nome,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ordine => $composableBuilder(
+    column: $table.ordine,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CategorieTableOrderingComposer
+    extends Composer<_$AppDatabase, $CategorieTable> {
+  $$CategorieTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nome => $composableBuilder(
+    column: $table.nome,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ordine => $composableBuilder(
+    column: $table.ordine,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CategorieTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CategorieTable> {
+  $$CategorieTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nome =>
+      $composableBuilder(column: $table.nome, builder: (column) => column);
+
+  GeneratedColumn<int> get ordine =>
+      $composableBuilder(column: $table.ordine, builder: (column) => column);
+}
+
+class $$CategorieTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CategorieTable,
+          CategorieData,
+          $$CategorieTableFilterComposer,
+          $$CategorieTableOrderingComposer,
+          $$CategorieTableAnnotationComposer,
+          $$CategorieTableCreateCompanionBuilder,
+          $$CategorieTableUpdateCompanionBuilder,
+          (
+            CategorieData,
+            BaseReferences<_$AppDatabase, $CategorieTable, CategorieData>,
+          ),
+          CategorieData,
+          PrefetchHooks Function()
+        > {
+  $$CategorieTableTableManager(_$AppDatabase db, $CategorieTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CategorieTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CategorieTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CategorieTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> nome = const Value.absent(),
+                Value<int> ordine = const Value.absent(),
+              }) => CategorieCompanion(id: id, nome: nome, ordine: ordine),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String nome,
+                required int ordine,
+              }) =>
+                  CategorieCompanion.insert(id: id, nome: nome, ordine: ordine),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CategorieTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CategorieTable,
+      CategorieData,
+      $$CategorieTableFilterComposer,
+      $$CategorieTableOrderingComposer,
+      $$CategorieTableAnnotationComposer,
+      $$CategorieTableCreateCompanionBuilder,
+      $$CategorieTableUpdateCompanionBuilder,
+      (
+        CategorieData,
+        BaseReferences<_$AppDatabase, $CategorieTable, CategorieData>,
+      ),
+      CategorieData,
+      PrefetchHooks Function()
+    >;
 typedef $$TeamsTableCreateCompanionBuilder =
     TeamsCompanion Function({
       Value<int> id,
       required String nome,
-      required Categoria categoria,
+      required String categoria,
       required int coloreDivisa,
     });
 typedef $$TeamsTableUpdateCompanionBuilder =
     TeamsCompanion Function({
       Value<int> id,
       Value<String> nome,
-      Value<Categoria> categoria,
+      Value<String> categoria,
       Value<int> coloreDivisa,
     });
 
@@ -4029,11 +4429,10 @@ class $$TeamsTableFilterComposer extends Composer<_$AppDatabase, $TeamsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<Categoria, Categoria, String> get categoria =>
-      $composableBuilder(
-        column: $table.categoria,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnFilters<String> get categoria => $composableBuilder(
+    column: $table.categoria,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<int> get coloreDivisa => $composableBuilder(
     column: $table.coloreDivisa,
@@ -4136,7 +4535,7 @@ class $$TeamsTableAnnotationComposer
   GeneratedColumn<String> get nome =>
       $composableBuilder(column: $table.nome, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<Categoria, String> get categoria =>
+  GeneratedColumn<String> get categoria =>
       $composableBuilder(column: $table.categoria, builder: (column) => column);
 
   GeneratedColumn<int> get coloreDivisa => $composableBuilder(
@@ -4225,7 +4624,7 @@ class $$TeamsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> nome = const Value.absent(),
-                Value<Categoria> categoria = const Value.absent(),
+                Value<String> categoria = const Value.absent(),
                 Value<int> coloreDivisa = const Value.absent(),
               }) => TeamsCompanion(
                 id: id,
@@ -4237,7 +4636,7 @@ class $$TeamsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String nome,
-                required Categoria categoria,
+                required String categoria,
                 required int coloreDivisa,
               }) => TeamsCompanion.insert(
                 id: id,
@@ -7955,6 +8354,8 @@ typedef $$ScoutActionsTableProcessedTableManager =
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
+  $$CategorieTableTableManager get categorie =>
+      $$CategorieTableTableManager(_db, _db.categorie);
   $$TeamsTableTableManager get teams =>
       $$TeamsTableTableManager(_db, _db.teams);
   $$PlayersTableTableManager get players =>

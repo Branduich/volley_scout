@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config/revenuecat.dart';
+import 'data/default_categorie_seeder.dart';
 import 'data/default_team_seeder.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/database_provider.dart';
@@ -46,7 +47,11 @@ Future<void> main() async {
   final container = ProviderContainer(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
   );
-  await seedDefaultTeamSeNecessario(container.read(appDatabaseProvider), prefs);
+  // Le categorie di default vanno seminate PRIMA della squadra: il roster
+  // demo usa una categoria che deve già esistere in lista.
+  final db = container.read(appDatabaseProvider);
+  await seedDefaultCategorieSeNecessario(db, prefs);
+  await seedDefaultTeamSeNecessario(db, prefs);
 
   runApp(UncontrolledProviderScope(
     container: container,
