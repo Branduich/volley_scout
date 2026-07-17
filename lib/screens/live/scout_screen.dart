@@ -887,6 +887,77 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
     if (!mounted) return;
     setState(() => _setCorrente = set);
+
+    // Se lo scout avversari è attivo, chiedi la posizione del palleggiatore
+    // avversario a inizio set: da lì ricalcolaStato deriva la loro rotazione
+    // placeholder. Solo per i set nuovi (qui): alla ripresa lo slot è già
+    // persistito e si rilegge da _setCorrente.
+    if (ref.read(impostazioniProvider).scoutAvversariAbilitato) {
+      await _chiediPalleggiatoreAvversario(set);
+    }
+  }
+
+  /// Dialog di inizio set: in quale zona (1-6) si trova il palleggiatore
+  /// avversario. Salva lo slot sul MatchSet (`salvaPalleggiatoreAvversario`)
+  /// e aggiorna la copia locale. "Salta" lascia lo slot null → nessuna
+  /// rotazione avversaria tracciata per questo set.
+  Future<void> _chiediPalleggiatoreAvversario(MatchSet set) async {
+    // Layout zone come in campo (rete in alto): P4 P3 P2 / P5 P6 P1.
+    const righe = [
+      [4, 3, 2],
+      [5, 6, 1],
+    ];
+    final slot = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Palleggiatore avversario'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'In quale zona si trova il palleggiatore avversario a inizio set?',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            for (final riga in righe)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final zona in riga)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: SizedBox(
+                          width: 72,
+                          height: 56,
+                          child: FilledButton.tonal(
+                            onPressed: () => Navigator.pop(context, zona),
+                            child: Text('P$zona',
+                                style: const TextStyle(fontSize: 18)),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Salta'),
+          ),
+        ],
+      ),
+    );
+    if (slot == null || !mounted) return;
+    final aggiornato = await ref
+        .read(matchSetRepositoryProvider)
+        .salvaPalleggiatoreAvversario(set.id, slot);
+    if (!mounted) return;
+    setState(() => _setCorrente = aggiornato);
   }
 
   // Numero di rotazioni applicate da inizio set — usato SOLO in modalità
