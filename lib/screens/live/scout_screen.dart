@@ -90,6 +90,11 @@ const Map<int, Offset> _kOpponentZonePositions = {
   6: Offset(1000, 300),
 };
 
+// Colore dei token placeholder avversari: grigio neutro (deliberato — sta bene
+// con qualsiasi colore della nostra squadra e comunica "placeholder", non un
+// roster reale). Da rifinire eventualmente col feedback visivo.
+const Color _kColoreTokenAvversario = Color(0xFF757575); // grigio 600
+
 // Quando battiamo noi, chi è in P1 esce dal campo per servire: X = -70,
 // cioè il bordo del campo (x=0, la linea di fondo) meno 70 (era -60 con
 // token più piccoli, vedi _kTokenSizeScale — aumentato per mantenere lo
@@ -1632,6 +1637,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                                       fit: BoxFit.contain,
                                     ),
                                     ..._buildCourtTokens(cw, ch),
+                                    ..._buildTokenAvversari(cw, ch),
                                   ],
                                 );
                               },
@@ -3337,6 +3343,86 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       child: onTap == null
           ? tokenVisual
           : GestureDetector(onTap: onTap, child: tokenVisual),
+    );
+  }
+
+  // Token placeholder della squadra AVVERSARIA sulla metà campo opposta: 6
+  // cerchi grigi per ruolo (P/O/S1/S2/C1/C2) derivati dallo slot del loro
+  // palleggiatore (`_statoSetReale.palleggiatoreAvversarioSlot`) in un 5-1
+  // canonico (`etichetteAvversarie`). Posizioni fisse per zona
+  // (`_kOpponentZonePositions`) che ruotano con lo slot — placeholder di una
+  // squadra di cui non conosciamo il sistema tattico, quindi niente mappe di
+  // attacco/difesa come per noi. Nessun tap per ora (registrazione azioni
+  // avversarie: step successivo). Vuoto se lo scout avversari non è attivo per
+  // il set, in modalità test o durante la selezione della zona iniziale.
+  List<Widget> _buildTokenAvversari(double cw, double ch) {
+    if (_testModeEnabled || _inSelezionePAvversario) return const [];
+    final slot = _statoSetReale?.palleggiatoreAvversarioSlot;
+    if (slot == null) return const [];
+    final etichette = etichetteAvversarie(slot); // zona -> ruolo
+    final radius = ch / 20 * _kTokenSizeScale;
+    return [
+      for (final entry in etichette.entries)
+        _buildTokenAvversario(entry.value, entry.key, radius, cw, ch),
+    ];
+  }
+
+  Widget _buildTokenAvversario(
+    String roleLabel,
+    int zona,
+    double radius,
+    double cw,
+    double ch,
+  ) {
+    final refPos = _displayPosition(_kOpponentZonePositions[zona]!);
+    final cx = (refPos.dx / 1200) * cw;
+    final cy = (refPos.dy / 600) * ch;
+    final isPalleggiatore = roleLabel == 'P';
+    final tokenRadius = isPalleggiatore ? radius * 1.1 : radius;
+
+    final text = Text(
+      roleLabel,
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: radius * 0.7,
+      ),
+    );
+
+    final tokenVisual = isPalleggiatore
+        ? CustomPaint(
+            painter: _RoundedHexagonPainter(_kColoreTokenAvversario),
+            child: Center(child: text),
+          )
+        : Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _kColoreTokenAvversario,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(120),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: text,
+          );
+
+    // Key = etichetta di ruolo (l'avversario non ha id giocatore): quando la
+    // rotazione sposta un ruolo da una zona all'altra, AnimatedPositioned lo
+    // anima invece di teletrasportarlo — come i nostri token.
+    return AnimatedPositioned(
+      key: ValueKey('avv-$roleLabel'),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      left: cx - tokenRadius,
+      top: cy - tokenRadius,
+      width: tokenRadius * 2,
+      height: tokenRadius * 2,
+      child: tokenVisual,
     );
   }
 }

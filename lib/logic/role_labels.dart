@@ -119,3 +119,19 @@ Map<String, String> roleLabelsFor(
   if (centrali.length > 1) labels[centrali[1]] = 'C2';
   return labels;
 }
+
+/// Ordine canonico dei ruoli in un 5-1, partendo dal palleggiatore e girando
+/// nel verso della rotazione (offset 0 = P, poi S1, C1, O, S2, C2): l'opposto
+/// è diagonale al palleggiatore (3 posizioni), le coppie S1/S2 e C1/C2 sono
+/// opposte tra loro. Disposizione standard "schiacciatore-centrale-opposto".
+const List<String> _kRuoliCanonici51 = ['P', 'S1', 'C1', 'O', 'S2', 'C2'];
+
+/// Etichette di ruolo placeholder per la squadra AVVERSARIA, derivate dal solo
+/// slot (1-6) del loro palleggiatore in un 5-1 canonico (`_kRuoliCanonici51`).
+/// Non avendo il loro roster si assume la disposizione standard: da qui i 6
+/// token placeholder che ruotano sulla metà campo opposta. Ritorna
+/// zona (1-6) -> etichetta. Pura e testabile (vedi role_labels_test.dart).
+Map<int, String> etichetteAvversarie(int palleggiatoreSlot) => {
+      for (var zona = 1; zona <= 6; zona++)
+        zona: _kRuoliCanonici51[(zona - palleggiatoreSlot + 6) % 6],
+    };
