@@ -810,6 +810,44 @@ class ScoutActionRepository {
     );
   }
 
+  /// Registra un'azione della squadra AVVERSARIA (attacco/battuta/muro): nessun
+  /// giocatore (roster libero), ma il RUOLO placeholder (P/O/S1/S2/C1/C2) in
+  /// `ruoloAvversario`. L'esito è già calcolato dal chiamante con la regola
+  /// INVERTITA (loro perfetto = punto loro, loro errore = punto nostro) — vedi
+  /// ScoutScreen._esitoVotoAvversario. `tipoEsecuzione` = .name di TipoAttacco/
+  /// TipoBattuta come per le nostre; `traiettoria*` per attacco/battuta.
+  Future<void> registraAzioneAvversaria({
+    required int setId,
+    required String ruoloAvversario,
+    required Fondamentale fondamentale,
+    required Voto voto,
+    required EsitoPunto esitoPunto,
+    String tipoEsecuzione = 'nonSpecificato',
+    double? traiettoriaX1,
+    double? traiettoriaY1,
+    double? traiettoriaX2,
+    double? traiettoriaY2,
+    double? traiettoriaMuroX,
+    double? traiettoriaMuroY,
+  }) {
+    return _registraAzione(
+      setId: setId,
+      squadra: Squadra.avversari,
+      tipo: TipoAzione.scout,
+      esitoPunto: esitoPunto,
+      fondamentale: fondamentale,
+      voto: voto,
+      ruoloAvversario: ruoloAvversario,
+      tipoEsecuzione: tipoEsecuzione,
+      traiettoriaX1: traiettoriaX1,
+      traiettoriaY1: traiettoriaY1,
+      traiettoriaX2: traiettoriaX2,
+      traiettoriaY2: traiettoriaY2,
+      traiettoriaMuroX: traiettoriaMuroX,
+      traiettoriaMuroY: traiettoriaMuroY,
+    );
+  }
+
   Future<void> _registraAzione({
     required int setId,
     required Squadra squadra,
@@ -829,6 +867,7 @@ class ScoutActionRepository {
     int? nuovoPalleggiatoreId,
     Ruolo? nuovoRuoloCambiLibero,
     int? gruppoCambio,
+    String? ruoloAvversario,
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -874,6 +913,7 @@ class ScoutActionRepository {
             nuovoPalleggiatoreId: Value(nuovoPalleggiatoreId),
             nuovoRuoloCambiLibero: Value(nuovoRuoloCambiLibero),
             gruppoCambio: Value(gruppoCambio),
+            ruoloAvversario: Value(ruoloAvversario),
           ),
         );
   }

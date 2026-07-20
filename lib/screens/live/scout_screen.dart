@@ -95,6 +95,13 @@ const Map<int, Offset> _kOpponentZonePositions = {
 // roster reale). Da rifinire eventualmente col feedback visivo.
 const Color _kColoreTokenAvversario = Color(0xFF757575); // grigio 600
 
+// Posizione del battitore AVVERSARIO fuori dal campo (dietro la loro linea di
+// fondo): mirror di _kBattutaP1Position attraverso il centro del campo doppio
+// (1200-(-70), 600-470) = (1270, 130). Stessa Y della loro zona 1, X spinta
+// oltre il bordo destro (x=1200) — così si vede che sono in battuta, come per
+// noi. Passa per _displayPosition (segue il cambio campo).
+const Offset _kBattutaAvversarioPosition = Offset(1270, 130);
+
 // Quando battiamo noi, chi è in P1 esce dal campo per servire: X = -70,
 // cioè il bordo del campo (x=0, la linea di fondo) meno 70 (era -60 con
 // token più piccoli, vedi _kTokenSizeScale — aumentato per mantenere lo
@@ -597,12 +604,90 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // lo richiude.
   ({Player giocatore, Fondamentale? fondamentale})? _votoInCorso;
 
-  // True dopo che il fondamentale giudicabile dello scambio corrente
-  // (battuta se serviamo noi, ricezione se servono loro) è stato giudicato
-  // con un voto non terminale (palla ancora in gioco, niente punto). Si
-  // resetta a false a ogni nuova azione che chiude lo scambio (punto/errore,
-  // anche dai bottoni rapidi) — vedi _registraAzioneRapida/_registraVoto.
-  bool _fondamentaleGiudicatoRallyCorrente = false;
+  // Azione AVVERSARIA in corso: ruolo placeholder toccato (P/O/S1/S2/C1/C2) +
+  // fondamentale scelto (null finché non si sceglie Attacco/Battuta/Muro nel
+  // pannello). Flusso parallelo e ISOLATO da _votoInCorso (legato a un nostro
+  // Player): l'avversario non ha roster, solo il ruolo. Vedi
+  // _tapHandlerAvversario/_buildPannelloAvversario/_registraVotoAvversario.
+  ({String ruolo, Fondamentale? fondamentale})? _avversarioInCorso;
+
+  // Azioni (solo `scout`) dello scambio CORRENTE ancora aperto, o [] se nessuno
+  // scambio è aperto (l'ultima azione di scambio ha chiuso il punto, o non ce
+  // n'è ancora). DERIVATO dallo stream (non stato locale): così undo/ripresa
+  // tornano coerenti da soli. Timeout/correzione rotazione (esito `nessuno` ma
+  // non aprono uno scambio) sono ignorati nel decidere se il rally è aperto.
+  List<ScoutAction> get _azioniRallyCorrente {
+    final set = _setCorrente;
+    if (set == null) return const [];
+    final righe =
+        ref.watch(scoutAzioniStreamProvider(set.id)).value ?? const [];
+    ScoutAction? ultimaScambio;
+    for (final a in righe.reversed) {
+      if (a.tipo == TipoAzione.timeout ||
+          a.tipo == TipoAzione.correzioneRotazione) {
+        continue;
+      }
+      ultimaScambio = a;
+      break;
+    }
+    if (ultimaScambio == null ||
+        ultimaScambio.esitoPunto != EsitoPunto.nessuno) {
+      return const [];
+    }
+    final rallyId = ultimaScambio.rallyId;
+    return [
+      for (final a in righe)
+        if (a.rallyId == rallyId && a.tipo == TipoAzione.scout) a,
+    ];
+  }
+
+  // True se uno scambio è aperto (palla in gioco): l'ultima azione di scambio
+  // ha esito `nessuno`. Vedi _azioniRallyCorrente.
+  bool get _rallyAperto => _azioniRallyCorrente.isNotEmpty;
+
+  // True dopo che il fondamentale giudicabile dello scambio corrente (la NOSTRA
+  // battuta se serviamo noi, la NOSTRA ricezione se servono loro) è stato
+  // giudicato — palla in gioco, siamo nella fase "dopo". DERIVATO: lo scambio
+  // aperto contiene una nostra azione di quel fondamentale. Immune all'undo
+  // (prima era un flag manuale ricalcolato a mano, fragile con le azioni
+  // avversarie in mezzo). In modalità test la fase "dopo" la governa
+  // _testDopo via _faseDopo, quindi qui non si guarda lo stream.
+  bool get _fondamentaleGiudicatoRallyCorrente {
+    final forzato = _squadraAlServizio == Squadra.nostra
+        ? Fondamentale.battuta
+        : Fondamentale.ricezione;
+    return _azioniRallyCorrente.any(
+      (a) => a.squadra == Squadra.nostra && a.fondamentale == forzato,
+    );
+  }
+
+  // Scout avversari attivo per questo set: c'è uno slot del palleggiatore
+  // avversario (toggle ON + zona scelta a inizio set), fuori dalla modalità
+  // test. Gate dei token avversari e della fase "battuta avversaria".
+  bool get _scoutAvversariAttivo =>
+      !_testModeEnabled && _statoSetReale?.palleggiatoreAvversarioSlot != null;
+
+  // Fase "battuta avversaria": scout avversari attivo, servono loro, e la loro
+  // battuta di questo scambio non è ancora stata registrata (nessuno scambio
+  // aperto, o aperto ma senza una loro battuta). In questa fase l'unico
+  // tap-target è il loro battitore in zona 1 (fuori campo) — nessun nostro
+  // giocatore, nessun altro loro token — specularmente al nostro servizio.
+  bool get _attesaBattutaAvversaria {
+    if (!_scoutAvversariAttivo) return false;
+    if (_squadraAlServizio != Squadra.avversari) return false;
+    return !_azioniRallyCorrente.any(
+      (a) =>
+          a.squadra == Squadra.avversari &&
+          a.fondamentale == Fondamentale.battuta,
+    );
+  }
+
+  // Fase libera dello scambio (dopo le azioni forzate iniziali, palla in
+  // gioco): qui i token avversari non-battitore diventano tappabili
+  // (attacco/muro). Serviamo noi → dopo la nostra battuta; servono loro →
+  // dopo la nostra ricezione.
+  bool get _faseLiberaScambio =>
+      _rallyAperto && _fondamentaleGiudicatoRallyCorrente;
 
   // Tappabile in questa fase di gioco, a prescindere dal fondamentale: prima
   // che battuta/ricezione siano state giudicate, solo il giocatore coinvolto
@@ -610,8 +695,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // servono loro — la ricezione, libero compreso passando slot=null). Dopo
   // quel voto (palla in gioco, _fondamentaleGiudicatoRallyCorrente),
   // chiunque è tappabile: il fondamentale (Alzata/Attacco/Muro/Difesa) si
-  // scegli nel pannello, vedi _sceglieFondamentale.
+  // scegli nel pannello, vedi _sceglieFondamentale. Durante la "battuta
+  // avversaria" nessun nostro giocatore è tappabile: prima va registrata la
+  // loro battuta (poi si sblocca la ricezione, se non hanno sbagliato).
   bool _giocatoreTappabile(String? slot) {
+    if (_attesaBattutaAvversaria) return false;
     final servizio = _squadraAlServizio;
     if (servizio == Squadra.nostra) {
       return _fondamentaleGiudicatoRallyCorrente || slot == 'P1';
@@ -637,6 +725,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   VoidCallback? _tapHandlerPerGiocatore(Player player, {String? slot}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
+    if (_avversarioInCorso != null) return null; // pannello avversario aperto
     if (!_giocatoreTappabile(slot)) return null;
     final forzato = _fondamentaleForzato();
     return () => setState(() {
@@ -765,11 +854,71 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (!mounted) return;
     setState(() {
       _votoInCorso = null;
-      _fondamentaleGiudicatoRallyCorrente = esito == EsitoPunto.nessuno;
+      // _fondamentaleGiudicatoRallyCorrente è ora derivato dallo stream: si
+      // aggiorna da solo appena l'azione entra nel replay.
       // I tipi selezionati NON si azzerano qui: restano "armati" se lo
       // stesso giocatore ripete la stessa azione (vedi
       // _tapHandlerPerGiocatore/_sceglieFondamentale).
     });
+  }
+
+  // --- Flusso azioni AVVERSARIE (parallelo, isolato dal nostro) ---
+
+  // Esito INVERTITO rispetto a _esitoVoto: dal punto di vista dell'AVVERSARIO.
+  // Loro perfetto su battuta/attacco/muro (ace/schiacciata/muro punto) = punto
+  // LORO; loro errore = punto NOSTRO; tutto il resto = palla in gioco.
+  EsitoPunto _esitoVotoAvversario(Fondamentale fondamentale, Voto voto) {
+    if (voto == Voto.errore) return EsitoPunto.puntoNostro;
+    const direttoSePerfetto = {
+      Fondamentale.battuta,
+      Fondamentale.attacco,
+      Fondamentale.muro,
+    };
+    if (direttoSePerfetto.contains(fondamentale) && voto == Voto.perfetto) {
+      return EsitoPunto.puntoAvversario;
+    }
+    return EsitoPunto.nessuno;
+  }
+
+  // Tap su un token avversario: apre il pannello avversario (scelta
+  // fondamentale poi voto). Disabilitato in modalità test, prima dell'inizio
+  // del set, durante la selezione della zona iniziale, o col nostro pannello
+  // voto già aperto (i due flussi sono mutuamente esclusivi).
+  VoidCallback? _tapHandlerAvversario(String ruolo, {Fondamentale? forzato}) {
+    if (_testModeEnabled) return null;
+    if (_setCorrente == null) return null;
+    if (_inSelezionePAvversario) return null;
+    if (_votoInCorso != null) return null;
+    return () => setState(
+        () => _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato));
+  }
+
+  void _scegliFondamentaleAvversario(Fondamentale fondamentale) {
+    final inCorso = _avversarioInCorso;
+    if (inCorso == null) return;
+    setState(() =>
+        _avversarioInCorso = (ruolo: inCorso.ruolo, fondamentale: fondamentale));
+  }
+
+  Future<void> _registraVotoAvversario(Voto voto) async {
+    final set = _setCorrente;
+    final inCorso = _avversarioInCorso;
+    final fondamentale = inCorso?.fondamentale;
+    if (set == null || inCorso == null || fondamentale == null) return;
+    final esito = _esitoVotoAvversario(fondamentale, voto);
+    // Niente traiettoria per ora (step successivo, come fu per il flusso
+    // nostro): l'azione si registra subito.
+    await ref.read(scoutActionRepositoryProvider).registraAzioneAvversaria(
+          setId: set.id,
+          ruoloAvversario: inCorso.ruolo,
+          fondamentale: fondamentale,
+          voto: voto,
+          esitoPunto: esito,
+        );
+    if (!mounted) return;
+    // La fase (_fondamentaleGiudicatoRallyCorrente/_attesaBattutaAvversaria) è
+    // derivata dallo stream: si aggiorna da sola con la nuova azione.
+    setState(() => _avversarioInCorso = null);
   }
 
   // Mappa di ricezione attiva per la rotazione corrente, solo se: stiamo
@@ -1166,7 +1315,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         );
     if (!mounted) return;
     setState(() {
-      _fondamentaleGiudicatoRallyCorrente = esito == EsitoPunto.nessuno;
+      // _fondamentaleGiudicatoRallyCorrente è derivato dallo stream: il punto
+      // chiude lo scambio e la fase si aggiorna da sola.
       // Un bottone rapido chiude comunque lo scambio: il pannello voto,
       // se ancora aperto, non avrebbe più senso (l'esito è già stato
       // deciso per un'altra via).
@@ -1235,29 +1385,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Elimina l'azione con `ordine` massimo nel set (vedi
   // ScoutActionRepository.annullaUltimaAzione) — punteggio/servizio/
   // rotazione si ricalcolano da soli perché _statoSetReale osserva lo stesso
-  // stream. `_fondamentaleGiudicatoRallyCorrente` non è derivato dallo
-  // stream (vedi sopra) e va invece aggiornato a mano in base alla nuova
-  // ultima azione rimasta nel set, altrimenti resterebbe quello dell'azione
-  // appena annullata.
+  // stream. `_fondamentaleGiudicatoRallyCorrente` è ora derivato dallo stream
+  // (come punteggio/rotazione): dopo l'eliminazione dell'ultima azione, la
+  // fase si ricalcola da sola: nessun aggiornamento manuale.
   Future<void> _annullaUltimaAzione() async {
     final set = _setCorrente;
     if (set == null) return;
     final repo = ref.read(scoutActionRepositoryProvider);
     await repo.annullaUltimaAzione(set.id);
     if (!mounted) return;
-    final nuovaUltima = await repo.ultimaAzione(set.id);
-    if (!mounted) return;
-    setState(() {
-      _votoInCorso = null;
-      // Solo un VOTO non terminale (tipo scout) significa "palla in gioco":
-      // un cambio giocatore ha anch'esso esito `nessuno`, ma non giudica
-      // alcun fondamentale — senza il check sul tipo, l'undo fino a una
-      // riga cambio segnerebbe erroneamente la fase libera.
-      _fondamentaleGiudicatoRallyCorrente =
-          nuovaUltima != null &&
-          nuovaUltima.tipo == TipoAzione.scout &&
-          nuovaUltima.esitoPunto == EsitoPunto.nessuno;
-    });
+    setState(() => _votoInCorso = null);
   }
 
   // --- Sostituzione (cambio giocatore) ---
@@ -1726,9 +1863,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                     ..._buildBattitoreTapCatcher(constraints, courtWidth),
+                    ..._buildBattitoreAvversarioTapCatcher(
+                        constraints, courtWidth),
                     ..._buildSelezionePAvversario(constraints, courtWidth),
                     ..._buildActionLog(),
                     ..._buildPannelloVoto(),
+                    ..._buildPannelloAvversario(),
                   ],
                 );
               },
@@ -2196,6 +2336,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         voto != null) {
       return (
         testo: '${player.numero} - ${player.cognome} - ${fondamentale.label}',
+        voto: voto.simbolo,
+        colore: CourtStyle.votoColor(voto),
+      );
+    }
+    // Azione avversaria (nessun giocatore, solo il ruolo placeholder): es.
+    // "Avv S1 - Attacco". Stesso stile/colore voto del nostro scout.
+    if (azione.tipo == TipoAzione.scout &&
+        azione.ruoloAvversario != null &&
+        fondamentale != null &&
+        voto != null) {
+      return (
+        testo: 'Avv ${azione.ruoloAvversario} - ${fondamentale.label}',
         voto: voto.simbolo,
         colore: CourtStyle.votoColor(voto),
       );
@@ -2805,6 +2957,159 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     ];
   }
 
+  // Pannello per un'azione AVVERSARIA: si apre toccando un token avversario
+  // (vedi _tapHandlerAvversario). Stessa struttura/stile di _buildPannelloVoto
+  // (scrim + card a destra), ma header col RUOLO placeholder (niente giocatore)
+  // e — non essendoci una fase forzata — chiede SEMPRE prima il fondamentale
+  // tra Attacco/Battuta/Muro, poi il voto (esito invertito, vedi
+  // _registraVotoAvversario). Ritorna [] se chiuso.
+  List<Widget> _buildPannelloAvversario() {
+    final inCorso = _avversarioInCorso;
+    if (inCorso == null) return const [];
+
+    return [
+      Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _avversarioInCorso = null),
+        ),
+      ),
+      Positioned(
+        right: 16,
+        top: 4,
+        bottom: 4,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {},
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: _kTopBarBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Avversario',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            inCorso.ruolo,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (inCorso.fondamentale == null) ...[
+                      const SizedBox(height: 8),
+                      // In fase libera l'avversario può aver attaccato o murato
+                      // (la battuta passa dal flusso forzato del battitore in
+                      // zona 1, non da qui).
+                      for (final f in const [
+                        Fondamentale.attacco,
+                        Fondamentale.muro,
+                      ]) ...[
+                        GestureDetector(
+                          onTap: () => _scegliFondamentaleAvversario(f),
+                          child: Container(
+                            width: 150,
+                            height: 60,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.brandPrimary,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(120),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              f.label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (f != Fondamentale.muro)
+                          const SizedBox(height: 10),
+                      ],
+                    ] else ...[
+                      Text(
+                        inCorso.fondamentale!.label,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final voto in Voto.values) ...[
+                        GestureDetector(
+                          onTap: () => _registraVotoAvversario(voto),
+                          child: Container(
+                            width: 100,
+                            height: 64,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: CourtStyle.votoColor(voto),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(120),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              voto.simbolo,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (voto != Voto.values.last)
+                          const SizedBox(height: 12),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
   Widget _buildRotationButton(
     IconData icon,
     VoidCallback onTap,
@@ -3106,6 +3411,42 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     ];
   }
 
+  // Tap-catcher del BATTITORE avversario fuori dal campo (fase "battuta
+  // avversaria"): il token è disegnato fuori dai confini del riquadro campo
+  // (X oltre la loro linea di fondo) e lì il tap non arriverebbe allo Stack
+  // interno (limiti di hit-test) — stesso trucco del nostro battitore. Apre il
+  // pannello avversario forzato su Battuta.
+  List<Widget> _buildBattitoreAvversarioTapCatcher(
+    BoxConstraints constraints,
+    double courtWidth,
+  ) {
+    if (!_attesaBattutaAvversaria) return const [];
+    final slot = _statoSetReale?.palleggiatoreAvversarioSlot;
+    if (slot == null) return const [];
+    final ruolo = etichetteAvversarie(slot)[1]!; // ruolo in zona 1 (battitore)
+    final onTap =
+        _tapHandlerAvversario(ruolo, forzato: Fondamentale.battuta);
+    if (onTap == null) return const [];
+
+    final radius = _swapTokenRadius(courtWidth);
+    final courtHeight = courtWidth / 2;
+    final courtLeft = (constraints.maxWidth - courtWidth) / 2;
+    final courtTop = _kCourtTopMargin;
+    final refPos = _displayPosition(_kBattutaAvversarioPosition);
+    final cx = courtLeft + (refPos.dx / 1200) * courtWidth;
+    final cy = courtTop + (refPos.dy / 600) * courtHeight;
+
+    return [
+      Positioned(
+        left: cx - radius,
+        top: cy - radius,
+        width: radius * 2,
+        height: radius * 2,
+        child: GestureDetector(onTap: onTap),
+      ),
+    ];
+  }
+
   // Overlay di selezione (inizio set, scout avversari attivo): 6 zone tappabili
   // sulla metà campo avversaria + scrim che sospende lo scout normale finché
   // non si sceglie. Coordinate schermo assolute (stesso Stack esterno di
@@ -3361,20 +3702,41 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (slot == null) return const [];
     final etichette = etichetteAvversarie(slot); // zona -> ruolo
     final radius = ch / 20 * _kTokenSizeScale;
+    final attesaBattuta = _attesaBattutaAvversaria;
+    final faseLibera = _faseLiberaScambio;
     return [
       for (final entry in etichette.entries)
-        _buildTokenAvversario(entry.value, entry.key, radius, cw, ch),
+        () {
+          final zona = entry.key;
+          final ruolo = entry.value;
+          final battitore = zona == 1;
+          // Il battitore esce dal campo durante la loro battuta (mirror del
+          // nostro), altrimenti sta nella sua zona.
+          final refBase = (attesaBattuta && battitore)
+              ? _kBattutaAvversarioPosition
+              : _kOpponentZonePositions[zona]!;
+          // Tappabilità per fase: in fase libera tutti (attacco/muro); in
+          // attesa battuta il battitore è fuori campo → il suo tap lo cattura
+          // _buildBattitoreAvversarioTapCatcher (Stack esterno), qui onTap è
+          // null; nelle altre fasi (nostro servizio/ricezione) nessuno.
+          final onTap = (!attesaBattuta && faseLibera)
+              ? _tapHandlerAvversario(ruolo)
+              : null;
+          return _buildTokenAvversario(ruolo, refBase, radius, cw, ch,
+              onTap: onTap);
+        }(),
     ];
   }
 
   Widget _buildTokenAvversario(
     String roleLabel,
-    int zona,
+    Offset refBase,
     double radius,
     double cw,
-    double ch,
-  ) {
-    final refPos = _displayPosition(_kOpponentZonePositions[zona]!);
+    double ch, {
+    VoidCallback? onTap,
+  }) {
+    final refPos = _displayPosition(refBase);
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
     final isPalleggiatore = roleLabel == 'P';
@@ -3422,7 +3784,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       top: cy - tokenRadius,
       width: tokenRadius * 2,
       height: tokenRadius * 2,
-      child: tokenVisual,
+      child: onTap == null
+          ? tokenVisual
+          : GestureDetector(onTap: onTap, child: tokenVisual),
     );
   }
 }

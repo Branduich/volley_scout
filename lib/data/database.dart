@@ -223,6 +223,10 @@ class ScoutActions extends Table {
   // valore (schema v12): l'undo di una riga cambio elimina l'intero gruppo
   // — annullare solo metà di un doppio cambio non ha senso pallavolistico.
   IntColumn get gruppoCambio => integer().nullable()();
+  // Ruolo placeholder della squadra AVVERSARIA (P/O/S1/S2/C1/C2) per le azioni
+  // avversarie (squadra == avversari, giocatoreId == null) — schema v15. null
+  // per le nostre azioni. Da qui le future statistiche avversarie per ruolo.
+  TextColumn get ruoloAvversario => text().nullable()();
 }
 
 // --- Database ---
@@ -239,7 +243,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -388,6 +392,11 @@ class AppDatabase extends _$AppDatabase {
               !await _hasColumn('match_sets', 'palleggiatore_avversario_slot')) {
             await customStatement('ALTER TABLE match_sets ADD COLUMN '
                 'palleggiatore_avversario_slot INTEGER');
+          }
+          if (from < 15 &&
+              !await _hasColumn('scout_actions', 'ruolo_avversario')) {
+            await customStatement('ALTER TABLE scout_actions ADD COLUMN '
+                'ruolo_avversario TEXT');
           }
         },
         beforeOpen: (details) async {
