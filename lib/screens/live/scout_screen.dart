@@ -652,6 +652,51 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   bool get _tokenAvversariBloccati =>
       _erroreDifensivoForzato(Squadra.nostra) != null;
 
+  // Attenuazione (alpha 0.5) per SQUADRA in base alla fase: la squadra "in
+  // attesa" (che non deve agire ORA) si mostra attenuata. DISTINTA dalla
+  // tappabilità: nella fase servizio la squadra che batte NON è attenuata
+  // anche se solo il battitore accetta il tap. Solo con scout avversari
+  // attivo (senza, resta tutto a piena opacità come prima). In fase libera
+  // si attenua solo la squadra che ha appena chiuso con un `#` (deve
+  // difendere l'altra) — il resto della fase libera tutti pieni.
+  //   - servizio: attiva chi serve → l'ALTRA squadra è in attesa;
+  //   - ricezione: attiva chi riceve → chi ha servito è in attesa;
+  //   - libera: in attesa la squadra bloccata dopo un `#` (nessuna altrimenti).
+  bool get _nostriInAttesa {
+    if (!_scoutAvversariAttivo) return false;
+    switch (_faseScambio) {
+      case _FaseScambio.servizio:
+        return _squadraAlServizio != Squadra.nostra; // battono loro → riceviamo
+      case _FaseScambio.ricezione:
+        return _squadraAlServizio == Squadra.nostra; // battiamo noi → ricevono
+      case _FaseScambio.libera:
+        return _nostriTokenBloccati; // dopo un NOSTRO `#`: difende l'avversario
+    }
+  }
+
+  bool get _avversariInAttesa {
+    if (!_scoutAvversariAttivo) return false;
+    switch (_faseScambio) {
+      case _FaseScambio.servizio:
+        return _squadraAlServizio != Squadra.avversari;
+      case _FaseScambio.ricezione:
+        return _squadraAlServizio == Squadra.avversari;
+      case _FaseScambio.libera:
+        return _tokenAvversariBloccati;
+    }
+  }
+
+  // Modalità "errore difensivo ristretto" del pannello: dopo un `#` di ATTACCO
+  // dell'altra squadra (kill), la risposta difensiva può essere muro O difesa
+  // (a differenza dell'ace, dove è solo ricezione → tap diretto). Il pannello
+  // fondamentali mostra allora SOLO Muro/Difesa in rosso (= errore diretto),
+  // Alzata/Attacco disabilitati. `_difesaErroreForzataNostra` = un attacco `#`
+  // avversario attende la NOSTRA difesa; l'omologo avversario è speculare.
+  bool get _difesaErroreForzataNostra =>
+      _erroreDifensivoForzato(Squadra.nostra) == Fondamentale.difesa;
+  bool get _difesaErroreForzataAvversaria =>
+      _erroreDifensivoForzato(Squadra.avversari) == Fondamentale.difesa;
+
   // Registra al volo un errore difensivo NOSTRO (scorciatoia sopra): ricezione/
   // difesa `=` per il giocatore toccato, senza pannello. L'esito è
   // `puntoAvversario` (Modello A: il punto dell'ace/kill lo porta la difesa).
@@ -682,11 +727,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     // Dopo un NOSTRO `#`: deve difendere l'avversario, i nostri token bloccati.
     if (_nostriTokenBloccati) return null;
     if (!_giocatoreTappabile(slot)) return null;
-    // Scorciatoia: dopo un `#` avversario il tocco registra subito la
-    // ricezione/difesa `=`, senza pannello.
+    // Scorciatoia dopo un `#` avversario:
+    // - ace (battuta `#`): la risposta è solo ricezione → `=` diretto, senza
+    //   pannello;
+    // - kill (attacco `#`): la risposta può essere muro O difesa → apri il
+    //   pannello ristretto (Muro/Difesa in rosso → `=`, vedi
+    //   _buildSceltaFondamentale con _difesaErroreForzataNostra).
     final erroreForzato = _erroreDifensivoForzato(Squadra.nostra);
-    if (erroreForzato != null) {
-      return () => _registraErroreDifensivoRapido(player, erroreForzato);
+    if (erroreForzato == Fondamentale.ricezione) {
+      return () => _registraErroreDifensivoRapido(player, erroreForzato!);
+    }
+    if (erroreForzato == Fondamentale.difesa) {
+      return () =>
+          setState(() => _votoInCorso = (giocatore: player, fondamentale: null));
     }
     final forzato = _fondamentaleForzato();
     return () => setState(() {
@@ -877,12 +930,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_votoInCorso != null) return null;
     // Dopo un `#` avversario: dobbiamo difendere noi, i loro token bloccati.
     if (_tokenAvversariBloccati) return null;
-    // Scorciatoia: dopo un NOSTRO `#` il tocco registra subito la loro
-    // ricezione/difesa `=`, senza pannello.
+    // Scorciatoia dopo un NOSTRO `#` (speculare a _tapHandlerPerGiocatore):
+    // - ace (battuta `#`): loro ricezione `=` diretta;
+    // - kill (attacco `#`): pannello ristretto Muro/Difesa → `=`.
     final erroreForzato = _erroreDifensivoForzato(Squadra.avversari);
-    if (erroreForzato != null) {
+    if (erroreForzato == Fondamentale.ricezione) {
       return () =>
-          _registraErroreDifensivoAvversarioRapido(ruolo, erroreForzato);
+          _registraErroreDifensivoAvversarioRapido(ruolo, erroreForzato!);
+    }
+    if (erroreForzato == Fondamentale.difesa) {
+      return () => setState(
+          () => _avversarioInCorso = (ruolo: ruolo, fondamentale: null));
     }
     return () => setState(
         () => _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato));
@@ -2763,48 +2821,77 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // nel pannello voto quando _votoInCorso.fondamentale è ancora null (fase
   // "libera", dopo che battuta/ricezione sono già state giudicate in questo
   // scambio) — vedi _sceglieFondamentale.
-  Widget _buildSceltaFondamentale() {
+  Widget _buildSceltaFondamentale(Player giocatore) {
     const opzioni = [
       Fondamentale.alzata,
       Fondamentale.attacco,
       Fondamentale.muro,
       Fondamentale.difesa,
     ];
+    final ristretto = _difesaErroreForzataNostra;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final f in opzioni) ...[
-          _buildFondamentaleButton(f),
+          _buildBottoneFondamentale(
+            fondamentale: f,
+            ristretto: ristretto,
+            onNormale: () => _sceglieFondamentale(f),
+            onErroreDifensivo: () => _registraErroreDifensivoRapido(giocatore, f),
+          ),
           if (f != opzioni.last) const SizedBox(height: 10),
         ],
       ],
     );
   }
 
-  Widget _buildFondamentaleButton(Fondamentale fondamentale) {
-    return GestureDetector(
-      onTap: () => _sceglieFondamentale(fondamentale),
-      child: Container(
-        width: 150,
-        height: 60,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.brandPrimary,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(120),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+  // Bottone del pannello scelta-fondamentale, condiviso tra pannello nostro e
+  // avversario. In modalità normale (`ristretto == false`) tutti abilitati
+  // (blu) → `onNormale` sceglie il fondamentale. In modalità "errore difensivo
+  // ristretto" (dopo un `#` di attacco dell'altra squadra) SOLO Muro/Difesa
+  // sono abilitati e rossi → `onErroreDifensivo` registra subito quel
+  // fondamentale con voto `=`; Alzata/Attacco sono grigi e disabilitati.
+  Widget _buildBottoneFondamentale({
+    required Fondamentale fondamentale,
+    required bool ristretto,
+    required VoidCallback onNormale,
+    required VoidCallback onErroreDifensivo,
+  }) {
+    final difensivo = fondamentale == Fondamentale.muro ||
+        fondamentale == Fondamentale.difesa;
+    final abilitato = !ristretto || difensivo;
+    final rosso = ristretto && difensivo;
+    final colore = !abilitato
+        ? AppColors.neutral
+        : (rosso ? Colors.red : AppColors.brandPrimary);
+    return Opacity(
+      opacity: abilitato ? 1.0 : 0.4,
+      child: GestureDetector(
+        onTap: !abilitato
+            ? null
+            : (ristretto ? onErroreDifensivo : onNormale),
+        child: Container(
+          width: 150,
+          height: 60,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: colore,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(120),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            fondamentale.label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
             ),
-          ],
-        ),
-        child: Text(
-          fondamentale.label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
           ),
         ),
       ),
@@ -2894,7 +2981,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                     ),
                     if (inCorso.fondamentale == null) ...[
                       const SizedBox(height: 4),
-                      _buildSceltaFondamentale(),
+                      _buildSceltaFondamentale(player),
                     ] else ...[
                       Text(
                         inCorso.fondamentale!.label,
@@ -3013,38 +3100,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       const SizedBox(height: 8),
                       // In fase libera l'avversario può aver attaccato, murato o
                       // difeso (battuta e ricezione passano dai flussi forzati
-                      // di zona 1 / fase ricezione, non da qui).
+                      // di zona 1 / fase ricezione, non da qui). Dopo un NOSTRO
+                      // `#` di attacco il pannello è ristretto a Muro/Difesa in
+                      // rosso (→ `=` diretto, vedi _difesaErroreForzataAvversaria).
                       for (final f in const [
                         Fondamentale.attacco,
                         Fondamentale.muro,
                         Fondamentale.difesa,
                       ]) ...[
-                        GestureDetector(
-                          onTap: () => _scegliFondamentaleAvversario(f),
-                          child: Container(
-                            width: 150,
-                            height: 60,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppColors.brandPrimary,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withAlpha(120),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              f.label,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
+                        _buildBottoneFondamentale(
+                          fondamentale: f,
+                          ristretto: _difesaErroreForzataAvversaria,
+                          onNormale: () => _scegliFondamentaleAvversario(f),
+                          onErroreDifensivo: () =>
+                              _registraErroreDifensivoAvversarioRapido(
+                                  inCorso.ruolo, f),
                         ),
                         if (f != Fondamentale.difesa)
                           const SizedBox(height: 10),
@@ -3205,9 +3275,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final roleLabels = roleLabelsFor(_currentSlot, currentAssignments);
     final defenseMap = _activeDefenseMap;
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
-    // Dopo un NOSTRO `#` i nostri token sono bloccati e attenuati (tocca la
-    // difesa avversaria).
-    final bloccati = _nostriTokenBloccati;
+    // Attenuazione per SQUADRA in base alla fase (vedi _nostriInAttesa): i
+    // nostri token si attenuano quando siamo la squadra "in attesa" (loro
+    // servizio/ricezione, o dopo un NOSTRO `#`). La tappabilità resta guidata
+    // a parte da _tapHandlerPerGiocatore/_giocatoreTappabile.
+    final bloccati = _nostriInAttesa;
 
     if (defenseMap == null) {
       return [
@@ -3333,8 +3405,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           radius,
           isLibero: true,
           onTap: _tapHandlerPerGiocatore(libero),
-          // Dopo un NOSTRO `#`, il libero in campo è bloccato e attenuato.
-          disabilitato: _nostriTokenBloccati,
+          // Attenuazione per squadra (vedi _nostriInAttesa): il libero in
+          // campo segue i nostri token.
+          disabilitato: _nostriInAttesa,
         ),
         // Il sostituito è in panchina (slot 0): non tappabile.
         _buildAbsoluteToken(
@@ -3356,7 +3429,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         toScreen(_displayPosition(_attackPosition(slotCentrale, roleLabels))),
         radius,
         onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale),
-        disabilitato: _nostriTokenBloccati,
+        disabilitato: _nostriInAttesa,
       ),
       _buildAbsoluteToken(liberoKey, libero, bench0, radius, isLibero: true),
       ?bench1Token,
@@ -3709,8 +3782,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final attesaBattuta = _attesaBattutaAvversaria;
     final attesaRicezione = _attesaRicezioneAvversaria;
     final faseLibera = _faseLiberaScambio;
-    // Dopo un `#` avversario i loro token sono bloccati e attenuati.
-    final bloccati = _tokenAvversariBloccati;
+    // Attenuazione per SQUADRA in base alla fase (vedi _avversariInAttesa): i
+    // loro token si attenuano quando l'avversario è la squadra "in attesa"
+    // (nostro servizio/ricezione, o dopo un `#` avversario).
+    final bloccati = _avversariInAttesa;
     return [
       for (final entry in etichette.entries)
         () {
