@@ -103,6 +103,12 @@ const Color _kColoreTokenAvversario = Color(0xFF757575); // grigio 600
 // noi. Passa per _displayPosition (segue il cambio campo).
 const Offset _kBattutaAvversarioPosition = Offset(1270, 130);
 
+// Fase globale di uno scambio: battuta (chi serve) → ricezione (chi riceve) →
+// fase libera (attacchi/difese/muri). Chi batte e chi riceve dipende da chi è
+// al servizio. Governa tappabilità e fondamentale forzato di ENTRAMBE le
+// squadre — vedi _faseScambio.
+enum _FaseScambio { servizio, ricezione, libera }
+
 // Quando battiamo noi, chi è in P1 esce dal campo per servire: X = -70,
 // cioè il bordo del campo (x=0, la linea di fondo) meno 70 (era -60 con
 // token più piccoli, vedi _kTokenSizeScale — aumentato per mantenere lo
@@ -514,10 +520,6 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     ];
   }
 
-  // True se uno scambio è aperto (palla in gioco): l'ultima azione di scambio
-  // ha esito `nessuno`. Vedi _azioniRallyCorrente.
-  bool get _rallyAperto => _azioniRallyCorrente.isNotEmpty;
-
   // True dopo che il fondamentale giudicabile dello scambio corrente (la NOSTRA
   // battuta se serviamo noi, la NOSTRA ricezione se servono loro) è stato
   // giudicato — palla in gioco, siamo nella fase "dopo". DERIVATO: lo scambio
@@ -540,55 +542,118 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   bool get _scoutAvversariAttivo =>
       !_testModeEnabled && _statoSetReale?.palleggiatoreAvversarioSlot != null;
 
-  // Fase "battuta avversaria": scout avversari attivo, servono loro, e la loro
-  // battuta di questo scambio non è ancora stata registrata (nessuno scambio
-  // aperto, o aperto ma senza una loro battuta). In questa fase l'unico
-  // tap-target è il loro battitore in zona 1 (fuori campo) — nessun nostro
-  // giocatore, nessun altro loro token — specularmente al nostro servizio.
-  bool get _attesaBattutaAvversaria {
-    if (!_scoutAvversariAttivo) return false;
-    if (_squadraAlServizio != Squadra.avversari) return false;
-    return !_azioniRallyCorrente.any(
-      (a) =>
-          a.squadra == Squadra.avversari &&
-          a.fondamentale == Fondamentale.battuta,
-    );
-  }
-
-  // Fase libera dello scambio (dopo le azioni forzate iniziali, palla in
-  // gioco): qui i token avversari non-battitore diventano tappabili
-  // (attacco/muro). Serviamo noi → dopo la nostra battuta; servono loro →
-  // dopo la nostra ricezione.
-  bool get _faseLiberaScambio =>
-      _rallyAperto && _fondamentaleGiudicatoRallyCorrente;
-
-  // Tappabile in questa fase di gioco, a prescindere dal fondamentale: prima
-  // che battuta/ricezione siano state giudicate, solo il giocatore coinvolto
-  // in quell'azione (slot=='P1' se battiamo noi — il battitore; chiunque se
-  // servono loro — la ricezione, libero compreso passando slot=null). Dopo
-  // quel voto (palla in gioco, _fondamentaleGiudicatoRallyCorrente),
-  // chiunque è tappabile: il fondamentale (Alzata/Attacco/Muro/Difesa) si
-  // scegli nel pannello, vedi _sceglieFondamentale. Durante la "battuta
-  // avversaria" nessun nostro giocatore è tappabile: prima va registrata la
-  // loro battuta (poi si sblocca la ricezione, se non hanno sbagliato).
-  bool _giocatoreTappabile(String? slot) {
-    if (_attesaBattutaAvversaria) return false;
-    final servizio = _squadraAlServizio;
-    if (servizio == Squadra.nostra) {
-      return _fondamentaleGiudicatoRallyCorrente || slot == 'P1';
+  // Fase globale dello scambio corrente (battuta → ricezione → libera),
+  // derivata dalle azioni. Governa la tappabilità e il fondamentale forzato di
+  // ENTRAMBE le squadre. Con scout avversari attivo è SIMMETRICA (si registrano
+  // battuta e ricezione di chi serve/riceve). Con scout avversari OFF resta il
+  // comportamento attuale: serviamo noi → solo la nostra battuta (niente
+  // ricezione avversaria → subito libera); servono loro → solo la nostra
+  // ricezione (niente loro battuta → si parte dalla fase ricezione).
+  _FaseScambio get _faseScambio {
+    final azioni = _azioniRallyCorrente;
+    final battutaFatta =
+        azioni.any((a) => a.fondamentale == Fondamentale.battuta);
+    final ricezioneFatta =
+        azioni.any((a) => a.fondamentale == Fondamentale.ricezione);
+    if (_scoutAvversariAttivo) {
+      if (!battutaFatta) return _FaseScambio.servizio;
+      if (!ricezioneFatta) return _FaseScambio.ricezione;
+      return _FaseScambio.libera;
     }
-    return servizio == Squadra.avversari;
+    if (_squadraAlServizio == Squadra.nostra) {
+      return battutaFatta ? _FaseScambio.libera : _FaseScambio.servizio;
+    }
+    return ricezioneFatta ? _FaseScambio.libera : _FaseScambio.ricezione;
   }
 
-  // Fondamentale forzato dalla fase di gioco (battuta se battiamo noi,
-  // ricezione se servono loro), o null se va scelto nel pannello tra
-  // Alzata/Attacco/Muro/Difesa — quest'ultimo solo dopo che battuta o
-  // ricezione sono già state giudicate in questo scambio.
+  // Fase "battuta avversaria": fase servizio con loro al servizio (solo con
+  // scout avversari attivo, vedi _faseScambio). L'unico tap-target è il loro
+  // battitore in zona 1 (fuori campo) — nessun nostro giocatore, nessun altro
+  // loro token — specularmente al nostro servizio.
+  bool get _attesaBattutaAvversaria =>
+      _faseScambio == _FaseScambio.servizio &&
+      _squadraAlServizio == Squadra.avversari;
+
+  // Fase "ricezione avversaria": fase ricezione con noi al servizio (solo con
+  // scout avversari attivo). I token avversari sono tappabili forzati su
+  // Ricezione, i nostri giocatori bloccati — speculare alla nostra ricezione.
+  bool get _attesaRicezioneAvversaria =>
+      _faseScambio == _FaseScambio.ricezione &&
+      _squadraAlServizio == Squadra.nostra;
+
+  // Fase libera dello scambio (palla in gioco, azioni forzate concluse): qui i
+  // token avversari sono tappabili per attacco/muro/difesa.
+  bool get _faseLiberaScambio => _faseScambio == _FaseScambio.libera;
+
+  // Tappabile in questa fase di gioco, a prescindere dal fondamentale:
+  // - servizio: solo il nostro P1 (il battitore), e solo se serviamo noi;
+  // - ricezione: chiunque, ma solo se riceviamo noi (servono loro);
+  // - libera: chiunque.
+  // Il fondamentale (Alzata/Attacco/Muro/Difesa in fase libera) si sceglie nel
+  // pannello — vedi _sceglieFondamentale.
+  bool _giocatoreTappabile(String? slot) {
+    final servizio = _squadraAlServizio;
+    switch (_faseScambio) {
+      case _FaseScambio.servizio:
+        return servizio == Squadra.nostra && slot == 'P1';
+      case _FaseScambio.ricezione:
+        return servizio == Squadra.avversari;
+      case _FaseScambio.libera:
+        return true;
+    }
+  }
+
+  // Fondamentale forzato dalla fase di gioco (battuta in fase servizio,
+  // ricezione in fase ricezione), o null in fase libera (va scelto nel
+  // pannello tra Alzata/Attacco/Muro/Difesa).
   Fondamentale? _fondamentaleForzato() {
-    if (_fondamentaleGiudicatoRallyCorrente) return null;
-    return _squadraAlServizio == Squadra.nostra
-        ? Fondamentale.battuta
-        : Fondamentale.ricezione;
+    switch (_faseScambio) {
+      case _FaseScambio.servizio:
+        return Fondamentale.battuta;
+      case _FaseScambio.ricezione:
+        return Fondamentale.ricezione;
+      case _FaseScambio.libera:
+        return null;
+    }
+  }
+
+  // Scorciatoia Modello A: se l'ultima azione dello scambio è un'offensiva `#`
+  // (ace/kill) dell'ALTRA squadra rispetto a `difensore`, la risposta difensiva
+  // è deterministicamente un ERRORE. Ritorna il fondamentale difensivo dovuto
+  // (ricezione se il `#` era una battuta, difesa se era un attacco), altrimenti
+  // null. Permette il tap "veloce" sul difensore → `=` diretto, saltando il
+  // pannello (il pallone contestato/non attribuibile si segna comunque coi
+  // bottoni rapidi "Punto avversario/nostro").
+  Fondamentale? _erroreDifensivoForzato(Squadra difensore) {
+    final azioni = _azioniRallyCorrente;
+    if (azioni.isEmpty) return null;
+    final ultima = azioni.last;
+    if (ultima.voto != Voto.perfetto) return null;
+    if (ultima.squadra == difensore) return null; // l'offensiva è dell'altra
+    return switch (ultima.fondamentale) {
+      Fondamentale.battuta => Fondamentale.ricezione,
+      Fondamentale.attacco => Fondamentale.difesa,
+      _ => null,
+    };
+  }
+
+  // Registra al volo un errore difensivo NOSTRO (scorciatoia sopra): ricezione/
+  // difesa `=` per il giocatore toccato, senza pannello. L'esito è
+  // `puntoAvversario` (Modello A: il punto dell'ace/kill lo porta la difesa).
+  Future<void> _registraErroreDifensivoRapido(
+      Player player, Fondamentale fondamentale) async {
+    final set = _setCorrente;
+    if (set == null) return;
+    await ref.read(scoutActionRepositoryProvider).registraAzioneScout(
+          setId: set.id,
+          squadra: Squadra.nostra,
+          giocatoreId: player.id,
+          fondamentale: fondamentale,
+          voto: Voto.errore,
+          esitoPunto: _esitoVoto(fondamentale, Voto.errore),
+        );
+    if (!mounted) return;
+    setState(() => _votoInCorso = null);
   }
 
   // Tap-target per il voto di un giocatore: fuori dalla modalità test, col
@@ -600,6 +665,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_setCorrente == null) return null;
     if (_avversarioInCorso != null) return null; // pannello avversario aperto
     if (!_giocatoreTappabile(slot)) return null;
+    // Scorciatoia: dopo un `#` avversario il tocco registra subito la
+    // ricezione/difesa `=`, senza pannello.
+    final erroreForzato = _erroreDifensivoForzato(Squadra.nostra);
+    if (erroreForzato != null) {
+      return () => _registraErroreDifensivoRapido(player, erroreForzato);
+    }
     final forzato = _fondamentaleForzato();
     return () => setState(() {
       _votoInCorso = (giocatore: player, fondamentale: forzato);
@@ -633,21 +704,27 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   TipoBattuta _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
   int? _giocatoreTipoBattutaArmato;
 
-  // Esito automatico del voto, generale per tutti i fondamentali: qualunque
-  // fondamentale con voto "errore" → punto avversario (battuta in rete/
-  // fuori, ricezione non tenuta, attacco murato/fuori, muro sbagliato, ecc.).
-  // Solo battuta/attacco/muro hanno anche un punto immediato su "perfetto"
-  // (ace, schiacciata vincente, muro punto) — ricezione/alzata/difesa non
-  // vincono mai punti da sole, preparano solo la giocata successiva.
+  // Esito automatico del voto (Modello A — "la difesa porta il punto"):
+  // - qualunque fondamentale con voto "errore" → punto avversario (battuta in
+  //   rete/fuori, ricezione non tenuta, attacco murato/fuori, difesa sbagliata,
+  //   muro out);
+  // - muro "perfetto" → punto nostro (muro punto, terminale di suo);
+  // - battuta/attacco "perfetto" (ace/schiacciata vincente): punto diretto SOLO
+  //   con scout avversari OFF; con scout avversari attivo NON chiude (nessuno)
+  //   — il punto lo porta la loro ricezione/difesa errata registrata dopo (vedi
+  //   Modello A), così l'ace/kill non viene contato due volte;
+  // - tutto il resto (alzata, ricezione/difesa non terminali) → nessuno.
   EsitoPunto _esitoVoto(Fondamentale fondamentale, Voto voto) {
     if (voto == Voto.errore) return EsitoPunto.puntoAvversario;
-    const direttoSePerfetto = {
-      Fondamentale.battuta,
-      Fondamentale.attacco,
-      Fondamentale.muro,
-    };
-    if (direttoSePerfetto.contains(fondamentale) && voto == Voto.perfetto) {
+    if (fondamentale == Fondamentale.muro && voto == Voto.perfetto) {
       return EsitoPunto.puntoNostro;
+    }
+    if ((fondamentale == Fondamentale.battuta ||
+            fondamentale == Fondamentale.attacco) &&
+        voto == Voto.perfetto) {
+      return _scoutAvversariAttivo
+          ? EsitoPunto.nessuno
+          : EsitoPunto.puntoNostro;
     }
     return EsitoPunto.nessuno;
   }
@@ -737,20 +814,39 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
 
   // --- Flusso azioni AVVERSARIE (parallelo, isolato dal nostro) ---
 
-  // Esito INVERTITO rispetto a _esitoVoto: dal punto di vista dell'AVVERSARIO.
-  // Loro perfetto su battuta/attacco/muro (ace/schiacciata/muro punto) = punto
-  // LORO; loro errore = punto NOSTRO; tutto il resto = palla in gioco.
+  // Esito INVERTITO rispetto a _esitoVoto, dal punto di vista dell'AVVERSARIO
+  // (Modello A). Le azioni avversarie esistono solo con scout avversari attivo,
+  // quindi qui il Modello A vale sempre:
+  // - loro errore (battuta out, attacco fuori, ricezione/difesa sbagliata) →
+  //   punto NOSTRO;
+  // - loro muro perfetto (muro punto) → punto LORO (terminale);
+  // - loro battuta/attacco perfetto (ace/kill) → nessuno: il punto lo porta la
+  //   NOSTRA ricezione/difesa errata registrata dopo (no doppio conteggio);
+  // - resto → nessuno.
   EsitoPunto _esitoVotoAvversario(Fondamentale fondamentale, Voto voto) {
     if (voto == Voto.errore) return EsitoPunto.puntoNostro;
-    const direttoSePerfetto = {
-      Fondamentale.battuta,
-      Fondamentale.attacco,
-      Fondamentale.muro,
-    };
-    if (direttoSePerfetto.contains(fondamentale) && voto == Voto.perfetto) {
+    if (fondamentale == Fondamentale.muro && voto == Voto.perfetto) {
       return EsitoPunto.puntoAvversario;
     }
     return EsitoPunto.nessuno;
+  }
+
+  // Registra al volo un errore difensivo AVVERSARIO (scorciatoia simmetrica):
+  // loro ricezione/difesa `=` dopo un NOSTRO `#` (ace/kill), senza pannello.
+  // Esito `puntoNostro` (Modello A: il punto lo porta la loro difesa errata).
+  Future<void> _registraErroreDifensivoAvversarioRapido(
+      String ruolo, Fondamentale fondamentale) async {
+    final set = _setCorrente;
+    if (set == null) return;
+    await ref.read(scoutActionRepositoryProvider).registraAzioneAvversaria(
+          setId: set.id,
+          ruoloAvversario: ruolo,
+          fondamentale: fondamentale,
+          voto: Voto.errore,
+          esitoPunto: _esitoVotoAvversario(fondamentale, Voto.errore),
+        );
+    if (!mounted) return;
+    setState(() => _avversarioInCorso = null);
   }
 
   // Tap su un token avversario: apre il pannello avversario (scelta
@@ -762,6 +858,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_setCorrente == null) return null;
     if (_inSelezionePAvversario) return null;
     if (_votoInCorso != null) return null;
+    // Scorciatoia: dopo un NOSTRO `#` il tocco registra subito la loro
+    // ricezione/difesa `=`, senza pannello.
+    final erroreForzato = _erroreDifensivoForzato(Squadra.avversari);
+    if (erroreForzato != null) {
+      return () =>
+          _registraErroreDifensivoAvversarioRapido(ruolo, erroreForzato);
+    }
     return () => setState(
         () => _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato));
   }
@@ -2889,12 +2992,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                     ),
                     if (inCorso.fondamentale == null) ...[
                       const SizedBox(height: 8),
-                      // In fase libera l'avversario può aver attaccato o murato
-                      // (la battuta passa dal flusso forzato del battitore in
-                      // zona 1, non da qui).
+                      // In fase libera l'avversario può aver attaccato, murato o
+                      // difeso (battuta e ricezione passano dai flussi forzati
+                      // di zona 1 / fase ricezione, non da qui).
                       for (final f in const [
                         Fondamentale.attacco,
                         Fondamentale.muro,
+                        Fondamentale.difesa,
                       ]) ...[
                         GestureDetector(
                           onTap: () => _scegliFondamentaleAvversario(f),
@@ -2923,7 +3027,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                             ),
                           ),
                         ),
-                        if (f != Fondamentale.muro)
+                        if (f != Fondamentale.difesa)
                           const SizedBox(height: 10),
                       ],
                     ] else ...[
@@ -3570,6 +3674,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final etichette = etichetteAvversarie(slot); // zona -> ruolo
     final radius = ch / 20 * _kTokenSizeScale;
     final attesaBattuta = _attesaBattutaAvversaria;
+    final attesaRicezione = _attesaRicezioneAvversaria;
     final faseLibera = _faseLiberaScambio;
     return [
       for (final entry in etichette.entries)
@@ -3582,13 +3687,24 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           final refBase = (attesaBattuta && battitore)
               ? _kBattutaAvversarioPosition
               : _kOpponentZonePositions[zona]!;
-          // Tappabilità per fase: in fase libera tutti (attacco/muro); in
-          // attesa battuta il battitore è fuori campo → il suo tap lo cattura
-          // _buildBattitoreAvversarioTapCatcher (Stack esterno), qui onTap è
-          // null; nelle altre fasi (nostro servizio/ricezione) nessuno.
-          final onTap = (!attesaBattuta && faseLibera)
-              ? _tapHandlerAvversario(ruolo)
-              : null;
+          // Tappabilità per fase:
+          // - attesa battuta: il battitore è fuori campo → il suo tap lo
+          //   cattura _buildBattitoreAvversarioTapCatcher (Stack esterno), qui
+          //   onTap null; gli altri token nessuno;
+          // - attesa ricezione (battiamo noi): tutti tappabili, forzati su
+          //   Ricezione;
+          // - fase libera: tutti tappabili, fondamentale a scelta
+          //   (Attacco/Muro/Difesa nel pannello);
+          // - resto (nostro servizio, nostra ricezione): nessuno.
+          final VoidCallback? onTap;
+          if (attesaRicezione) {
+            onTap = _tapHandlerAvversario(ruolo,
+                forzato: Fondamentale.ricezione);
+          } else if (faseLibera) {
+            onTap = _tapHandlerAvversario(ruolo);
+          } else {
+            onTap = null;
+          }
           return _buildTokenAvversario(ruolo, refBase, radius, cw, ch,
               onTap: onTap);
         }(),
