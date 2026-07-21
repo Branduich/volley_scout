@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../logic/attack_positions.dart';
+import '../../logic/defense_positions.dart';
 import '../../logic/ricalcola_stato.dart';
 import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
@@ -126,138 +127,10 @@ const double _kTokenSizeScale = 1.4;
 // pagine attacchi del report PDF, che ne ricava la "posizione di attacco"
 // dei giocatori — vedi _activeAttackMap più sotto.
 
-// Posizioni di ricezione (battuta avversaria), per rotazione (chiave = slot
-// del palleggiatore, come _currentSlot) e per RUOLO (non per slot fisso —
-// stessi codici di _roleLabelsFor: P, O, S1, S2, C1, C2). Caso "libero sui
-// centrali": il libero sostituisce il centrale di seconda linea, che quindi
-// non compare in questa mappa per quella rotazione (solo il centrale a
-// rete, che resta in campo, è presente). Tutte e 6 le rotazioni sono
-// complete — vedi _activeDefenseMap per il controllo di completezza.
-const Map<String, Map<String, Offset>> _kDefensePositionsCentrali = {
-  'P1': {
-    'S1': Offset(240, 482),
-    'Libero': Offset(166, 300),
-    'P': Offset(206, 560),
-    'S2': Offset(240, 114),
-    'C1': Offset(540, 324),
-    'O': Offset(444, 50),
-  },
-  'P2': {
-    'P': Offset(552, 356),
-    'C1': Offset(498, 50),
-    'Libero': Offset(240, 482),
-    'S1': Offset(240, 114),
-    'S2': Offset(166, 296),
-    'O': Offset(60, 266),
-  },
-  'P3': {
-    'P': Offset(552, 356),
-    'C2': Offset(470, 384),
-    'O': Offset(84, 416),
-    'S1': Offset(240, 114),
-    'S2': Offset(240, 482),
-    'Libero': Offset(166, 296),
-  },
-  'P4': {
-    'P': Offset(552, 50),
-    'C2': Offset(460, 76),
-    'O': Offset(180, 550),
-    'S1': Offset(166, 296),
-    'S2': Offset(240, 114),
-    'Libero': Offset(240, 482),
-  },
-  'P5': {
-    'P': Offset(518, 254),
-    'C2': Offset(552, 50),
-    'S1': Offset(166, 296),
-    'S2': Offset(240, 114),
-    'Libero': Offset(240, 482),
-    'O': Offset(438, 542),
-  },
-  'P6': {
-    'O': Offset(552, 274),
-    'S2': Offset(240, 114),
-    'S1': Offset(240, 482),
-    'Libero': Offset(166, 296),
-    'P': Offset(470, 314),
-    'C1': Offset(438, 542),
-  },
-};
-
-// Stesso formato di _kDefensePositionsCentrali, per il caso "libero sugli
-// schiacciatori": qui sono entrambi i centrali a restare in campo, mentre il
-// libero sostituisce lo schiacciatore di seconda linea (uno solo tra S1/S2
-// compare per rotazione).
-const Map<String, Map<String, Offset>> _kDefensePositionsSchiacciatori = {
-  'P1': {
-    'S1': Offset(240, 482),
-    'O': Offset(444, 50),
-    'C1': Offset(540, 324),
-    'P': Offset(206, 560),
-    'Libero': Offset(240, 114),
-    'C2': Offset(166, 300),
-  },
-  'P2': {
-    'P': Offset(552, 356),
-    'O': Offset(60, 266),
-    'C1': Offset(498, 50),
-    'S1': Offset(240, 114),
-    'Libero': Offset(166, 296),
-    'C2': Offset(240, 482),
-  },
-  'P3': {
-    'P': Offset(552, 356),
-    'C2': Offset(470, 384),
-    'O': Offset(84, 416),
-    'S1': Offset(240, 114),
-    'Libero': Offset(240, 482),
-    'C1': Offset(166, 296),
-  },
-  'P4': {
-    'P': Offset(552, 50),
-    'C2': Offset(460, 76),
-    'O': Offset(180, 550),
-    'S2': Offset(240, 114),
-    'Libero': Offset(166, 296),
-    'C1': Offset(240, 482),
-  },
-  'P5': {
-    'P': Offset(518, 254),
-    'C2': Offset(552, 50),
-    'S2': Offset(240, 114),
-    'O': Offset(438, 542),
-    'Libero': Offset(166, 296),
-    'C1': Offset(240, 482),
-  },
-  'P6': {
-    'O': Offset(552, 274),
-    'P': Offset(470, 314),
-    'C1': Offset(438, 542),
-    'S2': Offset(240, 114),
-    'Libero': Offset(240, 482),
-    'C2': Offset(166, 296),
-  },
-};
-
-// Stessa "forma" difensiva delle due tabelle sopra, ma per formazioni SENZA
-// libero: nessun ruolo va sostituito, quindi servono le posizioni REALI di
-// tutti e 6 i ruoli (P, O, S1, S2, C1, C2). Le due tabelle con libero non ne
-// contengono mai più di 5 (un ruolo è sempre "Libero" al posto del
-// sostituito) — ma insieme si completano: il ruolo mancante in una tabella
-// (quello sostituito dal libero in quella coppia) è presente nell'altra
-// (dove la coppia sostituita è l'opposta). Unendo le due e scartando la
-// chiave "Libero" si ottengono le posizioni reali di tutti i 6 ruoli, per
-// ogni rotazione — verificato che i ruoli condivisi tra le due tabelle
-// (P, O e il centrale/schiacciatore "fisso" di ciascuna coppia) abbiano le
-// stesse coordinate in entrambe.
-Map<String, Offset>? _kDefensePositionsComplete(String slot) {
-  final centrali = _kDefensePositionsCentrali[slot];
-  final schiacciatori = _kDefensePositionsSchiacciatori[slot];
-  if (centrali == null || schiacciatori == null) return null;
-  final merged = {...centrali, ...schiacciatori}..remove('Libero');
-  const ruoliCompleti = {'P', 'O', 'S1', 'S2', 'C1', 'C2'};
-  return ruoliCompleti.every(merged.containsKey) ? merged : null;
-}
+// Le posizioni di ricezione (battuta avversaria) per rotazione/ruolo/variante
+// libero vivono in logic/defense_positions.dart (kDefensePositionsCentrali/
+// Schiacciatori + defenseMapFor): estratte per essere riusate dalla formazione
+// di ricezione AVVERSARIA (mirror). _activeDefenseMap le seleziona da lì.
 
 // Ordine antiorario degli slot sul campo grande (verificato sulle coordinate
 // di _kAttackPositions), usato per calcolare la distanza dal palleggiatore.
@@ -938,35 +811,29 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_squadraAlServizio != Squadra.avversari) return null;
     if (_faseDopo) return null;
     if (!_liberiEffettivi.containsKey('L1')) {
-      return _kDefensePositionsComplete(_currentSlot);
+      return defenseMapFor(
+        rotazione: _currentSlot,
+        senzaLibero: true,
+        liberoSuSchiacciatori: false,
+      );
     }
+    // Il ruolo→variante e il fallback su ruolo inatteso (null) restano qui, per
+    // preservare esattamente il comportamento precedente; la selezione tabella
+    // + controllo di completezza è in defenseMapFor.
     final ruolo = _ruoloCambiLiberoEffettivo;
-    final Map<String, Map<String, Offset>> tabella;
-    final List<String> coppiaSostituita;
-    final List<String> coppiaFissa;
+    final bool liberoSuSchiacciatori;
     if (ruolo == Ruolo.centrale || ruolo == Ruolo.undefined) {
-      tabella = _kDefensePositionsCentrali;
-      coppiaSostituita = const ['C1', 'C2'];
-      coppiaFissa = const ['S1', 'S2'];
+      liberoSuSchiacciatori = false;
     } else if (ruolo == Ruolo.schiacciatore) {
-      tabella = _kDefensePositionsSchiacciatori;
-      coppiaSostituita = const ['S1', 'S2'];
-      coppiaFissa = const ['C1', 'C2'];
+      liberoSuSchiacciatori = true;
     } else {
       return null;
     }
-    final map = tabella[_currentSlot];
-    if (map == null) return null;
-    final unaSolaSostituita =
-        map.containsKey(coppiaSostituita[0]) !=
-        map.containsKey(coppiaSostituita[1]);
-    final completa =
-        map.containsKey('P') &&
-        map.containsKey('O') &&
-        map.containsKey('Libero') &&
-        coppiaFissa.every(map.containsKey) &&
-        unaSolaSostituita;
-    return completa ? map : null;
+    return defenseMapFor(
+      rotazione: _currentSlot,
+      senzaLibero: false,
+      liberoSuSchiacciatori: liberoSuSchiacciatori,
+    );
   }
 
   @override
