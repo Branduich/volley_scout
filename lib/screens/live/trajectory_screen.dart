@@ -60,7 +60,10 @@ class TrajectoryScreen extends StatefulWidget {
   // Giocatore/fondamentale/voto dell'azione in corso (non ancora
   // registrata — vedi ScoutScreen._registraVoto), solo per mostrare lo
   // stesso banner di ScoutScreen mentre si imposta la traiettoria.
-  final Player giocatore;
+  // `giocatore` è null per un'azione AVVERSARIA (nessun roster, solo il ruolo
+  // placeholder in `etichettaAvversario`): esattamente uno dei due è valorizzato.
+  final Player? giocatore;
+  final String? etichettaAvversario;
   final Fondamentale fondamentale;
   final Voto voto;
   // Valore "armato" attuale in ScoutScreen (vedi _tipoBattutaSelezionato
@@ -73,11 +76,13 @@ class TrajectoryScreen extends StatefulWidget {
 
   const TrajectoryScreen({
     super.key,
-    required this.giocatore,
+    this.giocatore,
+    this.etichettaAvversario,
     required this.fondamentale,
     required this.voto,
     this.tipoBattutaIniziale,
-  });
+  }) : assert(giocatore != null || etichettaAvversario != null,
+            'Serve un giocatore (nostro) o un\'etichetta (avversario)');
 
   @override
   State<TrajectoryScreen> createState() => _TrajectoryScreenState();
@@ -232,8 +237,10 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
   // TipoAzione.scout (qui l'azione non è ancora un ScoutAction salvato,
   // quindi si formatta direttamente da giocatore/fondamentale/voto).
   Widget _buildBanner() {
-    final testo =
-        '${widget.giocatore.numero} - ${widget.giocatore.cognome} - ${widget.fondamentale.label}';
+    final giocatore = widget.giocatore;
+    final testo = giocatore != null
+        ? '${giocatore.numero} - ${giocatore.cognome} - ${widget.fondamentale.label}'
+        : 'Avversario ${widget.etichettaAvversario} - ${widget.fondamentale.label}';
     final voto = widget.voto.simbolo;
     final colore = CourtStyle.votoColor(widget.voto);
     return Container(

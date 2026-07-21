@@ -965,14 +965,54 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final fondamentale = inCorso?.fondamentale;
     if (set == null || inCorso == null || fondamentale == null) return;
     final esito = _esitoVotoAvversario(fondamentale, voto);
-    // Niente traiettoria per ora (step successivo, come fu per il flusso
-    // nostro): l'azione si registra subito.
+
+    // Traiettoria per battuta/attacco avversari — stesso flusso del nostro
+    // _registraVoto (gate traiettorie + premium). TrajectoryScreen disegna
+    // sulla stessa immagine campo doppio: il drag parte dal token avversario
+    // (loro metà) verso la nostra. `giocatore` è null, si passa l'etichetta
+    // di ruolo per il banner. Il tipo battuta/attacco NON resta "armato" per
+    // l'avversario (nessun roster): parte sempre da nonSpecificato.
+    Traiettoria? traiettoria;
+    if (fondamentale.richiedeTraiettoria &&
+        ref.read(impostazioniProvider).traiettorieAbilitate &&
+        ref.read(statoPremiumProvider).attivo) {
+      traiettoria = await Navigator.push<Traiettoria>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TrajectoryScreen(
+            etichettaAvversario: inCorso.ruolo,
+            fondamentale: fondamentale,
+            voto: voto,
+            tipoBattutaIniziale: fondamentale == Fondamentale.battuta
+                ? TipoBattuta.nonSpecificato
+                : null,
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
+
+    final tipoEsecuzione = switch (fondamentale) {
+      Fondamentale.battuta =>
+        (traiettoria?.tipoBattuta ?? TipoBattuta.nonSpecificato).name,
+      Fondamentale.attacco =>
+        (traiettoria?.tipoAttacco ?? TipoAttacco.nonSpecificato).name,
+      _ => 'nonSpecificato',
+    };
+
     await ref.read(scoutActionRepositoryProvider).registraAzioneAvversaria(
           setId: set.id,
           ruoloAvversario: inCorso.ruolo,
           fondamentale: fondamentale,
           voto: voto,
           esitoPunto: esito,
+          tipoEsecuzione: tipoEsecuzione,
+          traiettoriaX1: traiettoria?.x1,
+          traiettoriaY1: traiettoria?.y1,
+          traiettoriaX2: traiettoria?.x2,
+          traiettoriaY2: traiettoria?.y2,
+          traiettoriaMuroX: traiettoria?.muroX,
+          traiettoriaMuroY: traiettoria?.muroY,
         );
     if (!mounted) return;
     // La fase (_fondamentaleGiudicatoRallyCorrente/_attesaBattutaAvversaria) è
