@@ -128,6 +128,12 @@ const Offset _kBattutaP1Position = Offset(-70, 470);
 // Aumentato da 1.0 dopo test su tablet fisico (token troppo piccoli).
 const double _kTokenSizeScale = 1.4;
 
+// Opacità dei token BLOCCATI dopo un `#` (la squadra che ha appena attaccato):
+// attenuati per segnalare che va toccata la squadra che difende — vedi
+// _nostriTokenBloccati/_tokenAvversariBloccati. NON si attenuano tutti i token
+// non tappabili (troppo aggressivo): solo questo caso, per ora.
+const double _kAlphaTokenBloccato = 0.5;
+
 // Le posizioni TATTICHE di attacco per rotazione/ruolo/fase (ex costanti
 // private qui) vivono in logic/attack_positions.dart: condivise con le
 // pagine attacchi del report PDF, che ne ricava la "posizione di attacco"
@@ -637,6 +643,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     };
   }
 
+  // Dopo un `#`, deve poter agire SOLO chi difende: i token della squadra che
+  // ha appena attaccato sono bloccati (tap ignorato) e mostrati attenuati.
+  // Nostri bloccati = abbiamo attaccato noi (attende la difesa avversaria);
+  // avversari bloccati = hanno attaccato loro (attende la nostra difesa).
+  bool get _nostriTokenBloccati =>
+      _erroreDifensivoForzato(Squadra.avversari) != null;
+  bool get _tokenAvversariBloccati =>
+      _erroreDifensivoForzato(Squadra.nostra) != null;
+
   // Registra al volo un errore difensivo NOSTRO (scorciatoia sopra): ricezione/
   // difesa `=` per il giocatore toccato, senza pannello. L'esito è
   // `puntoAvversario` (Modello A: il punto dell'ace/kill lo porta la difesa).
@@ -664,6 +679,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
     if (_avversarioInCorso != null) return null; // pannello avversario aperto
+    // Dopo un NOSTRO `#`: deve difendere l'avversario, i nostri token bloccati.
+    if (_nostriTokenBloccati) return null;
     if (!_giocatoreTappabile(slot)) return null;
     // Scorciatoia: dopo un `#` avversario il tocco registra subito la
     // ricezione/difesa `=`, senza pannello.
@@ -858,6 +875,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     if (_setCorrente == null) return null;
     if (_inSelezionePAvversario) return null;
     if (_votoInCorso != null) return null;
+    // Dopo un `#` avversario: dobbiamo difendere noi, i loro token bloccati.
+    if (_tokenAvversariBloccati) return null;
     // Scorciatoia: dopo un NOSTRO `#` il tocco registra subito la loro
     // ricezione/difesa `=`, senza pannello.
     final erroreForzato = _erroreDifensivoForzato(Squadra.avversari);
@@ -3186,6 +3205,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final roleLabels = roleLabelsFor(_currentSlot, currentAssignments);
     final defenseMap = _activeDefenseMap;
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
+    // Dopo un NOSTRO `#` i nostri token sono bloccati e attenuati (tocca la
+    // difesa avversaria).
+    final bloccati = _nostriTokenBloccati;
 
     if (defenseMap == null) {
       return [
@@ -3198,6 +3220,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               cw,
               ch,
               onTap: _tapHandlerPerGiocatore(entry.value, slot: entry.key),
+              disabilitato: bloccati,
             ),
       ];
     }
@@ -3217,6 +3240,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             cw,
             ch,
             onTap: _tapHandlerPerGiocatore(player, slot: slot),
+            disabilitato: bloccati,
           ),
         );
       }
@@ -3309,6 +3333,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           radius,
           isLibero: true,
           onTap: _tapHandlerPerGiocatore(libero),
+          // Dopo un NOSTRO `#`, il libero in campo è bloccato e attenuato.
+          disabilitato: _nostriTokenBloccati,
         ),
         // Il sostituito è in panchina (slot 0): non tappabile.
         _buildAbsoluteToken(
@@ -3330,6 +3356,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         toScreen(_displayPosition(_attackPosition(slotCentrale, roleLabels))),
         radius,
         onTap: _tapHandlerPerGiocatore(giocatoreCoppia, slot: slotCentrale),
+        disabilitato: _nostriTokenBloccati,
       ),
       _buildAbsoluteToken(liberoKey, libero, bench0, radius, isLibero: true),
       ?bench1Token,
@@ -3548,6 +3575,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     double radius, {
     bool isLibero = false,
     VoidCallback? onTap,
+    bool disabilitato = false,
   }) {
     final fillColor = isLibero
         ? _invertedColor(Color(widget.team.coloreDivisa))
@@ -3584,9 +3612,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       top: center.dy - radius,
       width: radius * 2,
       height: radius * 2,
-      child: onTap == null
-          ? tokenVisual
-          : GestureDetector(onTap: onTap, child: tokenVisual),
+      child: disabilitato
+          ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
+          : (onTap == null
+              ? tokenVisual
+              : GestureDetector(onTap: onTap, child: tokenVisual)),
     );
   }
 
@@ -3597,6 +3627,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     double cw,
     double ch, {
     VoidCallback? onTap,
+    bool disabilitato = false,
   }) {
     // Raggio = un ventesimo del campo (singolo campo = quadrato 600×600 nello
     // spazio di riferimento, quindi un ventesimo equivale a ch/20), scalato
@@ -3652,9 +3683,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       top: cy - tokenRadius,
       width: tokenRadius * 2,
       height: tokenRadius * 2,
-      child: onTap == null
-          ? tokenVisual
-          : GestureDetector(onTap: onTap, child: tokenVisual),
+      child: disabilitato
+          ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
+          : (onTap == null
+              ? tokenVisual
+              : GestureDetector(onTap: onTap, child: tokenVisual)),
     );
   }
 
@@ -3676,6 +3709,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final attesaBattuta = _attesaBattutaAvversaria;
     final attesaRicezione = _attesaRicezioneAvversaria;
     final faseLibera = _faseLiberaScambio;
+    // Dopo un `#` avversario i loro token sono bloccati e attenuati.
+    final bloccati = _tokenAvversariBloccati;
     return [
       for (final entry in etichette.entries)
         () {
@@ -3706,7 +3741,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             onTap = null;
           }
           return _buildTokenAvversario(ruolo, refBase, radius, cw, ch,
-              onTap: onTap);
+              onTap: onTap, disabilitato: bloccati);
         }(),
     ];
   }
@@ -3718,6 +3753,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     double cw,
     double ch, {
     VoidCallback? onTap,
+    bool disabilitato = false,
   }) {
     final refPos = _displayPosition(refBase);
     final cx = (refPos.dx / 1200) * cw;
@@ -3767,9 +3803,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       top: cy - tokenRadius,
       width: tokenRadius * 2,
       height: tokenRadius * 2,
-      child: onTap == null
-          ? tokenVisual
-          : GestureDetector(onTap: onTap, child: tokenVisual),
+      child: disabilitato
+          ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
+          : (onTap == null
+              ? tokenVisual
+              : GestureDetector(onTap: onTap, child: tokenVisual)),
     );
   }
 }
