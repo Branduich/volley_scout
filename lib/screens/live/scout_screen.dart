@@ -96,12 +96,9 @@ const Map<int, Offset> _kOpponentZonePositions = {
 // roster reale). Da rifinire eventualmente col feedback visivo.
 const Color _kColoreTokenAvversario = Color(0xFF757575); // grigio 600
 
-// Posizione del battitore AVVERSARIO fuori dal campo (dietro la loro linea di
-// fondo): mirror di _kBattutaP1Position attraverso il centro del campo doppio
-// (1200-(-70), 600-470) = (1270, 130). Stessa Y della loro zona 1, X spinta
-// oltre il bordo destro (x=1200) — così si vede che sono in battuta, come per
-// noi. Passa per _displayPosition (segue il cambio campo).
-const Offset _kBattutaAvversarioPosition = Offset(1270, 130);
+// La posizione del battitore avversario fuori campo non è più una costante
+// dedicata: viene dalla mappa tattica (attackMapFor(battuta), ruolo in zona 1
+// a X<0) specchiata sulla loro metà — vedi _posizioneAvversario.
 
 // Fase globale di uno scambio: battuta (chi serve) → ricezione (chi riceve) →
 // fase libera (attacchi/difese/muri). Chi batte e chi riceve dipende da chi è
@@ -151,6 +148,15 @@ const List<String> _kSlotOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 // Modulo che gestisce correttamente anche valori negativi (a differenza di
 // `%` in Dart, che mantiene il segno dell'operando).
 int _mod(int a, int n) => ((a % n) + n) % n;
+
+// Riflessione di una posizione dal campo SINISTRO (spazio di riferimento
+// 1200×600, rete a x=600) alla metà AVVERSARIA (destra), attraverso il centro
+// del campo doppio — la stessa trasformazione con cui _kOpponentZonePositions
+// specchia _kAttackPositions. Le tabelle tattiche (attackMapFor/defenseMapFor)
+// sono sul campo sinistro: per posizionare i token avversari sulla loro metà
+// si specchia ogni Offset con questa, poi si passa per _displayPosition (che
+// gestisce a parte il cambio campo).
+Offset _mirrorAvversario(Offset o) => Offset(1200 - o.dx, 600 - o.dy);
 
 // Le etichette di ruolo per slot (P/O/S1/S2/C1/C2) vivono in
 // logic/role_labels.dart (funzione pura roleLabelsFor, testata): gli
@@ -1014,6 +1020,67 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       senzaLibero: false,
       liberoSuSchiacciatori: liberoSuSchiacciatori,
     );
+  }
+
+  // Slot di rotazione del palleggiatore avversario ('P1'..'P6'), o null se lo
+  // scout avversari non è attivo per il set. Determina l'intera rotazione
+  // avversaria (5-1 canonico, vedi etichetteAvversarie) e ruota sui loro
+  // sideout tramite ricalcolaStato.
+  String? get _currentSlotAvversario {
+    final slot = _statoSetReale?.palleggiatoreAvversarioSlot;
+    return slot == null ? null : 'P$slot';
+  }
+
+  // Mappa TATTICA ruolo→posizione dell'avversario per la fase corrente, sul
+  // campo SINISTRO (da specchiare con _mirrorAvversario). Speculare a
+  // _activeAttackMap/_activeDefenseMap ma pilotata da _faseScambio (globale) e
+  // dalla rotazione avversaria. L'avversario è un placeholder che gioca il
+  // nostro stesso 5-1 SENZA libero, quindi senzaLibero: true sempre:
+  //   - loro servizio, battuta non ancora fatta → attackMapFor(battuta)
+  //     (il battitore in zona 1 finisce fuori campo, X<0 → mirror X>1200);
+  //   - loro servizio, battuta fatta → attackMapFor(dopoBattuta);
+  //   - nostro servizio, loro ricezione non ancora fatta (fase servizio o
+  //     ricezione) → defenseMapFor (formazione di ricezione);
+  //   - nostro servizio, loro ricezione fatta (fase libera) →
+  //     attackMapFor(dopoRicezione).
+  Map<String, Offset>? get _mappaAvversario {
+    final slot = _currentSlotAvversario;
+    if (slot == null) return null;
+    if (_squadraAlServizio == Squadra.avversari) {
+      final fase = _faseScambio == _FaseScambio.servizio
+          ? FaseAttacco.battuta
+          : FaseAttacco.dopoBattuta;
+      return attackMapFor(
+        rotazione: slot,
+        fase: fase,
+        senzaLibero: true,
+        liberoSuSchiacciatori: false,
+      );
+    }
+    if (_faseScambio != _FaseScambio.libera) {
+      return defenseMapFor(
+        rotazione: slot,
+        senzaLibero: true,
+        liberoSuSchiacciatori: false,
+      );
+    }
+    return attackMapFor(
+      rotazione: slot,
+      fase: FaseAttacco.dopoRicezione,
+      senzaLibero: true,
+      liberoSuSchiacciatori: false,
+    );
+  }
+
+  // Posizione (spazio di riferimento 1200×600, metà avversaria) di un ruolo
+  // avversario: mirror della sua posizione tattica sul campo sinistro
+  // (_mappaAvversario), con fallback alla zona di rotazione fissa
+  // (_kOpponentZonePositions) se la mappa non copre quel ruolo — non dovrebbe
+  // capitare col 5-1 senza libero (6 ruoli completi), è una guardia.
+  Offset _posizioneAvversario(String ruolo, int zonaFallback) {
+    final base = _mappaAvversario?[ruolo];
+    if (base != null) return _mirrorAvversario(base);
+    return _kOpponentZonePositions[zonaFallback]!;
   }
 
   @override
@@ -3503,7 +3570,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final courtHeight = courtWidth / 2;
     final courtLeft = (constraints.maxWidth - courtWidth) / 2;
     final courtTop = _kCourtTopMargin;
-    final refPos = _displayPosition(_kBattutaAvversarioPosition);
+    // Stessa posizione tattica del token del battitore in _buildTokenAvversari
+    // (fuori campo, X<0 → mirror X>1200), così overlay di tap e token
+    // coincidono — come per il nostro battitore.
+    final refPos = _displayPosition(_posizioneAvversario(ruolo, 1));
     final cx = courtLeft + (refPos.dx / 1200) * courtWidth;
     final cy = courtTop + (refPos.dy / 600) * courtHeight;
 
@@ -3767,17 +3837,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Token placeholder della squadra AVVERSARIA sulla metà campo opposta: 6
   // cerchi grigi per ruolo (P/O/S1/S2/C1/C2) derivati dallo slot del loro
   // palleggiatore (`_statoSetReale.palleggiatoreAvversarioSlot`) in un 5-1
-  // canonico (`etichetteAvversarie`). Posizioni fisse per zona
-  // (`_kOpponentZonePositions`) che ruotano con lo slot — placeholder di una
-  // squadra di cui non conosciamo il sistema tattico, quindi niente mappe di
-  // attacco/difesa come per noi. Nessun tap per ora (registrazione azioni
-  // avversarie: step successivo). Vuoto se lo scout avversari non è attivo per
-  // il set, in modalità test o durante la selezione della zona iniziale.
+  // canonico (`etichetteAvversarie`). Posizioni TATTICHE (come le nostre):
+  // ogni ruolo va dove le tabelle attacco/difesa lo schierano nella fase
+  // corrente (`_posizioneAvversario` → `_mappaAvversario`, specchiate sulla
+  // loro metà), non nella zona di rotazione fissa — così la traiettoria
+  // disegnata parte davvero dal token toccato. Fallback alla zona
+  // (`_kOpponentZonePositions`) solo se la mappa non copre un ruolo. Vuoto se
+  // lo scout avversari non è attivo per il set, in modalità test o durante la
+  // selezione della zona iniziale.
   List<Widget> _buildTokenAvversari(double cw, double ch) {
     if (_testModeEnabled || _inSelezionePAvversario) return const [];
     final slot = _statoSetReale?.palleggiatoreAvversarioSlot;
     if (slot == null) return const [];
     final etichette = etichetteAvversarie(slot); // zona -> ruolo
+    final zonaPerRuolo = {for (final e in etichette.entries) e.value: e.key};
+    final ruoloBattitore = etichette[1]!; // ruolo in zona 1 = battitore
     final radius = ch / 20 * _kTokenSizeScale;
     final attesaBattuta = _attesaBattutaAvversaria;
     final attesaRicezione = _attesaRicezioneAvversaria;
@@ -3789,14 +3863,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     return [
       for (final entry in etichette.entries)
         () {
-          final zona = entry.key;
           final ruolo = entry.value;
-          final battitore = zona == 1;
-          // Il battitore esce dal campo durante la loro battuta (mirror del
-          // nostro), altrimenti sta nella sua zona.
-          final refBase = (attesaBattuta && battitore)
-              ? _kBattutaAvversarioPosition
-              : _kOpponentZonePositions[zona]!;
+          final battitore = ruolo == ruoloBattitore;
+          // Posizione tattica (mirror sulla loro metà), fallback alla zona.
+          // Durante la loro battuta il battitore è già fuori campo nella mappa
+          // (X<0 → mirror X>1200), come il nostro P1.
+          final refBase = _posizioneAvversario(ruolo, zonaPerRuolo[ruolo]!);
           // Tappabilità per fase:
           // - attesa battuta: il battitore è fuori campo → il suo tap lo
           //   cattura _buildBattitoreAvversarioTapCatcher (Stack esterno), qui
@@ -3807,7 +3879,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           //   (Attacco/Muro/Difesa nel pannello);
           // - resto (nostro servizio, nostra ricezione): nessuno.
           final VoidCallback? onTap;
-          if (attesaRicezione) {
+          if (attesaBattuta && battitore) {
+            onTap = null;
+          } else if (attesaRicezione) {
             onTap = _tapHandlerAvversario(ruolo,
                 forzato: Fondamentale.ricezione);
           } else if (faseLibera) {
