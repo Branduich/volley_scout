@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
+import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
@@ -43,17 +44,30 @@ class TrajectoryReportScreen extends ConsumerStatefulWidget {
   /// / partita intera (default sensato dal report a partita finita).
   final bool setCorrenteAllAvvio;
 
+  /// Squadra di cui mostrare le traiettorie. `nostra` (default) = filtro per
+  /// giocatore + rotazione (attacco). `avversari` = filtro per RUOLO
+  /// placeholder (P/O/S1/…), niente filtro rotazione (rotazione avversaria
+  /// non ricostruita qui). Le traiettorie avversarie sono comunque
+  /// normalizzate sx→dx come le nostre (vedi buildTrajData).
+  final Squadra squadra;
+
   const TrajectoryReportScreen({
     super.key,
     required this.match,
     required this.team,
     required this.fondamentale,
     this.setCorrenteAllAvvio = true,
+    this.squadra = Squadra.nostra,
   });
 
-  String get _title => fondamentale == Fondamentale.battuta
-      ? 'Traiettorie battute'
-      : 'Traiettorie attacco';
+  bool get _avversario => squadra == Squadra.avversari;
+
+  String get _title {
+    final base = fondamentale == Fondamentale.battuta
+        ? 'Traiettorie battute'
+        : 'Traiettorie attacco';
+    return _avversario ? '$base — avversario' : base;
+  }
 
   // Etichetta per la cella "vincente" della mini-tabella.
   String get _labelVincente =>
@@ -72,8 +86,9 @@ class _TrajectoryReportScreenState
   bool _loading = true;
 
   MatchSet? _setFiltro;     // null = partita intera
-  Player? _playerFiltro;    // null = tutti i giocatori
-  String? _rotazioneFiltro; // null = tutte; 'P1'..'P6' — solo attacco
+  Player? _playerFiltro;    // null = tutti i giocatori (squadra nostra)
+  String? _ruoloFiltro;     // null = tutti i ruoli (squadra avversaria)
+  String? _rotazioneFiltro; // null = tutte; 'P1'..'P6' — solo attacco nostro
   _FiltroAttacco _filtroAttacco = _FiltroAttacco.tutti; // solo attacco
 
   // actionId → slot del palleggiatore al momento dell'azione (solo attacco).
@@ -113,7 +128,19 @@ class _TrajectoryReportScreenState
     Map<int, String> slotPerAzioneId = {};
     Set<int> idSuRicezione = {};
     if (widget.fondamentale == Fondamentale.attacco) {
-      slotPerAzioneId = await _computeRotazioni(sets, azioniPerSet);
+      // Rotazione (slot del palleggiatore) al momento di ogni attacco: per noi
+      // dal replay (_computeRotazioni), per l'avversario dallo slot del LORO
+      // palleggiatore (zonaTatticaPerAzioneAvversario, che ruota sul loro
+      // sideout). La partizione su ricezione/difesa vale per entrambe
+      // (idAttacchiSuRicezione è indipendente dalla squadra).
+      if (widget._avversario) {
+        final zona = setRepo.zonaTatticaPerAzioneAvversario(sets, azioniPerSet);
+        slotPerAzioneId = {
+          for (final e in zona.entries) e.key: 'P${e.value.rotazione}',
+        };
+      } else {
+        slotPerAzioneId = await _computeRotazioni(sets, azioniPerSet);
+      }
       idSuRicezione = idAttacchiSuRicezione(azioniPerSet.values);
     }
 
@@ -223,10 +250,12 @@ class _TrajectoryReportScreenState
         .where((e) => _setFiltro == null || e.key == _setFiltro!.id)
         .expand((e) => e.value)
         .where((a) =>
+            a.squadra == widget.squadra &&
             a.fondamentale == widget.fondamentale &&
             a.tipo == TipoAzione.scout)
-        .where((a) =>
-            _playerFiltro == null || a.giocatoreId == _playerFiltro!.id)
+        .where((a) => widget._avversario
+            ? (_ruoloFiltro == null || a.ruoloAvversario == _ruoloFiltro)
+            : (_playerFiltro == null || a.giocatoreId == _playerFiltro!.id))
         .where((a) =>
             _rotazioneFiltro == null ||
             _slotPerAzioneId[a.id] == _rotazioneFiltro)
@@ -249,6 +278,7 @@ class _TrajectoryReportScreenState
         .where((e) => _setFiltro == null || e.key == _setFiltro!.id)
         .expand((e) => e.value)
         .where((a) =>
+            a.squadra == Squadra.nostra &&
             a.fondamentale == widget.fondamentale &&
             a.tipo == TipoAzione.scout)
         .where((a) =>
@@ -259,6 +289,27 @@ class _TrajectoryReportScreenState
         .whereType<int>()
         .toSet();
     return _players.where((p) => ids.contains(p.id)).toList();
+  }
+
+  // Ruoli avversari (P/O/S1/S2/C1/C2) con almeno un'azione nei filtri
+  // correnti — sorgente del selettore Ruolo in modalità avversario.
+  static const _ordineRuoli = ['P', 'O', 'S1', 'S2', 'C1', 'C2'];
+  List<String> get _ruoliFiltrati {
+    final presenti = _azioniPerSet.entries
+        .where((e) => _setFiltro == null || e.key == _setFiltro!.id)
+        .expand((e) => e.value)
+        .where((a) =>
+            a.squadra == Squadra.avversari &&
+            a.fondamentale == widget.fondamentale &&
+            a.tipo == TipoAzione.scout)
+        .where((a) =>
+            _rotazioneFiltro == null ||
+            _slotPerAzioneId[a.id] == _rotazioneFiltro)
+        .where(_passaFiltroAttacco)
+        .map((a) => a.ruoloAvversario)
+        .whereType<String>()
+        .toSet();
+    return [for (final r in _ordineRuoli) if (presenti.contains(r)) r];
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -324,7 +375,11 @@ class _TrajectoryReportScreenState
   // filtri correnti. Va chiamato DOPO aver aggiornato _setFiltro /
   // _rotazioneFiltro, così il getter usa già i valori nuovi.
   void _validaFiltri() {
-    if (_playerFiltro != null &&
+    if (widget._avversario) {
+      if (_ruoloFiltro != null && !_ruoliFiltrati.contains(_ruoloFiltro)) {
+        _ruoloFiltro = null;
+      }
+    } else if (_playerFiltro != null &&
         !_giocatoriFiltrati.any((p) => p.id == _playerFiltro!.id)) {
       _playerFiltro = null;
     }
@@ -367,6 +422,9 @@ class _TrajectoryReportScreenState
               },
             ),
           ),
+          // Filtro rotazione (slot del palleggiatore al momento dell'attacco):
+          // per noi dal replay, per l'avversario dal loro slot P — vedi
+          // _slotPerAzioneId in _carica.
           if (isAttacco) ...[
             const SizedBox(width: 16),
             Expanded(
@@ -386,6 +444,8 @@ class _TrajectoryReportScreenState
                 },
               ),
             ),
+          ],
+          if (isAttacco) ...[
             const SizedBox(width: 16),
             Expanded(
               child: _buildDropdown<_FiltroAttacco>(
@@ -404,17 +464,31 @@ class _TrajectoryReportScreenState
             ),
           ],
           const SizedBox(width: 16),
+          // Ultimo filtro: Ruolo (avversario) o Giocatore (nostra squadra).
           Expanded(
-            child: _buildDropdown<Player?>(
-              value: _playerFiltro,
-              items: [
-                const DropdownMenuItem(
-                    value: null, child: Text('Tutti i giocatori')),
-                ..._giocatoriFiltrati.map((p) => DropdownMenuItem(
-                    value: p, child: Text('${p.numero}  ${p.cognome}'))),
-              ],
-              onChanged: (v) => setState(() => _playerFiltro = v),
-            ),
+            child: widget._avversario
+                ? _buildDropdown<String?>(
+                    value: _ruoloFiltro,
+                    items: [
+                      const DropdownMenuItem(
+                          value: null, child: Text('Tutti i ruoli')),
+                      ..._ruoliFiltrati.map((r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(kAliasRuoloAvversario[r] ?? r))),
+                    ],
+                    onChanged: (v) => setState(() => _ruoloFiltro = v),
+                  )
+                : _buildDropdown<Player?>(
+                    value: _playerFiltro,
+                    items: [
+                      const DropdownMenuItem(
+                          value: null, child: Text('Tutti i giocatori')),
+                      ..._giocatoriFiltrati.map((p) => DropdownMenuItem(
+                          value: p,
+                          child: Text('${p.numero}  ${p.cognome}'))),
+                    ],
+                    onChanged: (v) => setState(() => _playerFiltro = v),
+                  ),
           ),
         ],
       ),

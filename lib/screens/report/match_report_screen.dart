@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
@@ -90,9 +91,24 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // actionId -> zona tattica dell'attaccante + rotazione (vedi
   // _distribuzioneAlzate; la rotazione serve solo al PDF, qui si ignora).
   Map<int, ({int zona, int rotazione})>? _zonaTatticaPerAzione;
+  // actionId -> zona tattica + rotazione (slot P avversario) degli ATTACCHI
+  // avversari — gemello del precedente per la distribuzione alzate avversaria.
+  Map<int, ({int zona, int rotazione})>? _zonaTatticaAvversario;
 
   int? _setSelezionato; // null = Partita intera (default)
   int? _giocatoreSelezionato; // null = Tutti (default)
+  // Sezioni AVVERSARIO (in coda al report, solo se _scoutDueSquadre). Ogni
+  // sezione ha i suoi selettori Set + Ruolo dedicati (null = Partita intera /
+  // Tutti i ruoli), come le sezioni nostre hanno Set + Giocatore.
+  int? _setAvversario; // riepilogo fondamentali avversario
+  String? _ruoloAvversario; // null = Tutti i ruoli
+  int? _setDistribuzioneAvv;
+  _FiltroAlzate _filtroDistribuzioneAvv = _FiltroAlzate.tutte;
+  int? _rotazioneDistribuzioneAvv; // null = Tutte; 1-6 = rotazione P avversario
+  int? _setEfficienzaAvv;
+  String? _ruoloEfficienzaAvv;
+  int? _setPositivitaAvv;
+  String? _ruoloPositivitaAvv;
   int?
   _setDistribuzione; // null = Partita intera — sezione distribuzione alzate
   _FiltroAlzate _filtroDistribuzione = _FiltroAlzate.tutte;
@@ -145,6 +161,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       azioniPerSet,
       giocatori,
     );
+    final zonaTatticaAvv =
+        setRepo.zonaTatticaPerAzioneAvversario(sets, azioniPerSet);
     if (!mounted) return;
     setState(() {
       _team = team;
@@ -154,6 +172,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       _giocatori = giocatori;
       _formazioni = formazioni;
       _zonaTatticaPerAzione = zonaTattica;
+      _zonaTatticaAvversario = zonaTatticaAvv;
     });
   }
 
@@ -259,6 +278,39 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   List<List<ScoutAction>> get _listeAzioniNelloScope =>
       _listeAzioniPerSet(_setSelezionato);
 
+  // La partita è stata scoutata anche per l'avversario (almeno un'azione
+  // scout con `squadra: avversari`): abilita le sezioni avversarie in coda al
+  // report. Derivato dai dati, così vale sia per le partite nuove sia per
+  // quelle vecchie senza scout avversario (sezioni semplicemente assenti).
+  bool get _scoutDueSquadre {
+    final azioniPerSet = _azioniPerSet;
+    if (azioniPerSet == null) return false;
+    return azioniPerSet.values.any((azioni) => azioni.any(
+        (a) => a.tipo == TipoAzione.scout && a.squadra == Squadra.avversari));
+  }
+
+  // Ruoli avversari (P/O/S1/S2/C1/C2) che hanno almeno un'azione scoutata,
+  // in ordine fisso — sorgente dei selettori "Ruolo" delle sezioni avversarie
+  // (mostra solo quelli con dati, come _giocatoriConAzioni per noi).
+  static const _ordineRuoliAvv = ['P', 'O', 'S1', 'S2', 'C1', 'C2'];
+
+  List<String> get _ruoliAvversariConAzioni {
+    final azioniPerSet = _azioniPerSet;
+    if (azioniPerSet == null) return const [];
+    final presenti = <String>{
+      for (final azioni in azioniPerSet.values)
+        for (final a in azioni)
+          if (a.tipo == TipoAzione.scout &&
+              a.squadra == Squadra.avversari &&
+              a.ruoloAvversario != null)
+            a.ruoloAvversario!,
+    };
+    return [
+      for (final r in _ordineRuoliAvv)
+        if (presenti.contains(r)) r,
+    ];
+  }
+
   // Liste azioni per lo scope set richiesto (null = partita intera) — una
   // lista per set, così i calcoli scoped per rallyId restano corretti.
   List<List<ScoutAction>> _listeAzioniPerSet(int? setNumero) {
@@ -282,7 +334,18 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // ricezione" o "su Difesa" — non è un campo salvato, va dedotto dalla
   // sequenza (battuta/ricezione/alzata/attacco/muro/difesa nell'ordine in
   // cui sono stati registrati).
-  List<_RigaFondamentale> get _riepilogoFondamentali {
+  List<_RigaFondamentale> get _riepilogoFondamentali =>
+      _riepilogoFondamentaliPer(Squadra.nostra, _setSelezionato,
+          giocatoreFiltro: _giocatoreSelezionato);
+
+  // Riepilogo fondamentali di UNA squadra (nostra o avversaria), nello scope
+  // set `scopeSet` (null = partita intera — selettore dedicato per squadra).
+  // Filtra per `squadra` — indispensabile ora che lo scout registra anche le
+  // azioni avversarie: senza, con giocatore "Tutti" le nostre righe
+  // conterebbero anche le loro. Per l'avversario `giocatoreFiltro` è sempre
+  // null (nessun roster, solo il ruolo).
+  List<_RigaFondamentale> _riepilogoFondamentaliPer(Squadra squadra,
+      int? scopeSet, {int? giocatoreFiltro, String? ruoloFiltro}) {
     final contatori = <String, Map<Voto, int>>{
       for (final (chiave, _) in _ordineFondamentali) chiave: <Voto, int>{},
     };
@@ -291,11 +354,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       mappa[voto] = (mappa[voto] ?? 0) + 1;
     }
 
-    for (final azioniSet in _listeAzioniNelloScope) {
+    for (final azioniSet in _listeAzioniPerSet(scopeSet)) {
       int? rallyCorrente;
       Fondamentale? ultimoTipo; // ricezione o difesa più recente nello scambio
       for (final azione in azioniSet) {
         if (azione.tipo != TipoAzione.scout) continue;
+        if (azione.squadra != squadra) continue;
         final fondamentale = azione.fondamentale;
         final voto = azione.voto;
         if (fondamentale == null || voto == null) continue;
@@ -305,11 +369,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
         }
         // Il filtro giocatore conta solo le SUE azioni, ma `ultimoTipo`
         // (contesto dello scambio per la classifica attacco su ricezione/
-        // difesa) va aggiornato su TUTTI i giocatori: chi riceve/difende
-        // può essere diverso da chi attacca.
+        // difesa) va aggiornato su TUTTI i giocatori di questa squadra: chi
+        // riceve/difende può essere diverso da chi attacca.
         final delGiocatore =
-            _giocatoreSelezionato == null ||
-            azione.giocatoreId == _giocatoreSelezionato;
+            (giocatoreFiltro == null || azione.giocatoreId == giocatoreFiltro) &&
+            (ruoloFiltro == null || azione.ruoloAvversario == ruoloFiltro);
         switch (fondamentale) {
           case Fondamentale.battuta:
             if (delGiocatore) incrementa('battuta', voto);
@@ -408,7 +472,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // prima linea attacca quasi sempre da zona 4). Gli attacchi con zona
   // non ricostruibile restano fuori dal conteggio. Scope dal selettore
   // `_setDistribuzione`.
-  ({Map<String, int> conteggi, int totale}) get _distribuzioneAlzate {
+  ({Map<String, int> conteggi, int totale}) get _distribuzioneAlzate =>
+      _distribuzioneAlzateDa(_zonaTatticaPerAzione, _setDistribuzione,
+          _filtroDistribuzione, _rotazioneDistribuzione);
+
+  // Distribuzione (conteggio per zona P1..P6) da una mappa actionId→(zona,
+  // rotazione) — nostra o avversaria — con scope set + filtro alzate +
+  // rotazione. Riusata dalla sezione nostra e da quella avversaria.
+  ({Map<String, int> conteggi, int totale}) _distribuzioneAlzateDa(
+    Map<int, ({int zona, int rotazione})>? zone,
+    int? scopeSet,
+    _FiltroAlzate filtro,
+    int? rotazione,
+  ) {
     final conteggi = <String, int>{
       'P1': 0,
       'P2': 0,
@@ -417,25 +493,21 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       'P5': 0,
       'P6': 0,
     };
-    final zone = _zonaTatticaPerAzione;
     if (zone != null) {
       // Filtro su ricezione/difesa (partizione binaria, come ovunque):
       // calcolato su TUTTI i set, dipende dalla sequenza dello scambio.
-      final filtroAttivo = _filtroDistribuzione != _FiltroAlzate.tutte;
+      final filtroAttivo = filtro != _FiltroAlzate.tutte;
       final suRicezione = filtroAttivo
           ? idAttacchiSuRicezione((_azioniPerSet ?? const {}).values)
           : const <int>{};
-      for (final azioniSet in _listeAzioniPerSet(_setDistribuzione)) {
+      for (final azioniSet in _listeAzioniPerSet(scopeSet)) {
         for (final a in azioniSet) {
           final info = zone[a.id];
           if (info == null) continue;
-          if (_rotazioneDistribuzione != null &&
-              info.rotazione != _rotazioneDistribuzione) {
-            continue;
-          }
+          if (rotazione != null && info.rotazione != rotazione) continue;
           if (filtroAttivo &&
               suRicezione.contains(a.id) !=
-                  (_filtroDistribuzione == _FiltroAlzate.suRicezione)) {
+                  (filtro == _FiltroAlzate.suRicezione)) {
             continue;
           }
           conteggi['P${info.zona}'] = conteggi['P${info.zona}']! + 1;
@@ -446,6 +518,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     return (conteggi: conteggi, totale: totale);
   }
 
+  ({Map<String, int> conteggi, int totale}) get _distribuzioneAlzateAvversario =>
+      _distribuzioneAlzateDa(_zonaTatticaAvversario, _setDistribuzioneAvv,
+          _filtroDistribuzioneAvv, _rotazioneDistribuzioneAvv);
+
   // Dati per l'efficienza di un fondamentale nello scope dei selettori della
   // sezione Efficienza (_setEfficienza/_giocatoreEfficienza):
   // efficienza = (punti − errori) / totale × 100, con punti = voti `#`,
@@ -454,16 +530,29 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // divisione per zero).
   ({int punti, int errori, int totale}) _efficienzaDati(
     Fondamentale fondamentale,
-  ) {
+  ) =>
+      _efficienzaDatiScope(fondamentale,
+          squadra: Squadra.nostra,
+          scopeSet: _setEfficienza,
+          giocatore: _giocatoreEfficienza);
+
+  // Versione generale (nostra o avversaria) con scope set + filtro
+  // giocatore/ruolo — per l'avversario si passa `ruolo` invece di `giocatore`.
+  ({int punti, int errori, int totale}) _efficienzaDatiScope(
+    Fondamentale fondamentale, {
+    required Squadra squadra,
+    required int? scopeSet,
+    int? giocatore,
+    String? ruolo,
+  }) {
     var punti = 0, errori = 0, totale = 0;
-    for (final azioniSet in _listeAzioniPerSet(_setEfficienza)) {
+    for (final azioniSet in _listeAzioniPerSet(scopeSet)) {
       for (final a in azioniSet) {
         if (a.tipo != TipoAzione.scout) continue;
+        if (a.squadra != squadra) continue;
         if (a.fondamentale != fondamentale || a.voto == null) continue;
-        if (_giocatoreEfficienza != null &&
-            a.giocatoreId != _giocatoreEfficienza) {
-          continue;
-        }
+        if (giocatore != null && a.giocatoreId != giocatore) continue;
+        if (ruolo != null && a.ruoloAvversario != ruolo) continue;
         totale++;
         if (a.voto == Voto.perfetto) punti++;
         if (a.voto == Voto.errore) errori++;
@@ -480,16 +569,29 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // Con totale 0 il chiamante mostra "—" (mai una divisione per zero).
   ({int positive, int errori, int totale}) _positivitaDati(
     Fondamentale fondamentale,
-  ) {
+  ) =>
+      _positivitaDatiScope(fondamentale,
+          squadra: Squadra.nostra,
+          scopeSet: _setPositivita,
+          giocatore: _giocatorePositivita);
+
+  // Versione generale (nostra o avversaria) con scope set + filtro
+  // giocatore/ruolo.
+  ({int positive, int errori, int totale}) _positivitaDatiScope(
+    Fondamentale fondamentale, {
+    required Squadra squadra,
+    required int? scopeSet,
+    int? giocatore,
+    String? ruolo,
+  }) {
     var positive = 0, errori = 0, totale = 0;
-    for (final azioniSet in _listeAzioniPerSet(_setPositivita)) {
+    for (final azioniSet in _listeAzioniPerSet(scopeSet)) {
       for (final a in azioniSet) {
         if (a.tipo != TipoAzione.scout) continue;
+        if (a.squadra != squadra) continue;
         if (a.fondamentale != fondamentale || a.voto == null) continue;
-        if (_giocatorePositivita != null &&
-            a.giocatoreId != _giocatorePositivita) {
-          continue;
-        }
+        if (giocatore != null && a.giocatoreId != giocatore) continue;
+        if (ruolo != null && a.ruoloAvversario != ruolo) continue;
         totale++;
         if (a.voto == Voto.perfetto || a.voto == Voto.positivo) positive++;
         if (a.voto == Voto.errore) errori++;
@@ -1037,9 +1139,301 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   ),
                 ],
               ),
+              // ===== Sezioni AVVERSARIO (solo se scoutata anche la loro
+              // squadra) — in coda, dopo un separatore col nome avversario.
+              if (_scoutDueSquadre) ...[
+                const SizedBox(height: 40),
+                _separatoreSquadra(nomeAvversario),
+                const SizedBox(height: 24),
+                // --- Riepilogo fondamentali avversario ---
+                Text(
+                  'Riepilogo fondamentali',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    _dropdownSetAvv(_setAvversario,
+                        (v) => setState(() => _setAvversario = v)),
+                    _dropdownRuoloAvv(_ruoloAvversario,
+                        (v) => setState(() => _ruoloAvversario = v)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildTabellaFondamentali([
+                  // L'avversario non registra alzate (il pannello avversario
+                  // offre solo Attacco/Muro/Difesa): riga sempre vuota, nascosta.
+                  for (final r in _riepilogoFondamentaliPer(
+                      Squadra.avversari, _setAvversario,
+                      ruoloFiltro: _ruoloAvversario))
+                    if (r.label != 'Alzata') r,
+                ]),
+                // --- Traiettorie avversario (per ruolo) ---
+                if (_team != null) ...[
+                  const SizedBox(height: 32),
+                  Text(
+                    'Traiettorie',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.arrow_forward),
+                        label: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Traiettorie battute'),
+                            PremiumBadge(),
+                          ],
+                        ),
+                        onPressed: () => _apriTraiettorie(Fondamentale.battuta,
+                            squadra: Squadra.avversari),
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.trending_up),
+                        label: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Traiettorie attacco'),
+                            PremiumBadge(),
+                          ],
+                        ),
+                        onPressed: () => _apriTraiettorie(Fondamentale.attacco,
+                            squadra: Squadra.avversari),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 32),
+                // --- Distribuzione alzate avversario ---
+                Text(
+                  'Distribuzione alzate',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    _dropdownSetAvv(_setDistribuzioneAvv,
+                        (v) => setState(() => _setDistribuzioneAvv = v)),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<_FiltroAlzate>(
+                        initialValue: _filtroDistribuzioneAvv,
+                        decoration: const InputDecoration(
+                          labelText: 'Alzate',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          for (final f in _FiltroAlzate.values)
+                            DropdownMenuItem(value: f, child: Text(f.label)),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _filtroDistribuzioneAvv = v!),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<int?>(
+                        initialValue: _rotazioneDistribuzioneAvv,
+                        decoration: const InputDecoration(
+                          labelText: 'Rotazione',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Tutte'),
+                          ),
+                          for (var r = 1; r <= 6; r++)
+                            DropdownMenuItem(value: r, child: Text('P$r')),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _rotazioneDistribuzioneAvv = v),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildDistribuzioneCourt(_distribuzioneAlzateAvversario),
+                const SizedBox(height: 32),
+                // --- Efficienza avversario ---
+                Text(
+                  'Efficienza',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    _dropdownSetAvv(_setEfficienzaAvv,
+                        (v) => setState(() => _setEfficienzaAvv = v)),
+                    _dropdownRuoloAvv(_ruoloEfficienzaAvv,
+                        (v) => setState(() => _ruoloEfficienzaAvv = v)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    _buildEfficienzaCard(
+                      'Efficienza battuta',
+                      _efficienzaDatiScope(
+                        Fondamentale.battuta,
+                        squadra: Squadra.avversari,
+                        scopeSet: _setEfficienzaAvv,
+                        ruolo: _ruoloEfficienzaAvv,
+                      ),
+                    ),
+                    _buildEfficienzaCard(
+                      'Efficienza attacco',
+                      _efficienzaDatiScope(
+                        Fondamentale.attacco,
+                        squadra: Squadra.avversari,
+                        scopeSet: _setEfficienzaAvv,
+                        ruolo: _ruoloEfficienzaAvv,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                // --- Positività avversario ---
+                Text(
+                  'Positività',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    _dropdownSetAvv(_setPositivitaAvv,
+                        (v) => setState(() => _setPositivitaAvv = v)),
+                    _dropdownRuoloAvv(_ruoloPositivitaAvv,
+                        (v) => setState(() => _ruoloPositivitaAvv = v)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Builder(
+                  builder: (context) {
+                    final ricezione = _positivitaDatiScope(
+                      Fondamentale.ricezione,
+                      squadra: Squadra.avversari,
+                      scopeSet: _setPositivitaAvv,
+                      ruolo: _ruoloPositivitaAvv,
+                    );
+                    final difesa = _positivitaDatiScope(
+                      Fondamentale.difesa,
+                      squadra: Squadra.avversari,
+                      scopeSet: _setPositivitaAvv,
+                      ruolo: _ruoloPositivitaAvv,
+                    );
+                    return Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        _buildPercentCard(
+                          titolo: 'Positività ricezione',
+                          formula: '(# + +) / totale × 100',
+                          numeratore: ricezione.positive,
+                          totale: ricezione.totale,
+                          color: AppColors.brandPrimary,
+                          dettaglio:
+                              'Positive: ${ricezione.positive} · Totale: ${ricezione.totale}',
+                        ),
+                        _buildPercentCard(
+                          titolo: 'Errore ricezione',
+                          formula: '(=) / totale × 100',
+                          numeratore: ricezione.errori,
+                          totale: ricezione.totale,
+                          color: Colors.red,
+                          dettaglio:
+                              'Errori: ${ricezione.errori} · Totale: ${ricezione.totale}',
+                        ),
+                        _buildPercentCard(
+                          titolo: 'Positività difesa',
+                          formula: '(# + +) / totale × 100',
+                          numeratore: difesa.positive,
+                          totale: difesa.totale,
+                          color: AppColors.brandPrimary,
+                          dettaglio:
+                              'Positive: ${difesa.positive} · Totale: ${difesa.totale}',
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Separatore a tutta larghezza con il nome squadra al centro — apre il
+  // blocco di sezioni avversarie in coda al report.
+  Widget _separatoreSquadra(String nome) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(thickness: 2)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            nome,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ),
+        const Expanded(child: Divider(thickness: 2)),
+      ],
+    );
+  }
+
+  // Selettori delle sezioni avversarie (uno per sezione, stato dedicato):
+  // Set (null = Partita intera) e Ruolo (null = Tutti; solo i ruoli con dati).
+  Widget _dropdownSetAvv(int? value, ValueChanged<int?> onChanged) {
+    return SizedBox(
+      width: 220,
+      child: DropdownButtonFormField<int?>(
+        initialValue: value,
+        decoration: const InputDecoration(
+          labelText: 'Set',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Partita intera')),
+          for (final s in _sets ?? const <MatchSet>[])
+            DropdownMenuItem(value: s.numero, child: Text('Set ${s.numero}')),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _dropdownRuoloAvv(String? value, ValueChanged<String?> onChanged) {
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String?>(
+        initialValue: value,
+        decoration: const InputDecoration(
+          labelText: 'Ruolo',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tutti')),
+          for (final r in _ruoliAvversariConAzioni)
+            DropdownMenuItem(
+                value: r, child: Text(kAliasRuoloAvversario[r] ?? r)),
+        ],
+        onChanged: onChanged,
       ),
     );
   }
@@ -1344,7 +1738,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     ];
   }
 
-  void _apriTraiettorie(Fondamentale fondamentale) {
+  void _apriTraiettorie(Fondamentale fondamentale,
+      {Squadra squadra = Squadra.nostra}) {
     final team = _team;
     if (team == null) return;
     // Gate premium: le traiettorie sono feature premium (vedi
@@ -1365,6 +1760,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
           fondamentale: fondamentale,
           // Dal report (partita finita) parti da tutti i set, non dal corrente.
           setCorrenteAllAvvio: false,
+          squadra: squadra,
         ),
       ),
     );

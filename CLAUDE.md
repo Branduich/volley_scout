@@ -132,11 +132,19 @@ lib/
 │   │                               scout_screen, condivise con le pagine
 │   │                               attacchi del PDF; vedi Fase 4)
 │   ├── ricalcola_stato.dart      (funzione pura ricalcolaStato() — punteggio/
-│   │                               rotazione derivati dalle azioni di scout,
-│   │                               nessuna dipendenza da DB/UI; vedi Modello dati)
+│   │                               rotazione derivati dalle azioni di scout +
+│   │                               slot palleggiatore avversario che ruota sul
+│   │                               loro sideout; nessuna dip da DB/UI; Modello dati)
+│   ├── defense_positions.dart    (posizioni di RICEZIONE per rotazione/ruolo/
+│   │                               variante libero + defenseMapFor() — ex costanti
+│   │                               private di scout_screen, estratte per riuso
+│   │                               (formazione ricezione avversaria mirror); Scout
+│   │                               avversario)
 │   └── role_labels.dart          (roleLabelsFor() — etichette P/O/S1/S2/C1/C2
-│                                   per slot; gli universali riempiono le
-│                                   etichette mancanti, vedi Interfaccia di scout)
+│                                   per slot (gli universali riempiono le mancanti)
+│                                   + etichetteAvversarie() (5-1 canonico dallo slot
+│                                   del P avversario) + kAliasRuoloAvversario
+│                                   (alias leggibili ruoli per i selettori report))
 ├── data/
 │   ├── database.dart             (tabelle Categorie, Teams, Players,
 │   │                               VolleyMatches + AppDatabase)
@@ -426,7 +434,7 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v13** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v15** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
@@ -437,7 +445,12 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   `ScoutActions.gruppoCambio` per l'undo atomico dei cambi confermati
   insieme — vedi "cambio giocatore" in Fase 3; v13 ha aggiunto la tabella
   `Categorie` e trasformato `Teams.categoria` in testo libero — vedi
-  Categorie personalizzabili sopra).
+  Categorie personalizzabili sopra; v14 ha aggiunto
+  `MatchSets.palleggiatoreAvversarioSlot` (int nullable — slot 1-6 del
+  palleggiatore avversario a inizio set); v15 ha aggiunto
+  `ScoutActions.ruoloAvversario` (text nullable — ruolo placeholder P/O/S1/
+  S2/C1/C2 dell'azione avversaria) — entrambi per lo Scout avversario, vedi
+  la sezione dedicata).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 
@@ -616,7 +629,10 @@ Conseguenze del principio:
 
 **Avversario resta solo testo** (`VolleyMatches.avversario`, già implementato),
 **non** diventa una `Team` con roster in DB — scelta deliberata per non
-obbligare a creare/gestire la squadra avversaria. Conseguenze sul modello:
+obbligare a creare/gestire la squadra avversaria. (NB: esiste comunque lo
+**Scout avversario** leggero PER RUOLO — vedi sezione dedicata — che scrive
+`ScoutActions` con `squadra: avversari`/`ruoloAvversario`, ma sempre senza
+roster/giocatori.) Conseguenze sul modello:
 - `Rotations` è popolata **solo per `squadra = nostra`**; il valore
   `avversari` resta nell'enum per un'eventuale estensione futura (roster
   avversario), ma oggi non viene mai scritto.
@@ -1809,6 +1825,114 @@ sopra, su tutti gli eventi del set guardando `esitoPunto`).
 
 ---
 
+## Scout avversario (scout a due squadre — IMPLEMENTATO, live + report)
+
+Scout LEGGERO della squadra avversaria in parallelo al nostro, senza roster né
+numeri di maglia: 6 token placeholder grigi PER RUOLO (P/O/S1/S2/C1/C2) che
+ruotano. Abilitato dal toggle `Impostazioni.scoutAvversariAbilitato` (default
+ON). Assunzione: l'avversario gioca un 5-1 canonico SENZA libero (placeholder di
+squadra ignota). Nessun dato aggregato nuovo: come per noi, punteggio, rotazione
+e statistiche si DERIVANO dagli eventi.
+
+### Modello dati / logica
+- `MatchSets.palleggiatoreAvversarioSlot` (v14): slot 1-6 del loro palleggiatore
+  a inizio set, scelto sul campo. Determina l'INTERA rotazione avversaria via
+  `etichetteAvversarie(slot)` (`role_labels.dart`). `null` = scout avversario
+  non attivo per il set.
+- `ScoutActions.ruoloAvversario` (v15): ruolo dell'azione avversaria. Le azioni
+  avversarie hanno `squadra: avversari`, `giocatoreId: null`, `ruoloAvversario`
+  valorizzato. Registrate da `ScoutActionRepository.registraAzioneAvversaria(...)`.
+- `ricalcolaStato()`: `StatoSet.palleggiatoreAvversarioSlot` + parametro
+  `palleggiatoreAvversarioSlotIniziale`; l'avversario ruota sul SUO sideout
+  (`puntoAvversario` mentre non serviva), helper `_slotRuotato` (slot 1→6, poi
+  −1). Testato (ricalcola_stato_test).
+- `MatchSetRepository.salvaPalleggiatoreAvversario(setId, slot)`.
+
+### Selezione palleggiatore avversario (inizio set)
+A ogni nuovo set, se il toggle è ON, `ScoutScreen` mostra
+`_buildSelezionePAvversario` (scrim + 6 zone tappabili sulla metà campo opposta,
+`_kOpponentZonePositions` = riflessione delle nostre zone: 1200-x, 600-y). Scelta
+la zona del loro palleggiatore si salva lo slot e partono i token.
+
+### Fase simmetrica dello scambio (`_FaseScambio {servizio, ricezione, libera}`)
+Con scout avversari attivo lo scambio è SIMMETRICO (`_faseScambio`, derivato
+dagli eventi): `servizio` (nessuna battuta) → `ricezione` (battuta fatta, no
+ricezione) → `libera`. Chi batte/riceve dipende da `_squadraAlServizio`. Con
+scout OFF resta il comportamento originale (solo la nostra battuta/ricezione).
+`_fondamentaleGiudicatoRallyCorrente` è DERIVATO dallo stream (immune all'undo).
+
+### Modello A: la DIFESA porta il punto
+Ogni coppia offesa→difesa descrive lo stesso colpo, il punto si assegna UNA
+volta (solo con scout avversari attivo; con OFF resta il diretto):
+- offensiva (battuta/attacco) `#`/`+`/`-` → esito `nessuno` (segue la difesa);
+  `=` → punto a chi DIFENDE (palla morta);
+- difensiva (ricezione/difesa) `=` → punto a chi ATTACCA; altri → `nessuno`;
+- muro: terminale di suo — `#` → punto a chi mura, `=` → punto a chi attacca.
+Quindi ace = battuta `#` (nostra) + ricezione `=` (loro); kill avversario =
+attacco `#` (loro) + difesa `=` (nostra). `_esitoVoto`/`_esitoVotoAvversario`.
+
+### Posizioni TATTICHE avversarie (come le nostre, specchiate)
+I token avversari stanno in posizione TATTICA per fase (non su zone fisse), così
+la traiettoria parte dal token giusto: `_mappaAvversario` (ruolo→Offset campo
+sinistro; sceglie `attackMapFor`/`defenseMapFor` per fase in base a `_faseScambio`
++ `_squadraAlServizio`, sempre `senzaLibero: true`) → `_mirrorAvversario` (1200-x,
+600-y) → `_displayPosition` (cambio campo). Il battitore avversario esce dal campo
+(X<0 nella mappa → mirror X>1200), tap-catcher allineato.
+
+### Attenuazione PER SQUADRA e tappabilità per fase
+`_nostriInAttesa`/`_avversariInAttesa` (derivati da `_faseScambio`, solo con
+scout avversari attivo): la squadra "in attesa" si mostra attenuata (alpha
+`_kAlphaTokenBloccato` 0.5), DISTINTA dalla tappabilità:
+- fase battuta: chi batte piena/attiva ma SOLO il battitore accetta il tap; chi
+  riceve attenuata + disabilitata;
+- dopo la battuta: chi ha battuto attenuata; chi riceve abilitata, voto forzato
+  = ricezione;
+- fase libera: tutti pieni + abilitati, salvo il caso "dopo un `#`" (sotto).
+Nei builder token `disabilitato` = `_nostriInAttesa`/`_avversariInAttesa`.
+
+### Scorciatoie difensive (dopo un `#`)
+Dopo un'offensiva `#` la squadra che ha attaccato è bloccata (tap ignorato) +
+attenuata; agisce solo chi difende:
+- ace (battuta `#`): tap sul ricevitore → ricezione `=` DIRETTA, senza pannello;
+- kill (attacco `#`): tap sul difensore → pannello RISTRETTO
+  (`_buildBottoneFondamentale` condiviso), solo Muro/Difesa in rosso → `=`
+  diretto, Alzata/Attacco grigi disabilitati.
+`_erroreDifensivoForzato`, `_difesaErroreForzata*`.
+
+### Pannello e traiettorie avversari
+Tap su un token avversario → `_buildPannelloAvversario` (header col RUOLO, poi
+voto). In fase libera offre Attacco/Muro/Difesa; in ricezione forza Ricezione.
+`_registraVotoAvversario` apre `TrajectoryScreen` per battuta/attacco (stesso
+gate traiettorie+premium del nostro `_registraVoto`): `TrajectoryScreen.giocatore`
+è nullable, si passa `etichettaAvversario` per il banner. Il tipo battuta/attacco
+NON resta "armato" per l'avversario.
+
+### Report avversario (MatchReportScreen, a video)
+Blocco in coda (gate `_scoutDueSquadre`), dopo un separatore col nome squadra,
+con selettori dedicati (Set + Ruolo, alias `kAliasRuoloAvversario`):
+- Riepilogo fondamentali (riga Alzata nascosta);
+- Traiettorie battute/attacco PER RUOLO (`TrajectoryReportScreen` parametrizzata
+  con `squadra` — filtro Ruolo al posto di Giocatore, filtro Rotazione = slot P
+  avversario);
+- Distribuzione alzate per zona/rotazione
+  (`MatchSetRepository.zonaTatticaPerAzioneAvversario` — slot P avversario che
+  ruota sul loro sideout, `attackMapFor senzaLibero`, NIENTE mirror: la zona è
+  tattica);
+- Efficienza + Positività (`_efficienzaDatiScope`/`_positivitaDatiScope`
+  generalizzati, stesse formule delle card nostre).
+**Bug latente corretto qui**: riepilogo/efficienza/positività/traiettorie NOSTRE
+non filtravano per squadra → con scout avversari includevano per errore le azioni
+avversarie (aggiunto `squadra == nostra`).
+**Export PDF avversario: NON ancora fatto** (rimandato).
+
+### Limiti / backlog
+Nessuna statistica per singolo giocatore avversario (nessun roster); nessun
+libero avversario, nessun numero di maglia; nessun modulo diverso dal 5-1
+canonico; unit test di `zonaTatticaPerAzioneAvversario` non ancora scritto (come
+l'originale `zonaTatticaPerAzione`).
+
+---
+
 ## Impostazioni (SettingsScreen + settings_provider)
 
 Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
@@ -1831,6 +1955,11 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   `TrajectoryScreen`, quindi col toggle spento `tipoEsecuzione` resta
   `nonSpecificato` — eventuale rientro dei chip nel pannello voto da
   valutare in futuro (annotato anche nel codice).
+- **`scoutAvversariAbilitato`** (bool, default `true`, chiave
+  `scout.scoutAvversariAbilitato`): abilita lo Scout avversario (vedi sezione
+  dedicata). Se `true`, all'avvio di un nuovo set `ScoutScreen` chiede di
+  posizionare il palleggiatore avversario sul campo; se `false` lo scout resta
+  a una sola squadra (comportamento originale, zero token avversari).
 - **Pensata per il gating premium futuro** (es. traiettorie solo premium):
   il resto del codice legge solo `impostazioniProvider`, il gating potrà
   limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.
@@ -2648,6 +2777,13 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
 ## Stato attuale
 
 **Fase 1 completata. Fase 2 completata. Fase 3 completata. Fase 4 in corso.**
+
+**Scout avversario** (scout a due squadre): live COMPLETO (selezione P avversario,
+token tattici, fase simmetrica + Modello A, dimming per squadra, scorciatoie
+difensive, traiettorie in input) e report a video COMPLETO (blocco in coda a
+`MatchReportScreen`); manca solo l'export PDF avversario. Vedi la sezione "Scout
+avversario". Nella lista partite le TERMINATE sono ora ordinate esplicitamente
+per data decrescente (a parità di data l'ordine dal DB era arbitrario).
 
 Il flusso è navigabile end-to-end: lista partite → "Inizia"/"Continua"/
 "Riprendi" → selezione squadra → selezione formazione (`LineupScreen`) →

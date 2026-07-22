@@ -535,6 +535,65 @@ class MatchSetRepository {
     return result;
   }
 
+  /// Gemello di [zonaTatticaPerAzione] per la squadra AVVERSARIA: actionId →
+  /// (zona TATTICA 1-6, rotazione = slot 1-6 del loro palleggiatore) per ogni
+  /// attacco avversario. L'avversario è un placeholder 5-1 SENZA libero
+  /// (`etichetteAvversarie`/`attackMapFor(senzaLibero: true)`): il ruolo
+  /// dell'attaccante è `ruoloAvversario` (nessun roster), lo slot del loro
+  /// palleggiatore parte da `MatchSet.palleggiatoreAvversarioSlot` e ruota sul
+  /// LORO sideout (stessa regola di `ricalcolaStato`: slot 1→6, poi −1).
+  /// La zona è tattica (da `zonaDaPosizione` sulle coordinate campo sinistro),
+  /// quindi NON serve specchiare — vale a prescindere dalla metà su cui
+  /// giocano davvero. Sincrono: non legge formazioni (lo slot basta).
+  Map<int, ({int zona, int rotazione})> zonaTatticaPerAzioneAvversario(
+    List<MatchSet> sets,
+    Map<int, List<ScoutAction>> azioniPerSet,
+  ) {
+    final result = <int, ({int zona, int rotazione})>{};
+    for (final set in sets) {
+      final slotIniziale = set.palleggiatoreAvversarioSlot;
+      if (slotIniziale == null) continue; // scout avversario non attivo nel set
+      var slotAvv = slotIniziale;
+      var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
+
+      final ordinate = [...(azioniPerSet[set.id] ?? const <ScoutAction>[])]
+        ..sort((a, b) => a.ordine.compareTo(b.ordine));
+      for (final a in ordinate) {
+        if (a.tipo == TipoAzione.scout &&
+            a.fondamentale == Fondamentale.attacco &&
+            a.squadra == Squadra.avversari &&
+            a.ruoloAvversario != null) {
+          final mappa = attackMapFor(
+            rotazione: 'P$slotAvv',
+            // Loro attacco a palla in gioco: dopo-battuta se servivano loro in
+            // questo scambio, dopo-ricezione se servivamo noi.
+            fase: nostraAlServizio
+                ? FaseAttacco.dopoRicezione
+                : FaseAttacco.dopoBattuta,
+            senzaLibero: true,
+            liberoSuSchiacciatori: false,
+          );
+          final posizione = mappa?[a.ruoloAvversario!];
+          if (posizione != null) {
+            result[a.id] =
+                (zona: zonaDaPosizione(posizione), rotazione: slotAvv);
+          }
+        }
+
+        // Servizio/rotazione avversaria: su un loro punto passano al servizio
+        // (e, se era un loro sideout — servivamo noi — ruotano); su un nostro
+        // punto torniamo noi al servizio.
+        if (a.esitoPunto == EsitoPunto.puntoAvversario) {
+          if (nostraAlServizio) slotAvv = slotAvv == 1 ? 6 : slotAvv - 1;
+          nostraAlServizio = false;
+        } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
+          nostraAlServizio = true;
+        }
+      }
+    }
+    return result;
+  }
+
   /// Aggiusta l'override manuale del punteggio (bottoni +/- accanto al
   /// punteggio in `ScoutScreen`) — somma `deltaNostro`/`deltaAvversario` al
   /// valore già presente su `MatchSet`, **non** loggato come `ScoutAction`

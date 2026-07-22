@@ -135,3 +135,14 @@ Map<int, String> etichetteAvversarie(int palleggiatoreSlot) => {
       for (var zona = 1; zona <= 6; zona++)
         zona: _kRuoliCanonici51[(zona - palleggiatoreSlot + 6) % 6],
     };
+
+/// Alias leggibile del codice ruolo avversario (P/O/S1/S2/C1/C2) per i
+/// selettori del report — il valore salvato/filtrato resta il codice.
+const Map<String, String> kAliasRuoloAvversario = {
+  'P': 'Palleggiatore',
+  'O': 'Opposto',
+  'S1': 'Schiacciatore 1',
+  'S2': 'Schiacciatore 2',
+  'C1': 'Centrale 1',
+  'C2': 'Centrale 2',
+};

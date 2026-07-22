@@ -203,9 +203,13 @@ class MatchesScreen extends ConsumerWidget {
           final attive = matches
               .where((m) => m.stato != StatoPartita.terminata)
               .toList();
+          // Ordine esplicito per data decrescente: watchMatches() ordina già
+          // per dataOra desc, ma a parità di data (es. più import demo) l'ordine
+          // dal DB è arbitrario — questo garantisce sempre le più recenti in cima.
           final terminate = matches
               .where((m) => m.stato == StatoPartita.terminata)
-              .toList();
+              .toList()
+            ..sort((a, b) => b.dataOra.compareTo(a.dataOra));
 
           Widget buildCard(VolleyMatch match) => _MatchCard(
             match: match,
