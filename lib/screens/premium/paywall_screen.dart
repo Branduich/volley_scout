@@ -69,10 +69,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Future<void> _acquista(Package package) async {
     setState(() => _occupato = true);
     try {
-      final info = await Purchases.purchasePackage(package);
+      // Da RevenueCat v10 l'acquisto passa da purchase(PurchaseParams) e
+      // ritorna un PurchaseResult (non più CustomerInfo, e purchasePackage è
+      // deprecata): l'entitlement si legge da result.customerInfo.
+      final result = await Purchases.purchase(PurchaseParams.package(package));
       // Lo statoPremiumProvider si aggiorna da solo (listener SDK): qui basta
       // confermare e chiudere il paywall se l'entitlement è attivo.
-      if (info.entitlements.active.containsKey(kEntitlementPremium)) {
+      if (result.customerInfo.entitlements.active
+          .containsKey(kEntitlementPremium)) {
         _messaggio('Grazie! Premium attivo.');
         if (mounted) Navigator.pop(context);
       }
