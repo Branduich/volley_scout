@@ -2345,7 +2345,24 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // alto. Vive nello Stack esterno, ancorato al bordo destro; nascosto
   // quando il pannello voto è aperto (stessa zona).
   List<Widget> _buildActionLog() {
-    if (!_showActionLog || _votoInCorso != null) return const [];
+    // Il log sta sul lato OPPOSTO alla mini-map: a destra col nostro campo a
+    // sinistra (_isRightSide == false), a sinistra col cambio campo. Va
+    // nascosto:
+    // - SEMPRE durante la battuta avversaria: il loro battitore esce dal campo
+    //   proprio sul lato del log (qualunque orientamento) e ci finirebbe sotto;
+    //   riappare da solo appena la battuta è registrata (fase → ricezione),
+    //   con o senza traiettoria;
+    // - all'apertura di un pannello voto (nostro o avversario) SOLO quando il
+    //   log è a destra: i pannelli sono ancorati a destra, quindi col log a
+    //   sinistra non lo coprono e può restare visibile.
+    final pannelloVotoAperto =
+        _votoInCorso != null || _avversarioInCorso != null;
+    final logADestra = !_isRightSide;
+    if (!_showActionLog ||
+        _attesaBattutaAvversaria ||
+        (pannelloVotoAperto && logADestra)) {
+      return const [];
+    }
     final set = _setCorrente;
     if (set == null) return const [];
     final righe =
