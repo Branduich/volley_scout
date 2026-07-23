@@ -1319,6 +1319,42 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         .registraCorrezioneRotazione(setId: set.id, direzione: direzione);
   }
 
+  // Slot del palleggiatore AVVERSARIO dopo la correzione nel verso dato (label
+  // del bottone) — parte dallo slot CORRENTE derivato (che si sposta della
+  // stessa quantità dell'iniziale, vedi _correggiRotazioneAvversario). Stessa
+  // convenzione della nostra: avanti = slot−1 (P1→P6), indietro = slot+1.
+  int _slotDestinazioneCorrezioneAvversario(DirezioneRotazione direzione) {
+    final s = _statoSetReale?.palleggiatoreAvversarioSlot ??
+        _setCorrente?.palleggiatoreAvversarioSlot ??
+        1;
+    return direzione == DirezioneRotazione.avanti
+        ? (s == 1 ? 6 : s - 1)
+        : (s == 6 ? 1 : s + 1);
+  }
+
+  // Correzione della rotazione AVVERSARIA. A differenza della nostra (evento
+  // loggato), qui si edita l'UNICO dato da cui deriva tutta la loro rotazione:
+  // lo slot INIZIALE del palleggiatore avversario su MatchSet. Spostarlo di ±1
+  // sposta la rotazione corrente della stessa quantità E ricalcola
+  // RETROATTIVAMENTE zone/report di tutte le loro azioni (tutto replaya da lì) —
+  // così si rimedia a un'identificazione sbagliata del loro alzatore a inizio
+  // set. Non è un evento (come la correzione manuale del punteggio, vive su
+  // MatchSet): si "annulla" ruotando indietro.
+  Future<void> _correggiRotazioneAvversario(DirezioneRotazione direzione) async {
+    final set = _setCorrente;
+    if (set == null || _testModeEnabled) return;
+    final iniziale = set.palleggiatoreAvversarioSlot;
+    if (iniziale == null) return;
+    final nuovo = direzione == DirezioneRotazione.avanti
+        ? (iniziale == 1 ? 6 : iniziale - 1)
+        : (iniziale == 6 ? 1 : iniziale + 1);
+    final aggiornato = await ref
+        .read(matchSetRepositoryProvider)
+        .salvaPalleggiatoreAvversario(set.id, nuovo);
+    if (!mounted) return;
+    setState(() => _setCorrente = aggiornato);
+  }
+
   // Slot (1-6) del palleggiatore in uno stato derivato — posizione che tiene
   // il palleggiatore designato effettivo; fallback sullo slot iniziale.
   int _slotPalleggiatore(StatoSet stato) {
@@ -1404,6 +1440,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // stream di _statoSetReale. Nascosto mentre il pannello voto è aperto
   // (occupa la stessa zona dello schermo).
   bool _showActionLog = true;
+
+  // Mini-map: quale rotazione mostra il badge. Default la NOSTRA; con scout
+  // avversario attivo un tap sulla finestra alterna con quella avversaria
+  // (distinta dal colore del badge). I due bottoni di correzione rotazione
+  // agiscono sulla squadra selezionata. Riparte da false a ogni set (nuova
+  // istanza ScoutScreen).
+  bool _minimapAvversari = false;
 
   // Punteggio del set in corso, derivato da _statoSetReale (eventi reali) +
   // l'eventuale correzione manuale persistita su MatchSet (vedi
@@ -1942,24 +1985,33 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       left: minimapLeft,
                       width: smallCourtSize,
                       height: smallCourtSize,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.white, width: 2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: Stack(
-                            children: [
-                              Transform.rotate(
-                                angle: _isRightSide ? math.pi : 0,
-                                child: Image.asset(
-                                  _kSmallCourtImage,
-                                  fit: BoxFit.contain,
+                      child: GestureDetector(
+                        // Tap sulla finestra: alterna rotazione nostra/
+                        // avversaria (solo con scout avversario attivo).
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _scoutAvversariAttivo
+                            ? () => setState(
+                                () => _minimapAvversari = !_minimapAvversari)
+                            : null,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white, width: 2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Stack(
+                              children: [
+                                Transform.rotate(
+                                  angle: _minimapSpecchiata ? math.pi : 0,
+                                  child: Image.asset(
+                                    _kSmallCourtImage,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
-                              ),
-                              _buildRotationBadge(smallCourtSize),
-                            ],
+                                _buildRotationBadge(smallCourtSize),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1990,8 +2042,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ),
                     // Correzione manuale della rotazione (gioco reale): due
                     // bottoni con label = rotazione di ARRIVO (avanti a
-                    // sinistra, es. P1→P6; indietro a destra, P1→P2). Evento
-                    // loggato via _correggiRotazione, undo standard.
+                    // sinistra, es. P1→P6; indietro a destra, P1→P2). Agiscono
+                    // sulla squadra SELEZIONATA nella mini-map: la nostra
+                    // (evento loggato, undo standard) o l'avversaria (edita lo
+                    // slot iniziale, retroattivo — vedi _correggiRotazioneAvversario).
                     if (_bottoniRapidiAttivi)
                       Positioned(
                         top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
@@ -1999,20 +2053,35 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                         width: smallCourtSize,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildRotationCorrectionButton(
-                              'P${_slotDestinazioneCorrezione(DirezioneRotazione.avanti)}',
-                              () =>
-                                  _correggiRotazione(DirezioneRotazione.avanti),
-                              smallCourtSize,
-                            ),
-                            _buildRotationCorrectionButton(
-                              'P${_slotDestinazioneCorrezione(DirezioneRotazione.indietro)}',
-                              () => _correggiRotazione(
-                                  DirezioneRotazione.indietro),
-                              smallCourtSize,
-                            ),
-                          ],
+                          children: _minimapAvversari && _scoutAvversariAttivo
+                              ? [
+                                  _buildRotationCorrectionButton(
+                                    'P${_slotDestinazioneCorrezioneAvversario(DirezioneRotazione.avanti)}',
+                                    () => _correggiRotazioneAvversario(
+                                        DirezioneRotazione.avanti),
+                                    smallCourtSize,
+                                  ),
+                                  _buildRotationCorrectionButton(
+                                    'P${_slotDestinazioneCorrezioneAvversario(DirezioneRotazione.indietro)}',
+                                    () => _correggiRotazioneAvversario(
+                                        DirezioneRotazione.indietro),
+                                    smallCourtSize,
+                                  ),
+                                ]
+                              : [
+                                  _buildRotationCorrectionButton(
+                                    'P${_slotDestinazioneCorrezione(DirezioneRotazione.avanti)}',
+                                    () => _correggiRotazione(
+                                        DirezioneRotazione.avanti),
+                                    smallCourtSize,
+                                  ),
+                                  _buildRotationCorrectionButton(
+                                    'P${_slotDestinazioneCorrezione(DirezioneRotazione.indietro)}',
+                                    () => _correggiRotazione(
+                                        DirezioneRotazione.indietro),
+                                    smallCourtSize,
+                                  ),
+                                ],
                         ),
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
@@ -2296,13 +2365,24 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     );
   }
 
+  // La mini-map è specchiata (180°) col cambio campo E quando mostra la
+  // rotazione avversaria (la loro metà è il mirror della nostra): i due
+  // effetti si compongono (XOR).
+  bool get _minimapSpecchiata =>
+      _isRightSide != (_minimapAvversari && _scoutAvversariAttivo);
+
   Widget _buildRotationBadge(double courtSize) {
-    final baseAnchor =
-        _kRotationBadgeAnchor[_currentSlot] ?? Alignment.bottomLeft;
-    // La mini-map è ruotata di 180° sul campo destro: l'ancoraggio del badge
-    // segue la stessa rotazione (negare entrambe le componenti), mentre il
-    // testo resta dritto e leggibile.
-    final anchor = _isRightSide
+    // Squadra selezionata sulla mini-map: badge col suo slot e col suo colore
+    // (nostro colore squadra o grigio avversario) — è il colore a dire di chi
+    // è la rotazione mostrata.
+    final avversari = _minimapAvversari && _scoutAvversariAttivo;
+    final slot = avversari ? (_currentSlotAvversario ?? _currentSlot) : _currentSlot;
+    final colore =
+        avversari ? _kColoreTokenAvversario : Color(widget.team.coloreDivisa);
+    final baseAnchor = _kRotationBadgeAnchor[slot] ?? Alignment.bottomLeft;
+    // L'ancoraggio del badge segue la stessa rotazione 180° della mini-map
+    // (negare entrambe le componenti), mentre il testo resta dritto e leggibile.
+    final anchor = _minimapSpecchiata
         ? Alignment(-baseAnchor.x, -baseAnchor.y)
         : baseAnchor;
     final badgeWidth = courtSize * 0.5;
@@ -2315,14 +2395,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Color(widget.team.coloreDivisa),
+            color: colore,
             borderRadius: BorderRadius.circular(badgeHeight * 0.1),
             border: Border.all(color: Colors.white, width: 2),
           ),
           child: Text(
-            _currentSlot,
+            slot,
             style: TextStyle(
-              color: contrastingTextColor(Color(widget.team.coloreDivisa)),
+              color: contrastingTextColor(colore),
               fontWeight: FontWeight.bold,
               fontSize: badgeHeight * 0.5,
             ),
