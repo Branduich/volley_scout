@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
-import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/court_trajectories_view.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -474,7 +475,8 @@ class _TrajectoryReportScreenState
                           value: null, child: Text('Tutti i ruoli')),
                       ..._ruoliFiltrati.map((r) => DropdownMenuItem(
                           value: r,
-                          child: Text(kAliasRuoloAvversario[r] ?? r))),
+                          child: Text(
+                              aliasRuoloAvversario(r, AppLocalizations.of(context))))),
                     ],
                     onChanged: (v) => setState(() => _ruoloFiltro = v),
                   )

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/enums.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 
 class PlayerFormScreen extends ConsumerStatefulWidget {
   final int teamId;
@@ -196,8 +198,9 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
                     border: OutlineInputBorder(),
                   ),
                   items: Ruolo.values
-                      .map((r) =>
-                          DropdownMenuItem(value: r, child: Text(r.label)))
+                      .map((r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(ruoloLabel(r, AppLocalizations.of(context)))))
                       .toList(),
                   onChanged: (v) => setState(() => _ruolo = v!),
                 ),

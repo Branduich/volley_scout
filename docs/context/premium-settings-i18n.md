@@ -53,9 +53,17 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
 - **Stato**: PILOTA fatto (`HomeScreen` + `SettingsScreen` — l'inglese di
   queste due l'ho compilato io). Da fare, un pezzo alla volta: tutte le
   altre schermate (il grosso è scout/report/PDF), le **label degli enum**
-  (`enums.dart`: `Ruolo`/`Categoria`/`Fondamentale`… — vanno spostate fuori
+  (`enums.dart`: `Ruolo`/`Fondamentale`… — vanno spostate fuori
   dall'enum in una funzione con `context`, `Voto.simbolo` resta com'è), e
   gli **export PDF/CSV** (seguono la lingua dell'app — decisione presa).
+  - **`Categoria` ESCLUSA dall'i18n** (deciso 2026-07-24): il suo `.label`
+    non è mai mostrato a runtime — serve solo a seminare la lista categorie
+    al primo avvio (`default_categorie_seeder.dart`), alla migrazione v12→v13
+    e ai seeder demo/default team; la UI legge testo libero dal DB
+    (`categorieStreamProvider`), non l'enum. Inoltre metà dei valori sono
+    denominazioni FIPAV (Serie A1/A2/B/C/D…) che non si traducono. Default
+    seminati in **italiano in ogni lingua**, l'utente li edita in
+    `CategorieScreen` se vuole. Niente da fare.
   Per ogni schermata nuova: si passa all'utente la lista `chiave → italiano`
   e lui rimanda l'inglese.
 

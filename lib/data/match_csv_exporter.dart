@@ -3,6 +3,8 @@ import 'dart:convert' show utf8;
 import 'package:csv/csv.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/enum_l10n.dart';
 import '../models/enums.dart';
 import 'database.dart';
 
@@ -109,6 +111,7 @@ String _labelTipoEsecuzione(ScoutAction a) {
 /// tra un file e l'altro, comode per fogli-modello): `match.inCasa` dice
 /// da che parte sta la nostra squadra.
 List<List<String>> righeCsvPartita({
+  required AppLocalizations l,
   required VolleyMatch match,
   required Team? team,
   required List<MatchSet> sets,
@@ -142,7 +145,7 @@ List<List<String>> righeCsvPartita({
         _labelTipoAzione(a.tipo),
         giocatore == null ? '' : '${giocatore.numero}',
         _nomeGiocatore(giocatore),
-        giocatore?.ruolo.label ?? '',
+        giocatore == null ? '' : ruoloLabel(giocatore.ruolo, l),
         a.fondamentale?.label ?? '',
         a.voto?.simbolo ?? '',
         _labelTipoEsecuzione(a),
@@ -172,6 +175,7 @@ List<List<String>> righeCsvPartita({
 /// sistema. Il file nasce solo alla condivisione (stesso principio
 /// on-demand del PDF: niente file persistiti da gestire).
 Future<void> condividiCsvPartita({
+  required AppLocalizations l,
   required VolleyMatch match,
   required Team? team,
   required List<MatchSet> sets,
@@ -179,6 +183,7 @@ Future<void> condividiCsvPartita({
   required Map<int, Player> playerById,
 }) async {
   final righe = righeCsvPartita(
+    l: l,
     match: match,
     team: team,
     sets: sets,

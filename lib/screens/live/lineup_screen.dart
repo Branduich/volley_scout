@@ -7,6 +7,8 @@ import '../../providers/database_provider.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/certificato_dot.dart';
 import '../teams/player_form_screen.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import 'formation_config_screen.dart';
 
 const _kBg = Color(0xFF0F172A); // dark navy background
@@ -416,7 +418,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
             left: 0,
             right: 0,
             child: Text(
-              phaseLabel ?? player.ruolo.label,
+              phaseLabel ?? ruoloLabel(player.ruolo, AppLocalizations.of(context)),
               style: nameRoleStyle,
               textAlign: TextAlign.center,
               maxLines: 1,
@@ -539,7 +541,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> {
                             ),
                           ),
                           subtitle: Text(
-                            p.ruolo.label,
+                            ruoloLabel(p.ruolo, AppLocalizations.of(context)),
                             style: TextStyle(
                               fontSize: subtitleSize,
                               color: assigned ? Colors.grey.shade500 : null,

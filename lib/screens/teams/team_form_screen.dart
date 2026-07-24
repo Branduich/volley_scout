@@ -5,6 +5,8 @@ import '../../models/jersey_colors.dart';
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
 import '../../widgets/certificato_dot.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import 'player_form_screen.dart';
 
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
@@ -385,7 +387,7 @@ class _PlayersSection extends ConsumerWidget {
                           fontSize: titleSize, fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                      p.ruolo.label,
+                      ruoloLabel(p.ruolo, AppLocalizations.of(context)),
                       style: TextStyle(fontSize: subtitleSize),
                     ),
                     trailing: Row(

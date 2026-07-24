@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
-import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
@@ -10,6 +9,8 @@ import '../../theme/court_style.dart';
 import '../../widgets/court_view.dart';
 import '../../widgets/debug_paint_toggle.dart';
 import '../../widgets/premium_badge.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import '../premium/paywall_screen.dart';
 import 'trajectory_report_screen.dart';
 
@@ -1431,7 +1432,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
           const DropdownMenuItem(value: null, child: Text('Tutti')),
           for (final r in _ruoliAvversariConAzioni)
             DropdownMenuItem(
-                value: r, child: Text(kAliasRuoloAvversario[r] ?? r)),
+                value: r,
+                child: Text(aliasRuoloAvversario(r, AppLocalizations.of(context)))),
         ],
         onChanged: onChanged,
       ),
@@ -1492,7 +1494,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
             if (liberi.isNotEmpty)
               Text(
                 'Libero: ${liberi.map((p) => '${p.numero} ${p.cognome}').join(' · ')}'
-                '${cambi != null ? ' — cambi: ${cambi.label}' : ''}',
+                '${cambi != null ? ' — cambi: ${ruoloLabel(cambi, AppLocalizations.of(context))}' : ''}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
           ],

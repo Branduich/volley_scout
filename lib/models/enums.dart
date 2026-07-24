@@ -29,15 +29,16 @@ enum Ruolo {
   // (players.ruolo, match_sets.ruolo_cambi_libero,
   // scout_actions.nuovo_ruolo_cambi_libero) e rinominarlo romperebbe
   // byName() sulle righe esistenti.
-  undefined('Universale'),
-  palleggiatore('Palleggiatore'),
-  opposto('Opposto'),
-  schiacciatore('Schiacciatore'),
-  centrale('Centrale'),
-  libero('Libero');
-
-  final String label;
-  const Ruolo(this.label);
+  // Le etichette localizzate vivono in lib/l10n/enum_l10n.dart
+  // (ruoloLabel/siglaRuoloBreve): niente campo `label` qui, per evitare usi
+  // della stringa non tradotta. Il `.name` resta la chiave persistita a DB
+  // (RuoloConverter).
+  undefined,
+  palleggiatore,
+  opposto,
+  schiacciatore,
+  centrale,
+  libero;
 }
 
 enum Voto {

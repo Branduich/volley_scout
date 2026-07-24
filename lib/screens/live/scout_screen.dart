@@ -14,6 +14,8 @@ import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import '../../widgets/premium_badge.dart';
 import '../premium/paywall_screen.dart';
 import '../report/match_report_screen.dart';
@@ -2621,7 +2623,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         fondamentale != null &&
         voto != null) {
       return (
-        testo: 'Avv ${azione.ruoloAvversario} - ${fondamentale.label}',
+        testo: 'Avv ${siglaRuolo(azione.ruoloAvversario!, AppLocalizations.of(context))} - ${fondamentale.label}',
         voto: voto.simbolo,
         colore: CourtStyle.votoColor(voto),
       );
@@ -3349,7 +3351,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                             ),
                           ),
                           Text(
-                            inCorso.ruolo,
+                            siglaRuolo(
+                                inCorso.ruolo, AppLocalizations.of(context)),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -3949,7 +3952,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final fillColor = isLibero
         ? _invertedColor(Color(widget.team.coloreDivisa))
         : Color(widget.team.coloreDivisa);
-    final label = _showJerseyNumbers ? '${player.numero}' : roleLabel;
+    final label = _showJerseyNumbers
+        ? '${player.numero}'
+        : siglaRuolo(roleLabel, AppLocalizations.of(context));
     final selezionato = _votoInCorso?.giocatore.id == player.id;
     final tokenVisual = _tokenConBordoAnimato(
       selezionato,
@@ -4006,7 +4011,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final cy = (refPos.dy / 600) * ch;
     final fillColor = Color(widget.team.coloreDivisa);
     final isPalleggiatore = roleLabel == 'P';
-    final label = _showJerseyNumbers ? '${player.numero}' : roleLabel;
+    final label = _showJerseyNumbers
+        ? '${player.numero}'
+        : siglaRuolo(roleLabel, AppLocalizations.of(context));
     // L'esagono del palleggiatore è il 10% più grande dei token circolari.
     final tokenRadius = isPalleggiatore ? radius * 1.1 : radius;
 
@@ -4141,7 +4148,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final tokenRadius = isPalleggiatore ? radius * 1.1 : radius;
 
     final text = Text(
-      roleLabel,
+      siglaRuolo(roleLabel, AppLocalizations.of(context)),
       style: TextStyle(
         color: Colors.white,
         fontWeight: FontWeight.bold,

@@ -3,6 +3,8 @@ import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../widgets/court_view.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import 'formation_config_screen.dart';
 
 const _kBg = Color(0xFF0F172A);
@@ -500,7 +502,8 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
           '${p.cognome} ${p.nome}',
           style: TextStyle(fontSize: sc(14, 20), fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(p.ruolo.label, style: TextStyle(fontSize: sc(12, 16))),
+        subtitle: Text(ruoloLabel(p.ruolo, AppLocalizations.of(context)),
+            style: TextStyle(fontSize: sc(12, 16))),
         onTap: disabilitato ? null : () => _onPanchinaTap(p),
       ),
     );

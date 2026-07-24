@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/enum_l10n.dart';
 
 const _kCourtImage = 'assets/images/court_bg.png';
 
@@ -81,6 +83,7 @@ class CourtView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.white, width: 2),
@@ -99,9 +102,9 @@ class CourtView extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _buildSlot('P4')),
-                  Expanded(child: _buildSlot('P3')),
-                  Expanded(child: _buildSlot('P2')),
+                  Expanded(child: _buildSlot('P4', l)),
+                  Expanded(child: _buildSlot('P3', l)),
+                  Expanded(child: _buildSlot('P2', l)),
                 ],
               ),
             ),
@@ -110,9 +113,9 @@ class CourtView extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _buildSlot('P5')),
-                  Expanded(child: _buildSlot('P6')),
-                  Expanded(child: _buildSlot('P1')),
+                  Expanded(child: _buildSlot('P5', l)),
+                  Expanded(child: _buildSlot('P6', l)),
+                  Expanded(child: _buildSlot('P1', l)),
                 ],
               ),
             ),
@@ -122,7 +125,7 @@ class CourtView extends StatelessWidget {
     );
   }
 
-  Widget _buildSlot(String slot) {
+  Widget _buildSlot(String slot, AppLocalizations l) {
     final player = assignments[slot];
     final override = slotContent[slot];
     final isSelected = selectedSlots.contains(slot);
@@ -153,7 +156,9 @@ class CourtView extends StatelessWidget {
             : null,
       ),
       child: override ??
-          (player == null ? _slotLabel(slot) : _slotPlayer(player, isDisabled)),
+          (player == null
+              ? _slotLabel(slot)
+              : _slotPlayer(player, isDisabled, l)),
     );
 
     final tappableCard = canTap
@@ -210,7 +215,7 @@ class CourtView extends StatelessWidget {
     );
   }
 
-  Widget _slotPlayer(Player player, bool dimmed) {
+  Widget _slotPlayer(Player player, bool dimmed, AppLocalizations l) {
     final color = dimmed ? Colors.black38 : Colors.black87;
     // Nome e ruolo scuriti di 0.15: il colore è nero con opacità (54%/26%)
     // sul bianco della card, quindi +0.15 di opacità = −0.15 di luminosità
@@ -254,7 +259,7 @@ class CourtView extends StatelessWidget {
             left: 0,
             right: 0,
             child: Text(
-              player.ruolo.label,
+              ruoloLabel(player.ruolo, l),
               // Ruolo ingrandito di un paio di punti rispetto al nome (13→15).
               style: nameStyle.copyWith(
                   color: subColor,

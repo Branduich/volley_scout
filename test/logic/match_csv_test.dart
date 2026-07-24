@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:volley_scout/data/database.dart';
 import 'package:volley_scout/data/match_csv_exporter.dart';
+import 'package:volley_scout/l10n/app_localizations.dart';
 import 'package:volley_scout/models/enums.dart';
 
 // Test della funzione pura righeCsvPartita() — nessun DB: le data class di
@@ -96,6 +98,8 @@ ScoutAction _azione({
     );
 
 void main() {
+  // Locale it: le etichette Ruolo restano quelle italiane attese dai test.
+  final l = lookupAppLocalizations(const Locale('it'));
   final players = {
     1: _player(1, 7, 'Rossi', Ruolo.schiacciatore),
     2: _player(2, 12, 'Bianchi', Ruolo.centrale),
@@ -104,6 +108,7 @@ void main() {
   group('righeCsvPartita', () {
     test('prima riga = header', () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(),
         team: _team(),
         sets: const [],
@@ -115,6 +120,7 @@ void main() {
 
     test('riga scout: nomi, voto, tipo esecuzione e traiettoria risolti', () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(avversario: 'Clai'),
         team: _team(),
         sets: [_set(100, 1)],
@@ -160,6 +166,7 @@ void main() {
 
     test('punteggio progressivo per set e azioni ordinate per ordine', () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(),
         team: _team(),
         sets: [_set(101, 2), _set(100, 1)], // set fuori ordine
@@ -207,6 +214,7 @@ void main() {
     test('in trasferta: punteggio ed esito si specchiano su Casa/Trasferta',
         () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(inCasa: false),
         team: _team(),
         sets: [_set(100, 1)],
@@ -230,6 +238,7 @@ void main() {
 
     test('cambio giocatore: colonna Esce valorizzata', () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(),
         team: _team(),
         sets: [_set(100, 1)],
@@ -255,6 +264,7 @@ void main() {
 
     test('motivo errore avversario risolto da tipoEsecuzione', () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(),
         team: null, // nessuna squadra -> fallback "Noi"
         sets: [_set(100, 1)],
@@ -280,6 +290,7 @@ void main() {
 
     test('null e default -> celle vuote', () {
       final righe = righeCsvPartita(
+        l: l,
         match: _match(),
         team: _team(),
         sets: [_set(100, 1)],

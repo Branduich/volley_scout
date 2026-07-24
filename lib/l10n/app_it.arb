@@ -20,5 +20,19 @@
   "settingsAboutSubtitle": "Versione, privacy policy, supporto e abbonamento",
 
   "settingsSectionLanguage": "Lingua",
-  "languageSystem": "Predefinita del sistema"
+  "languageSystem": "Predefinita del sistema",
+
+  "ruoloPalleggiatore": "Palleggiatore",
+  "ruoloOpposto": "Opposto",
+  "ruoloSchiacciatore": "Schiacciatore",
+  "ruoloCentrale": "Centrale",
+  "ruoloLibero": "Libero",
+  "ruoloUniversale": "Universale",
+
+  "siglaPalleggiatore": "P",
+  "siglaOpposto": "O",
+  "siglaSchiacciatore": "S",
+  "siglaCentrale": "C",
+  "siglaLibero": "L",
+  "siglaUniversale": "U"
 }

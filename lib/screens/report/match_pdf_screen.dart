@@ -9,7 +9,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../data/database.dart';
-import '../../logic/role_labels.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 
@@ -847,28 +848,25 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
   String _pos(Map<Voto, int> c) => _pctSu(
       _nVoto(c, Voto.perfetto) + _nVoto(c, Voto.positivo), _tot(c));
 
-  String _ruoloBreve(Ruolo r) => switch (r) {
-        Ruolo.palleggiatore => 'P',
-        Ruolo.schiacciatore => 'S',
-        Ruolo.centrale => 'C',
-        Ruolo.opposto => 'O',
-        Ruolo.libero => 'L',
-        Ruolo.undefined => 'U',
-      };
 
   // Valori di una riga della mega tabella, nello stesso ordine delle 34
   // colonne (vedi _buildMegaTabella). `player == null` = riga TOTALI.
   List<String> _valoriRiga(_StatGiocatore s) {
     final p = s.player;
+    final l = AppLocalizations.of(context);
     // Colonne identità (# / Nome / R): per l'avversario il codice ruolo va
     // nella colonna Nome (niente numero né roster); 'TOTALI' quando player e
     // ruoloAvv sono entrambi null (riga totali).
     final identita = s.ruoloAvv != null
-        ? <String>['', kAliasRuoloAvversario[s.ruoloAvv!] ?? s.ruoloAvv!, s.ruoloAvv!]
+        ? <String>[
+            '',
+            aliasRuoloAvversario(s.ruoloAvv!, l),
+            siglaRuolo(s.ruoloAvv!, l),
+          ]
         : <String>[
             p == null ? '' : '${p.numero}',
             p == null ? 'TOTALI' : p.cognome,
-            p == null ? '' : _ruoloBreve(p.ruolo),
+            p == null ? '' : siglaRuoloBreve(p.ruolo, l),
           ];
     return [
       ...identita,
@@ -1391,8 +1389,9 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     }
     final chiavi = perGruppo.keys.toList()
       ..sort((a, b) => ordine(a).compareTo(ordine(b)));
-    String titoloCella(String k) =>
-        perRuolo ? (kAliasRuoloAvversario[k] ?? k) : 'Rotazione $k';
+    String titoloCella(String k) => perRuolo
+        ? aliasRuoloAvversario(k, AppLocalizations.of(context))
+        : 'Rotazione $k';
 
     const gap = 12.0;
     const larghezzaCella = (802 - 2 * gap) / 3;
@@ -1688,6 +1687,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
   // iniziale era nostra), campo con le card dei giocatori (palleggiatore
   // bordato di rosso), didascalia libero/i sotto.
   pw.Widget _cellaFormazione(MatchSet set, _FormazionePdf f, double lato) {
+    final l = AppLocalizations.of(context);
     final larghezza = lato;
     final altezzaCampo = lato; // campo quadrato (mezzo campo reale 9×9)
     final cw = larghezza / 3;
@@ -1750,7 +1750,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
                     pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
               ),
               pw.Text(
-                p.ruolo.label,
+                ruoloLabel(p.ruolo, l),
                 maxLines: 1,
                 overflow: pw.TextOverflow.clip,
                 style: const pw.TextStyle(fontSize: 7.5),
@@ -1797,7 +1797,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         if (liberi.isNotEmpty)
           pw.Text(
             'Libero: ${liberi.map((p) => '${p.numero} ${p.cognome}').join(' · ')}'
-            '${cambi != null ? ' — cambi: ${cambi.label}' : ''}',
+            '${cambi != null ? ' — cambi: ${ruoloLabel(cambi, l)}' : ''}',
             maxLines: 1,
             overflow: pw.TextOverflow.clip,
             style: const pw.TextStyle(fontSize: 8),

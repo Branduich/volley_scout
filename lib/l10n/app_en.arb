@@ -20,5 +20,19 @@
   "settingsAboutSubtitle": "Version, privacy policy, support and subscription",
 
   "settingsSectionLanguage": "Language",
-  "languageSystem": "System default"
+  "languageSystem": "System default",
+
+  "ruoloPalleggiatore": "Setter",
+  "ruoloOpposto": "Opposite",
+  "ruoloSchiacciatore": "Outside Hitter",
+  "ruoloCentrale": "Middle Blocker",
+  "ruoloLibero": "Libero",
+  "ruoloUniversale": "Versatile",
+
+  "siglaPalleggiatore": "S",
+  "siglaOpposto": "O",
+  "siglaSchiacciatore": "OH",
+  "siglaCentrale": "MB",
+  "siglaLibero": "L",
+  "siglaUniversale": "U"
 }

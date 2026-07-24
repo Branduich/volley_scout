@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../data/demo_match_importer.dart';
 import '../../data/match_csv_exporter.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
@@ -91,6 +92,7 @@ class MatchesScreen extends ConsumerWidget {
   ) async {
     if (_richiedePremium(context, ref)) return;
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     try {
       final teamRepo = ref.read(teamRepositoryProvider);
       final setRepo = ref.read(matchSetRepositoryProvider);
@@ -111,6 +113,7 @@ class MatchesScreen extends ConsumerWidget {
           : await teamRepo.getPlayersForTeam(team.id);
 
       await condividiCsvPartita(
+        l: l,
         match: match,
         team: team,
         sets: sets,

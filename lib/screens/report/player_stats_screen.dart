@@ -6,6 +6,8 @@ import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/court_style.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 
 // `murati`: attacchi con muro punto subito (voto `=` + tocco a muro + palla
 // tornata nel campo dell'attaccante — vedi attaccoMurato in
@@ -359,7 +361,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
             Text(
-              p.ruolo.label,
+              ruoloLabel(p.ruolo, AppLocalizations.of(context)),
               style: const TextStyle(color: Colors.black54, fontSize: 14),
             ),
           ],
