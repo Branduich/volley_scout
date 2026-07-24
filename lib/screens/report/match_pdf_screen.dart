@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../data/database.dart';
+import '../../logic/role_labels.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 
@@ -58,6 +59,9 @@ class _TrajPdf {
 // (vedi attaccoMurato). Usata anche per la riga TOTALI (player null).
 class _StatGiocatore {
   final Player? player;
+  // Solo per le statistiche AVVERSARIE (per ruolo, niente roster): codice
+  // ruolo P/O/S1/S2/C1/C2. Null per i nostri giocatori e per la riga TOTALI.
+  final String? ruoloAvv;
   final battuta = <Voto, int>{};
   final attacco = <Voto, int>{};
   final attaccoSuRicezione = <Voto, int>{};
@@ -67,7 +71,8 @@ class _StatGiocatore {
   final muro = <Voto, int>{};
   int murati = 0;
 
-  _StatGiocatore(this.player);
+  _StatGiocatore(this.player) : ruoloAvv = null;
+  _StatGiocatore.avversario(this.ruoloAvv) : player = null;
 
   bool get vuota =>
       battuta.isEmpty &&
@@ -220,11 +225,16 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     // riferimento "VOLLEY STATS PDF") + punti/errori generici sulla
     // partita intera; poi una pagina identica per OGNI set giocato (scope
     // ridotto alle azioni di quel set, intestazione "Set N").
+    // Nomi per i titoli delle pagine statistiche (nostra squadra + avversario,
+    // 'Avversari' se non impostato — stessa convenzione di ScoutScreen/report).
+    final nomeNostro = team?.nome ?? 'Nostra squadra';
+    final avv = match.avversario?.trim();
+    final nomeAvv = (avv != null && avv.isNotEmpty) ? avv : 'Avversari';
     if (stats.isNotEmpty) {
       doc.addPage(_buildPaginaStatistiche(
         format: format,
         logo: logo,
-        titolo: 'Statistiche giocatori — Partita intera',
+        titolo: 'Statistiche giocatori $nomeNostro — Partita intera',
         stats: stats,
         azioniGenerici: azioniPerSet.values,
         team: team,
@@ -237,7 +247,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
       doc.addPage(_buildPaginaStatistiche(
         format: format,
         logo: logo,
-        titolo: 'Statistiche giocatori — Set ${set.numero}',
+        titolo: 'Statistiche giocatori $nomeNostro — Set ${set.numero}',
         stats: statsSet,
         azioniGenerici: [azioniSet],
         team: team,
@@ -250,6 +260,36 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         doc, format, logo, team, players, azioniPerSet, zonaPerAzione);
     _aggiungiPaginaFormazioni(doc, format, logo, sets, formazioni);
     _aggiungiPaginaDistribuzione(doc, format, logo, azioniPerSet, zonaPerAzione);
+
+    // ── In coda: statistiche AVVERSARIO per ruolo (solo se la partita ha lo
+    // scout avversario) — partita intera + una pagina per set. Niente
+    // specchietto generici (già sulle nostre pagine, non è per ruolo).
+    final statsAvv = _calcolaStatAvversari(azioniPerSet);
+    if (statsAvv.isNotEmpty) {
+      doc.addPage(_buildPaginaStatistiche(
+        format: format,
+        logo: logo,
+        titolo: 'Statistiche giocatori $nomeAvv — Partita intera',
+        stats: statsAvv,
+        azioniGenerici: const [],
+        team: team,
+        mostraGenerici: false,
+      ));
+      for (final set in sets) {
+        final azioniSet = azioniPerSet[set.id] ?? const <ScoutAction>[];
+        final statsSet = _calcolaStatAvversari({set.id: azioniSet});
+        if (statsSet.isEmpty) continue;
+        doc.addPage(_buildPaginaStatistiche(
+          format: format,
+          logo: logo,
+          titolo: 'Statistiche giocatori $nomeAvv — Set ${set.numero}',
+          stats: statsSet,
+          azioniGenerici: const [],
+          team: team,
+          mostraGenerici: false,
+        ));
+      }
+    }
     return doc.save();
   }
 
@@ -453,6 +493,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     required List<_StatGiocatore> stats,
     required Iterable<List<ScoutAction>> azioniGenerici,
     required Team? team,
+    bool mostraGenerici = true,
   }) {
     return pw.MultiPage(
       pageFormat: format,
@@ -465,13 +506,17 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         ),
         pw.SizedBox(height: 8),
         _buildMegaTabella(stats),
-        pw.SizedBox(height: 16),
-        pw.Text(
-          'Punti ed errori generici',
-          style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
-        ),
-        pw.SizedBox(height: 4),
-        _buildGenerici(team, azioniGenerici),
+        // Specchietto generici solo sulle pagine NOSTRE (non è per ruolo, e
+        // sarebbe ridondante ripeterlo sulle pagine avversarie).
+        if (mostraGenerici) ...[
+          pw.SizedBox(height: 16),
+          pw.Text(
+            'Punti ed errori generici',
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          _buildGenerici(team, azioniGenerici),
+        ],
       ],
     );
   }
@@ -721,6 +766,53 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
       ..sort((a, b) => a.player!.numero.compareTo(b.player!.numero));
   }
 
+  // Come _calcolaStatGiocatori ma per la squadra AVVERSARIA, raggruppando per
+  // RUOLO placeholder (`ruoloAvversario`, niente roster). Ordina per l'ordine
+  // canonico dei ruoli. Conta solo le azioni `squadra == avversari`.
+  static const _ordineRuoliAvv = ['P', 'O', 'S1', 'S2', 'C1', 'C2'];
+  List<_StatGiocatore> _calcolaStatAvversari(
+      Map<int, List<ScoutAction>> azioniPerSet) {
+    final suRicezione = idAttacchiSuRicezione(azioniPerSet.values);
+    final perRuolo = <String, _StatGiocatore>{};
+    for (final azioni in azioniPerSet.values) {
+      for (final a in azioni) {
+        if (a.tipo != TipoAzione.scout || a.squadra != Squadra.avversari) {
+          continue;
+        }
+        final ruolo = a.ruoloAvversario;
+        final voto = a.voto;
+        if (ruolo == null || voto == null) continue;
+        final stat =
+            perRuolo.putIfAbsent(ruolo, () => _StatGiocatore.avversario(ruolo));
+        void inc(Map<Voto, int> c) => c[voto] = (c[voto] ?? 0) + 1;
+        switch (a.fondamentale) {
+          case Fondamentale.battuta:
+            inc(stat.battuta);
+          case Fondamentale.attacco:
+            inc(stat.attacco);
+            inc(suRicezione.contains(a.id)
+                ? stat.attaccoSuRicezione
+                : stat.attaccoSuDifesa);
+            if (attaccoMurato(a)) stat.murati++;
+          case Fondamentale.ricezione:
+            inc(stat.ricezione);
+          case Fondamentale.difesa:
+            inc(stat.difesa);
+          case Fondamentale.muro:
+            inc(stat.muro);
+          default:
+            break;
+        }
+      }
+    }
+    int ordine(String r) {
+      final i = _ordineRuoliAvv.indexOf(r);
+      return i < 0 ? 99 : i;
+    }
+    return perRuolo.values.where((s) => !s.vuota).toList()
+      ..sort((a, b) => ordine(a.ruoloAvv!).compareTo(ordine(b.ruoloAvv!)));
+  }
+
   int _tot(Map<Voto, int> c) => c.values.fold(0, (a, b) => a + b);
   int _nVoto(Map<Voto, int> c, Voto v) => c[v] ?? 0;
 
@@ -749,10 +841,18 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
   // colonne (vedi _buildMegaTabella). `player == null` = riga TOTALI.
   List<String> _valoriRiga(_StatGiocatore s) {
     final p = s.player;
+    // Colonne identità (# / Nome / R): per l'avversario il codice ruolo va
+    // nella colonna Nome (niente numero né roster); 'TOTALI' quando player e
+    // ruoloAvv sono entrambi null (riga totali).
+    final identita = s.ruoloAvv != null
+        ? <String>['', kAliasRuoloAvversario[s.ruoloAvv!] ?? s.ruoloAvv!, s.ruoloAvv!]
+        : <String>[
+            p == null ? '' : '${p.numero}',
+            p == null ? 'TOTALI' : p.cognome,
+            p == null ? '' : _ruoloBreve(p.ruolo),
+          ];
     return [
-      p == null ? '' : '${p.numero}',
-      p == null ? 'TOTALI' : p.cognome,
-      p == null ? '' : _ruoloBreve(p.ruolo),
+      ...identita,
       // BATTUTA
       '${_tot(s.battuta)}',
       '${_nVoto(s.battuta, Voto.perfetto)}',
@@ -876,14 +976,14 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
     ];
 
     pw.Widget cella(String testo,
-        {PdfColor? bg, bool bold = false, pw.Alignment? align}) {
+        {PdfColor? bg, bool bold = false, pw.Alignment? align, int maxLines = 1}) {
       return pw.Container(
         color: bg,
         padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 1),
         alignment: align ?? pw.Alignment.center,
         child: pw.Text(
           testo,
-          maxLines: 1,
+          maxLines: maxLines,
           overflow: pw.TextOverflow.clip,
           style: pw.TextStyle(
             fontSize: 8,
@@ -959,7 +1059,10 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
                 children: [
                   for (final (i, v) in _valoriRiga(stats[r]).indexed)
                     cella(v,
-                        align: i == 1 ? pw.Alignment.centerLeft : null),
+                        align: i == 1 ? pw.Alignment.centerLeft : null,
+                        // Colonna Nome a 2 righe: gli alias ruolo avversari
+                        // ("Schiacciatore 1") non stanno in 56pt su una riga.
+                        maxLines: i == 1 ? 2 : 1),
                 ],
               ),
             pw.TableRow(
@@ -968,7 +1071,8 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
                 for (final (i, v) in _valoriRiga(totali).indexed)
                   cella(v,
                       bold: true,
-                      align: i == 1 ? pw.Alignment.centerLeft : null),
+                      align: i == 1 ? pw.Alignment.centerLeft : null,
+                      maxLines: i == 1 ? 2 : 1),
               ],
             ),
           ],
