@@ -671,6 +671,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   bool get _tokenAvversariBloccati =>
       _erroreDifensivoForzato(Squadra.nostra) != null;
 
+  // Fondamentale difensivo ancora da registrare per chiudere il punto (Modello
+  // A): dopo un `#` di battuta serve la RICEZIONE errata, dopo un `#` di attacco
+  // la DIFESA errata — di una delle due squadre (il colpo vincente non chiude
+  // da solo). Null se non c'è nulla in sospeso. Alimenta il banner-promemoria
+  // "CONCLUDI …"; auto-gated (con scout avversari OFF un `#` chiude subito, il
+  // rally non resta aperto e questo torna null).
+  Fondamentale? get _difesaDaConcludere =>
+      _erroreDifensivoForzato(Squadra.nostra) ??
+      _erroreDifensivoForzato(Squadra.avversari);
+
   // Attenuazione (alpha 0.5) per SQUADRA in base alla fase: la squadra "in
   // attesa" (che non deve agire ORA) si mostra attenuata. DISTINTA dalla
   // tappabilità: nella fase servizio la squadra che batte NON è attenuata
@@ -2689,11 +2699,47 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Expanded prende lo spazio centrale; FittedBox(scaleDown) rimpicciolisce
   // il banner se il testo è più largo dello spazio (es. un cambio lungo).
   Widget _bannerCentrale() {
+    // Priorità al promemoria "CONCLUDI …" quando un `#` attende la difesa
+    // errata (Modello A) — è il momento in cui lo scout DEVE ancora agire.
+    final concludi = _difesaDaConcludere;
+    if (concludi != null) {
+      return Expanded(
+        child: FittedBox(
+            fit: BoxFit.scaleDown, child: _buildBannerConcludi(concludi)),
+      );
+    }
     final banner = _buildBannerUltimaAzione();
     return Expanded(
       child: banner == null
           ? const SizedBox.shrink()
           : FittedBox(fit: BoxFit.scaleDown, child: banner),
+    );
+  }
+
+  // Promemoria giallo evidente: dopo un colpo vincente (`#`) il punto non è
+  // ancora chiuso (Modello A) — lo scout deve registrare la difesa errata
+  // toccando il difensore. Solo promemoria, nessun tap (la conclusione la fa
+  // sempre lo scout). Ricezione dopo una battuta, Difesa dopo un attacco.
+  Widget _buildBannerConcludi(Fondamentale difesa) {
+    final label = difesa == Fondamentale.ricezione
+        ? 'CONCLUDI RICEZIONE'
+        : 'CONCLUDI DIFESA';
+    return Container(
+      padding:
+          EdgeInsets.symmetric(horizontal: _sc(16, 20), vertical: _sc(6, 8)),
+      decoration: BoxDecoration(
+        color: _kBordoTokenSelezionato, // giallo, come il bordo del selezionato
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+          fontSize: _sc(14, 16),
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 

@@ -289,6 +289,25 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
           mostraGenerici: false,
         ));
       }
+      // Traiettorie avversarie per ROTAZIONE (slot del loro palleggiatore al
+      // momento dell'azione): pagine "Battute"/"Attacchi" con un campo per
+      // rotazione. Solo se ci sono azioni del fondamentale.
+      final slotAvvPerAzione =
+          setRepo.slotAvversarioPerAzione(sets, azioniPerSet);
+      _aggiungiPagineTraiettorieAvversario(
+        doc, format, logo, nomeAvv, azioniPerSet, slotAvvPerAzione,
+        fondamentale: Fondamentale.battuta,
+        titoloPagina: 'Battute $nomeAvv — per ruolo',
+        labelVincente: 'Ace',
+        perRuolo: true,
+      );
+      _aggiungiPagineTraiettorieAvversario(
+        doc, format, logo, nomeAvv, azioniPerSet, slotAvvPerAzione,
+        fondamentale: Fondamentale.attacco,
+        titoloPagina: 'Attacchi $nomeAvv — per rotazione',
+        labelVincente: 'Pt',
+        perRuolo: false,
+      );
     }
     return doc.save();
   }
@@ -1314,6 +1333,98 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         build: (context) => [
           pw.Text(
             'Attacchi ${_nomeNostro(team)}',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          ...righe,
+        ],
+      ),
+    );
+  }
+
+  // Pagine traiettorie AVVERSARIO (battute o attacchi). Raggruppamento:
+  // - `perRuolo` (battute): per RUOLO del battitore (`ruoloAvversario`), titolo
+  //   della cella = alias esteso (es. "Schiacciatore 1");
+  // - altrimenti (attacchi): per ROTAZIONE (slot del loro palleggiatore al
+  //   momento dell'azione, da slotAvversarioPerAzione), titolo "Rotazione P<n>".
+  // Riusa _cellaTraiettorie, che normalizza le coordinate mirror (le traiettorie
+  // avversarie partono da destra e vengono raddrizzate sx→dx come le nostre).
+  // Nessuna pagina se non ci sono azioni di quel fondamentale.
+  void _aggiungiPagineTraiettorieAvversario(
+    pw.Document doc,
+    PdfPageFormat format,
+    pw.MemoryImage logo,
+    String nomeAvv,
+    Map<int, List<ScoutAction>> azioniPerSet,
+    Map<int, int> slotPerAzione, {
+    required Fondamentale fondamentale,
+    required String titoloPagina,
+    required String labelVincente,
+    required bool perRuolo,
+  }) {
+    // Chiave del gruppo: codice ruolo (perRuolo) o 'P<slot>' (per rotazione).
+    final perGruppo = <String, List<ScoutAction>>{};
+    for (final azioni in azioniPerSet.values) {
+      for (final a in azioni) {
+        if (a.tipo != TipoAzione.scout ||
+            a.squadra != Squadra.avversari ||
+            a.fondamentale != fondamentale) {
+          continue;
+        }
+        final String? chiave;
+        if (perRuolo) {
+          chiave = a.ruoloAvversario;
+        } else {
+          final slot = slotPerAzione[a.id];
+          chiave = slot == null ? null : 'P$slot';
+        }
+        if (chiave == null) continue;
+        perGruppo.putIfAbsent(chiave, () => []).add(a);
+      }
+    }
+    if (perGruppo.isEmpty) return;
+
+    int ordine(String k) {
+      if (!perRuolo) return int.tryParse(k.substring(1)) ?? 99; // 'P3' → 3
+      final i = _ordineRuoliAvv.indexOf(k);
+      return i < 0 ? 99 : i;
+    }
+    final chiavi = perGruppo.keys.toList()
+      ..sort((a, b) => ordine(a).compareTo(ordine(b)));
+    String titoloCella(String k) =>
+        perRuolo ? (kAliasRuoloAvversario[k] ?? k) : 'Rotazione $k';
+
+    const gap = 12.0;
+    const larghezzaCella = (802 - 2 * gap) / 3;
+    final righe = <pw.Widget>[];
+    for (var i = 0; i < chiavi.length; i += 3) {
+      righe.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 14),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            for (var j = i; j < i + 3 && j < chiavi.length; j++) ...[
+              if (j > i) pw.SizedBox(width: gap),
+              _cellaTraiettorie(
+                titolo: titoloCella(chiavi[j]),
+                azioni: perGruppo[chiavi[j]]!,
+                larghezza: larghezzaCella,
+                labelVincente: labelVincente,
+              ),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(20),
+        header: (context) => _buildHeaderPagina(context, logo),
+        build: (context) => [
+          pw.Text(
+            titoloPagina,
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),

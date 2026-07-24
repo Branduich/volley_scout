@@ -594,6 +594,41 @@ class MatchSetRepository {
     return result;
   }
 
+  /// actionId → slot 1-6 del palleggiatore avversario al momento dell'azione,
+  /// per OGNI azione scout avversaria (battuta/attacco/…). Gemello "grezzo" di
+  /// [zonaTatticaPerAzioneAvversario] (che dà zona+rotazione solo per gli
+  /// attacchi): qui basta lo slot, per raggruppare le traiettorie avversarie
+  /// per rotazione nel PDF. Stesso replay dello slot (ruota sul loro sideout).
+  Map<int, int> slotAvversarioPerAzione(
+    List<MatchSet> sets,
+    Map<int, List<ScoutAction>> azioniPerSet,
+  ) {
+    final result = <int, int>{};
+    for (final set in sets) {
+      final slotIniziale = set.palleggiatoreAvversarioSlot;
+      if (slotIniziale == null) continue;
+      var slotAvv = slotIniziale;
+      var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
+      final ordinate = [...(azioniPerSet[set.id] ?? const <ScoutAction>[])]
+        ..sort((a, b) => a.ordine.compareTo(b.ordine));
+      for (final a in ordinate) {
+        // Registrato PRIMA di applicare l'esito: lo slot è quello al momento
+        // dell'azione (la battuta parte a inizio scambio, dopo l'eventuale
+        // rotazione del loro sideout precedente).
+        if (a.tipo == TipoAzione.scout && a.squadra == Squadra.avversari) {
+          result[a.id] = slotAvv;
+        }
+        if (a.esitoPunto == EsitoPunto.puntoAvversario) {
+          if (nostraAlServizio) slotAvv = slotAvv == 1 ? 6 : slotAvv - 1;
+          nostraAlServizio = false;
+        } else if (a.esitoPunto == EsitoPunto.puntoNostro) {
+          nostraAlServizio = true;
+        }
+      }
+    }
+    return result;
+  }
+
   /// Aggiusta l'override manuale del punteggio (bottoni +/- accanto al
   /// punteggio in `ScoutScreen`) — somma `deltaNostro`/`deltaAvversario` al
   /// valore già presente su `MatchSet`, **non** loggato come `ScoutAction`
