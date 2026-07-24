@@ -11,6 +11,19 @@ import 'app_localizations.dart';
 /// estensione omonimo. Una funzione non va mai in conflitto — quando tutti i
 /// call site saranno migrati si potrà rimuovere il campo `label` dall'enum.
 
+/// Nome localizzato del [Fondamentale] (banner scout, pannelli voto, dropdown
+/// dei report, colonna CSV). Il `.name` resta la chiave persistita a DB
+/// (FondamentaleConverter).
+String fondamentaleLabel(Fondamentale f, AppLocalizations l) => switch (f) {
+      Fondamentale.battuta => l.fondamentaleBattuta,
+      Fondamentale.ricezione => l.fondamentaleRicezione,
+      Fondamentale.alzata => l.fondamentaleAlzata,
+      Fondamentale.attacco => l.fondamentaleAttacco,
+      Fondamentale.muro => l.fondamentaleMuro,
+      Fondamentale.difesa => l.fondamentaleDifesa,
+      Fondamentale.errore => l.fondamentaleErrore,
+    };
+
 /// Nome completo del [Ruolo] nella lingua dell'app (dropdown, card, report).
 String ruoloLabel(Ruolo r, AppLocalizations l) => switch (r) {
       Ruolo.palleggiatore => l.ruoloPalleggiatore,

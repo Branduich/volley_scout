@@ -146,7 +146,7 @@ List<List<String>> righeCsvPartita({
         giocatore == null ? '' : '${giocatore.numero}',
         _nomeGiocatore(giocatore),
         giocatore == null ? '' : ruoloLabel(giocatore.ruolo, l),
-        a.fondamentale?.label ?? '',
+        a.fondamentale == null ? '' : fondamentaleLabel(a.fondamentale!, l),
         a.voto?.simbolo ?? '',
         _labelTipoEsecuzione(a),
         switch (a.esitoPunto) {

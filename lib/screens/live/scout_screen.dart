@@ -2706,7 +2706,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         fondamentale != null &&
         voto != null) {
       return (
-        testo: '${player.numero} - ${player.cognome} - ${fondamentale.label}',
+        testo: '${player.numero} - ${player.cognome} - ${fondamentaleLabel(fondamentale, AppLocalizations.of(context))}',
         voto: voto.simbolo,
         colore: CourtStyle.votoColor(voto),
       );
@@ -2718,7 +2718,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         fondamentale != null &&
         voto != null) {
       return (
-        testo: 'Avv ${siglaRuolo(azione.ruoloAvversario!, AppLocalizations.of(context))} - ${fondamentale.label}',
+        testo: 'Avv ${siglaRuolo(azione.ruoloAvversario!, AppLocalizations.of(context))} - ${fondamentaleLabel(fondamentale, AppLocalizations.of(context))}',
         voto: voto.simbolo,
         colore: CourtStyle.votoColor(voto),
       );
@@ -3259,7 +3259,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
             ],
           ),
           child: Text(
-            fondamentale.label,
+            fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
@@ -3357,7 +3357,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       _buildSceltaFondamentale(player),
                     ] else ...[
                       Text(
-                        inCorso.fondamentale!.label,
+                        fondamentaleLabel(
+                            inCorso.fondamentale!, AppLocalizations.of(context)),
                         style: const TextStyle(
                           color: Colors.white54,
                           fontSize: 12,
@@ -3495,7 +3496,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
                       ],
                     ] else ...[
                       Text(
-                        inCorso.fondamentale!.label,
+                        fondamentaleLabel(
+                            inCorso.fondamentale!, AppLocalizations.of(context)),
                         style: const TextStyle(
                           color: Colors.white54,
                           fontSize: 12,

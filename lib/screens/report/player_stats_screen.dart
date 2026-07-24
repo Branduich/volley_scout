@@ -202,7 +202,10 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
                               Fondamentale.muro,
                               Fondamentale.alzata,
                             ])
-                              DropdownMenuItem(value: f, child: Text(f.label)),
+                              DropdownMenuItem(
+                                  value: f,
+                                  child: Text(fondamentaleLabel(
+                                      f, AppLocalizations.of(context)))),
                           ],
                           onChanged: (v) => setState(() {
                             _fondamentale = v!;

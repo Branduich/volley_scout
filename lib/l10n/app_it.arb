@@ -34,5 +34,16 @@
   "siglaSchiacciatore": "S",
   "siglaCentrale": "C",
   "siglaLibero": "L",
-  "siglaUniversale": "U"
+  "siglaUniversale": "U",
+
+  "fondamentaleBattuta": "Battuta",
+  "fondamentaleRicezione": "Ricezione",
+  "fondamentaleAlzata": "Alzata",
+  "fondamentaleAttacco": "Attacco",
+  "fondamentaleMuro": "Muro",
+  "fondamentaleDifesa": "Difesa",
+  "fondamentaleErrore": "Errore",
+
+  "riepilogoAttaccoSuRicezione": "Attacco su ricezione",
+  "riepilogoAttaccoSuDifesa": "Attacco su Difesa"
 }

@@ -6,6 +6,8 @@ import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 
 const _kCourtImage = 'assets/images/double_court_bg.png';
 
@@ -238,9 +240,10 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
   // quindi si formatta direttamente da giocatore/fondamentale/voto).
   Widget _buildBanner() {
     final giocatore = widget.giocatore;
+    final l = AppLocalizations.of(context);
     final testo = giocatore != null
-        ? '${giocatore.numero} - ${giocatore.cognome} - ${widget.fondamentale.label}'
-        : 'Avversario ${widget.etichettaAvversario} - ${widget.fondamentale.label}';
+        ? '${giocatore.numero} - ${giocatore.cognome} - ${fondamentaleLabel(widget.fondamentale, l)}'
+        : 'Avversario ${widget.etichettaAvversario} - ${fondamentaleLabel(widget.fondamentale, l)}';
     final voto = widget.voto.simbolo;
     final colore = CourtStyle.votoColor(widget.voto);
     return Container(

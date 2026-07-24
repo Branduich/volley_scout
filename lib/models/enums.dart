@@ -72,16 +72,16 @@ enum Squadra { nostra, avversari }
 enum EsitoPunto { nessuno, puntoNostro, puntoAvversario }
 
 enum Fondamentale {
-  battuta('Battuta'),
-  ricezione('Ricezione'),
-  alzata('Alzata'),
-  attacco('Attacco'),
-  muro('Muro'),
-  difesa('Difesa'),
-  errore('Errore');
-
-  final String label;
-  const Fondamentale(this.label);
+  // Le etichette localizzate vivono in lib/l10n/enum_l10n.dart
+  // (fondamentaleLabel): niente campo `label` qui. Il `.name` resta la
+  // chiave persistita a DB (FondamentaleConverter).
+  battuta,
+  ricezione,
+  alzata,
+  attacco,
+  muro,
+  difesa,
+  errore;
 
   /// Solo battuta e attacco hanno una traiettoria da registrare.
   bool get richiedeTraiettoria =>

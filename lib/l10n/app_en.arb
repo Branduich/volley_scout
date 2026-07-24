@@ -34,5 +34,16 @@
   "siglaSchiacciatore": "OH",
   "siglaCentrale": "MB",
   "siglaLibero": "L",
-  "siglaUniversale": "U"
+  "siglaUniversale": "U",
+
+  "fondamentaleBattuta": "Serve",
+  "fondamentaleRicezione": "Pass",
+  "fondamentaleAlzata": "Set",
+  "fondamentaleAttacco": "Attack",
+  "fondamentaleMuro": "Block",
+  "fondamentaleDifesa": "Dig",
+  "fondamentaleErrore": "Error",
+
+  "riepilogoAttaccoSuRicezione": "Sideout attack",
+  "riepilogoAttaccoSuDifesa": "Transition attack"
 }

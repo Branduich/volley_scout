@@ -18,8 +18,10 @@ import 'trajectory_report_screen.dart';
 // durata di gioco (prima→ultima azione registrata, null se < 2 azioni).
 typedef _RigaSet = ({int numero, int nostro, int avversario, Duration? durata});
 
-// Riga del riepilogo fondamentali: conteggi per voto + totale.
+// Riga del riepilogo fondamentali: chiave stabile (per filtri/logica),
+// etichetta localizzata (per la UI), conteggi per voto + totale.
 typedef _RigaFondamentale = ({
+  String chiave,
   String label,
   Map<Voto, int> conteggi,
   int totale,
@@ -60,15 +62,32 @@ enum _FiltroAlzate {
 // ricezione"/"Attacco su Difesa" sono il sottoinsieme dedotto dalla
 // sequenza dello scambio (vedi _riepilogoFondamentali).
 const _ordineFondamentali = [
-  ('battuta', 'Battuta'),
-  ('ricezione', 'Ricezione'),
-  ('difesa', 'Difesa'),
-  ('attacco', 'Attacco'),
-  ('attaccoSuRicezione', 'Attacco su ricezione'),
-  ('attaccoSuDifesa', 'Attacco su Difesa'),
-  ('muro', 'Muro'),
-  ('alzata', 'Alzata'),
+  'battuta',
+  'ricezione',
+  'difesa',
+  'attacco',
+  'attaccoSuRicezione',
+  'attaccoSuDifesa',
+  'muro',
+  'alzata',
 ];
+
+// Etichetta localizzata di una riga del riepilogo. Le 6 righe "semplici"
+// riusano le chiavi dell'enum Fondamentale; "attaccoSuRicezione"/
+// "attaccoSuDifesa" sono sottoinsiemi calcolati, non valori enum, con chiavi
+// dedicate. La `chiave` resta stabile per filtri/logica (vedi _RigaFondamentale).
+String _labelRigaFondamentale(String chiave, AppLocalizations l) =>
+    switch (chiave) {
+      'battuta' => l.fondamentaleBattuta,
+      'ricezione' => l.fondamentaleRicezione,
+      'difesa' => l.fondamentaleDifesa,
+      'attacco' => l.fondamentaleAttacco,
+      'attaccoSuRicezione' => l.riepilogoAttaccoSuRicezione,
+      'attaccoSuDifesa' => l.riepilogoAttaccoSuDifesa,
+      'muro' => l.fondamentaleMuro,
+      'alzata' => l.fondamentaleAlzata,
+      _ => chiave,
+    };
 
 /// Report di una partita (Fase 4) — pagina 1: dati partita, punteggio
 /// finale (set vinti), punteggio di ogni set e riepilogo di tutti i
@@ -348,7 +367,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   List<_RigaFondamentale> _riepilogoFondamentaliPer(Squadra squadra,
       int? scopeSet, {int? giocatoreFiltro, String? ruoloFiltro}) {
     final contatori = <String, Map<Voto, int>>{
-      for (final (chiave, _) in _ordineFondamentali) chiave: <Voto, int>{},
+      for (final chiave in _ordineFondamentali) chiave: <Voto, int>{},
     };
     void incrementa(String chiave, Voto voto) {
       final mappa = contatori[chiave]!;
@@ -410,9 +429,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
     }
 
     return [
-      for (final (chiave, label) in _ordineFondamentali)
+      for (final chiave in _ordineFondamentali)
         (
-          label: label,
+          chiave: chiave,
+          label: _labelRigaFondamentale(chiave, AppLocalizations.of(context)),
           conteggi: contatori[chiave]!,
           totale: contatori[chiave]!.values.fold(0, (a, b) => a + b),
         ),
@@ -1169,7 +1189,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   for (final r in _riepilogoFondamentaliPer(
                       Squadra.avversari, _setAvversario,
                       ruoloFiltro: _ruoloAvversario))
-                    if (r.label != 'Alzata') r,
+                    if (r.chiave != 'alzata') r,
                 ]),
                 // --- Traiettorie avversario (per ruolo) ---
                 if (_team != null) ...[
