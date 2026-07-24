@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,12 @@ const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
 const _kCourtImage = 'assets/images/double_court_bg.png';
 const _kSmallCourtImage = 'assets/images/small_court.png';
+
+// Lampeggio del punteggio quando cambia: durata totale (regolabile) e
+// mezzo-periodo del singolo lampeggio (l'opacità oscilla avanti/indietro,
+// quindi il ciclo completo dura il doppio).
+const Duration _kDurataLampeggioPunteggio = Duration(seconds: 2);
+const Duration _kPeriodoLampeggioPunteggio = Duration(milliseconds: 350);
 
 // Margine fisso tra il bordo superiore dell'area di gioco (sotto banner/
 // bottoni rapidi) e il campo grande — il campo non è più centrato
@@ -1154,6 +1161,72 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _avviaOCaricaSet());
   }
 
+  @override
+  void dispose() {
+    _timerLampeggio?.cancel();
+    _timerLampeggioTick?.cancel();
+    super.dispose();
+  }
+
+  // Lampeggio ON/OFF del punteggio (vedi _rilevaCambioPunteggio /
+  // _buildScoreDisplay): un timer periodico alterna acceso/spento, un timer
+  // one-shot lo ferma dopo la durata totale.
+  Timer? _timerLampeggio; // stop dopo la durata totale
+  Timer? _timerLampeggioTick; // alterna acceso/spento
+  bool _lampeggioAcceso = true; // false = numero nascosto (fase "off")
+  // Lato il cui numero sta lampeggiando ora (null = nessuno).
+  Squadra? _squadraLampeggiante;
+  // Ultimo punteggio "stabilito" per rilevare i cambi. `null` finché lo
+  // stream delle azioni non ha prodotto il primo dato: così alla ripresa di
+  // una partita già in corso il salto 0 → punteggio reale NON fa lampeggiare
+  // (diventa solo la baseline).
+  int? _prevPunteggioNostro;
+  int? _prevPunteggioAvversario;
+
+  // Chiamata in cima a build: confronta il punteggio corrente con l'ultimo
+  // stabilito e, se è cambiato, avvia il lampeggio sul lato che è cambiato.
+  // Gate su `hasValue` dello stream: durante il caricamento _statoSetReale
+  // vale 0-0 (azioni vuote), non deve contare come baseline.
+  void _rilevaCambioPunteggio() {
+    final set = _setCorrente;
+    final pronto = set != null &&
+        ref.watch(scoutAzioniStreamProvider(set.id)).hasValue;
+    if (!pronto) return;
+    final n = _punteggioNostro;
+    final a = _punteggioAvversario;
+    if (_prevPunteggioNostro != null &&
+        (_prevPunteggioNostro != n || _prevPunteggioAvversario != a)) {
+      final cambiata =
+          _prevPunteggioNostro != n ? Squadra.nostra : Squadra.avversari;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _avviaLampeggioPunteggio(cambiata);
+      });
+    }
+    _prevPunteggioNostro = n;
+    _prevPunteggioAvversario = a;
+  }
+
+  void _avviaLampeggioPunteggio(Squadra squadra) {
+    _timerLampeggio?.cancel();
+    _timerLampeggioTick?.cancel();
+    setState(() {
+      _squadraLampeggiante = squadra;
+      _lampeggioAcceso = true; // parte visibile, primo "off" dopo un periodo
+    });
+    _timerLampeggioTick = Timer.periodic(_kPeriodoLampeggioPunteggio, (_) {
+      if (!mounted) return;
+      setState(() => _lampeggioAcceso = !_lampeggioAcceso);
+    });
+    _timerLampeggio = Timer(_kDurataLampeggioPunteggio, () {
+      if (!mounted) return;
+      _timerLampeggioTick?.cancel();
+      setState(() {
+        _squadraLampeggiante = null;
+        _lampeggioAcceso = true; // sempre visibile a fine lampeggio
+      });
+    });
+  }
+
   // Punto di ingresso unico per l'avvio dello schermo: provo a caricare il
   // set numero `match.setCorrente`. Se esiste già (ripresa di una partita
   // in corso, O di una partita già `terminata` che si vuole correggere —
@@ -1784,6 +1857,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   @override
   Widget build(BuildContext context) {
     _labelsCorrezione = _computeLabelsCorrezione();
+    _rilevaCambioPunteggio();
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: _kBg,
@@ -2376,12 +2450,33 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
               // mentre è aperto, Navigator.pop(context) chiude SOLO il
               // drawer (consuma quella entry) invece di tornare alla
               // schermata precedente. Si cattura il Navigator prima di
-              // chiudere il drawer esplicitamente, poi si fa il pop vero
+              // chiudere il drawer esplicitamente, poi si naviga davvero
               // sul Navigator catturato.
+              //
+              // Destinazione: se il set ha già almeno un'azione registrata
+              // (partita "cominciata"), si torna direttamente alla lista
+              // partite (route '/matches', vedi HomeScreen) — non ha senso
+              // ripassare da configurazione/formazione, che rifarebbero il
+              // setup; `popUntil` per nome regge qualsiasi profondità di
+              // stack (flusso normale vs. "Riprendi" che bypassa lineup/
+              // config). Se invece non è ancora stata presa nessuna azione,
+              // si torna com'era alla schermata precedente (configurazione).
               onTap: () {
                 final navigator = Navigator.of(context);
+                final set = _setCorrente;
+                final haAzioni = set != null &&
+                    (ref
+                            .read(scoutAzioniStreamProvider(set.id))
+                            .value
+                            ?.isNotEmpty ??
+                        false);
                 _scaffoldKey.currentState?.closeDrawer();
-                navigator.pop();
+                if (haAzioni) {
+                  navigator
+                      .popUntil((route) => route.settings.name == '/matches');
+                } else {
+                  navigator.pop();
+                }
               },
             ),
           ],
@@ -2790,6 +2885,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // Disabilitati con le stesse condizioni dei bottoni rapidi
   // (_bottoniRapidiAttivi); "-" disabilitato anche a punteggio già a 0 (un
   // punteggio reale non scende mai sotto zero).
+  // Avvolge il numero del punteggio in un lampeggio (opacità che oscilla tra
+  // piena e quasi trasparente) SOLO sul lato appena cambiato; gli altri
+  // restano invariati. Vedi _avviaLampeggioPunteggio / _rilevaCambioPunteggio.
+  Widget _lampeggiaSe(Squadra squadra, Widget child) {
+    if (_squadraLampeggiante != squadra) return child;
+    // ON/OFF netto: opacità 1 o 0 (Opacity mantiene lo spazio, il layout non
+    // "salta"), nessuna dissolvenza intermedia.
+    return Opacity(opacity: _lampeggioAcceso ? 1.0 : 0.0, child: child);
+  }
+
   Widget _buildScoreDisplay(int score, Squadra squadra) {
     final attivo = _bottoniRapidiAttivi;
     return Row(
@@ -2804,13 +2909,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         const SizedBox(width: 8),
         SizedBox(
           width: 32,
-          child: Text(
-            '$score',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
+          child: _lampeggiaSe(
+            squadra,
+            Text(
+              '$score',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
             ),
           ),
         ),
