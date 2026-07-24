@@ -131,6 +131,11 @@ const double _kTokenSizeScale = 1.4;
 // non tappabili (troppo aggressivo): solo questo caso, per ora.
 const double _kAlphaTokenBloccato = 0.5;
 
+// Bordo del token SELEZIONATO (giocatore nostro o ruolo avversario toccato per
+// il voto): giallo, torna bianco alla deselezione — con un breve flash-in
+// animato. Rinforza il feedback della selezione.
+const Color _kBordoTokenSelezionato = Color(0xFFFFEB3B); // giallo
+
 // Le posizioni TATTICHE di attacco per rotazione/ruolo/fase (ex costanti
 // private qui) vivono in logic/attack_positions.dart: condivise con le
 // pagine attacchi del report PDF, che ne ricava la "posizione di attacco"
@@ -199,7 +204,13 @@ Path _roundedHexagonPath(Size size, double cornerRadius) {
 
 class _RoundedHexagonPainter extends CustomPainter {
   final Color color;
-  const _RoundedHexagonPainter(this.color);
+  // Bordo: bianco/2px di default, giallo e più grosso quando il token è
+  // selezionato (vedi _kBordoTokenSelezionato) — colore e spessore animati dal
+  // chiamante.
+  final Color bordoColor;
+  final double bordoWidth;
+  const _RoundedHexagonPainter(this.color,
+      {this.bordoColor = Colors.white, this.bordoWidth = 2});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -209,15 +220,17 @@ class _RoundedHexagonPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = Colors.white
+        ..color = bordoColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+        ..strokeWidth = bordoWidth,
     );
   }
 
   @override
   bool shouldRepaint(covariant _RoundedHexagonPainter oldDelegate) =>
-      oldDelegate.color != color;
+      oldDelegate.color != color ||
+      oldDelegate.bordoColor != bordoColor ||
+      oldDelegate.bordoWidth != bordoWidth;
 }
 
 class ScoutScreen extends ConsumerStatefulWidget {
@@ -3848,6 +3861,36 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // calcolati (non da scalare da uno spazio di riferimento) — necessario
   // perché questo Stack esterno copre sia l'area del campo sia l'area
   // "panchina" ancorata ai bordi schermo.
+  // Avvolge il disegno di un token in un'animazione della selezione: `t` va da
+  // 0 (deselezionato, bordo bianco sottile) a 1 (selezionato, bordo giallo più
+  // grosso verso l'ESTERNO) con un breve flash-in, e torna a 0 alla
+  // deselezione. `build` riceve `t` e disegna il token (cerchio o esagono)
+  // derivandone colore e spessore del bordo. Condiviso dai tre builder.
+  Widget _tokenConBordoAnimato(bool selezionato, Widget Function(double t) build) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: selezionato ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 220),
+      builder: (context, t, _) => build(t),
+    );
+  }
+
+  // Anello giallo ESTERNO del token selezionato (BoxShadow con spread: cresce
+  // fuori dal token, non mangia il numero), da comporre con l'ombra nera del
+  // token. Vuoto a t=0. `t` = valore di selezione animato.
+  List<BoxShadow> _ombreTokenSelezione(double t) => [
+        const BoxShadow(
+          color: Color(0x78000000), // nero 47%, ombra base del token
+          blurRadius: 4,
+          offset: Offset(0, 2),
+        ),
+        if (t > 0)
+          BoxShadow(
+            color: _kBordoTokenSelezionato,
+            spreadRadius: t * 4,
+            blurRadius: t * 3,
+          ),
+      ];
+
   Widget _buildAbsoluteToken(
     String roleLabel,
     Player player,
@@ -3861,26 +3904,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         ? _invertedColor(Color(widget.team.coloreDivisa))
         : Color(widget.team.coloreDivisa);
     final label = _showJerseyNumbers ? '${player.numero}' : roleLabel;
-    final tokenVisual = Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: fillColor,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(120),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    final selezionato = _votoInCorso?.giocatore.id == player.id;
+    final tokenVisual = _tokenConBordoAnimato(
+      selezionato,
+      (t) => Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: fillColor,
+          border: Border.all(
+              color: Color.lerp(Colors.white, _kBordoTokenSelezionato, t)!,
+              width: 2),
+          boxShadow: _ombreTokenSelezione(t),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: contrastingTextColor(fillColor),
+            fontWeight: FontWeight.bold,
+            fontSize: radius * 0.7,
           ),
-        ],
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: contrastingTextColor(fillColor),
-          fontWeight: FontWeight.bold,
-          fontSize: radius * 0.7,
         ),
       ),
     );
@@ -3930,27 +3973,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ),
     );
 
-    final tokenVisual = isPalleggiatore
-        ? CustomPaint(
-            painter: _RoundedHexagonPainter(fillColor),
-            child: Center(child: text),
-          )
-        : Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: fillColor,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(120),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+    final selezionato = _votoInCorso?.giocatore.id == player.id;
+    final tokenVisual = _tokenConBordoAnimato(
+      selezionato,
+      (t) => isPalleggiatore
+          ? CustomPaint(
+              painter: _RoundedHexagonPainter(
+                fillColor,
+                bordoColor: Color.lerp(Colors.white, _kBordoTokenSelezionato, t)!,
+                bordoWidth: 2 + t * 3,
+              ),
+              child: Center(child: text),
+            )
+          : Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: fillColor,
+                border: Border.all(
+                    color: Color.lerp(Colors.white, _kBordoTokenSelezionato, t)!,
+                    width: 2),
+                boxShadow: _ombreTokenSelezione(t),
+              ),
+              child: text,
             ),
-            child: text,
-          );
+    );
 
     // Key = identità del giocatore (non lo slot): così, quando la rotazione
     // sposta tutti i giocatori, AnimatedPositioned anima ciascun token dalla
@@ -4056,27 +4103,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ),
     );
 
-    final tokenVisual = isPalleggiatore
-        ? CustomPaint(
-            painter: _RoundedHexagonPainter(_kColoreTokenAvversario),
-            child: Center(child: text),
-          )
-        : Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _kColoreTokenAvversario,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(120),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+    final selezionato = _avversarioInCorso?.ruolo == roleLabel;
+    final tokenVisual = _tokenConBordoAnimato(
+      selezionato,
+      (t) => isPalleggiatore
+          ? CustomPaint(
+              painter: _RoundedHexagonPainter(
+                _kColoreTokenAvversario,
+                bordoColor: Color.lerp(Colors.white, _kBordoTokenSelezionato, t)!,
+                bordoWidth: 2 + t * 3,
+              ),
+              child: Center(child: text),
+            )
+          : Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _kColoreTokenAvversario,
+                border: Border.all(
+                    color: Color.lerp(Colors.white, _kBordoTokenSelezionato, t)!,
+                    width: 2),
+                boxShadow: _ombreTokenSelezione(t),
+              ),
+              child: text,
             ),
-            child: text,
-          );
+    );
 
     // Key = etichetta di ruolo (l'avversario non ha id giocatore): quando la
     // rotazione sposta un ruolo da una zona all'altra, AnimatedPositioned lo
