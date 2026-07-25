@@ -1168,7 +1168,8 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
           pw.Text(
             'Tipologia errori $_nomeAvversario: ${[
               for (final m in MotivoErrore.values)
-                if ((motivi[m] ?? 0) > 0) '${m.label} ${motivi[m]}',
+                if ((motivi[m] ?? 0) > 0)
+                  '${motivoErroreLabel(m, AppLocalizations.of(context))} ${motivi[m]}',
             ].join(' · ')}',
             style: const pw.TextStyle(fontSize: 8),
           ),

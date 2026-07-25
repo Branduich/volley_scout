@@ -65,14 +65,14 @@ String _labelTipoAzione(TipoAzione tipo) => switch (tipo) {
 // per gli errori generici. `nonSpecificato`/`generico` (i default) e i
 // contesti senza tipo di esecuzione → cella vuota; un nome sconosciuto
 // (dati futuri) resta com'è invece di rompere l'export.
-String _labelTipoEsecuzione(ScoutAction a) {
+String _labelTipoEsecuzione(ScoutAction a, AppLocalizations l) {
   final nome = a.tipoEsecuzione;
   if (nome == 'nonSpecificato') return '';
   if (a.tipo == TipoAzione.erroreGenerico) {
     final motivo =
         MotivoErrore.values.where((m) => m.name == nome).firstOrNull;
     if (motivo == MotivoErrore.generico) return '';
-    return motivo?.label ?? nome;
+    return motivo == null ? nome : motivoErroreLabel(motivo, l);
   }
   // Correzione rotazione: la colonna porta il verso (DirezioneRotazione).
   if (a.tipo == TipoAzione.correzioneRotazione) {
@@ -84,12 +84,16 @@ String _labelTipoEsecuzione(ScoutAction a) {
     };
   }
   return switch (a.fondamentale) {
-    Fondamentale.battuta =>
-      TipoBattuta.values.where((t) => t.name == nome).firstOrNull?.label ??
-          nome,
-    Fondamentale.attacco =>
-      TipoAttacco.values.where((t) => t.name == nome).firstOrNull?.label ??
-          nome,
+    Fondamentale.battuta => switch (
+          TipoBattuta.values.where((t) => t.name == nome).firstOrNull) {
+        final TipoBattuta t => tipoBattutaLabel(t, l),
+        null => nome,
+      },
+    Fondamentale.attacco => switch (
+          TipoAttacco.values.where((t) => t.name == nome).firstOrNull) {
+        final TipoAttacco t => tipoAttaccoLabel(t, l),
+        null => nome,
+      },
     _ => '',
   };
 }
@@ -148,7 +152,7 @@ List<List<String>> righeCsvPartita({
         giocatore == null ? '' : ruoloLabel(giocatore.ruolo, l),
         a.fondamentale == null ? '' : fondamentaleLabel(a.fondamentale!, l),
         a.voto?.simbolo ?? '',
-        _labelTipoEsecuzione(a),
+        _labelTipoEsecuzione(a, l),
         switch (a.esitoPunto) {
           EsitoPunto.puntoNostro =>
             match.inCasa ? 'Punto casa' : 'Punto trasferta',

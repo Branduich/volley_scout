@@ -580,9 +580,10 @@ class _TrajectoryReportScreenState
   Widget _buildDistribuzioneTipi(List<ScoutAction> tutte) {
     final isBattuta = widget.fondamentale == Fondamentale.battuta;
     // (label, name) in ordine di dichiarazione dell'enum.
+    final l = AppLocalizations.of(context);
     final tipi = isBattuta
-        ? [for (final t in TipoBattuta.values) (t.label, t.name)]
-        : [for (final t in TipoAttacco.values) (t.label, t.name)];
+        ? [for (final t in TipoBattuta.values) (tipoBattutaLabel(t, l), t.name)]
+        : [for (final t in TipoAttacco.values) (tipoAttaccoLabel(t, l), t.name)];
     final validi = {for (final t in tipi) t.$2};
 
     final conteggi = <String, int>{};

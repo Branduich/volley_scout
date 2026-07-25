@@ -2780,7 +2780,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           .where((m) => m.name == azione.tipoEsecuzione)
           .firstOrNull;
       if (motivo != null && motivo != MotivoErrore.generico) {
-        testo = '$testo - ${motivo.label}';
+        testo = '$testo - ${motivoErroreLabel(motivo, AppLocalizations.of(context))}';
       }
     }
     return (
@@ -3136,7 +3136,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       ),
       items: [
         for (final motivo in MotivoErrore.values)
-          PopupMenuItem(value: motivo, child: Text(motivo.label)),
+          PopupMenuItem(
+              value: motivo,
+              child: Text(motivoErroreLabel(motivo, AppLocalizations.of(context)))),
       ],
     );
     if (scelto == null) return;

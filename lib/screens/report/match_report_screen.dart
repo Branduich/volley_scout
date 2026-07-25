@@ -1901,7 +1901,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                 runSpacing: 8,
                 children: [
                   for (final m in MotivoErrore.values)
-                    _motivoChip(m.label, r.motiviAvversari[m] ?? 0),
+                    _motivoChip(motivoErroreLabel(m, AppLocalizations.of(context)),
+                        r.motiviAvversari[m] ?? 0),
                 ],
               ),
             ],

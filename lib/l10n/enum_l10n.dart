@@ -11,6 +11,43 @@ import 'app_localizations.dart';
 /// estensione omonimo. Una funzione non va mai in conflitto — quando tutti i
 /// call site saranno migrati si potrà rimuovere il campo `label` dall'enum.
 
+/// Nome localizzato del [TipoBattuta] (chip su TrajectoryScreen, CSV/PDF,
+/// distribuzione tipi nel report). Il `.name` resta la chiave polimorfica
+/// salvata a DB nella colonna `tipoEsecuzione`.
+String tipoBattutaLabel(TipoBattuta t, AppLocalizations l) => switch (t) {
+      TipoBattuta.nonSpecificato => l.tipoBattutaGenerico,
+      TipoBattuta.dalBasso => l.tipoBattutaDalBasso,
+      TipoBattuta.float => l.tipoBattutaFloat,
+      TipoBattuta.salto => l.tipoBattutaSalto,
+      TipoBattuta.saltoFloat => l.tipoBattutaSaltoFloat,
+    };
+
+/// Nome localizzato del [TipoAttacco] (chip su TrajectoryScreen, CSV/PDF,
+/// distribuzione tipi nel report). Il `.name` resta la chiave polimorfica
+/// salvata a DB nella colonna `tipoEsecuzione`.
+String tipoAttaccoLabel(TipoAttacco t, AppLocalizations l) => switch (t) {
+      TipoAttacco.nonSpecificato => l.tipoAttaccoGenerico,
+      TipoAttacco.forte => l.tipoAttaccoForte,
+      TipoAttacco.piazzata => l.tipoAttaccoPiazzata,
+      TipoAttacco.pallonetto => l.tipoAttaccoPallonetto,
+    };
+
+/// Nome localizzato del [MotivoErrore] (popup/banner errore avversario nello
+/// scout, chip report, riga PDF, CSV). Il `.name` resta la chiave polimorfica
+/// salvata a DB nella colonna `tipoEsecuzione`.
+String motivoErroreLabel(MotivoErrore m, AppLocalizations l) => switch (m) {
+      MotivoErrore.generico => l.motivoErroreGenerico,
+      MotivoErrore.battuta => l.motivoErroreBattuta,
+      MotivoErrore.falloDiPosizione => l.motivoErroreFalloDiPosizione,
+      MotivoErrore.invasione => l.motivoErroreInvasione,
+    };
+
+/// Nome localizzato del [SistemaGioco] (dropdown in FormationConfigScreen).
+String sistemaGiocoLabel(SistemaGioco s, AppLocalizations l) => switch (s) {
+      SistemaGioco.palleggiatoreUnico => l.sistemaGiocoPalleggiatoreUnico,
+      SistemaGioco.doppioPalleggiatore => l.sistemaGiocoDoppioPalleggiatore,
+    };
+
 /// Nome localizzato del [Fondamentale] (banner scout, pannelli voto, dropdown
 /// dei report, colonna CSV). Il `.name` resta la chiave persistita a DB
 /// (FondamentaleConverter).

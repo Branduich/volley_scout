@@ -53,11 +53,9 @@ enum Voto {
 }
 
 enum SistemaGioco {
-  palleggiatoreUnico('Palleggiatore unico (5-1)'),
-  doppioPalleggiatore('Doppio palleggiatore (6-2)');
-
-  final String label;
-  const SistemaGioco(this.label);
+  // Etichette localizzate in lib/l10n/enum_l10n.dart (sistemaGiocoLabel).
+  palleggiatoreUnico,
+  doppioPalleggiatore;
 }
 
 /// Stato di una partita. Flusso: configurazione → inCorso ↔ sospesa → terminata.
@@ -124,35 +122,32 @@ enum DirezioneRotazione { avanti, indietro }
 /// `generico` (percorso veloce, invariato); pressione prolungata apre un
 /// menu con gli altri motivi — vedi ScoutScreen._buildBottoniAvversario().
 enum MotivoErrore {
-  generico('Generico'),
-  battuta('Battuta'),
-  falloDiPosizione('Fallo di posizione'),
-  invasione('Invasione');
-
-  final String label;
-  const MotivoErrore(this.label);
+  // Etichette localizzate in lib/l10n/enum_l10n.dart (motivoErroreLabel).
+  // Il `.name` resta la chiave salvata nella colonna polimorfica tipoEsecuzione.
+  generico,
+  battuta,
+  falloDiPosizione,
+  invasione;
 }
 
 /// Tipo di esecuzione di un attacco — contestuale, opzionale, default
 /// `nonSpecificato` per non bloccare il flusso veloce.
 enum TipoAttacco {
-  nonSpecificato('Generico'),
-  forte('Forte'),
-  piazzata('Piazzata'),
-  pallonetto('Pallonetto');
-
-  final String label;
-  const TipoAttacco(this.label);
+  // Etichette localizzate in lib/l10n/enum_l10n.dart (tipoAttaccoLabel).
+  // Il `.name` resta la chiave salvata nella colonna polimorfica tipoEsecuzione.
+  nonSpecificato,
+  forte,
+  piazzata,
+  pallonetto;
 }
 
 /// Tipo di esecuzione di una battuta — stessa logica di TipoAttacco.
 enum TipoBattuta {
-  nonSpecificato('Generico'),
-  dalBasso('Dal basso'),
-  float('Float'),
-  salto('Salto'),
-  saltoFloat('Salto float');
-
-  final String label;
-  const TipoBattuta(this.label);
+  // Etichette localizzate in lib/l10n/enum_l10n.dart (tipoBattutaLabel).
+  // Il `.name` resta la chiave salvata nella colonna polimorfica tipoEsecuzione.
+  nonSpecificato,
+  dalBasso,
+  float,
+  salto,
+  saltoFloat;
 }

@@ -296,7 +296,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
       children: [
         for (final tipo in tipi) ...[
           _buildTipoChip(
-            label: tipo.label,
+            label: tipoBattutaLabel(tipo, AppLocalizations.of(context)),
             selezionato: _tipoBattuta == tipo,
             onTap: () => _toggleTipoBattuta(tipo),
           ),
@@ -319,7 +319,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
       children: [
         for (final tipo in tipi) ...[
           _buildTipoChip(
-            label: tipo.label,
+            label: tipoAttaccoLabel(tipo, AppLocalizations.of(context)),
             selezionato: _tipoAttacco == tipo,
             onTap: () => _toggleTipoAttacco(tipo),
           ),

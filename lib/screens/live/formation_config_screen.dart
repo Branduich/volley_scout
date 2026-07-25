@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../widgets/court_view.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
 import 'scout_screen.dart';
 
 const _kBg = Color(0xFF0F172A);
@@ -258,7 +260,10 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
                   underline: Container(height: 1, color: Colors.white38),
                   items: SistemaGioco.values
                       .map(
-                        (s) => DropdownMenuItem(value: s, child: Text(s.label)),
+                        (s) => DropdownMenuItem(
+                            value: s,
+                            child: Text(
+                                sistemaGiocoLabel(s, AppLocalizations.of(context)))),
                       )
                       .toList(),
                   onChanged: (v) => setState(() => _sistema = v!),

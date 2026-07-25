@@ -45,5 +45,24 @@
   "fondamentaleErrore": "Errore",
 
   "riepilogoAttaccoSuRicezione": "Attacco su ricezione",
-  "riepilogoAttaccoSuDifesa": "Attacco su Difesa"
+  "riepilogoAttaccoSuDifesa": "Attacco su Difesa",
+
+  "sistemaGiocoPalleggiatoreUnico": "Palleggiatore unico (5-1)",
+  "sistemaGiocoDoppioPalleggiatore": "Doppio palleggiatore (6-2)",
+
+  "tipoBattutaGenerico": "Generico",
+  "tipoBattutaDalBasso": "Dal basso",
+  "tipoBattutaFloat": "Float",
+  "tipoBattutaSalto": "Salto",
+  "tipoBattutaSaltoFloat": "Salto float",
+
+  "tipoAttaccoGenerico": "Generico",
+  "tipoAttaccoForte": "Forte",
+  "tipoAttaccoPiazzata": "Piazzata",
+  "tipoAttaccoPallonetto": "Pallonetto",
+
+  "motivoErroreGenerico": "Generico",
+  "motivoErroreBattuta": "Battuta",
+  "motivoErroreFalloDiPosizione": "Fallo di posizione",
+  "motivoErroreInvasione": "Invasione"
 }

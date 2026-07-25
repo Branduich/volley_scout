@@ -45,5 +45,24 @@
   "fondamentaleErrore": "Error",
 
   "riepilogoAttaccoSuRicezione": "Sideout attack",
-  "riepilogoAttaccoSuDifesa": "Transition attack"
+  "riepilogoAttaccoSuDifesa": "Transition attack",
+
+  "sistemaGiocoPalleggiatoreUnico": "Single setter (5-1)",
+  "sistemaGiocoDoppioPalleggiatore": "Double setter (6-2)",
+
+  "tipoBattutaGenerico": "Generic",
+  "tipoBattutaDalBasso": "Underhand",
+  "tipoBattutaFloat": "Float",
+  "tipoBattutaSalto": "Jump",
+  "tipoBattutaSaltoFloat": "Jump float",
+
+  "tipoAttaccoGenerico": "Generic",
+  "tipoAttaccoForte": "Spike",
+  "tipoAttaccoPiazzata": "Placed shot",
+  "tipoAttaccoPallonetto": "Tip",
+
+  "motivoErroreGenerico": "Generic",
+  "motivoErroreBattuta": "Serve",
+  "motivoErroreFalloDiPosizione": "Position fault",
+  "motivoErroreInvasione": "Net violation"
 }
