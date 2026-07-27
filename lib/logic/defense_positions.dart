@@ -16,6 +16,8 @@ library;
 
 import 'dart:ui' show Offset;
 
+import 'attack_positions.dart' show attackSenzaLiberoDaCentrali;
+
 const Map<String, Map<String, Offset>> kDefensePositionsCentrali = {
   'P1': {
     'S1': Offset(240, 482),
@@ -165,4 +167,74 @@ Map<String, Offset>? defenseMapFor({
       coppiaFissa.every(map.containsKey) &&
       unaSolaSostituita;
   return completa ? map : null;
+}
+
+// ===========================================================================
+// MODULO 6-2 — ricezione (gemello di kDefensePositionsCentrali). I due
+// palleggiatori sono etichette FISSE 'P1'/'P2' (vedi roleLabelsFor62); libero
+// sempre sui centrali (variante unica). Dati dai CSV dell'utente (fase
+// Ricezione).
+// ===========================================================================
+const Map<String, Map<String, Offset>> kDefensePositions62 = {
+  'P1': {
+    'P1': Offset(206, 560),
+    'S1': Offset(240, 482),
+    'Libero': Offset(166, 300),
+    'S2': Offset(240, 114),
+    'C1': Offset(540, 324),
+    'P2': Offset(444, 50),
+  },
+  'P2': {
+    'P1': Offset(552, 356),
+    'C1': Offset(552, 50),
+    'Libero': Offset(240, 482),
+    'S1': Offset(240, 114),
+    'S2': Offset(166, 296),
+    'P2': Offset(60, 266),
+  },
+  'P3': {
+    'P1': Offset(552, 274),
+    'P2': Offset(498, 314),
+    'C2': Offset(438, 542),
+    'S1': Offset(240, 114),
+    'S2': Offset(240, 482),
+    'Libero': Offset(166, 296),
+  },
+  'P4': {
+    'P1': Offset(552, 50),
+    'C2': Offset(482, 76),
+    'P2': Offset(188, 542),
+    'Libero': Offset(166, 296),
+    'S2': Offset(240, 114),
+    'S1': Offset(240, 482),
+  },
+  'P5': {
+    'P1': Offset(518, 254),
+    'C2': Offset(552, 50),
+    'S1': Offset(166, 296),
+    'S2': Offset(240, 114),
+    'Libero': Offset(240, 482),
+    'P2': Offset(438, 542),
+  },
+  'P6': {
+    'P1': Offset(498, 314),
+    'P2': Offset(552, 274),
+    'S2': Offset(240, 114),
+    'S1': Offset(240, 482),
+    'Libero': Offset(166, 296),
+    'C1': Offset(438, 542),
+  },
+};
+
+/// Ricezione per il 6-2 (gemello di `defenseMapFor`). Libero sempre sui
+/// centrali; "senza libero" derivata sostituendo 'Libero' col centrale reale
+/// (`kRuoloSostituitoCentrali`, via `attackSenzaLiberoDaCentrali`).
+Map<String, Offset>? defenseMapFor62({
+  required String rotazione,
+  required bool senzaLibero,
+}) {
+  if (senzaLibero) {
+    return attackSenzaLiberoDaCentrali(kDefensePositions62, rotazione);
+  }
+  return kDefensePositions62[rotazione];
 }

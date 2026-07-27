@@ -120,6 +120,54 @@ Map<String, String> roleLabelsFor(
   return labels;
 }
 
+/// Etichette di ruolo per il **6-2** (doppio palleggiatore, 2P+2S+2C, nessun
+/// opposto dedicato). I due palleggiatori hanno identità FISSE **P1** e **P2**
+/// (non 'P'/'O'): `P1` è il palleggiatore di **riferimento** (quello su cui è
+/// ancorata la rotazione, `riferimentoSlot` = il suo slot attuale), `P2` è
+/// l'altro (diagonale, 3 posizioni). Struttura identica al 5-1 — anello
+/// `P1, S1, C1, P2, S2, C2` (P2 occupa la posizione che nel 5-1 è dell'opposto)
+/// — così le tabelle di posizione 6-2 mantengono la stessa forma (chiave =
+/// slot di P1). Schiacciatori → S1/S2 e centrali → C1/C2 per distanza
+/// antioraria da `riferimentoSlot`, stessa convenzione del 5-1.
+///
+/// `assignments` sono i **6 giocatori di rotazione** (entrambi i centrali
+/// presenti; la sostituzione col libero è un fatto di rendering, come nel
+/// 5-1). Verificata contro le tabelle CSV dell'utente (rotazioni P1, P3).
+/// Pura e testabile — vedi test/logic/role_labels_62_test.dart.
+Map<String, String> roleLabelsFor62(
+    String riferimentoSlot, Map<String, Player> assignments) {
+  final schiacciatori = <String>[];
+  final centrali = <String>[];
+  String? secondoPalleggiatore;
+  for (final slot in kSlotOrder) {
+    switch (assignments[slot]?.ruolo) {
+      case Ruolo.palleggiatore:
+        if (slot != riferimentoSlot) secondoPalleggiatore = slot;
+      case Ruolo.schiacciatore:
+        schiacciatori.add(slot);
+      case Ruolo.centrale:
+        centrali.add(slot);
+      default:
+        break; // opposto/undefined/libero: non previsti nel 6-2 standard
+    }
+  }
+
+  final startIndex = kSlotOrder.indexOf(riferimentoSlot);
+  int distanceFromP1(String slot) =>
+      (kSlotOrder.indexOf(slot) - startIndex + kSlotOrder.length) %
+      kSlotOrder.length;
+  schiacciatori.sort((a, b) => distanceFromP1(a).compareTo(distanceFromP1(b)));
+  centrali.sort((a, b) => distanceFromP1(a).compareTo(distanceFromP1(b)));
+
+  final labels = <String, String>{riferimentoSlot: 'P1'};
+  if (secondoPalleggiatore != null) labels[secondoPalleggiatore] = 'P2';
+  if (schiacciatori.isNotEmpty) labels[schiacciatori[0]] = 'S1';
+  if (schiacciatori.length > 1) labels[schiacciatori[1]] = 'S2';
+  if (centrali.isNotEmpty) labels[centrali[0]] = 'C1';
+  if (centrali.length > 1) labels[centrali[1]] = 'C2';
+  return labels;
+}
+
 /// Ordine canonico dei ruoli in un 5-1, partendo dal palleggiatore e girando
 /// nel verso della rotazione (offset 0 = P, poi S1, C1, O, S2, C2): l'opposto
 /// è diagonale al palleggiatore (3 posizioni), le coppie S1/S2 e C1/C2 sono

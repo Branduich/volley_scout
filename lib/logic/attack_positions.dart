@@ -392,6 +392,186 @@ Map<String, Offset>? attackMapFor({
       : centrali[rotazione];
 }
 
+// ===========================================================================
+// MODULO 6-2 (doppio palleggiatore). Stessa forma delle tabelle 5-1 ma i due
+// palleggiatori sono etichette FISSE 'P1'/'P2' (vedi roleLabelsFor62): 'P1' è
+// il palleggiatore di riferimento (chiave = suo slot), 'P2' l'altro (occupa la
+// posizione che nel 5-1 è dell'opposto). Libero SEMPRE sui centrali (variante
+// unica), stesso kRuoloSostituitoCentrali del 5-1 + eccezione del servizio
+// (il centrale che batte resta in campo). Dati trascritti dai CSV dell'utente.
+// ===========================================================================
+
+const Map<String, Map<String, Offset>> kAttackBattuta62 = {
+  'P1': {
+    'P1': Offset(-60, 470),
+    'S1': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'P2': Offset(530, 130),
+    'S2': Offset(200, 130),
+    'Libero': Offset(200, 300),
+  },
+  'P2': {
+    'C2': Offset(-60, 470),
+    'P1': Offset(530, 470),
+    'S1': Offset(530, 300),
+    'C1': Offset(530, 130),
+    'P2': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P3': {
+    'S2': Offset(-60, 470),
+    'C2': Offset(530, 470),
+    'P1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'P2': Offset(200, 300),
+  },
+  'P4': {
+    'P2': Offset(-60, 470),
+    'S2': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'P1': Offset(530, 130),
+    'S1': Offset(200, 130),
+    'Libero': Offset(200, 300),
+  },
+  'P5': {
+    'C1': Offset(-60, 470),
+    'P2': Offset(530, 470),
+    'S2': Offset(530, 300),
+    'C2': Offset(530, 130),
+    'P1': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P6': {
+    'S1': Offset(-60, 470),
+    'C1': Offset(530, 470),
+    'P2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'P1': Offset(200, 300),
+  },
+};
+
+const Map<String, Map<String, Offset>> kAttackDopoBattuta62 = {
+  'P1': {
+    'P1': Offset(200, 470),
+    'P2': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 300),
+    'S2': Offset(200, 130),
+  },
+  'P2': {
+    'P2': Offset(200, 470),
+    'P1': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'C2': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P3': {
+    'P2': Offset(200, 470),
+    'P1': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P4': {
+    'P2': Offset(200, 470),
+    'P1': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P5': {
+    'P1': Offset(200, 470),
+    'P2': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'C1': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P6': {
+    'P1': Offset(200, 470),
+    'P2': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+};
+
+const Map<String, Map<String, Offset>> kAttackDopoRicezione62 = {
+  'P1': {
+    'P1': Offset(200, 470),
+    'S1': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'P2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P2': {
+    'P2': Offset(200, 470),
+    'P1': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P3': {
+    'P2': Offset(200, 470),
+    'P1': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
+  },
+  'P4': {
+    'P2': Offset(200, 470),
+    'S2': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'P1': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P5': {
+    'P1': Offset(200, 470),
+    'P2': Offset(530, 470),
+    'C2': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+  'P6': {
+    'P1': Offset(200, 470),
+    'P2': Offset(530, 470),
+    'C1': Offset(530, 300),
+    'S2': Offset(530, 130),
+    'Libero': Offset(200, 130),
+    'S1': Offset(200, 300),
+  },
+};
+
+/// Tabella ruolo→posizione d'attacco per il 6-2 (gemello di `attackMapFor`).
+/// Nessuna variante "libero sugli schiacciatori": nel 6-2 il libero è sempre
+/// sui centrali. Caso "senza libero" derivato con lo stesso
+/// `attackSenzaLiberoDaCentrali`/`kRuoloSostituitoCentrali` del 5-1.
+Map<String, Offset>? attackMapFor62({
+  required String rotazione,
+  required FaseAttacco fase,
+  required bool senzaLibero,
+}) {
+  final tabella = switch (fase) {
+    FaseAttacco.battuta => kAttackBattuta62,
+    FaseAttacco.dopoBattuta => kAttackDopoBattuta62,
+    FaseAttacco.dopoRicezione => kAttackDopoRicezione62,
+  };
+  if (senzaLibero) return attackSenzaLiberoDaCentrali(tabella, rotazione);
+  return tabella[rotazione];
+}
+
 /// Zona del campo (1-6) di una posizione tattica nello spazio di
 /// riferimento 1200×600, campo sinistro: prima linea (oltre la linea dei
 /// 3m, x > 400) zone 4/3/2 dall'alto in basso, seconda linea zone 5/6/1.
