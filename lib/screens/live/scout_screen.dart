@@ -1770,6 +1770,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
           liberi: liberi,
           palleggiatoreSlotCorrente: palleggiatoreSlotCorrente,
           ruoloCambiLiberoCorrente: _ruoloCambiLiberoEffettivo,
+          sistemaGioco: widget.sistemaGioco,
         ),
       ),
     );

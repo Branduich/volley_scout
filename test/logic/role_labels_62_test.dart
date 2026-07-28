@@ -78,6 +78,28 @@ void main() {
       expect(labels.values.where((v) => v == 'P2').length, 1);
     });
 
+    test('la POSIZIONE vince sul ruolo: un non-palleggiatore nel slot '
+        'diagonale diventa P2 (cambio alzatore→opposto confermato alzatore)', () {
+      // Riferimento P1; nel diagonale P4 c'è un OPPOSTO (entrato al posto di
+      // un alzatore e confermato come alzatore). Deve diventare P2.
+      final labels = roleLabelsFor62('P1', {
+        'P1': _p(1, Ruolo.palleggiatore),
+        'P4': _p(4, Ruolo.opposto), // designato alzatore → P2 per posizione
+        'P2': _p(2, Ruolo.schiacciatore),
+        'P5': _p(5, Ruolo.schiacciatore),
+        'P3': _p(3, Ruolo.centrale),
+        'P6': _p(6, Ruolo.centrale),
+      });
+      expect(labels, {
+        'P1': 'P1',
+        'P4': 'P2',
+        'P2': 'S1',
+        'P5': 'S2',
+        'P3': 'C1',
+        'P6': 'C2',
+      });
+    });
+
     test('tutti e 6 gli slot etichettati, etichette uniche', () {
       final labels = roleLabelsFor62('P1', {
         'P1': _p(1, Ruolo.palleggiatore),

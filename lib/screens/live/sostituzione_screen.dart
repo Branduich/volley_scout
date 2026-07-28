@@ -61,6 +61,10 @@ class SostituzioneScreen extends StatefulWidget {
   final String palleggiatoreSlotCorrente;
   final Ruolo? ruoloCambiLiberoCorrente;
 
+  /// Sistema di gioco del set: passato alla riconferma così in 6-2 mostra 2
+  /// palleggiatori e nasconde i cambi libero (come a inizio partita).
+  final SistemaGioco sistemaGioco;
+
   const SostituzioneScreen({
     super.key,
     required this.match,
@@ -70,6 +74,7 @@ class SostituzioneScreen extends StatefulWidget {
     required this.liberi,
     required this.palleggiatoreSlotCorrente,
     required this.ruoloCambiLiberoCorrente,
+    required this.sistemaGioco,
   });
 
   @override
@@ -215,6 +220,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> {
           palleggiatoreSlotIniziale: widget.palleggiatoreSlotCorrente,
           ruoloCambiLiberoIniziale: widget.ruoloCambiLiberoCorrente,
           modalitaConferma: true,
+          sistemaGiocoIniziale: widget.sistemaGioco,
         ),
       ),
     );

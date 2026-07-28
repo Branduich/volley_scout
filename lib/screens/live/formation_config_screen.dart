@@ -33,6 +33,12 @@ class FormationConfigScreen extends StatefulWidget {
   /// invariato col default false.
   final bool modalitaConferma;
 
+  /// Sistema di gioco del set (flusso di sostituzione): inizializza il sistema
+  /// così la riconferma 6-2 mostra 2 palleggiatori e nasconde i cambi libero,
+  /// come a inizio partita. null nel flusso di inizio partita, dove è il
+  /// dropdown a scegliere il sistema.
+  final SistemaGioco? sistemaGiocoIniziale;
+
   const FormationConfigScreen({
     super.key,
     required this.match,
@@ -41,6 +47,7 @@ class FormationConfigScreen extends StatefulWidget {
     this.palleggiatoreSlotIniziale,
     this.ruoloCambiLiberoIniziale,
     this.modalitaConferma = false,
+    this.sistemaGiocoIniziale,
   });
 
   @override
@@ -61,6 +68,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   @override
   void initState() {
     super.initState();
+    _sistema = widget.sistemaGiocoIniziale ?? SistemaGioco.palleggiatoreUnico;
     _preselezionaPalleggiatori();
     // Coppia cambi-libero: preseleziona i giocatori col ruolo della coppia
     // effettiva se fornito, altrimenti i centrali come a inizio partita.

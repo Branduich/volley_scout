@@ -136,31 +136,35 @@ Map<String, String> roleLabelsFor(
 /// Pura e testabile — vedi test/logic/role_labels_62_test.dart.
 Map<String, String> roleLabelsFor62(
     String riferimentoSlot, Map<String, Player> assignments) {
+  final startIndex = kSlotOrder.indexOf(riferimentoSlot);
+  // Il secondo palleggiatore è SEMPRE il diagonale del riferimento (3 slot):
+  // i due palleggiatori del 6-2 sono opposti nel ring e ruotano insieme.
+  // Determinato per POSIZIONE, non per ruolo → "chi occupa quella posizione fa
+  // il palleggiatore" anche se ha un Ruolo diverso (es. un cambio
+  // alzatore→opposto confermato come alzatore: la posizione vince sul ruolo).
+  final p2Slot = kSlotOrder[(startIndex + 3) % kSlotOrder.length];
+
   final schiacciatori = <String>[];
   final centrali = <String>[];
-  String? secondoPalleggiatore;
   for (final slot in kSlotOrder) {
+    if (slot == riferimentoSlot || slot == p2Slot) continue; // i due P
     switch (assignments[slot]?.ruolo) {
-      case Ruolo.palleggiatore:
-        if (slot != riferimentoSlot) secondoPalleggiatore = slot;
       case Ruolo.schiacciatore:
         schiacciatori.add(slot);
       case Ruolo.centrale:
         centrali.add(slot);
       default:
-        break; // opposto/undefined/libero: non previsti nel 6-2 standard
+        break; // opposto/undefined/libero: non previsti negli altri 4 slot
     }
   }
 
-  final startIndex = kSlotOrder.indexOf(riferimentoSlot);
   int distanceFromP1(String slot) =>
       (kSlotOrder.indexOf(slot) - startIndex + kSlotOrder.length) %
       kSlotOrder.length;
   schiacciatori.sort((a, b) => distanceFromP1(a).compareTo(distanceFromP1(b)));
   centrali.sort((a, b) => distanceFromP1(a).compareTo(distanceFromP1(b)));
 
-  final labels = <String, String>{riferimentoSlot: 'P1'};
-  if (secondoPalleggiatore != null) labels[secondoPalleggiatore] = 'P2';
+  final labels = <String, String>{riferimentoSlot: 'P1', p2Slot: 'P2'};
   if (schiacciatori.isNotEmpty) labels[schiacciatori[0]] = 'S1';
   if (schiacciatori.length > 1) labels[schiacciatori[1]] = 'S2';
   if (centrali.isNotEmpty) labels[centrali[0]] = 'C1';

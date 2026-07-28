@@ -1476,6 +1476,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       f.assignments['L2'],
     ].whereType<Player>().toList();
     final cambi = f.ruoloCambiLibero; // centrale/schiacciatore, o null
+    // Nel 6-2 gli alzatori sono DUE: riferimento + diagonale (+3 slot, per
+    // posizione — stesso principio di roleLabelsFor62). Entrambi bordati.
+    final is62 = f.sistemaGioco == SistemaGioco.doppioPalleggiatore;
+    final rifNum = int.tryParse(f.palleggiatoreSlot.substring(1));
+    final diagSlot =
+        (is62 && rifNum != null) ? 'P${(rifNum - 1 + 3) % 6 + 1}' : null;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1505,7 +1511,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                   height: 460,
                   child: CourtView(
                     assignments: f.assignments,
-                    selectedSlots: {f.palleggiatoreSlot},
+                    selectedSlots: {f.palleggiatoreSlot, ?diagSlot},
                     selectionColor: Colors.red,
                   ),
                 ),

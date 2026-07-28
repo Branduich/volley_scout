@@ -1703,12 +1703,18 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
         .whereType<Player>()
         .toList();
     final cambi = f.ruoloCambiLibero;
+    // Nel 6-2 gli alzatori sono DUE: il riferimento + il suo diagonale (+3 slot,
+    // per posizione — stesso principio di roleLabelsFor62). Entrambi bordati.
+    final is62 = f.sistemaGioco == SistemaGioco.doppioPalleggiatore;
+    final rifNum = int.tryParse(f.palleggiatoreSlot.substring(1));
+    final diagSlot =
+        (is62 && rifNum != null) ? 'P${(rifNum - 1 + 3) % 6 + 1}' : null;
 
     pw.Widget cardGiocatore(String slot) {
       final p = f.assignments[slot];
       if (p == null) return pw.SizedBox();
       final (col, riga) = posizioni[slot]!;
-      final isSetter = slot == f.palleggiatoreSlot;
+      final isSetter = slot == f.palleggiatoreSlot || slot == diagSlot;
       return pw.Positioned(
         left: col * cw + 4,
         top: riga * ch + 8,
