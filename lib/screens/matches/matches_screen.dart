@@ -53,6 +53,8 @@ class MatchesScreen extends ConsumerWidget {
                 palleggiatoreSlot: formazione.palleggiatoreSlot,
                 assignments: formazione.assignments,
                 ruoloCambiLibero: formazione.ruoloCambiLibero,
+                sistemaGioco: formazione.sistemaGioco ??
+                    SistemaGioco.palleggiatoreUnico,
               ),
             ),
           );

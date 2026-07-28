@@ -29,6 +29,7 @@ typedef _FormazionePdf = ({
   Map<String, Player> assignments,
   String palleggiatoreSlot,
   Ruolo? ruoloCambiLibero,
+  SistemaGioco? sistemaGioco,
 });
 
 // Traiettoria pronta per il painter vettoriale del PDF (coordinate

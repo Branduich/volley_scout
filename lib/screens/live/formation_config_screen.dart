@@ -49,25 +49,19 @@ class FormationConfigScreen extends StatefulWidget {
 
 class _FormationConfigScreenState extends State<FormationConfigScreen> {
   SistemaGioco _sistema = SistemaGioco.palleggiatoreUnico;
-  String? _palleggiatoreSlot;
+  // Slot dei palleggiatori designati: 1 nel 5-1, 2 nel 6-2. Nel 6-2 il
+  // palleggiatore di RIFERIMENTO (P1) passato allo scout è quello con lo slot
+  // più basso (coerente con MatchSetRepository.caricaFormazione).
+  final Set<String> _palleggiatoriSlots = {};
   final Set<String> _centraliSlots = {};
+
+  bool get _is62 => _sistema == SistemaGioco.doppioPalleggiatore;
+  int get _numPalleggiatori => _is62 ? 2 : 1;
 
   @override
   void initState() {
     super.initState();
-    // Palleggiatore: preselezione esplicita (flusso sostituzione, valore
-    // effettivo del set) o scan per ruolo (inizio partita).
-    if (widget.palleggiatoreSlotIniziale != null &&
-        widget.assignments.containsKey(widget.palleggiatoreSlotIniziale)) {
-      _palleggiatoreSlot = widget.palleggiatoreSlotIniziale;
-    } else {
-      for (final entry in widget.assignments.entries) {
-        if (entry.value.ruolo == Ruolo.palleggiatore &&
-            _palleggiatoreSlot == null) {
-          _palleggiatoreSlot = entry.key;
-        }
-      }
-    }
+    _preselezionaPalleggiatori();
     // Coppia cambi-libero: preseleziona i giocatori col ruolo della coppia
     // effettiva se fornito, altrimenti i centrali come a inizio partita.
     // Solo slot P1..P6 (assignments contiene anche L1/L2) e mai il
@@ -76,7 +70,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     // mancante di qualunque coppia.
     final ruoloCoppia = widget.ruoloCambiLiberoIniziale ?? Ruolo.centrale;
     bool selezionabile(MapEntry<String, Player> entry) =>
-        entry.key != _palleggiatoreSlot && entry.key.startsWith('P');
+        !_palleggiatoriSlots.contains(entry.key) && entry.key.startsWith('P');
     for (final entry in widget.assignments.entries) {
       if (entry.value.ruolo == ruoloCoppia &&
           selezionabile(entry) &&
@@ -95,29 +89,57 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
     }
   }
 
+  // Preseleziona i palleggiatori (1 nel 5-1, 2 nel 6-2). Rieseguita al cambio
+  // di sistema di gioco dal dropdown.
+  void _preselezionaPalleggiatori() {
+    _palleggiatoriSlots.clear();
+    // Preselezione esplicita (flusso sostituzione, solo 5-1) ha priorità.
+    if (!_is62 &&
+        widget.palleggiatoreSlotIniziale != null &&
+        widget.assignments.containsKey(widget.palleggiatoreSlotIniziale)) {
+      _palleggiatoriSlots.add(widget.palleggiatoreSlotIniziale!);
+      return;
+    }
+    final slotP = [
+      for (final entry in widget.assignments.entries)
+        if (entry.value.ruolo == Ruolo.palleggiatore &&
+            entry.key.startsWith('P'))
+          entry.key,
+    ]..sort();
+    _palleggiatoriSlots.addAll(slotP.take(_numPalleggiatori));
+  }
+
   bool get _hasLibero =>
       widget.assignments.containsKey('L1') ||
       widget.assignments.containsKey('L2');
 
+  // Nel 6-2 il libero è sempre sui centrali (nessuna scelta di coppia), quindi
+  // basta designare i palleggiatori.
   bool get _canConfirm =>
-      _palleggiatoreSlot != null && (!_hasLibero || _centraliSlots.length == 2);
+      _palleggiatoriSlots.length == _numPalleggiatori &&
+      (!_hasLibero || _is62 || _centraliSlots.length == 2);
 
   void _onPalleggiatoreSlotTap(String slot) {
     setState(() {
-      if (_palleggiatoreSlot == slot) {
-        _palleggiatoreSlot = null;
-      } else {
-        _palleggiatoreSlot = slot;
-        _centraliSlots.remove(
-          slot,
-        ); // un giocatore non può essere anche centrale
+      if (_palleggiatoriSlots.contains(slot)) {
+        _palleggiatoriSlots.remove(slot);
+      } else if (_palleggiatoriSlots.length < _numPalleggiatori) {
+        _palleggiatoriSlots.add(slot);
+        _centraliSlots.remove(slot); // non può essere anche cambio-libero
+      } else if (_numPalleggiatori == 1) {
+        // 5-1: sposta la selezione singola sul nuovo slot.
+        _palleggiatoriSlots
+          ..clear()
+          ..add(slot);
+        _centraliSlots.remove(slot);
       }
+      // 6-2 con 2 già selezionati: tap su un terzo ignorato (deseleziona prima).
     });
   }
 
   void _onCentraleSlotTap(String slot) {
     final player = widget.assignments[slot];
-    if (player == null || slot == _palleggiatoreSlot) return;
+    if (player == null || _palleggiatoriSlots.contains(slot)) return;
     final ruolo = player.ruolo;
     if (ruolo != Ruolo.centrale &&
         ruolo != Ruolo.schiacciatore &&
@@ -145,12 +167,13 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
           final opp = opposites[slot];
           if (opp != null &&
               widget.assignments.containsKey(opp) &&
-              opp != _palleggiatoreSlot) {
+              !_palleggiatoriSlots.contains(opp)) {
             _centraliSlots.add(opp);
           }
         } else {
           for (final e in widget.assignments.entries) {
-            if (e.value.ruolo == ruolo && e.key != _palleggiatoreSlot) {
+            if (e.value.ruolo == ruolo &&
+                !_palleggiatoriSlots.contains(e.key)) {
               _centraliSlots.add(e.key);
             }
           }
@@ -189,14 +212,21 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   }
 
   void _onAvanti() {
-    // Il libero sostituisce o i due centrali o i due schiacciatori (mai una
-    // combinazione, vedi _onCentraleSlotTap).
-    final ruoloCambiLibero = _ruoloCoppiaEffettivo();
+    // Riferimento (P1 nel 6-2): slot col numero più basso tra i palleggiatori
+    // designati — coerente con MatchSetRepository.caricaFormazione.
+    final palleggiatoreRiferimento =
+        (_palleggiatoriSlots.toList()..sort()).first;
+    // Nel 6-2 il libero è sempre sui centrali; nel 5-1 dipende dalla coppia
+    // selezionata (o i due centrali o i due schiacciatori, vedi
+    // _onCentraleSlotTap).
+    final ruoloCambiLibero = _is62
+        ? (_hasLibero ? Ruolo.centrale : null)
+        : _ruoloCoppiaEffettivo();
     if (widget.modalitaConferma) {
       // Flusso sostituzione: la scelta torna al chiamante (che scriverà
       // gli eventi di cambio) — nessuna navigazione avanti.
       Navigator.pop<ConfigurazioneFormazione>(context, (
-        palleggiatoreSlot: _palleggiatoreSlot!,
+        palleggiatoreSlot: palleggiatoreRiferimento,
         ruoloCambiLibero: ruoloCambiLibero,
       ));
       return;
@@ -207,9 +237,10 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
         builder: (_) => ScoutScreen(
           match: widget.match,
           team: widget.team,
-          palleggiatoreSlot: _palleggiatoreSlot!,
+          palleggiatoreSlot: palleggiatoreRiferimento,
           assignments: widget.assignments,
           ruoloCambiLibero: ruoloCambiLibero,
+          sistemaGioco: _sistema,
         ),
       ),
     );
@@ -240,37 +271,43 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Sistema di gioco
-            Row(
-              children: [
-                const Text(
-                  'Sistema di gioco:',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+            // Sistema di gioco — nascosto nel flusso di sostituzione (il
+            // sistema non si cambia a set in corso).
+            if (!widget.modalitaConferma) ...[
+              Row(
+                children: [
+                  const Text(
+                    'Sistema di gioco:',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                DropdownButton<SistemaGioco>(
-                  value: _sistema,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  iconEnabledColor: Colors.white,
-                  underline: Container(height: 1, color: Colors.white38),
-                  items: SistemaGioco.values
-                      .map(
-                        (s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(
-                                sistemaGiocoLabel(s, AppLocalizations.of(context)))),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _sistema = v!),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                  const SizedBox(width: 12),
+                  DropdownButton<SistemaGioco>(
+                    value: _sistema,
+                    dropdownColor: const Color(0xFF1E293B),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    iconEnabledColor: Colors.white,
+                    underline: Container(height: 1, color: Colors.white38),
+                    items: SistemaGioco.values
+                        .map(
+                          (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(sistemaGiocoLabel(
+                                  s, AppLocalizations.of(context)))),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() {
+                      _sistema = v!;
+                      _preselezionaPalleggiatori();
+                    }),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             _buildCampi(),
           ],
         ),
@@ -286,18 +323,23 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
   // campo (senza libero) usa la stessa taglia.
   Widget _buildCampi() {
     final campoPalleggiatore = LabeledCourt(
-      title: 'Palleggiatore',
-      subtitle: 'Conferma il palleggiatore',
-      subtitleColor: Colors.white54,
+      title: _is62 ? 'Palleggiatori' : 'Palleggiatore',
+      subtitle: _is62
+          ? 'Conferma i due palleggiatori – ${_palleggiatoriSlots.length}/2 selezionati'
+          : 'Conferma il palleggiatore',
+      subtitleColor: _is62 && _palleggiatoriSlots.length == 2
+          ? Colors.lightBlue
+          : Colors.white54,
       child: CourtView(
         assignments: widget.assignments,
-        selectedSlots:
-            _palleggiatoreSlot != null ? {_palleggiatoreSlot!} : {},
+        selectedSlots: _palleggiatoriSlots,
         selectionColor: Colors.red,
         onSlotTap: _onPalleggiatoreSlotTap,
       ),
     );
-    final campoLibero = !_hasLibero
+    // Nel 6-2 il campo "cambi del libero" è nascosto: il libero è sempre sui
+    // centrali, nessuna scelta.
+    final campoLibero = (!_hasLibero || _is62)
         ? null
         : LabeledCourt(
             title: 'Cambi del libero',
@@ -310,7 +352,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> {
               selectedSlots: _centraliSlots,
               selectionColor: Colors.red,
               disabledSlots: {
-                ?_palleggiatoreSlot,
+                ..._palleggiatoriSlots,
                 for (final e in widget.assignments.entries)
                   if (e.value.ruolo != Ruolo.centrale &&
                       e.value.ruolo != Ruolo.schiacciatore &&

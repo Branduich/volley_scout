@@ -458,8 +458,8 @@ const Map<String, Map<String, Offset>> kAttackDopoBattuta62 = {
     'P2': Offset(530, 470),
     'C1': Offset(530, 300),
     'S1': Offset(530, 130),
-    'Libero': Offset(200, 300),
-    'S2': Offset(200, 130),
+    'Libero': Offset(200, 130),
+    'S2': Offset(200, 300),
   },
   'P2': {
     'P2': Offset(200, 470),

@@ -43,6 +43,7 @@ typedef _Formazione = ({
   Map<String, Player> assignments,
   String palleggiatoreSlot,
   Ruolo? ruoloCambiLibero,
+  SistemaGioco? sistemaGioco,
 });
 
 /// Filtro della distribuzione alzate: tutte (default), solo quelle dopo

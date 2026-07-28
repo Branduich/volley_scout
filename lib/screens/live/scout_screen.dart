@@ -251,6 +251,9 @@ class ScoutScreen extends ConsumerStatefulWidget {
   // FormationConfigScreen: o i due centrali o i due schiacciatori, mai una
   // combinazione). Null se non c'è libero in formazione.
   final Ruolo? ruoloCambiLibero;
+  // Sistema di gioco della formazione (5-1 / 6-2). Nel 6-2 `palleggiatoreSlot`
+  // è lo slot del palleggiatore di RIFERIMENTO (P1). Default 5-1 per sicurezza.
+  final SistemaGioco sistemaGioco;
 
   const ScoutScreen({
     super.key,
@@ -259,6 +262,7 @@ class ScoutScreen extends ConsumerStatefulWidget {
     required this.palleggiatoreSlot,
     required this.assignments,
     this.ruoloCambiLibero,
+    this.sistemaGioco = SistemaGioco.palleggiatoreUnico,
   });
 
   @override
@@ -470,6 +474,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // ricezione in corso (gestita da _activeDefenseMap): in quel caso si
   // ricade su _refPositionFor (logica generica per zona fissa, non per
   // ruolo) — vedi _attackPosition.
+  // Sistema di gioco della formazione: pilota il branch 5-1 / 6-2 per le
+  // etichette di ruolo e le mappe di posizione. Il resto della meccanica
+  // (rotazione, libero, animazioni) è condiviso tra i due sistemi.
+  bool get _is62 => widget.sistemaGioco == SistemaGioco.doppioPalleggiatore;
+
+  // Etichette di ruolo della rotazione corrente, secondo il sistema di gioco
+  // ({P,O,...} nel 5-1, {P1,P2,...} nel 6-2).
+  Map<String, String> _roleLabels(
+          String slot, Map<String, Player> assignments) =>
+      _is62
+          ? roleLabelsFor62(slot, assignments)
+          : roleLabelsFor(slot, assignments);
+
   Map<String, Offset>? get _activeAttackMap {
     // Fase: battuta/dopo-battuta se serviamo noi, dopo-ricezione se
     // servono loro e la ricezione è già stata giudicata; null durante la
@@ -483,6 +500,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       return null;
     }
     final senzaLibero = !_liberiEffettivi.containsKey('L1');
+    if (_is62) {
+      // Nel 6-2 il libero è sempre sui centrali (variante unica).
+      return attackMapFor62(
+        rotazione: _currentSlot,
+        fase: fase,
+        senzaLibero: senzaLibero,
+      );
+    }
     return attackMapFor(
       rotazione: _currentSlot,
       fase: fase,
@@ -1068,6 +1093,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   Map<String, Offset>? get _activeDefenseMap {
     if (_squadraAlServizio != Squadra.avversari) return null;
     if (_faseDopo) return null;
+    if (_is62) {
+      // Nel 6-2 il libero è sempre sui centrali (variante unica).
+      return defenseMapFor62(
+        rotazione: _currentSlot,
+        senzaLibero: !_liberiEffettivi.containsKey('L1'),
+      );
+    }
     if (!_liberiEffettivi.containsKey('L1')) {
       return defenseMapFor(
         rotazione: _currentSlot,
@@ -1311,6 +1343,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
       set.id,
       widget.assignments,
       ruoloCambiLibero: widget.ruoloCambiLibero,
+      sistemaGioco: widget.sistemaGioco,
     );
 
     if (!mounted) return;
@@ -3650,7 +3683,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
   // difesa. Altrimenti: itera per giocatore sulle posizioni di attacco.
   List<Widget> _buildCourtTokens(double cw, double ch) {
     final currentAssignments = _currentAssignments;
-    final roleLabels = roleLabelsFor(_currentSlot, currentAssignments);
+    final roleLabels = _roleLabels(_currentSlot, currentAssignments);
     final defenseMap = _activeDefenseMap;
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
     // Attenuazione per SQUADRA in base alla fase (vedi _nostriInAttesa): i
@@ -3736,7 +3769,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
         : null;
 
     final currentAssignments = _currentAssignments;
-    final roleLabels = roleLabelsFor(_currentSlot, currentAssignments);
+    final roleLabels = _roleLabels(_currentSlot, currentAssignments);
     final slotCentrale = _slotCentraleSecondaLinea(roleLabels);
     if (slotCentrale == null) {
       // Nessuna coppia di cambio derivabile (formazione incompleta): il
@@ -3839,7 +3872,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
     if (onTap == null) return const [];
 
-    final roleLabels = roleLabelsFor(_currentSlot, _currentAssignments);
+    final roleLabels = _roleLabels(_currentSlot, _currentAssignments);
     final radius = _swapTokenRadius(courtWidth);
     final tokenRadius = _currentSlot == 'P1' ? radius * 1.1 : radius;
     final courtHeight = courtWidth / 2;
@@ -4122,7 +4155,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> {
     final cx = (refPos.dx / 1200) * cw;
     final cy = (refPos.dy / 600) * ch;
     final fillColor = Color(widget.team.coloreDivisa);
-    final isPalleggiatore = roleLabel == 'P';
+    // Esagono per il palleggiatore: 'P' nel 5-1, 'P1'/'P2' nel 6-2 (entrambi
+    // i palleggiatori).
+    final isPalleggiatore =
+        roleLabel == 'P' || roleLabel == 'P1' || roleLabel == 'P2';
     final label = _showJerseyNumbers
         ? '${player.numero}'
         : siglaRuolo(roleLabel, AppLocalizations.of(context));

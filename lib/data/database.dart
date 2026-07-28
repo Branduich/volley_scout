@@ -22,6 +22,14 @@ class RuoloConverter extends TypeConverter<Ruolo, String> {
   String toSql(Ruolo value) => value.name;
 }
 
+class SistemaGiocoConverter extends TypeConverter<SistemaGioco, String> {
+  const SistemaGiocoConverter();
+  @override
+  SistemaGioco fromSql(String fromDb) => SistemaGioco.values.byName(fromDb);
+  @override
+  String toSql(SistemaGioco value) => value.name;
+}
+
 class StatoPartitaConverter extends TypeConverter<StatoPartita, String> {
   const StatoPartitaConverter();
   @override
@@ -162,6 +170,10 @@ class MatchSets extends Table {
   // scout avversari non usato in questo set (nessuna rotazione avversaria).
   // Schema v14.
   IntColumn get palleggiatoreAvversarioSlot => integer().nullable()();
+  // Sistema di gioco della formazione di questo set (5-1 / 6-2). null = 5-1
+  // (default legacy: set creati prima di v16, o partite in 5-1). Schema v16.
+  TextColumn get sistemaGioco =>
+      text().nullable().map(const SistemaGiocoConverter())();
 }
 
 class Rotations extends Table {
@@ -243,7 +255,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -397,6 +409,11 @@ class AppDatabase extends _$AppDatabase {
               !await _hasColumn('scout_actions', 'ruolo_avversario')) {
             await customStatement('ALTER TABLE scout_actions ADD COLUMN '
                 'ruolo_avversario TEXT');
+          }
+          if (from < 16 &&
+              !await _hasColumn('match_sets', 'sistema_gioco')) {
+            await customStatement('ALTER TABLE match_sets ADD COLUMN '
+                'sistema_gioco TEXT');
           }
         },
         beforeOpen: (details) async {

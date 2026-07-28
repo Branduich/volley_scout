@@ -61,11 +61,11 @@ void main() {
       });
     });
 
-    test('P1 - Dopo_Battuta (Libero e S2 diversi dal 5-1)', () {
-      // Nel 6-2 Libero è in P6 (200,300) e S2 in P5 (200,130) — verifica che
-      // NON siano stati copiati dal 5-1 (dove sono scambiati).
-      expect(kAttackDopoBattuta62['P1']!['Libero'], const Offset(200, 300));
-      expect(kAttackDopoBattuta62['P1']!['S2'], const Offset(200, 130));
+    test('P1 - Dopo_Battuta: Libero in P5 (200,130), S2 in P6 (200,300)', () {
+      // Corretto dopo refuso CSV: Libero e S2 erano scambiati (ora coincide
+      // col 5-1 per questa rotazione).
+      expect(kAttackDopoBattuta62['P1']!['Libero'], const Offset(200, 130));
+      expect(kAttackDopoBattuta62['P1']!['S2'], const Offset(200, 300));
     });
   });
 

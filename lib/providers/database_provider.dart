@@ -350,7 +350,7 @@ class MatchSetRepository {
   /// `caricaFormazione()`.
   Future<void> salvaRotazioneIniziale(
       int setId, Map<String, Player> assignments,
-      {Ruolo? ruoloCambiLibero}) async {
+      {Ruolo? ruoloCambiLibero, SistemaGioco? sistemaGioco}) async {
     final righe = <RotationsCompanion>[];
     for (final entry in assignments.entries) {
       final posizione = int.tryParse(entry.key.replaceFirst('P', ''));
@@ -369,6 +369,7 @@ class MatchSetRepository {
             liberoId: Value(assignments['L1']?.id),
             libero2Id: Value(assignments['L2']?.id),
             ruoloCambiLibero: Value(ruoloCambiLibero),
+            sistemaGioco: Value(sistemaGioco),
           ),
         );
   }
@@ -385,6 +386,7 @@ class MatchSetRepository {
         Map<String, Player> assignments,
         String palleggiatoreSlot,
         Ruolo? ruoloCambiLibero,
+        SistemaGioco? sistemaGioco,
       })?> caricaFormazione(int setId) async {
     final set = await (_db.select(_db.matchSets)
           ..where((s) => s.id.equals(setId)))
@@ -396,7 +398,7 @@ class MatchSetRepository {
     if (righeRotazione.isEmpty) return null;
 
     final assignments = <String, Player>{};
-    String? palleggiatoreSlot;
+    final palleggiatoriSlots = <String>[];
     for (final r in righeRotazione) {
       final player = await (_db.select(_db.players)
             ..where((p) => p.id.equals(r.giocatoreId)))
@@ -404,9 +406,13 @@ class MatchSetRepository {
       if (player == null) continue; // giocatore eliminato dopo la creazione
       final slot = 'P${r.posizione}';
       assignments[slot] = player;
-      if (player.ruolo == Ruolo.palleggiatore) palleggiatoreSlot = slot;
+      if (player.ruolo == Ruolo.palleggiatore) palleggiatoriSlots.add(slot);
     }
-    if (palleggiatoreSlot == null) return null; // dato incoerente
+    if (palleggiatoriSlots.isEmpty) return null; // dato incoerente
+    // Riferimento (P1 nel 6-2): slot col numero più basso — deterministico e
+    // coerente con FormationConfigScreen. Nel 5-1 è l'unico palleggiatore.
+    palleggiatoriSlots.sort();
+    final palleggiatoreSlot = palleggiatoriSlots.first;
 
     final liberoId = set.liberoId;
     if (liberoId != null) {
@@ -427,6 +433,7 @@ class MatchSetRepository {
       assignments: assignments,
       palleggiatoreSlot: palleggiatoreSlot,
       ruoloCambiLibero: set.ruoloCambiLibero,
+      sistemaGioco: set.sistemaGioco,
     );
   }
 
