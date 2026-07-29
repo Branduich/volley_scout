@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
 import '../../models/enums.dart';
+import '../../logic/heatmap.dart';
 import '../../providers/database_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/court_trajectories_view.dart';
@@ -91,6 +92,12 @@ class _TrajectoryReportScreenState
   String? _ruoloFiltro;     // null = tutti i ruoli (squadra avversaria)
   String? _rotazioneFiltro; // null = tutte; 'P1'..'P6' — solo attacco nostro
   _FiltroAttacco _filtroAttacco = _FiltroAttacco.tutti; // solo attacco
+  bool _mostraHeatmap = false; // solo vista ricezione (battuta avversaria)
+
+  // Ricezione nostra = traiettorie delle BATTUTE avversarie: qui si può
+  // sovrapporre la heatmap dei punti d'arrivo (ruotata 180°).
+  bool get _isRicezione =>
+      widget._avversario && widget.fondamentale == Fondamentale.battuta;
 
   // actionId → slot del palleggiatore al momento dell'azione (solo attacco).
   Map<int, String> _slotPerAzioneId = {};
@@ -492,6 +499,23 @@ class _TrajectoryReportScreenState
                     onChanged: (v) => setState(() => _playerFiltro = v),
                   ),
           ),
+          // Toggle heatmap (solo ricezione): icona compatta sulla riga filtri
+          // per non rubare spazio verticale (il campo su smartphone è basso).
+          if (_isRicezione) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: _mostraHeatmap
+                  ? 'Nascondi heatmap arrivi'
+                  : 'Mostra heatmap arrivi',
+              icon: Icon(
+                Icons.local_fire_department,
+                color:
+                    _mostraHeatmap ? AppColors.brandAccent : Colors.white54,
+              ),
+              onPressed: () =>
+                  setState(() => _mostraHeatmap = !_mostraHeatmap),
+            ),
+          ],
         ],
       ),
     );
@@ -518,6 +542,11 @@ class _TrajectoryReportScreenState
     final tutte = _azioniFiltrate;
     final conTraj = _azioniConTraj;
     final trajectories = conTraj.map(buildTrajData).toList();
+    // Vista ricezione + toggle: heatmap dei punti d'arrivo delle battute
+    // avversarie filtrate, ruotata 180° insieme alle frecce.
+    final heatmap = (_isRicezione && _mostraHeatmap)
+        ? puntiArrivoAvversari(conTraj, widget.fondamentale)
+        : const <Offset>[];
 
     // footer posizionato a courtTop+courtHeight+16 dentro CourtTrajectoriesView:
     // per il messaggio "vuoto" aggiungo 8px in cima per riprodurre il vecchio
@@ -559,7 +588,10 @@ class _TrajectoryReportScreenState
             SizedBox(
               height: courtRegionH,
               child: CourtTrajectoriesView(
-                  trajectories: trajectories, footer: null),
+                  trajectories: trajectories,
+                  footer: null,
+                  heatmapPunti: heatmap,
+                  specchia: _isRicezione),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -569,7 +601,12 @@ class _TrajectoryReportScreenState
         ),
       );
     }
-    return CourtTrajectoriesView(trajectories: trajectories, footer: footer);
+    return CourtTrajectoriesView(
+      trajectories: trajectories,
+      footer: footer,
+      heatmapPunti: heatmap,
+      specchia: _isRicezione,
+    );
   }
 
   // Distribuzione per tipo di esecuzione (TipoBattuta per la battuta,

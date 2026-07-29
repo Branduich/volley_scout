@@ -17,6 +17,13 @@ const double kCourtTopMargin = 16.0;
 // Alzata del punto di controllo per l'arco del pallonetto (px schermo).
 const double _kPallonettoArcOffset = 40.0;
 
+// Blob della heatmap opzionale sovrapposta alle traiettorie (vista ricezione
+// combinata): tinta unica calda in blend additivo. Stessi valori di
+// heatmap_court_view (duplicati per non accoppiare i due file).
+const Color _kHeatBlobColore = Color(0xFFFF3D00);
+const int _kHeatBlobAlpha = 110;
+const double _kHeatBlobRaggioFrazione = 0.065;
+
 /// Una traiettoria pronta da disegnare: coordinate normalizzate 0.0-1.0 già
 /// normalizzate in direzione sx→dx, colore e forma (retta / pallonetto /
 /// tocco a muro) risolti. Costruita da [buildTrajData].
@@ -76,11 +83,18 @@ TrajData buildTrajData(ScoutAction a) {
 class CourtTrajectoriesView extends StatelessWidget {
   final List<TrajData> trajectories;
   final Widget? footer;
+  // Layer heatmap opzionale (punti d'arrivo normalizzati, stesso spazio delle
+  // traiettorie) disegnato SOTTO le frecce. Con [specchia] traiettorie E
+  // heatmap sono ruotate di 180° (prospettiva della nostra squadra).
+  final List<Offset> heatmapPunti;
+  final bool specchia;
 
   const CourtTrajectoriesView({
     super.key,
     required this.trajectories,
     this.footer,
+    this.heatmapPunti = const [],
+    this.specchia = false,
   });
 
   @override
@@ -107,7 +121,7 @@ class CourtTrajectoriesView extends StatelessWidget {
               ),
             ),
           ),
-          if (trajectories.isNotEmpty)
+          if (trajectories.isNotEmpty || heatmapPunti.isNotEmpty)
             CustomPaint(
               size: constraints.biggest,
               painter: MultiTrajectoryPainter(
@@ -116,6 +130,8 @@ class CourtTrajectoriesView extends StatelessWidget {
                 courtTop: courtTop,
                 courtWidth: courtWidth,
                 courtHeight: courtHeight,
+                heatmapPunti: heatmapPunti,
+                specchia: specchia,
               ),
             ),
           if (footer != null)
@@ -134,6 +150,8 @@ class CourtTrajectoriesView extends StatelessWidget {
 class MultiTrajectoryPainter extends CustomPainter {
   final List<TrajData> trajectories;
   final double courtLeft, courtTop, courtWidth, courtHeight;
+  final List<Offset> heatmapPunti;
+  final bool specchia;
 
   MultiTrajectoryPainter({
     required this.trajectories,
@@ -141,15 +159,40 @@ class MultiTrajectoryPainter extends CustomPainter {
     required this.courtTop,
     required this.courtWidth,
     required this.courtHeight,
+    this.heatmapPunti = const [],
+    this.specchia = false,
   });
 
+  // specchia = rotazione 180° (X e Y): mostra tutto dalla prospettiva della
+  // nostra squadra (arrivi/zone corrette).
   Offset _toScreen(double nx, double ny) => Offset(
-        courtLeft + nx * courtWidth,
-        courtTop + ny * courtHeight,
+        courtLeft + (specchia ? 1.0 - nx : nx) * courtWidth,
+        courtTop + (specchia ? 1.0 - ny : ny) * courtHeight,
       );
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Layer heatmap (sotto le frecce): blob additivi caldi.
+    if (heatmapPunti.isNotEmpty) {
+      final raggio = courtWidth * _kHeatBlobRaggioFrazione;
+      canvas.saveLayer(Offset.zero & size, Paint());
+      for (final p in heatmapPunti) {
+        final c = _toScreen(p.dx, p.dy);
+        final rect = Rect.fromCircle(center: c, radius: raggio);
+        final shader = RadialGradient(colors: [
+          _kHeatBlobColore.withAlpha(_kHeatBlobAlpha),
+          _kHeatBlobColore.withAlpha(0),
+        ]).createShader(rect);
+        canvas.drawCircle(
+          c,
+          raggio,
+          Paint()
+            ..shader = shader
+            ..blendMode = BlendMode.plus,
+        );
+      }
+      canvas.restore();
+    }
     for (final t in trajectories) {
       final inizio = _toScreen(t.x1, t.y1);
       final fine = _toScreen(t.x2, t.y2);
@@ -215,6 +258,8 @@ class MultiTrajectoryPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant MultiTrajectoryPainter old) =>
       old.trajectories != trajectories ||
+      old.heatmapPunti != heatmapPunti ||
+      old.specchia != specchia ||
       old.courtLeft != courtLeft ||
       old.courtTop != courtTop;
 }
