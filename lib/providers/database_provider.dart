@@ -471,6 +471,8 @@ class MatchSetRepository {
       var setterId = formazione.assignments[formazione.palleggiatoreSlot]?.id;
       var ruoloCambi = formazione.ruoloCambiLibero;
       final conLibero = formazione.assignments.containsKey('L1');
+      final is62 =
+          formazione.sistemaGioco == SistemaGioco.doppioPalleggiatore;
       var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
 
       final ordinate = [...(azioniPerSet[set.id] ?? const <ScoutAction>[])]
@@ -506,19 +508,30 @@ class MatchSetRepository {
             final assignments = {
               for (final e in rot.entries) 'P${e.key}': e.value,
             };
-            final ruolo =
-                roleLabelsFor('P$posSetter', assignments)['P$posAttaccante'];
-            final mappa = attackMapFor(
-              rotazione: 'P$posSetter',
-              // L'attacco avviene a palla in gioco: dopo-battuta se
-              // servivamo noi in questo scambio, dopo-ricezione altrimenti.
-              fase: nostraAlServizio
-                  ? FaseAttacco.dopoBattuta
-                  : FaseAttacco.dopoRicezione,
-              senzaLibero: !conLibero,
-              liberoSuSchiacciatori:
-                  conLibero && ruoloCambi == Ruolo.schiacciatore,
-            );
+            // L'attacco avviene a palla in gioco: dopo-battuta se servivamo
+            // noi in questo scambio, dopo-ricezione altrimenti.
+            final fase = nostraAlServizio
+                ? FaseAttacco.dopoBattuta
+                : FaseAttacco.dopoRicezione;
+            // Nel 6-2 etichette {P1,P2,...} e tabelle 6-2 (libero sempre sui
+            // centrali): la posizione dell'attaccante cambia rispetto al 5-1
+            // in alcune rotazioni (es. Dopo_Ricezione P4).
+            final ruolo = is62
+                ? roleLabelsFor62('P$posSetter', assignments)['P$posAttaccante']
+                : roleLabelsFor('P$posSetter', assignments)['P$posAttaccante'];
+            final mappa = is62
+                ? attackMapFor62(
+                    rotazione: 'P$posSetter',
+                    fase: fase,
+                    senzaLibero: !conLibero,
+                  )
+                : attackMapFor(
+                    rotazione: 'P$posSetter',
+                    fase: fase,
+                    senzaLibero: !conLibero,
+                    liberoSuSchiacciatori:
+                        conLibero && ruoloCambi == Ruolo.schiacciatore,
+                  );
             final posizione = ruolo == null ? null : mappa?[ruolo];
             if (posizione != null) {
               result[a.id] = (
