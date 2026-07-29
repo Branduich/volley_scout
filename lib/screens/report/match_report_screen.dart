@@ -12,6 +12,7 @@ import '../../widgets/premium_badge.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../premium/paywall_screen.dart';
+import 'heatmap_report_screen.dart';
 import 'trajectory_report_screen.dart';
 
 // Punteggio finale (eventi + correzione manuale) di un singolo set +
@@ -885,6 +886,27 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
                       ),
                       onPressed: () => _apriTraiettorie(Fondamentale.attacco),
                     ),
+                    // Heatmap della NOSTRA ricezione/difesa = punti d'arrivo
+                    // delle battute/attacchi AVVERSARI nel nostro campo. Solo
+                    // con scout avversari attivo (senza, non ci sono dati).
+                    if (_scoutDueSquadre) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.local_fire_department),
+                        label: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [Text('Heatmap ricezione'), PremiumBadge()],
+                        ),
+                        onPressed: () => _apriHeatmap(Fondamentale.battuta),
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.local_fire_department),
+                        label: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [Text('Heatmap difesa'), PremiumBadge()],
+                        ),
+                        onPressed: () => _apriHeatmap(Fondamentale.attacco),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -1790,6 +1812,27 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
           // Dal report (partita finita) parti da tutti i set, non dal corrente.
           setCorrenteAllAvvio: false,
           squadra: squadra,
+        ),
+      ),
+    );
+  }
+
+  // Heatmap dei punti d'arrivo avversari (battuta/attacco) nel nostro campo —
+  // stesso gate premium delle traiettorie.
+  void _apriHeatmap(Fondamentale fondamentale) {
+    if (!ref.read(statoPremiumProvider).attivo) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HeatmapReportScreen(
+          match: widget.match,
+          fondamentale: fondamentale,
         ),
       ),
     );
