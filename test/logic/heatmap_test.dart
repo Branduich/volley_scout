@@ -11,6 +11,7 @@ ScoutAction _azione({
   Squadra squadra = Squadra.avversari,
   TipoAzione tipo = TipoAzione.scout,
   Fondamentale? fondamentale = Fondamentale.battuta,
+  Voto voto = Voto.positivo,
   double? x1,
   double? y1,
   double? x2,
@@ -26,7 +27,7 @@ ScoutAction _azione({
       tipo: tipo,
       giocatoreId: null,
       fondamentale: fondamentale,
-      voto: Voto.positivo,
+      voto: voto,
       tipoEsecuzione: 'nonSpecificato',
       esitoPunto: EsitoPunto.nessuno,
       traiettoriaX1: x1,
@@ -106,6 +107,39 @@ void main() {
       ];
       final punti = puntiArrivoAvversari(azioni, Fondamentale.attacco);
       expect(punti, [const Offset(0.6, 0.5)]);
+    });
+  });
+
+  group('puntiArrivoAvversariPerfetti (ace/kill)', () {
+    test('solo le battute con voto perfetto (ace)', () {
+      final azioni = [
+        _azione(voto: Voto.perfetto, x1: 0.2, x2: 0.8, y2: 0.3), // ace
+        _azione(voto: Voto.positivo, x1: 0.2, x2: 0.7, y2: 0.4), // in campo
+        _azione(voto: Voto.errore, x1: 0.2, x2: 0.9, y2: 0.5), // errore
+      ];
+      final ace = puntiArrivoAvversariPerfetti(azioni, Fondamentale.battuta);
+      expect(ace, [const Offset(0.8, 0.3)]);
+      // Tutti gli arrivi (blob) restano 3 (ace incluso).
+      expect(puntiArrivoAvversari(azioni, Fondamentale.battuta).length, 3);
+    });
+
+    test('per attacco = kill (attacco perfetto)', () {
+      final azioni = [
+        _azione(
+            fondamentale: Fondamentale.attacco,
+            voto: Voto.perfetto,
+            x1: 0.2,
+            x2: 0.6,
+            y2: 0.5),
+        _azione(
+            fondamentale: Fondamentale.attacco,
+            voto: Voto.negativo,
+            x1: 0.2,
+            x2: 0.7,
+            y2: 0.5),
+      ];
+      final kill = puntiArrivoAvversariPerfetti(azioni, Fondamentale.attacco);
+      expect(kill, [const Offset(0.6, 0.5)]);
     });
   });
 }

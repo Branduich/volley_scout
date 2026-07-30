@@ -20,12 +20,24 @@ import '../models/enums.dart';
 /// "solo palle in campo" si decide a monte o nel painter. Funzione pura —
 /// vedi test/logic/heatmap_test.dart.
 List<Offset> puntiArrivoAvversari(
-    Iterable<ScoutAction> azioni, Fondamentale fondamentale) {
+        Iterable<ScoutAction> azioni, Fondamentale fondamentale) =>
+    _arrivi(azioni, fondamentale, soloPerfetti: false);
+
+/// Come [puntiArrivoAvversari] ma solo le azioni con `voto == perfetto`: gli
+/// **ace** (per la battuta) o i **kill** (per l'attacco) avversari — evidenziati
+/// con un marker dedicato nella heatmap (oltre a contribuire ai blob).
+List<Offset> puntiArrivoAvversariPerfetti(
+        Iterable<ScoutAction> azioni, Fondamentale fondamentale) =>
+    _arrivi(azioni, fondamentale, soloPerfetti: true);
+
+List<Offset> _arrivi(Iterable<ScoutAction> azioni, Fondamentale fondamentale,
+    {required bool soloPerfetti}) {
   final punti = <Offset>[];
   for (final a in azioni) {
     if (a.squadra != Squadra.avversari) continue;
     if (a.tipo != TipoAzione.scout) continue;
     if (a.fondamentale != fondamentale) continue;
+    if (soloPerfetti && a.voto != Voto.perfetto) continue;
     final x1 = a.traiettoriaX1;
     final x2 = a.traiettoriaX2;
     final y2 = a.traiettoriaY2;

@@ -53,6 +53,11 @@ class TrajectoryReportScreen extends ConsumerStatefulWidget {
   /// normalizzate sx→dx come le nostre (vedi buildTrajData).
   final Squadra squadra;
 
+  /// Modalità heatmap (aperta dai bottoni "Heatmap ricezione/difesa"): mostra
+  /// i blob degli arrivi + i marker ace/kill invece delle frecce, con la
+  /// NOSTRA rotazione come filtro. Solo per le viste avversarie.
+  final bool modalitaHeatmap;
+
   const TrajectoryReportScreen({
     super.key,
     required this.match,
@@ -60,11 +65,17 @@ class TrajectoryReportScreen extends ConsumerStatefulWidget {
     required this.fondamentale,
     this.setCorrenteAllAvvio = true,
     this.squadra = Squadra.nostra,
+    this.modalitaHeatmap = false,
   });
 
   bool get _avversario => squadra == Squadra.avversari;
 
   String get _title {
+    if (modalitaHeatmap) {
+      return fondamentale == Fondamentale.battuta
+          ? 'Heatmap ricezione'
+          : 'Heatmap difesa';
+    }
     final base = fondamentale == Fondamentale.battuta
         ? 'Traiettorie battute'
         : 'Traiettorie attacco';
@@ -92,12 +103,13 @@ class _TrajectoryReportScreenState
   String? _ruoloFiltro;     // null = tutti i ruoli (squadra avversaria)
   String? _rotazioneFiltro; // null = tutte; 'P1'..'P6' — solo attacco nostro
   _FiltroAttacco _filtroAttacco = _FiltroAttacco.tutti; // solo attacco
-  bool _mostraHeatmap = false; // solo vista ricezione (battuta avversaria)
+  bool _mostraHeatmap = false; // solo viste avversarie (ricezione/difesa)
 
-  // Ricezione nostra = traiettorie delle BATTUTE avversarie: qui si può
-  // sovrapporre la heatmap dei punti d'arrivo (ruotata 180°).
-  bool get _isRicezione =>
-      widget._avversario && widget.fondamentale == Fondamentale.battuta;
+  // Viste avversarie = traiettorie delle BATTUTE (nostra ricezione) o degli
+  // ATTACCHI (nostra difesa) avversari: qui si può sovrapporre la heatmap dei
+  // punti d'arrivo nel nostro campo, con tutto ruotato 180° (prospettiva
+  // nostra). Le viste della NOSTRA squadra non hanno heatmap.
+  bool get _isVistaAvversaria => widget._avversario;
 
   // actionId → slot del palleggiatore al momento dell'azione (solo attacco).
   Map<int, String> _slotPerAzioneId = {};
@@ -116,6 +128,7 @@ class _TrajectoryReportScreenState
   @override
   void initState() {
     super.initState();
+    _mostraHeatmap = widget.modalitaHeatmap; // heatmap sempre ON in questa vista
     _carica();
   }
 
@@ -135,7 +148,15 @@ class _TrajectoryReportScreenState
     // di ogni azione (O(n) per set, identico a ricalcolaStato).
     Map<int, String> slotPerAzioneId = {};
     Set<int> idSuRicezione = {};
-    if (widget.fondamentale == Fondamentale.attacco) {
+    if (widget.modalitaHeatmap) {
+      // Heatmap ricezione/difesa: la NOSTRA rotazione al momento di ogni
+      // azione avversaria (battuta/attacco) del fondamentale corrente.
+      slotPerAzioneId =
+          await _computeRotazioni(sets, azioniPerSet, perAvversari: true);
+      if (widget.fondamentale == Fondamentale.attacco) {
+        idSuRicezione = idAttacchiSuRicezione(azioniPerSet.values);
+      }
+    } else if (widget.fondamentale == Fondamentale.attacco) {
       // Rotazione (slot del palleggiatore) al momento di ogni attacco: per noi
       // dal replay (_computeRotazioni), per l'avversario dallo slot del LORO
       // palleggiatore (zonaTatticaPerAzioneAvversario, che ruota sul loro
@@ -174,8 +195,14 @@ class _TrajectoryReportScreenState
   // al momento dell'azione, ricalcolando lo stato in O(n) per set con la
   // stessa logica di ricalcolaStato() — ma azione per azione invece che
   // solo al termine, per poter associare ogni attacco alla sua rotazione.
+  // Replay della NOSTRA rotazione azione per azione. Di default registra lo
+  // slot del nostro palleggiatore sui NOSTRI attacchi; con [perAvversari]
+  // registra la nostra rotazione al momento delle azioni AVVERSARIE del
+  // fondamentale corrente (heatmap ricezione/difesa: dove stavamo schierati
+  // quando l'avversario ha battuto/attaccato).
   Future<Map<int, String>> _computeRotazioni(
-      List<MatchSet> sets, Map<int, List<ScoutAction>> azioniPerSet) async {
+      List<MatchSet> sets, Map<int, List<ScoutAction>> azioniPerSet,
+      {bool perAvversari = false}) async {
     final setRepo = ref.read(matchSetRepositoryProvider);
     final Map<int, String> result = {};
 
@@ -229,8 +256,13 @@ class _TrajectoryReportScreenState
         // Registra la rotazione corrente PRIMA di applicare l'esito
         // dell'azione — l'attacco avviene durante il rally, prima della
         // rotazione causata dall'eventuale punto.
-        if (a.fondamentale == Fondamentale.attacco &&
-            a.tipo == TipoAzione.scout) {
+        final daRegistrare = perAvversari
+            ? (a.squadra == Squadra.avversari &&
+                a.fondamentale == widget.fondamentale &&
+                a.tipo == TipoAzione.scout)
+            : (a.fondamentale == Fondamentale.attacco &&
+                a.tipo == TipoAzione.scout);
+        if (daRegistrare) {
           final setterEntry = rotazione.entries
               .where((e) => e.value == setterPlayerId)
               .firstOrNull;
@@ -412,8 +444,9 @@ class _TrajectoryReportScreenState
               onChanged: (v) {
                 setState(() {
                   _setFiltro = v;
-                  // Azzera rotazione se non ha attacchi nel nuovo set.
-                  if (isAttacco && _rotazioneFiltro != null) {
+                  // Azzera rotazione se non ha azioni nel nuovo set.
+                  if ((isAttacco || widget.modalitaHeatmap) &&
+                      _rotazioneFiltro != null) {
                     final ok = _azioniPerSet.entries
                         .where((e) => v == null || e.key == v.id)
                         .expand((e) => e.value)
@@ -433,7 +466,7 @@ class _TrajectoryReportScreenState
           // Filtro rotazione (slot del palleggiatore al momento dell'attacco):
           // per noi dal replay, per l'avversario dal loro slot P — vedi
           // _slotPerAzioneId in _carica.
-          if (isAttacco) ...[
+          if (isAttacco || widget.modalitaHeatmap) ...[
             const SizedBox(width: 16),
             Expanded(
               child: _buildDropdown<String?>(
@@ -499,9 +532,10 @@ class _TrajectoryReportScreenState
                     onChanged: (v) => setState(() => _playerFiltro = v),
                   ),
           ),
-          // Toggle heatmap (solo ricezione): icona compatta sulla riga filtri
-          // per non rubare spazio verticale (il campo su smartphone è basso).
-          if (_isRicezione) ...[
+          // Toggle heatmap (solo viste avversarie in modalità traiettorie):
+          // icona compatta sulla riga filtri per non rubare spazio verticale.
+          // In modalità heatmap dedicata è nascosto (heatmap sempre ON).
+          if (_isVistaAvversaria && !widget.modalitaHeatmap) ...[
             const SizedBox(width: 8),
             IconButton(
               tooltip: _mostraHeatmap
@@ -541,11 +575,18 @@ class _TrajectoryReportScreenState
   Widget _buildBody() {
     final tutte = _azioniFiltrate;
     final conTraj = _azioniConTraj;
-    final trajectories = conTraj.map(buildTrajData).toList();
+    // In modalità heatmap le frecce sono nascoste (solo blob + marker).
+    final trajectories = widget.modalitaHeatmap
+        ? const <TrajData>[]
+        : conTraj.map(buildTrajData).toList();
     // Vista ricezione + toggle: heatmap dei punti d'arrivo delle battute
     // avversarie filtrate, ruotata 180° insieme alle frecce.
-    final heatmap = (_isRicezione && _mostraHeatmap)
+    final heatmap = (_isVistaAvversaria && _mostraHeatmap)
         ? puntiArrivoAvversari(conTraj, widget.fondamentale)
+        : const <Offset>[];
+    // Marker ace/kill (cerchietto rosso) solo in modalità heatmap.
+    final marker = widget.modalitaHeatmap
+        ? puntiArrivoAvversariPerfetti(conTraj, widget.fondamentale)
         : const <Offset>[];
 
     // footer posizionato a courtTop+courtHeight+16 dentro CourtTrajectoriesView:
@@ -591,7 +632,8 @@ class _TrajectoryReportScreenState
                   trajectories: trajectories,
                   footer: null,
                   heatmapPunti: heatmap,
-                  specchia: _isRicezione),
+                  markerPunti: marker,
+                  specchia: _isVistaAvversaria),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -605,7 +647,8 @@ class _TrajectoryReportScreenState
       trajectories: trajectories,
       footer: footer,
       heatmapPunti: heatmap,
-      specchia: _isRicezione,
+      markerPunti: marker,
+      specchia: _isVistaAvversaria,
     );
   }
 

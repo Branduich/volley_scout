@@ -85,26 +85,52 @@ campo/token libero in `ScoutScreen` (`_buildRotationBadge`,
 
 **Enum SistemaGioco** (in `enums.dart`, usato in `FormationConfigScreen`):
 palleggiatoreUnico ("Palleggiatore unico (5-1)"), doppioPalleggiatore
-("Doppio palleggiatore (6-2)"). Per ora solo `palleggiatoreUnico` ha logica
-implementata. La scelta nel dropdown NON è persistita né passata allo scout.
+("Doppio palleggiatore (6-2)"). **Entrambi implementati**: la scelta è
+persistita su `MatchSets.sistemaGioco` (v16) e passata a `ScoutScreen`/report/
+PDF — vedi Modulo 6-2 sotto.
 
-**BACKLOG POST-LANCIO — Configuratore posizioni + modulo 6-2** (differito
-2026-07-13, si va live con solo 5-1). Design completo nel file di piano
-`~/.claude/plans/ok-siamo-pronti-per-witty-lagoon.md`. In sintesi: un
-configuratore visuale per far posizionare all'allenatore le proprie
-coordinate (attacco + ricezione, per modulo/variante/fase/rotazione/ruolo)
-sulla mappa, con il default hardcodato sempre come fallback; set custom
-**globale per modulo**. Innesti già centralizzati: `attackMapFor`
-(`logic/attack_positions.dart`) e `_activeDefenseMap` (`scout_screen.dart`)
-→ farli passare da un resolver "custom-first, default-fallback" + tabella
-drift di override. Fasi: (1) estrarre le tabelle di difesa in
-`logic/defense_positions.dart` con `defenseMapFor`; (2) store override +
-resolver + persistere `SistemaGioco`; (3) editor visuale (token
-trascinabili, riusa `tactical_board_screen`); (4, separata) modulo **6-2**
-— NON solo coordinate: `roleLabelsFor` assume 1P+1O+2S+2C, il 6-2 ha 2
-palleggiatori e nessun opposto fisso, quindi vanno riscritte etichettatura
-ruoli, ancora rotazione e regole libero (serve input pallavolistico
-dell'utente).
+**Modulo 6-2 (doppio palleggiatore) — IMPLEMENTATO** (Fase 1 attacco + Fase 2
+ricezione/difesa + PDF/report). Modello scelto: 6-2 **standard** = 2
+palleggiatori diagonali (3 posizioni di distanza) + 2 schiacciatori + 2
+centrali, **nessun opposto dedicato** — il palleggiatore di seconda linea alza,
+quello di prima linea attacca da opposto. Punti chiave:
+- **Persistenza**: `MatchSets.sistemaGioco` (v16, `.name`; `null` = 5-1 legacy),
+  letta/scritta da `salvaRotazioneIniziale`/`caricaFormazione` e portata su
+  `ScoutScreen`/`ConfigurazioneFormazione`. La rotazione continua a tracciare il
+  **palleggiatore di riferimento** (setter 1) come `palleggiatoreSlot`;
+  l'alternanza del setter attivo è derivata dalle POSIZIONI (chi è in back row),
+  non uno stato nuovo → `ricalcolaStato()` invariato.
+- **`FormationConfigScreen`**: col 6-2 il campo "conferma palleggiatore" chiede
+  **due** palleggiatori (preselezionati i due `Ruolo.palleggiatore`), passa
+  `sistemaGioco` + lo slot del setter di riferimento.
+- **Etichette**: `roleLabelsFor62(currentAssignments)` (`role_labels.dart`) — la
+  **POSIZIONE vince sul ruolo**: il palleggiatore in back row (P1/P6/P5) → 'P',
+  l'altro → 'O'; schiacciatori → S1/S2, centrali → C1/C2. I due P sono etichette
+  fisse P1/P2. Un non-palleggiatore messo nello slot diagonale (es. cambio
+  alzatore→opposto confermato alzatore) diventa comunque P2. Call site in
+  `scout_screen` sceglie `roleLabelsFor` vs `roleLabelsFor62` su
+  `widget.sistemaGioco`.
+- **Posizioni**: tabelle 6-2 in `attack_positions.dart` (`attackMapFor62`) e
+  `defense_positions.dart` (`kDefensePositions62`/`defenseMapFor62`), stesso
+  formato del 5-1, chiavate sullo slot del setter di riferimento (dati CSV
+  utente).
+- **PDF/report**: formazioni di partenza col 6-2 mostrano **due bordi rossi**
+  (riferimento + diagonale, `_cellaFormazione`); `zonaTatticaPerAzione` ha un
+  branch `is62` (`roleLabelsFor62`+`attackMapFor62`) che alimenta distribuzione
+  alzate a video e PDF.
+- **Backlog 6-2**: regole del libero nel 6-2 (Fase 3 — nel 6-2 il libero
+  sostituisce tipicamente un centrale di seconda linea, mai il setter che alza)
+  e scout avversario in 6-2 (Fase 5).
+
+**BACKLOG POST-LANCIO — Configuratore posizioni** (differito 2026-07-13). Un
+configuratore visuale per far posizionare all'allenatore le proprie coordinate
+(attacco + ricezione, per modulo/variante/fase/rotazione/ruolo) sulla mappa, con
+il default hardcodato sempre come fallback; set custom **globale per modulo**.
+Innesti già centralizzati: `attackMapFor`/`attackMapFor62`
+(`logic/attack_positions.dart`) e `_activeDefenseMap` (`scout_screen.dart`) →
+farli passare da un resolver "custom-first, default-fallback" + tabella drift di
+override. Fasi: (1) store override + resolver; (2) editor visuale (token
+trascinabili, riusa `tactical_board_screen`).
 
 ### Implementato (Fase 2 — parziale)
 
@@ -121,7 +147,7 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v15** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v16** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
@@ -137,7 +163,9 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   palleggiatore avversario a inizio set); v15 ha aggiunto
   `ScoutActions.ruoloAvversario` (text nullable — ruolo placeholder P/O/S1/
   S2/C1/C2 dell'azione avversaria) — entrambi per lo Scout avversario, vedi
-  la sezione dedicata).
+  la sezione dedicata; v16 ha aggiunto `MatchSets.sistemaGioco` (text nullable,
+  `.name` di `SistemaGioco`; `null` = 5-1 legacy) per il modulo 6-2 — vedi
+  Modulo 6-2 sotto).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 

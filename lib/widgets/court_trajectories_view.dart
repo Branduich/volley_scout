@@ -18,11 +18,14 @@ const double kCourtTopMargin = 16.0;
 const double _kPallonettoArcOffset = 40.0;
 
 // Blob della heatmap opzionale sovrapposta alle traiettorie (vista ricezione
-// combinata): tinta unica calda in blend additivo. Stessi valori di
-// heatmap_court_view (duplicati per non accoppiare i due file).
+// combinata / modalità heatmap del report): tinta unica calda in blend additivo.
 const Color _kHeatBlobColore = Color(0xFFFF3D00);
 const int _kHeatBlobAlpha = 110;
 const double _kHeatBlobRaggioFrazione = 0.065;
+
+// Marker (cerchietto bordo rosso, senza fill) per ace/kill avversari.
+const double _kMarkerRaggioFrazione = 0.022;
+const double _kMarkerBordo = 2.5;
 
 /// Una traiettoria pronta da disegnare: coordinate normalizzate 0.0-1.0 già
 /// normalizzate in direzione sx→dx, colore e forma (retta / pallonetto /
@@ -87,6 +90,9 @@ class CourtTrajectoriesView extends StatelessWidget {
   // traiettorie) disegnato SOTTO le frecce. Con [specchia] traiettorie E
   // heatmap sono ruotate di 180° (prospettiva della nostra squadra).
   final List<Offset> heatmapPunti;
+  // Punti da evidenziare con un cerchietto bordo rosso (ace/kill avversari),
+  // disegnati sopra i blob. Stessa trasformazione delle traiettorie/heatmap.
+  final List<Offset> markerPunti;
   final bool specchia;
 
   const CourtTrajectoriesView({
@@ -94,6 +100,7 @@ class CourtTrajectoriesView extends StatelessWidget {
     required this.trajectories,
     this.footer,
     this.heatmapPunti = const [],
+    this.markerPunti = const [],
     this.specchia = false,
   });
 
@@ -121,7 +128,9 @@ class CourtTrajectoriesView extends StatelessWidget {
               ),
             ),
           ),
-          if (trajectories.isNotEmpty || heatmapPunti.isNotEmpty)
+          if (trajectories.isNotEmpty ||
+              heatmapPunti.isNotEmpty ||
+              markerPunti.isNotEmpty)
             CustomPaint(
               size: constraints.biggest,
               painter: MultiTrajectoryPainter(
@@ -131,6 +140,7 @@ class CourtTrajectoriesView extends StatelessWidget {
                 courtWidth: courtWidth,
                 courtHeight: courtHeight,
                 heatmapPunti: heatmapPunti,
+                markerPunti: markerPunti,
                 specchia: specchia,
               ),
             ),
@@ -151,6 +161,7 @@ class MultiTrajectoryPainter extends CustomPainter {
   final List<TrajData> trajectories;
   final double courtLeft, courtTop, courtWidth, courtHeight;
   final List<Offset> heatmapPunti;
+  final List<Offset> markerPunti;
   final bool specchia;
 
   MultiTrajectoryPainter({
@@ -160,6 +171,7 @@ class MultiTrajectoryPainter extends CustomPainter {
     required this.courtWidth,
     required this.courtHeight,
     this.heatmapPunti = const [],
+    this.markerPunti = const [],
     this.specchia = false,
   });
 
@@ -253,12 +265,25 @@ class MultiTrajectoryPainter extends CustomPainter {
 
       canvas.drawCircle(inizio, 4, Paint()..color = t.color.withAlpha(220));
     }
+
+    // Marker ace/kill: cerchietto bordo rosso senza fill, sopra tutto.
+    if (markerPunti.isNotEmpty) {
+      final raggio = courtWidth * _kMarkerRaggioFrazione;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..color = Colors.red
+        ..strokeWidth = _kMarkerBordo;
+      for (final p in markerPunti) {
+        canvas.drawCircle(_toScreen(p.dx, p.dy), raggio, paint);
+      }
+    }
   }
 
   @override
   bool shouldRepaint(covariant MultiTrajectoryPainter old) =>
       old.trajectories != trajectories ||
       old.heatmapPunti != heatmapPunti ||
+      old.markerPunti != markerPunti ||
       old.specchia != specchia ||
       old.courtLeft != courtLeft ||
       old.courtTop != courtTop;

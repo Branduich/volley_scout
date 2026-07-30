@@ -98,6 +98,38 @@ non filtravano per squadra → con scout avversari includevano per errore le azi
 avversarie (aggiunto `squadra == nostra`).
 **Export PDF avversario: NON ancora fatto** (rimandato).
 
+### Heatmap ricezione/difesa (dove cadono le palle avversarie)
+Heatmap dei punti d'arrivo **nel nostro campo** delle azioni AVVERSARIE:
+battuta → "Heatmap ricezione", attacco → "Heatmap difesa". Aperta dai due
+bottoni nella sezione **nostra** "Traiettorie" di `MatchReportScreen`
+(`_apriHeatmap`, gate premium come le traiettorie). Serve a capire dove
+l'avversario fa cadere di più.
+- **Riuso di `TrajectoryReportScreen`** in "modalità heatmap" (param
+  `modalitaHeatmap: true`, `squadra: avversari`) — NON una schermata separata.
+  In questa modalità: titolo "Heatmap ricezione/difesa"; **frecce nascoste**
+  (al painter `trajectories: []`); toggle fiamma nascosto (heatmap sempre ON);
+  mini-tabella (ace/in-campo/errori) + tipi battuta invariati; header con
+  filtri Set + Ruolo + **Rotazione P1..P6 = NOSTRA** formazione ricezione/difesa
+  al momento dell'azione avversaria (`_computeRotazioni(perAvversari: true)`
+  registra lo slot del nostro palleggiatore sulle azioni avversarie del
+  fondamentale, anche per la battuta).
+- **Dati**: funzioni pure in `logic/heatmap.dart` — `puntiArrivoAvversari`
+  (tutti gli arrivi → **blob** additivi caldi) + `puntiArrivoAvversariPerfetti`
+  (solo `voto == perfetto` → **marker** cerchietto bordo rosso senza fill: ace
+  per la battuta, kill per l'attacco; contribuiscono anche ai blob). Stessa
+  normalizzazione di `buildTrajData` (partenza a sx → arrivo nella metà destra =
+  nostro campo).
+- **Resa**: `CourtTrajectoriesView`/`MultiTrajectoryPainter`
+  (`widgets/court_trajectories_view.dart`) — parametri `heatmapPunti`,
+  `markerPunti`, `specchia` (rotazione 180° prospettiva nostra, corregge zona
+  1 vs 5). La vecchia `HeatmapReportScreen`/`HeatmapCourtView` (MVP separato)
+  sono state **rimosse**: la resa blob vive ora in `MultiTrajectoryPainter`.
+- **Toggle sulle viste traiettorie**: nelle "Traiettorie battute/attacco"
+  avversarie (modalità normale) resta un'icona fiamma che sovrappone i blob
+  alle frecce; le frecce avversarie sono comunque sempre riflesse 180°
+  (`specchia: _isVistaAvversaria`).
+- **Export PDF heatmap: NON ancora fatto** (come il PDF avversario).
+
 ### Limiti / backlog
 Nessuna statistica per singolo giocatore avversario (nessun roster); nessun
 libero avversario, nessun numero di maglia; nessun modulo diverso dal 5-1

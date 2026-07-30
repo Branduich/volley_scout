@@ -12,7 +12,6 @@ import '../../widgets/premium_badge.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../premium/paywall_screen.dart';
-import 'heatmap_report_screen.dart';
 import 'trajectory_report_screen.dart';
 
 // Punteggio finale (eventi + correzione manuale) di un singolo set +
@@ -1820,6 +1819,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
   // Heatmap dei punti d'arrivo avversari (battuta/attacco) nel nostro campo —
   // stesso gate premium delle traiettorie.
   void _apriHeatmap(Fondamentale fondamentale) {
+    final team = _team;
+    if (team == null) return;
     if (!ref.read(statoPremiumProvider).attivo) {
       Navigator.push(
         context,
@@ -1827,12 +1828,18 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
       );
       return;
     }
+    // Riuso della vista traiettorie in "modalità heatmap": blob + marker
+    // ace/kill, frecce nascoste, rotazione = NOSTRA formazione ricezione/difesa.
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => HeatmapReportScreen(
+        builder: (_) => TrajectoryReportScreen(
           match: widget.match,
+          team: team,
           fondamentale: fondamentale,
+          setCorrenteAllAvvio: false,
+          squadra: Squadra.avversari,
+          modalitaHeatmap: true,
         ),
       ),
     );

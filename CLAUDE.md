@@ -128,20 +128,29 @@ lib/
 ├── logic/
 │   ├── attack_positions.dart     (tabelle posizioni TATTICHE di attacco per
 │   │                               rotazione/ruolo/fase + attackMapFor() +
+│   │                               attackMapFor62() (tabelle 6-2) +
 │   │                               zonaDaPosizione() — ex costanti private di
 │   │                               scout_screen, condivise con le pagine
-│   │                               attacchi del PDF; vedi Fase 4)
+│   │                               attacchi del PDF; vedi Fase 4 e Modulo 6-2)
 │   ├── ricalcola_stato.dart      (funzione pura ricalcolaStato() — punteggio/
 │   │                               rotazione derivati dalle azioni di scout +
 │   │                               slot palleggiatore avversario che ruota sul
 │   │                               loro sideout; nessuna dip da DB/UI; Modello dati)
 │   ├── defense_positions.dart    (posizioni di RICEZIONE per rotazione/ruolo/
-│   │                               variante libero + defenseMapFor() — ex costanti
-│   │                               private di scout_screen, estratte per riuso
+│   │                               variante libero + defenseMapFor() +
+│   │                               defenseMapFor62()/kDefensePositions62 (6-2) — ex
+│   │                               costanti private di scout_screen, estratte per riuso
 │   │                               (formazione ricezione avversaria mirror); Scout
-│   │                               avversario)
+│   │                               avversario e Modulo 6-2)
+│   ├── heatmap.dart              (funzioni pure puntiArrivoAvversari() +
+│   │                               puntiArrivoAvversariPerfetti() — punti d'arrivo nel
+│   │                               nostro campo delle azioni AVVERSARIE battuta/attacco,
+│   │                               normalizzati come buildTrajData; alimentano la heatmap
+│   │                               ricezione/difesa; testate; vedi Heatmap in Scout avversario)
 │   └── role_labels.dart          (roleLabelsFor() — etichette P/O/S1/S2/C1/C2
 │                                   per slot (gli universali riempiono le mancanti)
+│                                   + roleLabelsFor62() (6-2: la POSIZIONE vince sul
+│                                   ruolo, i due P sono etichette fisse P1/P2)
 │                                   + etichetteAvversarie() (5-1 canonico dallo slot
 │                                   del P avversario) + kAliasRuoloAvversario
 │                                   (alias leggibili ruoli per i selettori report))
@@ -226,7 +235,11 @@ lib/
 │   │   └── trajectory_report_screen.dart (Fase 4: traiettorie battute/attacco con filtri
 │   │                                      set/giocatore e, per attacco, rotazione P1-P6 —
 │   │                                      dal drawer di ScoutScreen e dai bottoni di
-│   │                                      MatchReportScreen, vedi Fase 4)
+│   │                                      MatchReportScreen; param `modalitaHeatmap`:
+│   │                                      riusata come Heatmap ricezione/difesa avversaria
+│   │                                      (blob + marker ace/kill, frecce nascoste,
+│   │                                      rotazione = NOSTRA formazione) — vedi Fase 4 →
+│   │                                      Heatmap in Scout avversario)
 │   ├── premium/
 │   │   └── paywall_screen.dart           (paywall placeholder — vedi sezione Premium)
 │   └── settings/
@@ -261,7 +274,10 @@ lib/
                                     MultiTrajectoryPainter: campo doppio + traiettorie
                                     già filtrate, widget puro estratto da
                                     trajectory_report_screen in vista della cattura
-                                    PNG per il PDF — vedi Fase 4)
+                                    PNG per il PDF; `heatmapPunti` (blob additivi caldi) +
+                                    `markerPunti` (cerchietti bordo rosso ace/kill) +
+                                    `specchia` (rotazione 180° prospettiva nostra) per la
+                                    heatmap ricezione/difesa — vedi Heatmap in Scout avversario)
 
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
@@ -351,6 +367,15 @@ difensive, traiettorie in input) e report a video COMPLETO (blocco in coda a
 `MatchReportScreen`); manca solo l'export PDF avversario. Vedi la sezione "Scout
 avversario". Nella lista partite le TERMINATE sono ora ordinate esplicitamente
 per data decrescente (a parità di data l'ordine dal DB era arbitrario).
+
+**Modulo 6-2 (doppio palleggiatore)**: IMPLEMENTATO (Fase 1 attacco + Fase 2
+ricezione/difesa + PDF/report), persistito su `MatchSets.sistemaGioco` (v16).
+Backlog 6-2: libero e scout avversario in 6-2. Vedi "Modulo 6-2" in Modello dati.
+
+**Heatmap ricezione/difesa**: dove cadono le palle avversarie nel nostro campo
+(battuta→ricezione, attacco→difesa), riusando `TrajectoryReportScreen` in
+modalità heatmap (blob + marker ace/kill, rotazione NOSTRA); dai bottoni del
+report. Manca l'export PDF. Vedi "Heatmap ricezione/difesa" in Scout avversario.
 
 Il flusso è navigabile end-to-end: lista partite → "Inizia"/"Continua"/
 "Riprendi" → selezione squadra → selezione formazione (`LineupScreen`) →
