@@ -165,6 +165,25 @@ EsitoParsingFipav parseGareFipav(List<List<String>> righe) {
   return EsitoParsingFipav(gare: gare, righeScartate: scartate);
 }
 
+/// La stagione sportiva delle gare, es. `"2025/26"` — `null` se non ci sono
+/// gare. Il file FIPAV non ha una colonna stagione, quindi si deduce dalla
+/// PRIMA gara in calendario: l'anno sportivo parte in estate, quindi da luglio
+/// in poi è `anno/anno+1`, prima è `anno-1/anno`.
+///
+/// Serve a distinguere in UI due import dello stesso girone in stagioni
+/// diverse (vedi `Campionati.stagione`): senza, a settembre il calendario
+/// nuovo sarebbe indistinguibile da quello dell'anno prima.
+String? stagioneDaGare(Iterable<GaraFipav> gare) {
+  DateTime? prima;
+  for (final g in gare) {
+    if (prima == null || g.dataOra.isBefore(prima)) prima = g.dataOra;
+  }
+  if (prima == null) return null;
+  final inizio = prima.month >= 7 ? prima.year : prima.year - 1;
+  final fine = (inizio + 1) % 100;
+  return '$inizio/${fine.toString().padLeft(2, '0')}';
+}
+
 /// `dd/MM/yyyy` + `HH:mm` (l'ora può mancare → mezzanotte). Parsing a mano
 /// invece che con `intl`: il formato è fisso e così la funzione resta pura e
 /// senza inizializzazione delle locale.

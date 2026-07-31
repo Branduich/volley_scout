@@ -4309,6 +4309,17 @@ class $CampionatiTable extends Campionati
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _stagioneMeta = const VerificationMeta(
+    'stagione',
+  );
+  @override
+  late final GeneratedColumn<String> stagione = GeneratedColumn<String>(
+    'stagione',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _squadraPropriaMeta = const VerificationMeta(
     'squadraPropria',
   );
@@ -4347,6 +4358,7 @@ class $CampionatiTable extends Campionati
   List<GeneratedColumn> get $columns => [
     id,
     nome,
+    stagione,
     squadraPropria,
     teamId,
     dataImport,
@@ -4373,6 +4385,12 @@ class $CampionatiTable extends Campionati
       );
     } else if (isInserting) {
       context.missing(_nomeMeta);
+    }
+    if (data.containsKey('stagione')) {
+      context.handle(
+        _stagioneMeta,
+        stagione.isAcceptableOrUnknown(data['stagione']!, _stagioneMeta),
+      );
     }
     if (data.containsKey('squadra_propria')) {
       context.handle(
@@ -4414,6 +4432,10 @@ class $CampionatiTable extends Campionati
         DriftSqlType.string,
         data['${effectivePrefix}nome'],
       )!,
+      stagione: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stagione'],
+      ),
       squadraPropria: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}squadra_propria'],
@@ -4438,12 +4460,14 @@ class $CampionatiTable extends Campionati
 class Campionato extends DataClass implements Insertable<Campionato> {
   final int id;
   final String nome;
+  final String? stagione;
   final String? squadraPropria;
   final int? teamId;
   final DateTime dataImport;
   const Campionato({
     required this.id,
     required this.nome,
+    this.stagione,
     this.squadraPropria,
     this.teamId,
     required this.dataImport,
@@ -4453,6 +4477,9 @@ class Campionato extends DataClass implements Insertable<Campionato> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['nome'] = Variable<String>(nome);
+    if (!nullToAbsent || stagione != null) {
+      map['stagione'] = Variable<String>(stagione);
+    }
     if (!nullToAbsent || squadraPropria != null) {
       map['squadra_propria'] = Variable<String>(squadraPropria);
     }
@@ -4467,6 +4494,9 @@ class Campionato extends DataClass implements Insertable<Campionato> {
     return CampionatiCompanion(
       id: Value(id),
       nome: Value(nome),
+      stagione: stagione == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stagione),
       squadraPropria: squadraPropria == null && nullToAbsent
           ? const Value.absent()
           : Value(squadraPropria),
@@ -4485,6 +4515,7 @@ class Campionato extends DataClass implements Insertable<Campionato> {
     return Campionato(
       id: serializer.fromJson<int>(json['id']),
       nome: serializer.fromJson<String>(json['nome']),
+      stagione: serializer.fromJson<String?>(json['stagione']),
       squadraPropria: serializer.fromJson<String?>(json['squadraPropria']),
       teamId: serializer.fromJson<int?>(json['teamId']),
       dataImport: serializer.fromJson<DateTime>(json['dataImport']),
@@ -4496,6 +4527,7 @@ class Campionato extends DataClass implements Insertable<Campionato> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'nome': serializer.toJson<String>(nome),
+      'stagione': serializer.toJson<String?>(stagione),
       'squadraPropria': serializer.toJson<String?>(squadraPropria),
       'teamId': serializer.toJson<int?>(teamId),
       'dataImport': serializer.toJson<DateTime>(dataImport),
@@ -4505,12 +4537,14 @@ class Campionato extends DataClass implements Insertable<Campionato> {
   Campionato copyWith({
     int? id,
     String? nome,
+    Value<String?> stagione = const Value.absent(),
     Value<String?> squadraPropria = const Value.absent(),
     Value<int?> teamId = const Value.absent(),
     DateTime? dataImport,
   }) => Campionato(
     id: id ?? this.id,
     nome: nome ?? this.nome,
+    stagione: stagione.present ? stagione.value : this.stagione,
     squadraPropria: squadraPropria.present
         ? squadraPropria.value
         : this.squadraPropria,
@@ -4521,6 +4555,7 @@ class Campionato extends DataClass implements Insertable<Campionato> {
     return Campionato(
       id: data.id.present ? data.id.value : this.id,
       nome: data.nome.present ? data.nome.value : this.nome,
+      stagione: data.stagione.present ? data.stagione.value : this.stagione,
       squadraPropria: data.squadraPropria.present
           ? data.squadraPropria.value
           : this.squadraPropria,
@@ -4536,6 +4571,7 @@ class Campionato extends DataClass implements Insertable<Campionato> {
     return (StringBuffer('Campionato(')
           ..write('id: $id, ')
           ..write('nome: $nome, ')
+          ..write('stagione: $stagione, ')
           ..write('squadraPropria: $squadraPropria, ')
           ..write('teamId: $teamId, ')
           ..write('dataImport: $dataImport')
@@ -4544,13 +4580,15 @@ class Campionato extends DataClass implements Insertable<Campionato> {
   }
 
   @override
-  int get hashCode => Object.hash(id, nome, squadraPropria, teamId, dataImport);
+  int get hashCode =>
+      Object.hash(id, nome, stagione, squadraPropria, teamId, dataImport);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Campionato &&
           other.id == this.id &&
           other.nome == this.nome &&
+          other.stagione == this.stagione &&
           other.squadraPropria == this.squadraPropria &&
           other.teamId == this.teamId &&
           other.dataImport == this.dataImport);
@@ -4559,12 +4597,14 @@ class Campionato extends DataClass implements Insertable<Campionato> {
 class CampionatiCompanion extends UpdateCompanion<Campionato> {
   final Value<int> id;
   final Value<String> nome;
+  final Value<String?> stagione;
   final Value<String?> squadraPropria;
   final Value<int?> teamId;
   final Value<DateTime> dataImport;
   const CampionatiCompanion({
     this.id = const Value.absent(),
     this.nome = const Value.absent(),
+    this.stagione = const Value.absent(),
     this.squadraPropria = const Value.absent(),
     this.teamId = const Value.absent(),
     this.dataImport = const Value.absent(),
@@ -4572,6 +4612,7 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
   CampionatiCompanion.insert({
     this.id = const Value.absent(),
     required String nome,
+    this.stagione = const Value.absent(),
     this.squadraPropria = const Value.absent(),
     this.teamId = const Value.absent(),
     required DateTime dataImport,
@@ -4580,6 +4621,7 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
   static Insertable<Campionato> custom({
     Expression<int>? id,
     Expression<String>? nome,
+    Expression<String>? stagione,
     Expression<String>? squadraPropria,
     Expression<int>? teamId,
     Expression<DateTime>? dataImport,
@@ -4587,6 +4629,7 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (nome != null) 'nome': nome,
+      if (stagione != null) 'stagione': stagione,
       if (squadraPropria != null) 'squadra_propria': squadraPropria,
       if (teamId != null) 'team_id': teamId,
       if (dataImport != null) 'data_import': dataImport,
@@ -4596,6 +4639,7 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
   CampionatiCompanion copyWith({
     Value<int>? id,
     Value<String>? nome,
+    Value<String?>? stagione,
     Value<String?>? squadraPropria,
     Value<int?>? teamId,
     Value<DateTime>? dataImport,
@@ -4603,6 +4647,7 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
     return CampionatiCompanion(
       id: id ?? this.id,
       nome: nome ?? this.nome,
+      stagione: stagione ?? this.stagione,
       squadraPropria: squadraPropria ?? this.squadraPropria,
       teamId: teamId ?? this.teamId,
       dataImport: dataImport ?? this.dataImport,
@@ -4617,6 +4662,9 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
     }
     if (nome.present) {
       map['nome'] = Variable<String>(nome.value);
+    }
+    if (stagione.present) {
+      map['stagione'] = Variable<String>(stagione.value);
     }
     if (squadraPropria.present) {
       map['squadra_propria'] = Variable<String>(squadraPropria.value);
@@ -4635,6 +4683,7 @@ class CampionatiCompanion extends UpdateCompanion<Campionato> {
     return (StringBuffer('CampionatiCompanion(')
           ..write('id: $id, ')
           ..write('nome: $nome, ')
+          ..write('stagione: $stagione, ')
           ..write('squadraPropria: $squadraPropria, ')
           ..write('teamId: $teamId, ')
           ..write('dataImport: $dataImport')
@@ -9980,6 +10029,7 @@ typedef $$CampionatiTableCreateCompanionBuilder =
     CampionatiCompanion Function({
       Value<int> id,
       required String nome,
+      Value<String?> stagione,
       Value<String?> squadraPropria,
       Value<int?> teamId,
       required DateTime dataImport,
@@ -9988,6 +10038,7 @@ typedef $$CampionatiTableUpdateCompanionBuilder =
     CampionatiCompanion Function({
       Value<int> id,
       Value<String> nome,
+      Value<String?> stagione,
       Value<String?> squadraPropria,
       Value<int?> teamId,
       Value<DateTime> dataImport,
@@ -10050,6 +10101,11 @@ class $$CampionatiTableFilterComposer
 
   ColumnFilters<String> get nome => $composableBuilder(
     column: $table.nome,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stagione => $composableBuilder(
+    column: $table.stagione,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10131,6 +10187,11 @@ class $$CampionatiTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get stagione => $composableBuilder(
+    column: $table.stagione,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get squadraPropria => $composableBuilder(
     column: $table.squadraPropria,
     builder: (column) => ColumnOrderings(column),
@@ -10179,6 +10240,9 @@ class $$CampionatiTableAnnotationComposer
 
   GeneratedColumn<String> get nome =>
       $composableBuilder(column: $table.nome, builder: (column) => column);
+
+  GeneratedColumn<String> get stagione =>
+      $composableBuilder(column: $table.stagione, builder: (column) => column);
 
   GeneratedColumn<String> get squadraPropria => $composableBuilder(
     column: $table.squadraPropria,
@@ -10269,12 +10333,14 @@ class $$CampionatiTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> nome = const Value.absent(),
+                Value<String?> stagione = const Value.absent(),
                 Value<String?> squadraPropria = const Value.absent(),
                 Value<int?> teamId = const Value.absent(),
                 Value<DateTime> dataImport = const Value.absent(),
               }) => CampionatiCompanion(
                 id: id,
                 nome: nome,
+                stagione: stagione,
                 squadraPropria: squadraPropria,
                 teamId: teamId,
                 dataImport: dataImport,
@@ -10283,12 +10349,14 @@ class $$CampionatiTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String nome,
+                Value<String?> stagione = const Value.absent(),
                 Value<String?> squadraPropria = const Value.absent(),
                 Value<int?> teamId = const Value.absent(),
                 required DateTime dataImport,
               }) => CampionatiCompanion.insert(
                 id: id,
                 nome: nome,
+                stagione: stagione,
                 squadraPropria: squadraPropria,
                 teamId: teamId,
                 dataImport: dataImport,

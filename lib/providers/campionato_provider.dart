@@ -47,18 +47,48 @@ class CampionatoRepository {
         .getSingleOrNull();
   }
 
-  /// Importa (o ri-importa) le gare di un file FIPAV.
+  /// Il nome del campionato che verrebbe usato importando questo file (la
+  /// colonna "Campionato", identica su tutte le righe).
+  String nomeCampionatoDi(EsitoParsingFipav parsing) => parsing.gare
+      .map((g) => g.campionato)
+      .firstWhere((n) => n.trim().isNotEmpty, orElse: () => 'Campionato');
+
+  /// I campionati già presenti con questo nome. La UI ci costruisce la domanda
+  /// "aggiorno quello esistente o ne creo uno nuovo?" — lista vuota al primo
+  /// import di un girone, quindi nessuna domanda da fare.
   ///
-  /// Il campionato è identificato dal **nome** letto nel file: ri-importando
-  /// un export più recente dello stesso girone, le gare già presenti vengono
-  /// **aggiornate** (risultati e parziali appena giocati) invece di essere
-  /// duplicate, e l'eventuale collegamento a una partita già creata
-  /// (`matchId`) non si perde. È il caso d'uso normale: si riscarica il file
-  /// ogni settimana per aggiornare la classifica.
+  /// La decisione NON si prende qui: due import dello stesso nome possono
+  /// essere il ri-download settimanale (aggiorna) oppure la stagione nuova
+  /// (crea), e solo l'utente lo sa.
+  Future<List<Campionato>> campionatiConNome(String nome) {
+    return (_db.select(_db.campionati)..where((c) => c.nome.equals(nome)))
+        .get();
+  }
+
+  Future<int> contaGare(int campionatoId) async {
+    final righe = await (_db.select(_db.gare)
+          ..where((g) => g.campionatoId.equals(campionatoId)))
+        .get();
+    return righe.length;
+  }
+
+  /// Importa le gare di un file FIPAV.
+  ///
+  /// Con [campionatoEsistenteId] valorizzato si **aggiorna** quel campionato:
+  /// le gare già presenti vengono riscritte (risultati e parziali appena
+  /// giocati) invece di essere duplicate, e il collegamento a una partita già
+  /// creata (`matchId`) **non si perde**. È il caso d'uso normale: si riscarica
+  /// il file ogni settimana per aggiornare la classifica.
+  ///
+  /// Con `null` si crea un campionato nuovo, anche se ne esiste già uno con lo
+  /// stesso nome — è così che convivono due stagioni dello stesso girone.
   ///
   /// Chiave di identità di una gara: `garaNumero` se presente (è il numero
   /// federale, stabile), altrimenti la terna data+squadre.
-  Future<EsitoImport> importa(EsitoParsingFipav parsing) async {
+  Future<EsitoImport> importa(
+    EsitoParsingFipav parsing, {
+    int? campionatoEsistenteId,
+  }) async {
     final gare = parsing.gare;
     if (gare.isEmpty) {
       throw const FormatException(
@@ -66,20 +96,21 @@ class CampionatoRepository {
       );
     }
 
-    final nomeCampionato = gare
-        .map((g) => g.campionato)
-        .firstWhere((n) => n.trim().isNotEmpty, orElse: () => 'Campionato');
+    final nomeCampionato = nomeCampionatoDi(parsing);
+    final stagione = stagioneDaGare(gare);
 
     return _db.transaction(() async {
-      var campionato = await (_db.select(_db.campionati)
-            ..where((c) => c.nome.equals(nomeCampionato))
-            ..limit(1))
-          .getSingleOrNull();
+      var campionato = campionatoEsistenteId == null
+          ? null
+          : await (_db.select(_db.campionati)
+                ..where((c) => c.id.equals(campionatoEsistenteId)))
+              .getSingleOrNull();
 
       if (campionato == null) {
         final id = await _db.into(_db.campionati).insert(
               CampionatiCompanion.insert(
                 nome: nomeCampionato,
+                stagione: Value(stagione),
                 dataImport: DateTime.now(),
               ),
             );
@@ -89,7 +120,15 @@ class CampionatoRepository {
       } else {
         await (_db.update(_db.campionati)
               ..where((c) => c.id.equals(campionato!.id)))
-            .write(CampionatiCompanion(dataImport: Value(DateTime.now())));
+            .write(CampionatiCompanion(
+          dataImport: Value(DateTime.now()),
+          // La stagione si aggiorna solo se mancava (campionati importati
+          // prima della v18): riscriverla cambierebbe l'etichetta sotto i
+          // piedi all'utente a ogni ri-import.
+          stagione: campionato.stagione == null
+              ? Value(stagione)
+              : const Value.absent(),
+        ));
       }
 
       final esistenti = await (_db.select(_db.gare)

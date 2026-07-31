@@ -147,7 +147,7 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v16** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v18** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
@@ -167,7 +167,9 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   `.name` di `SistemaGioco`; `null` = 5-1 legacy) per il modulo 6-2 — vedi
   Modulo 6-2 sotto; v17 ha aggiunto le tabelle `Campionati` e `Gare` per
   l'import del calendario FIPAV e la classifica — vedi la sezione
-  "Campionato", nessuna modifica alle tabelle esistenti).
+  "Campionato", nessuna modifica alle tabelle esistenti; v18 ha aggiunto
+  `Campionati.stagione` (text nullable, es. "2025/26") per distinguere due
+  import dello stesso girone in stagioni diverse — vedi Campionato).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 

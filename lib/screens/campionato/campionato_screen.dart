@@ -30,6 +30,21 @@ class CampionatoScreen extends ConsumerStatefulWidget {
   ConsumerState<CampionatoScreen> createState() => _CampionatoScreenState();
 }
 
+/// Sfondo delle righe che riguardano la PROPRIA squadra — verde chiaro scelto
+/// dall'utente. Usato sia dalle card del calendario sia dalla riga della
+/// classifica: stesso significato, stesso colore (convenzione già seguita
+/// altrove nell'app, vedi i colori voto/punto nello scout).
+const Color _kSfondoMiaSquadra = Color(0xFFD2EFB2);
+
+/// Esito della domanda "aggiorno o creo nuovo?". È un oggetto e non un
+/// semplice `int?` perché servono TRE risposte distinte: aggiorna il
+/// campionato N, creane uno nuovo (`campionatoId == null`), oppure annulla
+/// (che è il `null` restituito da `showDialog`).
+class _DestinazioneImport {
+  const _DestinazioneImport(this.campionatoId);
+  final int? campionatoId;
+}
+
 class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     with OrientamentoSchermata<CampionatoScreen> {
   // Schermata di consultazione/setup: comoda anche in portrait, la tabella
@@ -38,6 +53,12 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
   List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
 
   int? _campionatoSelezionato;
+
+  /// Squadra su cui è filtrata la lista dei campionati. `null` = tutte,
+  /// [_kSenzaSquadra] = solo quelli a cui non è ancora stata assegnata una
+  /// squadra (altrimenti, appena importati, sparirebbero da ogni filtro).
+  int? _teamFiltro;
+  static const int _kSenzaSquadra = -1;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +78,28 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
                 children: [Text('Importa'), PremiumBadge()],
               ),
             ),
+            Builder(builder: (context) {
+              final campionati = campionatiAsync.value ?? const <Campionato>[];
+              return PopupMenuButton<String>(
+                enabled: campionati.isNotEmpty,
+                onSelected: (v) {
+                  if (v == 'elimina') {
+                    final c = _campionatoCorrente(campionati);
+                    if (c != null) _eliminaCampionato(c);
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'elimina',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Elimina campionato'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              );
+            }),
           ],
           bottom: const TabBar(
             tabs: [
@@ -71,14 +114,19 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
           data: (campionati) {
             if (campionati.isEmpty) return _statoVuoto();
 
-            final campionato = campionati.firstWhere(
-              (c) => c.id == _campionatoSelezionato,
-              orElse: () => campionati.first,
-            );
+            final visibili = _filtrati(campionati);
+            final campionato = _campionatoCorrente(campionati);
+            if (campionato == null) {
+              // Il filtro non contiene più nulla (es. eliminato l'ultimo
+              // campionato di quella squadra): si torna a "Tutte".
+              return _filtroVuoto(campionati);
+            }
             return Column(
               children: [
-                if (campionati.length > 1)
-                  _selettoreCampionato(campionati, campionato),
+                if (_serveFiltroSquadra(campionati))
+                  _selettoreSquadra(campionati),
+                if (visibili.length > 1)
+                  _selettoreCampionato(visibili, campionato),
                 _intestazione(campionato),
                 Expanded(
                   child: TabBarView(
@@ -134,23 +182,158 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     );
   }
 
+  // --- Filtro per squadra e selezione del campionato ------------------------
+
+  /// I campionati visibili col filtro squadra corrente.
+  List<Campionato> _filtrati(List<Campionato> campionati) {
+    if (_teamFiltro == null) return campionati;
+    if (_teamFiltro == _kSenzaSquadra) {
+      return campionati.where((c) => c.teamId == null).toList();
+    }
+    return campionati.where((c) => c.teamId == _teamFiltro).toList();
+  }
+
+  /// Il campionato mostrato: quello selezionato se è ancora nel filtro,
+  /// altrimenti il primo disponibile. `null` solo se il filtro è vuoto.
+  Campionato? _campionatoCorrente(List<Campionato> campionati) {
+    final visibili = _filtrati(campionati);
+    if (visibili.isEmpty) return null;
+    return visibili.firstWhere(
+      (c) => c.id == _campionatoSelezionato,
+      orElse: () => visibili.first,
+    );
+  }
+
+  /// Il selettore di squadra ha senso solo se i campionati importati toccano
+  /// più di un "gruppo": con una squadra sola sarebbe un dropdown a una voce.
+  bool _serveFiltroSquadra(List<Campionato> campionati) {
+    final gruppi = campionati.map((c) => c.teamId ?? _kSenzaSquadra).toSet();
+    return gruppi.length > 1;
+  }
+
+  Widget _selettoreSquadra(List<Campionato> campionati) {
+    final squadre = ref.watch(teamsStreamProvider).value ?? const <Team>[];
+    final perId = {for (final t in squadre) t.id: t};
+    // Solo le squadre che hanno almeno un campionato: le altre darebbero voci
+    // che filtrano su lista vuota.
+    final idUsati = campionati.map((c) => c.teamId ?? _kSenzaSquadra).toSet();
+
+    String etichetta(int id) => id == _kSenzaSquadra
+        ? 'Senza squadra'
+        : (perId[id]?.nome ?? 'Squadra eliminata');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+      child: DropdownButtonFormField<int?>(
+        initialValue: _teamFiltro,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Squadra'),
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('Tutte')),
+          for (final id in idUsati)
+            DropdownMenuItem<int?>(value: id, child: Text(etichetta(id))),
+        ],
+        onChanged: (v) => setState(() {
+          _teamFiltro = v;
+          _campionatoSelezionato = null; // ricalcolato sul nuovo filtro
+        }),
+      ),
+    );
+  }
+
+  Widget _filtroVuoto(List<Campionato> campionati) {
+    return Column(
+      children: [
+        _selettoreSquadra(campionati),
+        const Spacer(),
+        const Text('Nessun campionato per questa squadra.'),
+        const SizedBox(height: AppSpacing.md),
+        TextButton(
+          onPressed: () => setState(() => _teamFiltro = null),
+          child: const Text('Mostra tutti'),
+        ),
+        const Spacer(),
+      ],
+    );
+  }
+
   Widget _selettoreCampionato(
     List<Campionato> campionati,
     Campionato corrente,
   ) {
+    // Due import dello stesso girone (stagione nuova) hanno lo stesso nome: in
+    // quel caso l'etichetta porta anche la stagione, altrimenti sarebbero due
+    // voci identiche e indistinguibili.
+    final omonimi = <String, int>{};
+    for (final c in campionati) {
+      omonimi[c.nome] = (omonimi[c.nome] ?? 0) + 1;
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
       child: DropdownButtonFormField<int>(
         initialValue: corrente.id,
+        isExpanded: true,
         decoration: const InputDecoration(labelText: 'Campionato'),
         items: [
           for (final c in campionati)
-            DropdownMenuItem(value: c.id, child: Text(c.nome)),
+            DropdownMenuItem(
+              value: c.id,
+              child: Text(
+                (omonimi[c.nome] ?? 0) > 1 ? _nomeConStagione(c) : c.nome,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
         ],
         onChanged: (v) => setState(() => _campionatoSelezionato = v),
       ),
     );
+  }
+
+  String _nomeConStagione(Campionato c) =>
+      c.stagione == null ? c.nome : '${c.nome} — ${c.stagione}';
+
+  // --- Eliminazione ---------------------------------------------------------
+
+  Future<void> _eliminaCampionato(Campionato campionato) async {
+    final repo = ref.read(campionatoRepositoryProvider);
+    final gare = await repo.contaGare(campionato.id);
+    if (!mounted) return;
+
+    final conferma = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminare il campionato?'),
+        content: Text(
+          '${_nomeConStagione(campionato)}\n\n'
+          'Spariscono il calendario e le sue $gare gare, e con loro la '
+          'classifica.\n\n'
+          'Le partite che hai già creato da queste gare RESTANO in Gestione '
+          'partite, con tutti i dati di scout: se non ti servono più, '
+          'eliminale da lì.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Elimina'),
+          ),
+        ],
+      ),
+    );
+    if (conferma != true) return;
+
+    await repo.eliminaCampionato(campionato.id);
+    if (!mounted) return;
+    setState(() {
+      _campionatoSelezionato = null;
+      _teamFiltro = null;
+    });
   }
 
   /// Riga con il nome del campionato e la squadra propria (tappabile per
@@ -165,7 +348,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
         children: [
           Expanded(
             child: Text(
-              campionato.nome,
+              _nomeConStagione(campionato),
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
@@ -212,11 +395,28 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
       final bytes = await file.readAsBytes();
       // Il formato si riconosce dai byte, non dall'estensione.
       final parsing = parseGareFipav(leggiFoglioCalcolo(bytes));
+
+      final repo = ref.read(campionatoRepositoryProvider);
+      final omonimi = await repo.campionatiConNome(repo.nomeCampionatoDi(parsing));
+      if (!mounted) return;
+
+      // Con un omonimo già a DB non si può decidere da soli: potrebbe essere il
+      // ri-download settimanale (aggiorna) o la stagione nuova (crea).
+      int? destinazione;
+      if (omonimi.isNotEmpty) {
+        final scelta = await _scegliDestinazioneImport(omonimi, parsing);
+        if (scelta == null) return; // annullato
+        destinazione = scelta.campionatoId;
+      }
+
       final esito =
-          await ref.read(campionatoRepositoryProvider).importa(parsing);
+          await repo.importa(parsing, campionatoEsistenteId: destinazione);
 
       if (!mounted) return;
-      setState(() => _campionatoSelezionato = esito.campionatoId);
+      setState(() {
+        _campionatoSelezionato = esito.campionatoId;
+        _teamFiltro = null; // il nuovo campionato dev'essere subito visibile
+      });
 
       final pezzi = [
         if (esito.nuove > 0) '${esito.nuove} nuove',
@@ -258,6 +458,74 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Import fallito: $e')));
     }
+  }
+
+  /// Chiede se aggiornare un campionato omonimo già importato o crearne uno
+  /// nuovo. Serve perché lo stesso file può significare due cose opposte: il
+  /// ri-download settimanale del girone in corso, oppure il calendario della
+  /// stagione nuova (stesso nome, gare tutte diverse). Ritorna `null` se
+  /// l'utente annulla.
+  Future<_DestinazioneImport?> _scegliDestinazioneImport(
+    List<Campionato> omonimi,
+    EsitoParsingFipav parsing,
+  ) {
+    final stagione = stagioneDaGare(parsing.gare);
+
+    return showDialog<_DestinazioneImport>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Campionato già presente'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+            child: Text(
+              'Hai già importato "${omonimi.first.nome}".\n'
+              'Aggiorna quello esistente per registrare i risultati appena '
+              'giocati, oppure creane uno nuovo se questo è il calendario di '
+              'un\'altra stagione.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          for (final c in omonimi)
+            SimpleDialogOption(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DestinazioneImport(c.id)),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.sync),
+                title: const Text('Aggiorna quello esistente'),
+                subtitle: Text([
+                  if (c.stagione != null) 'stagione ${c.stagione}',
+                  if (c.squadraPropria != null) c.squadraPropria!,
+                ].join(' · ')),
+              ),
+            ),
+          SimpleDialogOption(
+            onPressed: () =>
+                Navigator.pop(dialogContext, const _DestinazioneImport(null)),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.add),
+              title: const Text('Crea un nuovo campionato'),
+              subtitle: Text(
+                stagione == null ? 'calendario separato' : 'stagione $stagione',
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.md),
+              child: TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Annulla'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Chiede quale delle squadre del file è la propria e a quale squadra locale
@@ -418,11 +686,18 @@ class _RigaGara extends ConsumerWidget {
           ),
         );
 
+    // Le gare della propria squadra sono quelle che si cercano scorrendo il
+    // calendario: sfondo azzurrino per trovarle a colpo d'occhio. Stesso
+    // segnale della riga evidenziata in classifica (`_TabClassifica._riga`).
+    final miaGara = propria != null &&
+        (gara.squadraCasa == propria || gara.squadraOspite == propria);
+
     return Card(
       margin: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.xs,
       ),
+      color: miaGara ? _kSfondoMiaSquadra : null,
       child: ListTile(
         leading: SizedBox(
           width: 56,
@@ -474,13 +749,16 @@ class _RigaGara extends ConsumerWidget {
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
+          // Parziali: erano in bodySmall (12), troppo piccoli per leggerli
+          // scorrendo il calendario. Il riquadro si allarga di conseguenza,
+          // altrimenti una gara a 5 set verrebbe troncata.
           if (gara.parziali != null)
             SizedBox(
-              width: 160,
+              width: 230,
               child: Text(
                 gara.parziali!,
                 textAlign: TextAlign.right,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodyLarge,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -602,9 +880,7 @@ class _TabClassifica extends ConsumerWidget {
         : const TextStyle();
     return DataRow(
       color: propria
-          ? WidgetStatePropertyAll(
-              Theme.of(context).colorScheme.primary.withAlpha(20),
-            )
+          ? const WidgetStatePropertyAll(_kSfondoMiaSquadra)
           : null,
       cells: [
         DataCell(Text('$posizione', style: stile)),

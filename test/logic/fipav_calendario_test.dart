@@ -69,6 +69,50 @@ void main() {
     });
   });
 
+  group('stagioneDaGare', () {
+    GaraFipav gara(DateTime quando) => GaraFipav(
+          campionato: 'Test',
+          dataOra: quando,
+          squadraCasa: 'ALFA',
+          squadraOspite: 'BETA',
+        );
+
+    test('una gara di ottobre appartiene alla stagione che inizia', () {
+      expect(stagioneDaGare([gara(DateTime(2025, 10, 12))]), '2025/26');
+    });
+
+    test('una gara di marzo appartiene alla stagione iniziata l\'anno prima',
+        () {
+      expect(stagioneDaGare([gara(DateTime(2026, 3, 8))]), '2025/26');
+    });
+
+    test('luglio è già la stagione nuova', () {
+      expect(stagioneDaGare([gara(DateTime(2026, 7, 1))]), '2026/27');
+      expect(stagioneDaGare([gara(DateTime(2026, 6, 30))]), '2025/26');
+    });
+
+    test('conta la gara più vecchia, non la prima della lista', () {
+      final s = stagioneDaGare([
+        gara(DateTime(2026, 3, 8)),
+        gara(DateTime(2025, 10, 12)),
+      ]);
+
+      expect(s, '2025/26');
+    });
+
+    test('cambio di secolo: le due cifre finali restano leggibili', () {
+      expect(stagioneDaGare([gara(DateTime(2099, 10, 1))]), '2099/00');
+    });
+
+    test('nessuna gara: null', () {
+      expect(stagioneDaGare(const []), isNull);
+    });
+
+    test('sulla fixture reale', () {
+      expect(stagioneDaGare(_daFixture().gare), '2025/26');
+    });
+  });
+
   group('parseGareFipav — casi limite', () {
     List<List<String>> conRighe(List<List<String>> dati) => [
           ['Campionato', 'Gara N', 'Giornata', 'Data', 'Ora', 'SquadraCasa',

@@ -169,11 +169,12 @@ lib/
 │   │                               costanti private di scout_screen, estratte per riuso
 │   │                               (formazione ricezione avversaria mirror); Scout
 │   │                               avversario e Modulo 6-2)
-│   ├── fipav_calendario.dart     (funzione pura parseGareFipav() — griglia
-│   │                               grezza dell'export FIPAV -> List<GaraFipav>
-│   │                               (header mappato per NOME colonna); testata
-│   │                               sulla fixture docs/samples/GareNettunia.xls —
-│   │                               vedi Campionato)
+│   ├── fipav_calendario.dart     (funzioni pure parseGareFipav() — griglia
+│   │                               grezza dell'export FIPAV -> List<GaraFipav>,
+│   │                               header mappato per NOME colonna — e
+│   │                               stagioneDaGare() ("2025/26" dalle date, il
+│   │                               file non ha la stagione); testate sulle
+│   │                               fixture — vedi Campionato)
 │   ├── classifica.dart           (funzioni pure calcolaClassifica() (3/2/1/0
 │   │                               punti FIPAV, quoziente set/punti) +
 │   │                               squadraUnicaDelFiltro() (rileva un export
@@ -219,9 +220,12 @@ lib/
 ├── providers/
 │   ├── premium_provider.dart     (StatoPremium + statoPremiumProvider — stub
 │   │                               del freemium gate, vedi sezione Premium)
-│   ├── campionato_provider.dart  (CampionatoRepository: importa() con upsert
-│   │                               per ri-import, impostaSquadraPropria(),
-│   │                               creaPartitaDaGara() + nomePartitaDaGara();
+│   ├── campionato_provider.dart  (CampionatoRepository: importa(campionato
+│   │                               EsistenteId:) — aggiorna o crea, la scelta
+│   │                               la fa la UI via campionatiConNome();
+│   │                               impostaSquadraPropria(), eliminaCampionato()
+│   │                               (le partite restano), creaPartitaDaGara() +
+│   │                               nomePartitaDaGara();
 │   │                               provider campionatiStream/gareStream —
 │   │                               vedi Campionato)
 │   ├── database_provider.dart    (TeamRepository + CategoriaRepository +
@@ -462,7 +466,9 @@ Backlog 6-2: libero e scout avversario in 6-2. Vedi "Modulo 6-2" in Modello dati
 
 **Campionato (import FIPAV + classifica)**: IMPLEMENTATO — lettori `.xls`
 binario e `.xlsx` scritti a mano (`data/spreadsheet_reader.dart` smista sui
-byte del file, non sull'estensione), parser gare e classifica puri e
+byte del file, non sull'estensione), **più campionati/squadre** (filtro squadra,
+stagione dedotta dalle date, dialog "aggiorna o crea nuovo" al re-import,
+eliminazione che conserva le partite), parser gare e classifica puri e
 testati, tabelle `Campionati`/`Gare` (v17), `CampionatoScreen` con tab
 Calendario/Classifica e creazione partite per gara. Import premium, classifica
 libera. Manca l'export PDF della classifica. Vedi la sezione "Campionato".

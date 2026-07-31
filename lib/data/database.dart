@@ -252,6 +252,12 @@ class ScoutActions extends Table {
 class Campionati extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get nome => text().withLength(min: 1, max: 150)();
+  // Stagione sportiva dedotta dalle date delle gare (es. "2025/26", vedi
+  // stagioneDaGare in logic/fipav_calendario.dart) — schema v18. Il file FIPAV
+  // non la riporta. Serve a DISTINGUERE in UI due import dello stesso girone in
+  // stagioni diverse: il `nome` resta quello esatto del file (è la chiave con
+  // cui si cercano gli omonimi al re-import), quindi da solo non basterebbe.
+  TextColumn get stagione => text().nullable()();
   // Nome della PROPRIA squadra come compare nel file: serve a decidere
   // casa/trasferta quando si crea una partita. null finché l'utente non lo
   // sceglie dopo l'import.
@@ -309,7 +315,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.perTest(super.executor);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -476,6 +482,10 @@ class AppDatabase extends _$AppDatabase {
             if (!await _hasTable('gare')) {
               await m.createTable(gare);
             }
+          }
+          if (from < 18 && !await _hasColumn('campionati', 'stagione')) {
+            await customStatement(
+                'ALTER TABLE campionati ADD COLUMN stagione TEXT');
           }
         },
         beforeOpen: (details) async {

@@ -94,13 +94,16 @@ magic `PK` → "è un .xlsx, esporta in Excel 97-2003"; `<` → "contiene HTML".
   quoziente punti → nome. `squadraUnicaDelFiltro(gare)` rileva l'export
   filtrato per società (tutte le gare contengono la stessa squadra) e alimenta
   il banner "Classifica parziale".
+- **`stagioneDaGare(gare)`** (in `fipav_calendario.dart`) — `"2025/26"` dalla
+  gara più vecchia. Il file non ha una colonna stagione, e l'anno sportivo parte
+  in estate: da luglio in poi è `anno/anno+1`, prima `anno-1/anno`.
 
-### Modello dati (schema **v17**)
+### Modello dati (schema **v17**, `stagione` in **v18**)
 
 - **`Campionati`** (`@DataClassName('Campionato')`): id, nome (dalla colonna
-  "Campionato"), `squadraPropria` (nome com'è scritto nel file — serve a
-  decidere casa/trasferta), `teamId` (squadra locale abbinata, setNull),
-  `dataImport`.
+  "Campionato"), `stagione` (v18, es. `"2025/26"` — dedotta dalle date, vedi
+  sotto), `squadraPropria` (nome com'è scritto nel file — serve a decidere
+  casa/trasferta), `teamId` (squadra locale abbinata, setNull), `dataImport`.
 - **`Gare`** (`@DataClassName('GaraCampionato')`): id, campionatoId (cascade),
   garaNumero, giornata, dataOra, squadraCasa/Ospite, risultato, parziali,
   statoDescrizione, impianto, indirizzoImpianto, **`matchId`** (setNull) — la
@@ -112,13 +115,27 @@ rotazione (vedi Modello dati).
 
 ### `CampionatoRepository` (`providers/campionato_provider.dart`)
 
-- **`importa(parsing)`** — il campionato è identificato dal **nome** letto nel
-  file. Ri-importando un export più recente dello stesso girone le gare esistenti
-  vengono **aggiornate** (risultati/parziali appena giocati) invece di essere
-  duplicate, e **`matchId` non viene mai toccato**: il collegamento a una partita
-  già creata sopravvive al ri-import. È il caso d'uso normale (si riscarica il
-  file ogni settimana). Chiave d'identità: `garaNumero` se presente (numero
-  federale, stabile), altrimenti data+squadre.
+- **`importa(parsing, {campionatoEsistenteId})`** — **la decisione su DOVE
+  importare non si prende qui**: con un id si aggiorna quel campionato, con
+  `null` se ne crea uno nuovo. Il motivo è che lo stesso file può significare
+  due cose opposte — il ri-download settimanale del girone in corso, oppure il
+  calendario della **stagione nuova** (stesso nome nel file, gare tutte
+  diverse) — e solo l'utente lo sa. La UI chiede con un dialog quando
+  `campionatiConNome(nome)` trova un omonimo (vedi sotto).
+  Aggiornando, le gare esistenti vengono riscritte (risultati/parziali appena
+  giocati) invece di essere duplicate, e **`matchId` non viene mai toccato**: il
+  collegamento a una partita già creata sopravvive al ri-import. Chiave
+  d'identità di una gara: `garaNumero` se presente (numero federale, stabile),
+  altrimenti data+squadre.
+- **`campionatiConNome(nome)`** / **`nomeCampionatoDi(parsing)`** — servono alla
+  UI per formulare la domanda. Lista vuota = primo import di quel girone,
+  nessuna domanda da fare.
+- **`contaGare(id)`** — per il testo della conferma di eliminazione.
+- **`eliminaCampionato(id)`** — le gare vanno via in cascata, **le partite già
+  create restano** in "Gestione partite" (`Gare.matchId` punta a
+  `VolleyMatches`, non il contrario): cancellare un calendario non deve mai
+  portarsi via i dati di scout. È la pulizia di fine stagione, c'è un test
+  dedicato.
 - **`impostaSquadraPropria(campionatoId, nome, teamId)`** — chiesta con un
   dialog subito dopo il primo import (con preselezione se un nome del file
   combacia case-insensitive con una `Team` locale). Senza, i bottoni "Crea
@@ -139,7 +156,26 @@ rotazione (vedi Modello dati).
 ### `CampionatoScreen`
 
 `kOrientamentoTutti` (consultazione, comoda anche in portrait). AppBar con
-"Importa" (+`PremiumBadge`), due tab:
+"Importa" (+`PremiumBadge`) e menu ⋮ con **"Elimina campionato"** (conferma che
+dice quante gare spariscono e ricorda che le partite già create restano).
+
+**Più campionati / più squadre** (un allenatore con due squadre, o una squadra
+in due competizioni): ogni import è una riga `Campionato` indipendente, con la
+sua squadra propria. Sopra le tab ci sono due selettori a cascata, mostrati solo
+quando servono davvero:
+- **Squadra** (`_teamFiltro`) — compare solo se i campionati importati coprono
+  più di un gruppo, così con una squadra sola la UI resta quella di prima. Ha
+  una voce **"Senza squadra"** per i campionati appena importati a cui non è
+  ancora stata assegnata: senza, sparirebbero da ogni filtro e sarebbero
+  irraggiungibili.
+- **Campionato**, filtrato sulla squadra. L'etichetta porta anche la
+  **stagione** quando ci sono omonimi (due import dello stesso girone), che è a
+  cosa serve quella colonna.
+
+Se il filtro resta senza campionati (es. dopo un'eliminazione) si mostra un
+"Mostra tutti" invece di una schermata vuota.
+
+Due tab:
 - **Calendario**: una card per gara con giornata/data/ora, `casa - ospite` (la
   propria in grassetto), impianto. A destra: risultato+parziali se giocata,
   bottone **"Crea partita"** se futura, spunta verde "Già in Gestione partite"
@@ -155,6 +191,14 @@ rotazione (vedi Modello dati).
 `MatchesScreen._richiedePremium()`). "Crea partita" ripassa comunque dal gate
 free "una sola partita" — in pratica irraggiungibile da free (l'import è già
 gated), ma evita di lasciare una scorciatoia aperta.
+
+### Limiti noti
+
+- **Una sola squadra propria per campionato**: due squadre TUE nello stesso
+  girone (es. prima squadra e "B") non sono rappresentabili — servirebbe
+  separare la squadra propria dal campionato con una tabella di associazione.
+  Scartato perché non si presenta nella pratica (deciso 2026-07-31).
+- Niente "elimina tutti" né archiviazione: si elimina un campionato per volta.
 
 ### Backlog
 
