@@ -165,7 +165,9 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   S2/C1/C2 dell'azione avversaria) — entrambi per lo Scout avversario, vedi
   la sezione dedicata; v16 ha aggiunto `MatchSets.sistemaGioco` (text nullable,
   `.name` di `SistemaGioco`; `null` = 5-1 legacy) per il modulo 6-2 — vedi
-  Modulo 6-2 sotto).
+  Modulo 6-2 sotto; v17 ha aggiunto le tabelle `Campionati` e `Gare` per
+  l'import del calendario FIPAV e la classifica — vedi la sezione
+  "Campionato", nessuna modifica alle tabelle esistenti).
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 

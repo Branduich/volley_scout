@@ -241,6 +241,54 @@ class ScoutActions extends Table {
   TextColumn get ruoloAvversario => text().nullable()();
 }
 
+// --- Campionato importato dal calendario FIPAV (schema v17) ---
+// Un import = un campionato (il nome viene dalla colonna "Campionato" del
+// file). Le gare NON diventano automaticamente partite: restano qui come
+// calendario consultabile e sorgente della classifica, e l'utente sceglie
+// quali trasformare in VolleyMatch (vedi CampionatoRepository).
+// @DataClassName: senza, drift chiamerebbe la riga singola "CampionatiData"
+// (vedi convenzione n.7 in CLAUDE.md).
+@DataClassName('Campionato')
+class Campionati extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nome => text().withLength(min: 1, max: 150)();
+  // Nome della PROPRIA squadra come compare nel file: serve a decidere
+  // casa/trasferta quando si crea una partita. null finché l'utente non lo
+  // sceglie dopo l'import.
+  TextColumn get squadraPropria => text().nullable()();
+  // Squadra locale abbinata, per precompilare VolleyMatch.teamId.
+  IntColumn get teamId =>
+      integer().nullable().references(Teams, #id, onDelete: KeyAction.setNull)();
+  DateTimeColumn get dataImport => dateTime()();
+}
+
+// @DataClassName: senza, drift genererebbe la data class "Gare" per la riga
+// singola (vedi convenzione n.7 in CLAUDE.md, come VolleyMatches/VolleyMatch).
+@DataClassName('GaraCampionato')
+class Gare extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get campionatoId =>
+      integer().references(Campionati, #id, onDelete: KeyAction.cascade)();
+  IntColumn get garaNumero => integer().nullable()();
+  IntColumn get giornata => integer().nullable()();
+  DateTimeColumn get dataOra => dateTime()();
+  TextColumn get squadraCasa => text()();
+  TextColumn get squadraOspite => text()();
+  // Risultato in set ("3-1") e parziali ("25-17 20-25 ..."): null se la gara
+  // non è ancora stata giocata. Alimentano la classifica.
+  TextColumn get risultato => text().nullable()();
+  TextColumn get parziali => text().nullable()();
+  TextColumn get statoDescrizione => text().nullable()();
+  TextColumn get impianto => text().nullable()();
+  TextColumn get indirizzoImpianto => text().nullable()();
+  // Partita creata da questa gara: la riga di calendario mostra "già in
+  // Gestione partite" invece del bottone. setNull così cancellare la partita
+  // non cancella la gara — si potrà ricrearla.
+  IntColumn get matchId => integer()
+      .nullable()
+      .references(VolleyMatches, #id, onDelete: KeyAction.setNull)();
+}
+
 // --- Database ---
 @DriftDatabase(tables: [
   Categorie,
@@ -250,12 +298,18 @@ class ScoutActions extends Table {
   MatchSets,
   Rotations,
   ScoutActions,
+  Campionati,
+  Gare,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Costruttore per i test: permette di iniettare un database in memoria
+  /// (`NativeDatabase.memory()`) invece del file su disco del device.
+  AppDatabase.perTest(super.executor);
+
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -414,6 +468,14 @@ class AppDatabase extends _$AppDatabase {
               !await _hasColumn('match_sets', 'sistema_gioco')) {
             await customStatement('ALTER TABLE match_sets ADD COLUMN '
                 'sistema_gioco TEXT');
+          }
+          if (from < 17) {
+            if (!await _hasTable('campionati')) {
+              await m.createTable(campionati);
+            }
+            if (!await _hasTable('gare')) {
+              await m.createTable(gare);
+            }
           }
         },
         beforeOpen: (details) async {

@@ -12,6 +12,7 @@ import 'l10n/app_localizations.dart';
 import 'providers/database_provider.dart';
 import 'providers/lingua_provider.dart';
 import 'providers/settings_provider.dart';
+import 'screens/campionato/campionato_screen.dart';
 import 'screens/matches/matches_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/teams/teams_screen.dart';
@@ -170,6 +171,15 @@ class _HomeScreenState extends State<HomeScreen>
                 settings: const RouteSettings(name: '/matches'),
                 builder: (_) => const MatchesScreen(),
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _MenuButton(
+            icon: Icons.emoji_events,
+            label: l.homeCampionato,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CampionatoScreen()),
             ),
           ),
           const Spacer(),

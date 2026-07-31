@@ -43,11 +43,15 @@ procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 - **csv** + **share_plus** (export CSV delle azioni partita — qui `printing`
   non basta, condivide solo PDF; vedi Export CSV in Fase 4)
 - **shared_preferences** (impostazioni app — vedi `SettingsScreen`)
+- **file_selector** (scelta del file `.xls` da importare — vedi Campionato).
+  Scelto al posto di `file_picker`, che va in **conflitto di versione** con
+  `package_info_plus ^10` (win32 ^5 vs ^6): pub risolveva file_picker a 3.0.4,
+  del 2021. `file_selector` è mantenuto dal team Flutter e non ha il vincolo.
 - Target: **solo orientamento orizzontale (landscape)**
 
 Package già installati:
 `flutter_riverpod drift sqlite3_flutter_libs path_provider path pdf printing
-shared_preferences csv share_plus`
+shared_preferences csv share_plus file_selector`
 dev: `drift_dev build_runner flutter_launcher_icons`
 
 **Workaround build Android** (`android/gradle.properties`):
@@ -163,6 +167,16 @@ lib/
 │   │                               costanti private di scout_screen, estratte per riuso
 │   │                               (formazione ricezione avversaria mirror); Scout
 │   │                               avversario e Modulo 6-2)
+│   ├── fipav_calendario.dart     (funzione pura parseGareFipav() — griglia
+│   │                               grezza dell'export FIPAV -> List<GaraFipav>
+│   │                               (header mappato per NOME colonna); testata
+│   │                               sulla fixture docs/samples/GareNettunia.xls —
+│   │                               vedi Campionato)
+│   ├── classifica.dart           (funzioni pure calcolaClassifica() (3/2/1/0
+│   │                               punti FIPAV, quoziente set/punti) +
+│   │                               squadraUnicaDelFiltro() (rileva un export
+│   │                               filtrato per società = classifica parziale);
+│   │                               testate — vedi Campionato)
 │   ├── heatmap.dart              (funzioni pure puntiArrivoAvversari() +
 │   │                               puntiArrivoAvversariPerfetti() — punti d'arrivo nel
 │   │                               nostro campo delle azioni AVVERSARIE battuta/attacco,
@@ -186,13 +200,23 @@ lib/
 │   │                               al primo avvio, seed una-tantum via flag)
 │   ├── demo_match_importer.dart  (import partita demo da assets/demo/ —
 │   │                               solo debug, vedi Fase 4)
-│   └── match_csv_exporter.dart   (export CSV azioni partita: righeCsvPartita()
-│                                   pura + condividiCsvPartita() con share
-│                                   sheet — bottone "CSV" in MatchesScreen,
-│                                   vedi Export CSV in Fase 4)
+│   ├── match_csv_exporter.dart   (export CSV azioni partita: righeCsvPartita()
+│   │                               pura + condividiCsvPartita() con share
+│   │                               sheet — bottone "CSV" in MatchesScreen,
+│   │                               vedi Export CSV in Fase 4)
+│   └── xls_reader.dart           (leggiXls() — lettore MINIMALE di .xls
+│                                   binario legacy (OLE2 + BIFF8), scritto a
+│                                   mano perché nessun package Dart legge quel
+│                                   formato; usato solo dall'import FIPAV —
+│                                   vedi Campionato)
 ├── providers/
 │   ├── premium_provider.dart     (StatoPremium + statoPremiumProvider — stub
 │   │                               del freemium gate, vedi sezione Premium)
+│   ├── campionato_provider.dart  (CampionatoRepository: importa() con upsert
+│   │                               per ri-import, impostaSquadraPropria(),
+│   │                               creaPartitaDaGara() + nomePartitaDaGara();
+│   │                               provider campionatiStream/gareStream —
+│   │                               vedi Campionato)
 │   ├── database_provider.dart    (TeamRepository + CategoriaRepository +
 │   │                               MatchRepository, tutti i provider:
 │   │                               teamsStream, playersStream, categorieStream,
@@ -261,6 +285,10 @@ lib/
 │   │                                      (blob + marker ace/kill, frecce nascoste,
 │   │                                      rotazione = NOSTRA formazione) — vedi Fase 4 →
 │   │                                      Heatmap in Scout avversario)
+│   ├── campionato/
+│   │   └── campionato_screen.dart        (import del calendario FIPAV .xls + tab
+│   │                                      Calendario (crea partita per gara) e
+│   │                                      Classifica — da HomeScreen, vedi Campionato)
 │   ├── premium/
 │   │   └── paywall_screen.dart           (paywall placeholder — vedi sezione Premium)
 │   └── settings/
@@ -312,14 +340,30 @@ assets/
 ├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 
+docs/samples/
+└── Gare.xls        (fixture reale dell'export calendario FIPAV — usata dai
+                     test del lettore .xls, del parser gare e della
+                     classifica; vedi Campionato)
+
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
+├── data/
+│   └── xls_reader_test.dart       (leggiXls() sulla fixture Gare.xls: griglia,
+│                                   header, celle, rifiuto di xlsx/non-Excel)
+├── providers/
+│   └── campionato_repository_test.dart (importa()/creaPartitaDaGara() su DB
+│                                   drift in memoria — AppDatabase.perTest)
 └── logic/
     ├── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
     ├── role_labels_test.dart      (8 test su roleLabelsFor() — regressione +
     │                               universali per completamento)
     ├── demo_match_test.dart       (valida la partita demo: replay == referto)
     ├── certificato_dot_test.dart  (soglie del pallino certificato medico)
+    ├── fipav_calendario_test.dart (parseGareFipav(): fixture reale + casi
+    │                               limite (gara futura, data illeggibile,
+    │                               colonne in ordine diverso))
+    ├── classifica_test.dart       (punti 3/2/1/0, quozienti, ordinamento,
+    │                               rilevamento export parziale)
     └── match_csv_test.dart        (righeCsvPartita() — header, join nomi,
                                     punteggio progressivo, celle vuote)
 ```
@@ -367,6 +411,11 @@ dimensioni/pesi già definiti tramite `TextTheme.apply()`.
 
 ---
 
+<!-- Import calendario FIPAV (.xls) + pagina Campionato/Classifica. -->
+@docs/context/campionato-fipav.md
+
+---
+
 <!-- Impostazioni + i18n + Premium (Strada A): sezione spostata in docs/context/premium-settings-i18n.md, importata qui sotto (contenuto invariato). -->
 @docs/context/premium-settings-i18n.md
 
@@ -396,6 +445,12 @@ per data decrescente (a parità di data l'ordine dal DB era arbitrario).
 **Modulo 6-2 (doppio palleggiatore)**: IMPLEMENTATO (Fase 1 attacco + Fase 2
 ricezione/difesa + PDF/report), persistito su `MatchSets.sistemaGioco` (v16).
 Backlog 6-2: libero e scout avversario in 6-2. Vedi "Modulo 6-2" in Modello dati.
+
+**Campionato (import FIPAV + classifica)**: IMPLEMENTATO — lettore `.xls`
+binario scritto a mano (`data/xls_reader.dart`), parser gare e classifica puri e
+testati, tabelle `Campionati`/`Gare` (v17), `CampionatoScreen` con tab
+Calendario/Classifica e creazione partite per gara. Import premium, classifica
+libera. Manca l'export PDF della classifica. Vedi la sezione "Campionato".
 
 **Heatmap ricezione/difesa**: dove cadono le palle avversarie nel nostro campo
 (battuta→ricezione, attacco→difesa), riusando `TrajectoryReportScreen` in
