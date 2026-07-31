@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../../config/revenuecat.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 
@@ -15,20 +16,35 @@ import '../../theme/app_spacing.dart';
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
 
-  static const _vantaggi = [
-    (Icons.groups, 'Squadre e partite illimitate',
-        'Crea tutte le squadre e le partite che vuoi (versione free: una '
-            'squadra e una partita).'),
-    (Icons.gesture, 'Traiettorie di battuta e attacco',
-        'Disegnale durante lo scout e rivedile filtrate per set, giocatore '
-            'e rotazione.'),
-    (Icons.dashboard, 'Lavagna tattica',
-        'Disponi i ruoli in campo e disegna gli schemi durante il timeout.'),
-    (Icons.picture_as_pdf, 'Report PDF completo',
-        'Statistiche, traiettorie e formazioni da condividere o stampare.'),
-    (Icons.table_view, 'Export CSV delle azioni',
-        'Tutte le azioni della partita, pronte per Excel o Google Sheets.'),
-  ];
+  // Non più `const`: i testi arrivano dalle localizzazioni, quindi servono il
+  // context. Le icone restano qui, sono l'unica parte non traducibile.
+  static List<(IconData, String, String)> _vantaggi(AppLocalizations l) => [
+        (
+          Icons.groups,
+          l.paywallVantaggioSquadreTitolo,
+          l.paywallVantaggioSquadreTesto
+        ),
+        (
+          Icons.gesture,
+          l.paywallVantaggioTraiettorieTitolo,
+          l.paywallVantaggioTraiettorieTesto
+        ),
+        (
+          Icons.dashboard,
+          l.paywallVantaggioLavagnaTitolo,
+          l.paywallVantaggioLavagnaTesto
+        ),
+        (
+          Icons.picture_as_pdf,
+          l.paywallVantaggioPdfTitolo,
+          l.paywallVantaggioPdfTesto
+        ),
+        (
+          Icons.table_view,
+          l.paywallVantaggioCsvTitolo,
+          l.paywallVantaggioCsvTesto
+        ),
+      ];
 
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
@@ -67,6 +83,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _acquista(Package package) async {
+    final l = AppLocalizations.of(context);
     setState(() => _occupato = true);
     try {
       // Da RevenueCat v10 l'acquisto passa da purchase(PurchaseParams) e
@@ -77,13 +94,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
       // confermare e chiudere il paywall se l'entitlement è attivo.
       if (result.customerInfo.entitlements.active
           .containsKey(kEntitlementPremium)) {
-        _messaggio('Grazie! Premium attivo.');
+        _messaggio(l.paywallGrazie);
         if (mounted) Navigator.pop(context);
       }
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code != PurchasesErrorCode.purchaseCancelledError) {
-        _messaggio('Acquisto non riuscito. Riprova.');
+        _messaggio(l.paywallAcquistoFallito);
       }
     } finally {
       if (mounted) setState(() => _occupato = false);
@@ -91,17 +108,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _ripristina() async {
+    final l = AppLocalizations.of(context);
     setState(() => _occupato = true);
     try {
       final info = await Purchases.restorePurchases();
       if (info.entitlements.active.containsKey(kEntitlementPremium)) {
-        _messaggio('Abbonamento ripristinato.');
+        _messaggio(l.paywallRipristinato);
         if (mounted) Navigator.pop(context);
       } else {
-        _messaggio('Nessun abbonamento da ripristinare.');
+        _messaggio(l.paywallNienteDaRipristinare);
       }
     } catch (_) {
-      _messaggio('Ripristino non riuscito. Riprova.');
+      _messaggio(l.paywallRipristinoFallito);
     } finally {
       if (mounted) setState(() => _occupato = false);
     }
@@ -109,6 +127,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final pacchetti = _offering?.availablePackages ?? const <Package>[];
     return Scaffold(
       appBar: AppBar(title: const Text('Volley Stratego Premium')),
@@ -123,12 +142,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   size: 64, color: AppColors.brandAccent),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Sblocca tutte le funzioni',
+                l.paywallTitolo,
                 style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.lg),
-              for (final (icona, titolo, descrizione) in PaywallScreen._vantaggi)
+              for (final (icona, titolo, descrizione)
+                  in PaywallScreen._vantaggi(l))
                 Card(
                   child: ListTile(
                     leading: Icon(icona, color: AppColors.brandPrimary),
@@ -140,12 +160,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
               if (_caricamento)
                 const Center(child: CircularProgressIndicator())
               else if (pacchetti.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   child: Text(
-                    'Offerte non disponibili al momento.',
+                    l.paywallOfferteNonDisponibili,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54),
+                    style: const TextStyle(color: Colors.black54),
                   ),
                 )
               else
@@ -158,7 +178,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         padding: const EdgeInsets.symmetric(
                             vertical: AppSpacing.sm),
                         child: Text(
-                          'Abbonati — ${package.storeProduct.priceString}',
+                          l.paywallAbbonati(package.storeProduct.priceString),
                         ),
                       ),
                     ),
@@ -168,7 +188,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               // altro dispositivo deve poterlo riattivare da qui.
               TextButton(
                 onPressed: _occupato ? null : _ripristina,
-                child: const Text('Ripristina acquisti'),
+                child: Text(l.paywallRipristina),
               ),
             ],
           ),

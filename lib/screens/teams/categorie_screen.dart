@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/database_provider.dart';
 import '../../utils/orientamento.dart';
 
@@ -26,23 +27,24 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final categorieAsync = ref.watch(categorieStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Categorie')),
+      appBar: AppBar(title: Text(l.categorieTitolo)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _aggiungi(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('Nuova categoria'),
+        label: Text(l.categorieNuova),
       ),
       body: categorieAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+        error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
         data: (categorie) {
           if (categorie.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                'Nessuna categoria.\nTocca "Nuova categoria" per aggiungerne una.',
+                l.categorieVuoto,
                 textAlign: TextAlign.center,
               ),
             );
@@ -68,12 +70,12 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit_outlined),
-                        tooltip: 'Rinomina',
+                        tooltip: l.comuneRinomina,
                         onPressed: () => _rinomina(context, ref, cat),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Elimina',
+                        tooltip: l.comuneElimina,
                         onPressed: () => _elimina(context, ref, cat),
                       ),
                       ReorderableDragStartListener(
@@ -110,7 +112,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     final esistenti = ref.read(categorieStreamProvider).value ?? [];
     final nome = await _promptNome(
       context,
-      titolo: 'Nuova categoria',
+      titolo: AppLocalizations.of(context).categorieNuova,
       nomiVietatiLower: esistenti.map((c) => c.nome.toLowerCase()).toSet(),
     );
     if (nome == null) return;
@@ -125,7 +127,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     final esistenti = ref.read(categorieStreamProvider).value ?? [];
     final nuovo = await _promptNome(
       context,
-      titolo: 'Rinomina categoria',
+      titolo: AppLocalizations.of(context).categorieRinominaTitolo,
       iniziale: cat.nome,
       // Il nome corrente non è un duplicato di se stesso.
       nomiVietatiLower: esistenti
@@ -161,24 +163,25 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     final repo = ref.read(categoriaRepositoryProvider);
     final nSquadre = await repo.contaSquadreConCategoria(cat.nome);
     if (!context.mounted) return;
+    final l = AppLocalizations.of(context);
+    // Singolare/plurale gestiti dall'ICU dell'ARB, non concatenando pezzi di
+    // frase in Dart: le due lingue accordano il verbo in modi diversi.
     final messaggio = nSquadre > 0
-        ? '$nSquadre ${nSquadre == 1 ? 'squadra usa' : 'squadre usano'} '
-            '"${cat.nome}". ${nSquadre == 1 ? 'Resterà marcata' : 'Resteranno '
-            'marcate'} "${cat.nome}", ma la voce sparirà dalla lista.'
-        : 'La categoria verrà rimossa dalla lista.';
+        ? l.categorieEliminaConSquadre(nSquadre, cat.nome)
+        : l.categorieEliminaSenzaSquadre;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Eliminare "${cat.nome}"?'),
+        title: Text(l.categorieEliminaTitolo(cat.nome)),
         content: Text(messaggio),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Elimina'),
+            child: Text(l.comuneElimina),
           ),
         ],
       ),
@@ -194,27 +197,24 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     String nuovo,
     int nSquadre,
   ) {
+    final l = AppLocalizations.of(context);
     return showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Aggiornare le squadre?'),
-        content: Text(
-          '$nSquadre ${nSquadre == 1 ? 'squadra è marcata' : 'squadre sono '
-              'marcate'} "$vecchio". '
-          'Vuoi aggiornarle a "$nuovo" o rinominare solo la voce in lista?',
-        ),
+        title: Text(l.categorieCascataTitolo),
+        content: Text(l.categorieCascataTesto(nSquadre, vecchio, nuovo)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Solo la lista'),
+            child: Text(l.categorieSoloLista),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Aggiorna ($nSquadre)'),
+            child: Text(l.categorieAggiornaSquadre(nSquadre)),
           ),
         ],
       ),
@@ -229,6 +229,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     String iniziale = '',
     required Set<String> nomiVietatiLower,
   }) {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController(text: iniziale);
     final formKey = GlobalKey<FormState>();
     return showDialog<String>(
@@ -241,15 +242,15 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
             controller: controller,
             autofocus: true,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Nome categoria',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.categorieNomeLabel,
+              border: const OutlineInputBorder(),
             ),
             validator: (v) {
               final t = (v ?? '').trim();
-              if (t.isEmpty) return 'Inserisci un nome';
+              if (t.isEmpty) return l.categorieNomeVuoto;
               if (nomiVietatiLower.contains(t.toLowerCase())) {
-                return 'Categoria già presente';
+                return l.categorieDuplicata;
               }
               return null;
             },
@@ -263,7 +264,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () {
@@ -271,7 +272,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
                 Navigator.pop(context, controller.text.trim());
               }
             },
-            child: const Text('Salva'),
+            child: Text(l.comuneSalva),
           ),
         ],
       ),

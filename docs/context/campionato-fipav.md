@@ -212,9 +212,10 @@ gated), ma evita di lasciare una scorciatoia aperta.
   comunque per la guardia `setCasa == setOspite`, ma in calendario perderebbe
   il bottone "Crea partita") — a quel punto conviene usare `StatoDescrizione`
   come discriminante.
-- i18n delle stringhe di `CampionatoScreen` (restano in italiano come le altre
-  schermate non ancora tradotte; la sola voce Home è già localizzata:
-  `homeCampionato`).
+- ~~i18n di `CampionatoScreen`~~ — **FATTA** (2026-07-31): chiavi `camp*` in
+  `app_it.arb`/`app_en.arb`. In inglese "campionato" è reso **League**,
+  "calendario/gare" **Fixtures**, "classifica" **Standings**, e le colonne
+  della tabella seguono le sigle inglesi (G/V/P → P/W/L).
 - Scaricamento automatico dal sito FIPAV (serve login/sessione): oggi il file lo
   scarica l'utente.
 - Nessun incrocio fra classifica importata e partite scoutate in app: la

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import 'lineup_screen.dart';
@@ -33,6 +34,7 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
 
   Future<bool> _confermaDialog(
       BuildContext context, String titolo, String testo) async {
+    final l = AppLocalizations.of(context);
     final confermato = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -41,11 +43,11 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Conferma'),
+            child: Text(l.comuneConferma),
           ),
         ],
       ),
@@ -54,11 +56,11 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
   }
 
   Future<void> _prossimoSet(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
     final confermato = await _confermaDialog(
       context,
-      'Iniziare il prossimo set?',
-      'Il set corrente verrà chiuso e si ripartirà dalla scelta della '
-          'formazione (nessuna formazione precompilata).',
+      l.endSetProssimoTitolo,
+      l.endSetProssimoTesto,
     );
     if (!confermato || !context.mounted) return;
     final nuovoMatch =
@@ -74,10 +76,11 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
   }
 
   Future<void> _finePartita(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
     final confermato = await _confermaDialog(
       context,
-      'Terminare la partita?',
-      'La partita verrà segnata come terminata.',
+      l.endSetFinePartitaTitolo,
+      l.endSetFinePartitaTesto,
     );
     if (!confermato || !context.mounted) return;
     await ref
@@ -93,12 +96,13 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(
         backgroundColor: _kBg,
         foregroundColor: Colors.white,
-        title: const Text('Fine set'),
+        title: Text(l.endSetTitolo),
       ),
       body: Center(
         child: Row(
@@ -109,8 +113,8 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
               height: 64,
               child: FilledButton(
                 onPressed: () => _prossimoSet(context, ref),
-                child: const Text('Prossimo Set',
-                    style: TextStyle(fontSize: 18)),
+                child: Text(l.endSetProssimo,
+                    style: const TextStyle(fontSize: 18)),
               ),
             ),
             const SizedBox(width: 24),
@@ -121,8 +125,8 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
                 style:
                     FilledButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => _finePartita(context, ref),
-                child: const Text('Fine Partita',
-                    style: TextStyle(fontSize: 18)),
+                child: Text(l.endSetFinePartita,
+                    style: const TextStyle(fontSize: 18)),
               ),
             ),
           ],

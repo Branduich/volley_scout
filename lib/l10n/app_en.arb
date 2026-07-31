@@ -65,5 +65,216 @@
   "motivoErroreGenerico": "Generic",
   "motivoErroreBattuta": "Serve",
   "motivoErroreFalloDiPosizione": "Position fault",
-  "motivoErroreInvasione": "Net violation"
+  "motivoErroreInvasione": "Net violation",
+
+  "comuneAnnulla": "Cancel",
+  "comuneConferma": "Confirm",
+  "comuneOk": "OK",
+  "comuneSalva": "Save",
+  "comuneElimina": "Delete",
+  "comuneRinomina": "Rename",
+  "comuneErrore": "Error: {dettaglio}",
+  "@comuneErrore": {
+    "description": "Generic error message for stream error states.",
+    "placeholders": {
+      "dettaglio": { "type": "String", "example": "database locked" }
+    }
+  },
+
+  "categorieTitolo": "Categories",
+  "categorieNuova": "New category",
+  "categorieVuoto": "No categories.\nTap \"New category\" to add one.",
+  "categorieRinominaTitolo": "Rename category",
+  "categorieNomeLabel": "Category name",
+  "categorieNomeVuoto": "Enter a name",
+  "categorieDuplicata": "Category already exists",
+  "categorieEliminaTitolo": "Delete \"{nome}\"?",
+  "@categorieEliminaTitolo": {
+    "placeholders": {
+      "nome": { "type": "String", "example": "Under 18" }
+    }
+  },
+  "categorieEliminaSenzaSquadre": "The category will be removed from the list.",
+  "categorieEliminaConSquadre": "{n, plural, =1{1 team uses \"{nome}\". It will stay marked \"{nome}\", but the entry will disappear from the list.} other{{n} teams use \"{nome}\". They will stay marked \"{nome}\", but the entry will disappear from the list.}}",
+  "@categorieEliminaConSquadre": {
+    "description": "Warning shown when deleting a category still in use. Teams do NOT reference the row: they keep the old text.",
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "nome": { "type": "String", "example": "Under 18" }
+    }
+  },
+  "categorieCascataTitolo": "Update the teams?",
+  "categorieCascataTesto": "{n, plural, =1{1 team is marked \"{vecchio}\". Do you want to update it to \"{nuovo}\", or rename only the list entry?} other{{n} teams are marked \"{vecchio}\". Do you want to update them to \"{nuovo}\", or rename only the list entry?}}",
+  "@categorieCascataTesto": {
+    "description": "Rename with optional cascade onto the teams using the old name.",
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "vecchio": { "type": "String", "example": "Under 18" },
+      "nuovo": { "type": "String", "example": "Under 19" }
+    }
+  },
+  "campTitolo": "League",
+  "campImporta": "Import",
+  "campImportaFile": "Import FIPAV file",
+  "campEliminaVoce": "Delete league",
+  "campTabCalendario": "Fixtures",
+  "campTabClassifica": "Standings",
+
+  "campVuotoTitolo": "No league imported",
+  "campVuotoTesto": "Download the fixtures export from the FIPAV website in Excel format (.xls or .xlsx) and import it here: you get the schedule with dates, times and venues, up-to-date standings, and you can create the matches to scout with a single tap.\n\nExport the WHOLE group (with no club filter) if you want the complete standings.",
+
+  "campFiltroSquadra": "Team",
+  "campTutte": "All",
+  "campSenzaSquadra": "No team",
+  "campSquadraEliminata": "Deleted team",
+  "campNessunoPerSquadra": "No league for this team.",
+  "campMostraTutti": "Show all",
+  "campScegliSquadra": "Choose your team",
+
+  "campEliminaTitolo": "Delete the league?",
+  "campEliminaTesto": "{nome}\n\n{n, plural, =1{The schedule and its fixture will be deleted} other{The schedule and its {n} fixtures will be deleted}}, and the standings with them.\n\nThe matches you already created from these fixtures STAY in Matches, with all their scouting data: delete them from there if you no longer need them.",
+  "@campEliminaTesto": {
+    "description": "Delete confirmation for a league: makes clear that created matches survive.",
+    "placeholders": {
+      "nome": { "type": "String", "example": "UNDER 18 FEMMINILE GIRONE B — 2025/26" },
+      "n": { "type": "num", "format": "compact" }
+    }
+  },
+
+  "campNessunaGaraImportata": "No fixtures imported",
+  "campRiepilogoGare": "Fixtures: {dettaglio}",
+  "@campRiepilogoGare": {
+    "placeholders": {
+      "dettaglio": { "type": "String", "example": "12 new, 3 updated" }
+    }
+  },
+  "campGareNuove": "{n} new",
+  "@campGareNuove": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campGareAggiornate": "{n} updated",
+  "@campGareAggiornate": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campRigheIgnorate": "{n} rows skipped",
+  "@campRigheIgnorate": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campImportNonRiuscitoTitolo": "Import failed",
+  "campImportFallito": "Import failed: {dettaglio}",
+  "@campImportFallito": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+
+  "campGiaPresenteTitolo": "League already imported",
+  "campGiaPresenteTesto": "You have already imported \"{nome}\".\nUpdate the existing one to record the results just played, or create a new one if this is the schedule for another season.",
+  "@campGiaPresenteTesto": {
+    "placeholders": { "nome": { "type": "String" } }
+  },
+  "campAggiornaEsistente": "Update the existing one",
+  "campCreaNuovo": "Create a new league",
+  "campStagione": "season {stagione}",
+  "@campStagione": {
+    "placeholders": { "stagione": { "type": "String", "example": "2025/26" } }
+  },
+  "campCalendarioSeparato": "separate schedule",
+
+  "campTuaSquadraTitolo": "Your team",
+  "campTuaSquadraTesto": "It sets home/away and the opponent when you create a match from the schedule.",
+  "campSquadraNelCalendario": "Team in the schedule",
+  "campSquadraApp": "App team (optional)",
+  "campNessuna": "None",
+
+  "campNessunaGara": "No fixtures in the schedule.",
+  "campGiornata": "MD {n}",
+  "@campGiornata": {
+    "description": "Compact matchday label in the fixture row.",
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campGiaInPartite": "Already in Matches",
+  "campCreaPartita": "Create match",
+  "campPartitaCreata": "Created \"{nome}\"",
+  "@campPartitaCreata": {
+    "placeholders": { "nome": { "type": "String" } }
+  },
+  "campCreazioneFallita": "Could not create the match: {dettaglio}",
+  "@campCreazioneFallita": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+
+  "campNienteDaCalcolare": "No fixtures to compute from.",
+  "campColGiocate": "P",
+  "campColVinte": "W",
+  "campColPerse": "L",
+  "campColPunti": "Points",
+  "campColSet": "Sets",
+  "campColQuozienteSet": "Set ratio",
+  "campColPuntiFattiSubiti": "Points f/a",
+  "campColQuozientePunti": "Point ratio",
+  "campBannerParziale": "Partial standings: the imported file only contains the matches of {squadra}, so the games between the other teams are missing. Export the complete group from the FIPAV website (with no club filter) for the full standings.",
+  "@campBannerParziale": {
+    "description": "Shown when the FIPAV export is filtered by club: the standings are correct but incomplete.",
+    "placeholders": { "squadra": { "type": "String", "example": "NETTUNIA" } }
+  },
+
+  "endSetTitolo": "End of set",
+  "endSetProssimo": "Next Set",
+  "endSetFinePartita": "End Match",
+  "endSetProssimoTitolo": "Start the next set?",
+  "endSetProssimoTesto": "The current set will be closed and you will start again from the line-up selection (nothing is pre-filled).",
+  "endSetFinePartitaTitolo": "End the match?",
+  "endSetFinePartitaTesto": "The match will be marked as finished.",
+
+  "categorieSoloLista": "List only",
+  "categorieAggiornaSquadre": "Update ({n})",
+  "@categorieAggiornaSquadre": {
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" }
+    }
+  },
+
+  "paywallTitolo": "Unlock every feature",
+  "paywallVantaggioSquadreTitolo": "Unlimited teams and matches",
+  "paywallVantaggioSquadreTesto": "Create as many teams and matches as you like (free version: one team and one match).",
+  "paywallVantaggioTraiettorieTitolo": "Serve and attack trajectories",
+  "paywallVantaggioTraiettorieTesto": "Draw them while scouting, then review them filtered by set, player and rotation.",
+  "paywallVantaggioLavagnaTitolo": "Tactical board",
+  "paywallVantaggioLavagnaTesto": "Place the roles on court and draw your plays during a timeout.",
+  "paywallVantaggioPdfTitolo": "Full PDF report",
+  "paywallVantaggioPdfTesto": "Statistics, trajectories and line-ups, ready to share or print.",
+  "paywallVantaggioCsvTitolo": "CSV export of every action",
+  "paywallVantaggioCsvTesto": "All the actions of the match, ready for Excel or Google Sheets.",
+  "paywallOfferteNonDisponibili": "Offers are not available right now.",
+  "paywallAbbonati": "Subscribe — {prezzo}",
+  "@paywallAbbonati": {
+    "description": "Purchase button; the price comes already formatted from the store.",
+    "placeholders": {
+      "prezzo": { "type": "String", "example": "€4.99" }
+    }
+  },
+  "paywallRipristina": "Restore purchases",
+  "paywallGrazie": "Thank you! Premium is active.",
+  "paywallAcquistoFallito": "Purchase failed. Please try again.",
+  "paywallRipristinato": "Subscription restored.",
+  "paywallNienteDaRipristinare": "No subscription to restore.",
+  "paywallRipristinoFallito": "Restore failed. Please try again.",
+
+  "aboutVersione": "Version {versione}",
+  "@aboutVersione": {
+    "description": "Subtitle with the app version, e.g. \"Version 1.0.0 (5)\".",
+    "placeholders": {
+      "versione": { "type": "String", "example": "1.0.0 (5)" }
+    }
+  },
+  "aboutVersioneCaricamento": "Version…",
+  "aboutPrivacy": "Privacy Policy",
+  "aboutTermini": "Terms of Use",
+  "aboutSupporto": "Support",
+  "aboutGestisciAbbonamento": "Manage subscription",
+  "aboutInArrivo": "Coming soon",
+  "aboutIdSupporto": "Support ID",
+  "aboutNonDisponibile": "Not available",
+  "aboutCopia": "Copy",
+  "aboutIdCopiato": "ID copied",
+  "aboutLinkNonApribile": "Could not open the link"
 }

@@ -50,12 +50,16 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
   altrimenti lingua forzata. Persistito su shared_preferences (chiave
   `app.lingua`). Passato a `MaterialApp.locale`; dropdown compatta
   Sistema/Italiano/English in `SettingsScreen`.
-- **Stato**: PILOTA fatto (`HomeScreen` + `SettingsScreen` — l'inglese di
-  queste due l'ho compilato io). Da fare, un pezzo alla volta: tutte le
-  altre schermate (il grosso è scout/report/PDF), le **label degli enum**
-  (`enums.dart`: `Ruolo`/`Fondamentale`… — vanno spostate fuori
-  dall'enum in una funzione con `context`, `Voto.simbolo` resta com'è), e
-  gli **export PDF/CSV** (seguono la lingua dell'app — decisione presa).
+- **Stato** (aggiornato 2026-07-31): tradotte **15 schermate** — Home,
+  Impostazioni, tutto il flusso di scout live (lineup, configurazione
+  formazione, sostituzione, scout, traiettorie), i report (report partita,
+  PDF, statistiche giocatore, traiettorie), lista partite, form squadra/
+  giocatore, `court_view` e l'export CSV — più **Paywall** e **Informazioni**.
+  Fatte anche le label degli enum e gli export PDF/CSV (seguono la lingua
+  dell'app).
+  **Restano 4 schermate**: `tactical_board_screen`, `match_form_screen`,
+  `team_selection_screen`, `teams_screen`. Per sapere quali mancano davvero:
+  `grep -L AppLocalizations lib/screens/**/*.dart`.
   - **`Categoria` ESCLUSA dall'i18n** (deciso 2026-07-24): il suo `.label`
     non è mai mostrato a runtime — serve solo a seminare la lista categorie
     al primo avvio (`default_categorie_seeder.dart`), alla migrazione v12→v13
@@ -64,8 +68,27 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
     denominazioni FIPAV (Serie A1/A2/B/C/D…) che non si traducono. Default
     seminati in **italiano in ogni lingua**, l'utente li edita in
     `CategorieScreen` se vuole. Niente da fare.
-  Per ogni schermata nuova: si passa all'utente la lista `chiave → italiano`
-  e lui rimanda l'inglese.
+  - **Nomi propri non tradotti**: "Volley Stratego" e "Volley Stratego
+    Premium" (titolo del paywall) restano hardcoded, sono il nome del
+    prodotto.
+  - **Convenzione chiavi**: prefisso della schermata (`home*`, `settings*`,
+    `paywall*`, `about*`, `categorie*`). Se una stringa è già altrove si riusa
+    la chiave esistente invece di duplicarla (es. il titolo di `AboutScreen`
+    usa `settingsAbout`, che è la voce che la apre).
+  - **Chiavi `comune*`** (2026-07-31): `comuneAnnulla`/`comuneConferma`/
+    `comuneSalva`/`comuneElimina`/`comuneRinomina`/`comuneErrore` — i bottoni
+    che tornano in ogni dialog. Da usare nelle schermate ancora da tradurre invece di
+    `xxxAnnulla` ripetuto. NB: alcune schermate già "localizzate"
+    (es. `team_form_screen`) hanno ancora `Text('Annulla')` hardcoded — si
+    possono migrare a queste chiavi una riga per volta.
+  - **Plurali**: usare l'ICU dell'ARB (`{n, plural, =1{...} other{...}}`), non
+    concatenare pezzi di frase in Dart — italiano e inglese accordano il verbo
+    in modo diverso. Primo uso in `categorieEliminaConSquadre`/
+    `categorieCascataTesto`.
+  Per una schermata nuova si può procedere in due modi: passare all'utente la
+  lista `chiave → italiano` perché rimandi l'inglese, oppure tradurre
+  direttamente (fatto così per Paywall/Informazioni, 2026-07-31 — l'unico
+  termine tecnico concordato è "lavagna tattica" → *tactical board*).
 
 ---
 

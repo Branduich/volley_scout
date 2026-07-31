@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_spacing.dart';
 
 // Requisito Google Play: il link alla privacy policy deve essere
@@ -58,13 +59,14 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   Future<void> _apri(String url) async {
+    final l = AppLocalizations.of(context);
     final ok = await launchUrl(
       Uri.parse(url),
       mode: LaunchMode.externalApplication,
     );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossibile aprire il link')),
+        SnackBar(content: Text(l.aboutLinkNonApribile)),
       );
     }
   }
@@ -76,11 +78,12 @@ class _AboutScreenState extends State<AboutScreen> {
     required String titolo,
     required String? url,
   }) {
+    final l = AppLocalizations.of(context);
     final disponibile = url != null;
     return ListTile(
       leading: Icon(icona),
       title: Text(titolo),
-      subtitle: disponibile ? null : const Text('In arrivo'),
+      subtitle: disponibile ? null : Text(l.aboutInArrivo),
       enabled: disponibile,
       trailing: disponibile ? const Icon(Icons.open_in_new, size: 20) : null,
       onTap: disponibile ? () => _apri(url) : null,
@@ -89,8 +92,10 @@ class _AboutScreenState extends State<AboutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Informazioni')),
+      // Stessa voce che apre questa pagina in SettingsScreen: una chiave sola.
+      appBar: AppBar(title: Text(l.settingsAbout)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -104,26 +109,29 @@ class _AboutScreenState extends State<AboutScreen> {
                   width: 64,
                   height: 64,
                 ),
+                // Nome del prodotto: non si traduce.
                 title: const Text('Volley Stratego'),
                 subtitle: Text(
-                  _versione.isEmpty ? 'Versione…' : 'Versione $_versione',
+                  _versione.isEmpty
+                      ? l.aboutVersioneCaricamento
+                      : l.aboutVersione(_versione),
                 ),
               ),
               const Divider(),
               _vocelink(
                 icona: Icons.privacy_tip_outlined,
-                titolo: 'Privacy Policy',
+                titolo: l.aboutPrivacy,
                 url: _kUrlPrivacyPolicy,
               ),
               _vocelink(
                 icona: Icons.description_outlined,
-                titolo: 'Termini di utilizzo',
+                titolo: l.aboutTermini,
                 url: _kUrlTermsOfUse,
               ),
               ListTile(
                 leading: const Icon(Icons.mail_outline),
-                title: const Text('Supporto'),
-                subtitle: Text(_kEmailSupporto ?? 'In arrivo'),
+                title: Text(l.aboutSupporto),
+                subtitle: Text(_kEmailSupporto ?? l.aboutInArrivo),
                 enabled: _kEmailSupporto != null,
                 onTap: _kEmailSupporto == null
                     ? null
@@ -131,7 +139,7 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
               _vocelink(
                 icona: Icons.subscriptions_outlined,
-                titolo: 'Gestisci abbonamento',
+                titolo: l.aboutGestisciAbbonamento,
                 url: _kUrlAbbonamenti,
               ),
               const Divider(),
@@ -139,17 +147,17 @@ class _AboutScreenState extends State<AboutScreen> {
               // da chiedere all'utente in caso di assistenza.
               ListTile(
                 leading: const Icon(Icons.badge_outlined),
-                title: const Text('ID supporto'),
-                subtitle: Text(_idSupporto ?? 'Non disponibile'),
+                title: Text(l.aboutIdSupporto),
+                subtitle: Text(_idSupporto ?? l.aboutNonDisponibile),
                 trailing: IconButton(
                   icon: const Icon(Icons.copy, size: 20),
-                  tooltip: 'Copia',
+                  tooltip: l.aboutCopia,
                   onPressed: _idSupporto == null
                       ? null
                       : () {
                           Clipboard.setData(ClipboardData(text: _idSupporto!));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('ID copiato')),
+                            SnackBar(content: Text(l.aboutIdCopiato)),
                           );
                         },
                 ),

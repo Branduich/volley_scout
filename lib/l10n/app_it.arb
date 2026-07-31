@@ -65,5 +65,216 @@
   "motivoErroreGenerico": "Generico",
   "motivoErroreBattuta": "Battuta",
   "motivoErroreFalloDiPosizione": "Fallo di posizione",
-  "motivoErroreInvasione": "Invasione"
+  "motivoErroreInvasione": "Invasione",
+
+  "comuneAnnulla": "Annulla",
+  "comuneConferma": "Conferma",
+  "comuneOk": "Ok",
+  "comuneSalva": "Salva",
+  "comuneElimina": "Elimina",
+  "comuneRinomina": "Rinomina",
+  "comuneErrore": "Errore: {dettaglio}",
+  "@comuneErrore": {
+    "description": "Messaggio di errore generico negli stati di errore degli stream.",
+    "placeholders": {
+      "dettaglio": { "type": "String", "example": "database locked" }
+    }
+  },
+
+  "categorieTitolo": "Categorie",
+  "categorieNuova": "Nuova categoria",
+  "categorieVuoto": "Nessuna categoria.\nTocca \"Nuova categoria\" per aggiungerne una.",
+  "categorieRinominaTitolo": "Rinomina categoria",
+  "categorieNomeLabel": "Nome categoria",
+  "categorieNomeVuoto": "Inserisci un nome",
+  "categorieDuplicata": "Categoria già presente",
+  "categorieEliminaTitolo": "Eliminare \"{nome}\"?",
+  "@categorieEliminaTitolo": {
+    "placeholders": {
+      "nome": { "type": "String", "example": "Under 18" }
+    }
+  },
+  "categorieEliminaSenzaSquadre": "La categoria verrà rimossa dalla lista.",
+  "categorieEliminaConSquadre": "{n, plural, =1{1 squadra usa \"{nome}\". Resterà marcata \"{nome}\", ma la voce sparirà dalla lista.} other{{n} squadre usano \"{nome}\". Resteranno marcate \"{nome}\", ma la voce sparirà dalla lista.}}",
+  "@categorieEliminaConSquadre": {
+    "description": "Avviso di eliminazione quando la categoria è in uso. Le squadre NON referenziano la riga: restano marcate col testo vecchio.",
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "nome": { "type": "String", "example": "Under 18" }
+    }
+  },
+  "categorieCascataTitolo": "Aggiornare le squadre?",
+  "categorieCascataTesto": "{n, plural, =1{1 squadra è marcata \"{vecchio}\". Vuoi aggiornarla a \"{nuovo}\" o rinominare solo la voce in lista?} other{{n} squadre sono marcate \"{vecchio}\". Vuoi aggiornarle a \"{nuovo}\" o rinominare solo la voce in lista?}}",
+  "@categorieCascataTesto": {
+    "description": "Rinomina con cascata opzionale sulle squadre che usano il vecchio nome.",
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "vecchio": { "type": "String", "example": "Under 18" },
+      "nuovo": { "type": "String", "example": "Under 19" }
+    }
+  },
+  "campTitolo": "Campionato",
+  "campImporta": "Importa",
+  "campImportaFile": "Importa file FIPAV",
+  "campEliminaVoce": "Elimina campionato",
+  "campTabCalendario": "Calendario",
+  "campTabClassifica": "Classifica",
+
+  "campVuotoTitolo": "Nessun campionato importato",
+  "campVuotoTesto": "Scarica dal sito FIPAV l'esportazione delle gare in formato Excel (.xls o .xlsx) e importala qui: avrai il calendario con date, orari e palestre, la classifica aggiornata e potrai creare le partite da scoutare con un tocco.\n\nEsporta il girone INTERO (senza filtro società) se vuoi la classifica completa.",
+
+  "campFiltroSquadra": "Squadra",
+  "campTutte": "Tutte",
+  "campSenzaSquadra": "Senza squadra",
+  "campSquadraEliminata": "Squadra eliminata",
+  "campNessunoPerSquadra": "Nessun campionato per questa squadra.",
+  "campMostraTutti": "Mostra tutti",
+  "campScegliSquadra": "Scegli la tua squadra",
+
+  "campEliminaTitolo": "Eliminare il campionato?",
+  "campEliminaTesto": "{nome}\n\n{n, plural, =1{Spariscono il calendario e la sua gara} other{Spariscono il calendario e le sue {n} gare}}, e con loro la classifica.\n\nLe partite che hai già creato da queste gare RESTANO in Gestione partite, con tutti i dati di scout: se non ti servono più, eliminale da lì.",
+  "@campEliminaTesto": {
+    "description": "Conferma di eliminazione di un campionato: chiarisce che le partite create sopravvivono.",
+    "placeholders": {
+      "nome": { "type": "String", "example": "UNDER 18 FEMMINILE GIRONE B — 2025/26" },
+      "n": { "type": "num", "format": "compact" }
+    }
+  },
+
+  "campNessunaGaraImportata": "Nessuna gara importata",
+  "campRiepilogoGare": "Gare: {dettaglio}",
+  "@campRiepilogoGare": {
+    "placeholders": {
+      "dettaglio": { "type": "String", "example": "12 nuove, 3 aggiornate" }
+    }
+  },
+  "campGareNuove": "{n} nuove",
+  "@campGareNuove": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campGareAggiornate": "{n} aggiornate",
+  "@campGareAggiornate": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campRigheIgnorate": "{n} righe ignorate",
+  "@campRigheIgnorate": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campImportNonRiuscitoTitolo": "Import non riuscito",
+  "campImportFallito": "Import fallito: {dettaglio}",
+  "@campImportFallito": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+
+  "campGiaPresenteTitolo": "Campionato già presente",
+  "campGiaPresenteTesto": "Hai già importato \"{nome}\".\nAggiorna quello esistente per registrare i risultati appena giocati, oppure creane uno nuovo se questo è il calendario di un'altra stagione.",
+  "@campGiaPresenteTesto": {
+    "placeholders": { "nome": { "type": "String" } }
+  },
+  "campAggiornaEsistente": "Aggiorna quello esistente",
+  "campCreaNuovo": "Crea un nuovo campionato",
+  "campStagione": "stagione {stagione}",
+  "@campStagione": {
+    "placeholders": { "stagione": { "type": "String", "example": "2025/26" } }
+  },
+  "campCalendarioSeparato": "calendario separato",
+
+  "campTuaSquadraTitolo": "La tua squadra",
+  "campTuaSquadraTesto": "Serve a impostare casa/trasferta e l'avversario quando crei una partita dal calendario.",
+  "campSquadraNelCalendario": "Squadra nel calendario",
+  "campSquadraApp": "Squadra dell'app (opzionale)",
+  "campNessuna": "Nessuna",
+
+  "campNessunaGara": "Nessuna gara in calendario.",
+  "campGiornata": "G. {n}",
+  "@campGiornata": {
+    "description": "Etichetta compatta della giornata di campionato nella riga gara.",
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "campGiaInPartite": "Già in Gestione partite",
+  "campCreaPartita": "Crea partita",
+  "campPartitaCreata": "Creata \"{nome}\"",
+  "@campPartitaCreata": {
+    "placeholders": { "nome": { "type": "String" } }
+  },
+  "campCreazioneFallita": "Creazione partita fallita: {dettaglio}",
+  "@campCreazioneFallita": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+
+  "campNienteDaCalcolare": "Nessuna gara da cui calcolare.",
+  "campColGiocate": "G",
+  "campColVinte": "V",
+  "campColPerse": "P",
+  "campColPunti": "Punti",
+  "campColSet": "Set",
+  "campColQuozienteSet": "Q.set",
+  "campColPuntiFattiSubiti": "Punti f/s",
+  "campColQuozientePunti": "Q.punti",
+  "campBannerParziale": "Classifica parziale: il file importato contiene solo le partite di {squadra}, quindi mancano gli scontri fra le altre squadre. Esporta dal sito FIPAV il girone completo (senza filtro società) per la classifica intera.",
+  "@campBannerParziale": {
+    "description": "Avviso quando l'export FIPAV è filtrato per società: la classifica è corretta ma incompleta.",
+    "placeholders": { "squadra": { "type": "String", "example": "NETTUNIA" } }
+  },
+
+  "endSetTitolo": "Fine set",
+  "endSetProssimo": "Prossimo Set",
+  "endSetFinePartita": "Fine Partita",
+  "endSetProssimoTitolo": "Iniziare il prossimo set?",
+  "endSetProssimoTesto": "Il set corrente verrà chiuso e si ripartirà dalla scelta della formazione (nessuna formazione precompilata).",
+  "endSetFinePartitaTitolo": "Terminare la partita?",
+  "endSetFinePartitaTesto": "La partita verrà segnata come terminata.",
+
+  "categorieSoloLista": "Solo la lista",
+  "categorieAggiornaSquadre": "Aggiorna ({n})",
+  "@categorieAggiornaSquadre": {
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" }
+    }
+  },
+
+  "paywallTitolo": "Sblocca tutte le funzioni",
+  "paywallVantaggioSquadreTitolo": "Squadre e partite illimitate",
+  "paywallVantaggioSquadreTesto": "Crea tutte le squadre e le partite che vuoi (versione free: una squadra e una partita).",
+  "paywallVantaggioTraiettorieTitolo": "Traiettorie di battuta e attacco",
+  "paywallVantaggioTraiettorieTesto": "Disegnale durante lo scout e rivedile filtrate per set, giocatore e rotazione.",
+  "paywallVantaggioLavagnaTitolo": "Lavagna tattica",
+  "paywallVantaggioLavagnaTesto": "Disponi i ruoli in campo e disegna gli schemi durante il timeout.",
+  "paywallVantaggioPdfTitolo": "Report PDF completo",
+  "paywallVantaggioPdfTesto": "Statistiche, traiettorie e formazioni da condividere o stampare.",
+  "paywallVantaggioCsvTitolo": "Export CSV delle azioni",
+  "paywallVantaggioCsvTesto": "Tutte le azioni della partita, pronte per Excel o Google Sheets.",
+  "paywallOfferteNonDisponibili": "Offerte non disponibili al momento.",
+  "paywallAbbonati": "Abbonati — {prezzo}",
+  "@paywallAbbonati": {
+    "description": "Bottone di acquisto; il prezzo arriva già formattato dallo store.",
+    "placeholders": {
+      "prezzo": { "type": "String", "example": "4,99 €" }
+    }
+  },
+  "paywallRipristina": "Ripristina acquisti",
+  "paywallGrazie": "Grazie! Premium attivo.",
+  "paywallAcquistoFallito": "Acquisto non riuscito. Riprova.",
+  "paywallRipristinato": "Abbonamento ripristinato.",
+  "paywallNienteDaRipristinare": "Nessun abbonamento da ripristinare.",
+  "paywallRipristinoFallito": "Ripristino non riuscito. Riprova.",
+
+  "aboutVersione": "Versione {versione}",
+  "@aboutVersione": {
+    "description": "Sottotitolo con la versione dell'app, es. \"Versione 1.0.0 (5)\".",
+    "placeholders": {
+      "versione": { "type": "String", "example": "1.0.0 (5)" }
+    }
+  },
+  "aboutVersioneCaricamento": "Versione…",
+  "aboutPrivacy": "Privacy Policy",
+  "aboutTermini": "Termini di utilizzo",
+  "aboutSupporto": "Supporto",
+  "aboutGestisciAbbonamento": "Gestisci abbonamento",
+  "aboutInArrivo": "In arrivo",
+  "aboutIdSupporto": "ID supporto",
+  "aboutNonDisponibile": "Non disponibile",
+  "aboutCopia": "Copia",
+  "aboutIdCopiato": "ID copiato",
+  "aboutLinkNonApribile": "Impossibile aprire il link"
 }

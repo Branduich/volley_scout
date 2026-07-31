@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
 import '../../data/spreadsheet_reader.dart';
+import '../../l10n/app_localizations.dart';
 import '../../logic/classifica.dart';
 import '../../logic/fipav_calendario.dart';
 import '../../providers/campionato_provider.dart';
@@ -62,20 +63,21 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final campionatiAsync = ref.watch(campionatiStreamProvider);
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Campionato'),
+          title: Text(l.campTitolo),
           actions: [
             TextButton.icon(
               onPressed: _importa,
               icon: const Icon(Icons.file_open),
-              label: const Row(
+              label: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [Text('Importa'), PremiumBadge()],
+                children: [Text(l.campImporta), const PremiumBadge()],
               ),
             ),
             Builder(builder: (context) {
@@ -88,12 +90,12 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
                     if (c != null) _eliminaCampionato(c);
                   }
                 },
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'elimina',
                     child: ListTile(
-                      leading: Icon(Icons.delete_outline),
-                      title: Text('Elimina campionato'),
+                      leading: const Icon(Icons.delete_outline),
+                      title: Text(l.campEliminaVoce),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -101,16 +103,16 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
               );
             }),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.event_note), text: 'Calendario'),
-              Tab(icon: Icon(Icons.leaderboard), text: 'Classifica'),
+              Tab(icon: const Icon(Icons.event_note), text: l.campTabCalendario),
+              Tab(icon: const Icon(Icons.leaderboard), text: l.campTabClassifica),
             ],
           ),
         ),
         body: campionatiAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Errore: $e')),
+          error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
           data: (campionati) {
             if (campionati.isEmpty) return _statoVuoto();
 
@@ -145,6 +147,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
   }
 
   Widget _statoVuoto() {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -154,26 +157,18 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
             const Icon(Icons.emoji_events_outlined, size: 64),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Nessun campionato importato',
+              l.campVuotoTitolo,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: AppSpacing.sm),
-            const Text(
-              'Scarica dal sito FIPAV l\'esportazione delle gare in formato '
-              'Excel (.xls o .xlsx) e importala qui: avrai il calendario con '
-              'date, orari e palestre, la classifica aggiornata e potrai '
-              'creare le partite da scoutare con un tocco.\n\n'
-              'Esporta il girone INTERO (senza filtro società) se vuoi la '
-              'classifica completa.',
-              textAlign: TextAlign.center,
-            ),
+            Text(l.campVuotoTesto, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: _importa,
               icon: const Icon(Icons.file_open),
-              label: const Row(
+              label: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [Text('Importa file FIPAV'), PremiumBadge()],
+                children: [Text(l.campImportaFile), const PremiumBadge()],
               ),
             ),
           ],
@@ -184,13 +179,33 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
 
   // --- Filtro per squadra e selezione del campionato ------------------------
 
+  /// I "gruppi" squadra presenti fra i campionati importati: l'id della
+  /// squadra, oppure [_kSenzaSquadra] per quelli non ancora assegnati.
+  Set<int> _gruppiSquadra(List<Campionato> campionati) =>
+      campionati.map((c) => c.teamId ?? _kSenzaSquadra).toSet();
+
+  /// Il filtro **effettivo**: `_teamFiltro` vale solo finché quel gruppo
+  /// esiste ancora, altrimenti si ricade su "Tutte".
+  ///
+  /// Serve perché il gruppo di un campionato **cambia sotto i piedi**:
+  /// assegnandogli una squadra passa da "Senza squadra" a quella squadra, e se
+  /// era l'ultimo del suo gruppo il filtro attivo resta orfano. Senza questa
+  /// normalizzazione il dropdown andrebbe in assert ("exactly one item with
+  /// value") e la lista resterebbe vuota per sempre. Si deriva a ogni build
+  /// invece di correggere lo stato: `setState` durante il build non si può.
+  int? _filtroEffettivo(List<Campionato> campionati) =>
+      (_teamFiltro != null && _gruppiSquadra(campionati).contains(_teamFiltro))
+          ? _teamFiltro
+          : null;
+
   /// I campionati visibili col filtro squadra corrente.
   List<Campionato> _filtrati(List<Campionato> campionati) {
-    if (_teamFiltro == null) return campionati;
-    if (_teamFiltro == _kSenzaSquadra) {
+    final filtro = _filtroEffettivo(campionati);
+    if (filtro == null) return campionati;
+    if (filtro == _kSenzaSquadra) {
       return campionati.where((c) => c.teamId == null).toList();
     }
-    return campionati.where((c) => c.teamId == _teamFiltro).toList();
+    return campionati.where((c) => c.teamId == filtro).toList();
   }
 
   /// Il campionato mostrato: quello selezionato se è ancora nel filtro,
@@ -206,31 +221,32 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
 
   /// Il selettore di squadra ha senso solo se i campionati importati toccano
   /// più di un "gruppo": con una squadra sola sarebbe un dropdown a una voce.
-  bool _serveFiltroSquadra(List<Campionato> campionati) {
-    final gruppi = campionati.map((c) => c.teamId ?? _kSenzaSquadra).toSet();
-    return gruppi.length > 1;
-  }
+  bool _serveFiltroSquadra(List<Campionato> campionati) =>
+      _gruppiSquadra(campionati).length > 1;
 
   Widget _selettoreSquadra(List<Campionato> campionati) {
+    final l = AppLocalizations.of(context);
     final squadre = ref.watch(teamsStreamProvider).value ?? const <Team>[];
     final perId = {for (final t in squadre) t.id: t};
     // Solo le squadre che hanno almeno un campionato: le altre darebbero voci
     // che filtrano su lista vuota.
-    final idUsati = campionati.map((c) => c.teamId ?? _kSenzaSquadra).toSet();
+    final idUsati = _gruppiSquadra(campionati);
 
     String etichetta(int id) => id == _kSenzaSquadra
-        ? 'Senza squadra'
-        : (perId[id]?.nome ?? 'Squadra eliminata');
+        ? l.campSenzaSquadra
+        : (perId[id]?.nome ?? l.campSquadraEliminata);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
       child: DropdownButtonFormField<int?>(
-        initialValue: _teamFiltro,
+        // Mai `_teamFiltro` grezzo: se punta a un gruppo sparito il dropdown
+        // va in assert (vedi _filtroEffettivo).
+        initialValue: _filtroEffettivo(campionati),
         isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Squadra'),
+        decoration: InputDecoration(labelText: l.campFiltroSquadra),
         items: [
-          const DropdownMenuItem<int?>(value: null, child: Text('Tutte')),
+          DropdownMenuItem<int?>(value: null, child: Text(l.campTutte)),
           for (final id in idUsati)
             DropdownMenuItem<int?>(value: id, child: Text(etichetta(id))),
         ],
@@ -243,15 +259,16 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
   }
 
   Widget _filtroVuoto(List<Campionato> campionati) {
+    final l = AppLocalizations.of(context);
     return Column(
       children: [
         _selettoreSquadra(campionati),
         const Spacer(),
-        const Text('Nessun campionato per questa squadra.'),
+        Text(l.campNessunoPerSquadra),
         const SizedBox(height: AppSpacing.md),
         TextButton(
           onPressed: () => setState(() => _teamFiltro = null),
-          child: const Text('Mostra tutti'),
+          child: Text(l.campMostraTutti),
         ),
         const Spacer(),
       ],
@@ -276,7 +293,9 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
       child: DropdownButtonFormField<int>(
         initialValue: corrente.id,
         isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Campionato'),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context).campTitolo,
+        ),
         items: [
           for (final c in campionati)
             DropdownMenuItem(
@@ -301,27 +320,23 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     final repo = ref.read(campionatoRepositoryProvider);
     final gare = await repo.contaGare(campionato.id);
     if (!mounted) return;
+    final l = AppLocalizations.of(context);
 
     final conferma = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminare il campionato?'),
+        title: Text(l.campEliminaTitolo),
         content: Text(
-          '${_nomeConStagione(campionato)}\n\n'
-          'Spariscono il calendario e le sue $gare gare, e con loro la '
-          'classifica.\n\n'
-          'Le partite che hai già creato da queste gare RESTANO in Gestione '
-          'partite, con tutti i dati di scout: se non ti servono più, '
-          'eliminale da lì.',
+          l.campEliminaTesto(_nomeConStagione(campionato), gare),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Elimina'),
+            child: Text(l.comuneElimina),
           ),
         ],
       ),
@@ -358,7 +373,9 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
               propria == null ? Icons.warning_amber : Icons.groups,
               color: propria == null ? AppColors.warning : null,
             ),
-            label: Text(propria ?? 'Scegli la tua squadra'),
+            label: Text(
+              propria ?? AppLocalizations.of(context).campScegliSquadra,
+            ),
           ),
         ],
       ),
@@ -379,6 +396,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
   Future<void> _importa() async {
     if (_richiedePremium()) return;
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
 
     try {
       const gruppo = XTypeGroup(
@@ -419,14 +437,16 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
       });
 
       final pezzi = [
-        if (esito.nuove > 0) '${esito.nuove} nuove',
-        if (esito.aggiornate > 0) '${esito.aggiornate} aggiornate',
-        if (esito.scartate > 0) '${esito.scartate} righe ignorate',
+        if (esito.nuove > 0) l.campGareNuove(esito.nuove),
+        if (esito.aggiornate > 0) l.campGareAggiornate(esito.aggiornate),
+        if (esito.scartate > 0) l.campRigheIgnorate(esito.scartate),
       ];
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            pezzi.isEmpty ? 'Nessuna gara importata' : 'Gare: ${pezzi.join(", ")}',
+            pezzi.isEmpty
+                ? l.campNessunaGaraImportata
+                : l.campRiepilogoGare(pezzi.join(', ')),
           ),
         ),
       );
@@ -445,18 +465,20 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
       await showDialog<void>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Import non riuscito'),
+          title: Text(l.campImportNonRiuscitoTitolo),
           content: Text(e.message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Ok'),
+              child: Text(l.comuneOk),
             ),
           ],
         ),
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Import fallito: $e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.campImportFallito('$e'))),
+      );
     }
   }
 
@@ -469,21 +491,19 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     List<Campionato> omonimi,
     EsitoParsingFipav parsing,
   ) {
+    final l = AppLocalizations.of(context);
     final stagione = stagioneDaGare(parsing.gare);
 
     return showDialog<_DestinazioneImport>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        title: const Text('Campionato già presente'),
+        title: Text(l.campGiaPresenteTitolo),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
             child: Text(
-              'Hai già importato "${omonimi.first.nome}".\n'
-              'Aggiorna quello esistente per registrare i risultati appena '
-              'giocati, oppure creane uno nuovo se questo è il calendario di '
-              'un\'altra stagione.',
+              l.campGiaPresenteTesto(omonimi.first.nome),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
@@ -494,9 +514,9 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.sync),
-                title: const Text('Aggiorna quello esistente'),
+                title: Text(l.campAggiornaEsistente),
                 subtitle: Text([
-                  if (c.stagione != null) 'stagione ${c.stagione}',
+                  if (c.stagione != null) l.campStagione(c.stagione!),
                   if (c.squadraPropria != null) c.squadraPropria!,
                 ].join(' · ')),
               ),
@@ -507,9 +527,11 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.add),
-              title: const Text('Crea un nuovo campionato'),
+              title: Text(l.campCreaNuovo),
               subtitle: Text(
-                stagione == null ? 'calendario separato' : 'stagione $stagione',
+                stagione == null
+                    ? l.campCalendarioSeparato
+                    : l.campStagione(stagione),
               ),
             ),
           ),
@@ -519,7 +541,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
               padding: const EdgeInsets.only(right: AppSpacing.md),
               child: TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Annulla'),
+                child: Text(l.comuneAnnulla),
               ),
             ),
           ),
@@ -542,30 +564,40 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     final squadre = await ref.read(teamRepositoryProvider).watchTeams().first;
 
     if (!mounted) return;
-    var scelta = campionato.squadraPropria ?? _abbinamento(nomi, squadre)?.$1;
-    var teamId = campionato.teamId ??
-        (scelta == null ? null : _teamPerNome(scelta, squadre)?.id);
+    final l = AppLocalizations.of(context);
+    // I valori salvati vanno RIVALIDATI contro le voci attuali, altrimenti il
+    // dropdown va in assert. Succede su un campionato già importato: la
+    // squadra propria può non essere più tra le squadre del calendario (nomi
+    // cambiati dalla federazione, o ri-import di un girone diverso), e la
+    // squadra locale abbinata può essere stata eliminata nel frattempo.
+    final salvata = campionato.squadraPropria;
+    var scelta = (salvata != null && nomi.contains(salvata))
+        ? salvata
+        : _abbinamento(nomi, squadre)?.$1;
+    final idLocali = squadre.map((t) => t.id).toSet();
+    var teamId = (campionato.teamId != null &&
+            idLocali.contains(campionato.teamId))
+        ? campionato.teamId
+        : (scelta == null ? null : _teamPerNome(scelta, squadre)?.id);
 
     final confermato = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('La tua squadra'),
+          title: Text(l.campTuaSquadraTitolo),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Serve a impostare casa/trasferta e l\'avversario quando '
-                  'crei una partita dal calendario.',
-                ),
+                Text(l.campTuaSquadraTesto),
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
                   initialValue: scelta,
                   isExpanded: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Squadra nel calendario'),
+                  decoration: InputDecoration(
+                    labelText: l.campSquadraNelCalendario,
+                  ),
                   items: [
                     for (final n in nomi)
                       DropdownMenuItem(value: n, child: Text(n)),
@@ -579,13 +611,11 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
                 DropdownButtonFormField<int?>(
                   initialValue: teamId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Squadra dell\'app (opzionale)',
-                  ),
+                  decoration: InputDecoration(labelText: l.campSquadraApp),
                   items: [
-                    const DropdownMenuItem<int?>(
+                    DropdownMenuItem<int?>(
                       value: null,
-                      child: Text('Nessuna'),
+                      child: Text(l.campNessuna),
                     ),
                     for (final t in squadre)
                       DropdownMenuItem<int?>(value: t.id, child: Text(t.nome)),
@@ -598,11 +628,11 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Annulla'),
+              child: Text(l.comuneAnnulla),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Salva'),
+              child: Text(l.comuneSalva),
             ),
           ],
         ),
@@ -646,14 +676,15 @@ class _TabCalendario extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final gareAsync = ref.watch(gareStreamProvider(campionato.id));
 
     return gareAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Errore: $e')),
+      error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
       data: (gare) {
         if (gare.isEmpty) {
-          return const Center(child: Text('Nessuna gara in calendario.'));
+          return Center(child: Text(l.campNessunaGara));
         }
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -676,6 +707,7 @@ class _RigaGara extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final propria = campionato.squadraPropria;
     final giocata = gara.risultato != null && gara.risultato!.trim().isNotEmpty;
 
@@ -705,7 +737,7 @@ class _RigaGara extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (gara.giornata != null)
-                Text('G. ${gara.giornata}',
+                Text(l.campGiornata(gara.giornata!),
                     style: Theme.of(context).textTheme.labelLarge),
               Text(_dataBreve(gara.dataOra)),
               Text(
@@ -731,10 +763,11 @@ class _RigaGara extends ConsumerWidget {
   }
 
   Widget _trailing(BuildContext context, WidgetRef ref, bool giocata) {
+    final l = AppLocalizations.of(context);
     if (gara.matchId != null) {
-      return const Tooltip(
-        message: 'Già in Gestione partite',
-        child: Icon(Icons.check_circle, color: AppColors.success),
+      return Tooltip(
+        message: l.campGiaInPartite,
+        child: const Icon(Icons.check_circle, color: AppColors.success),
       );
     }
     if (giocata) {
@@ -770,12 +803,13 @@ class _RigaGara extends ConsumerWidget {
       onPressed: campionato.squadraPropria == null
           ? null
           : () => _creaPartita(context, ref),
-      child: const Text('Crea partita'),
+      child: Text(l.campCreaPartita),
     );
   }
 
   Future<void> _creaPartita(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
 
     // Stesso gate free di MatchesScreen: da free si può avere UNA sola
     // partita. Qui in pratica non scatta (l'import è già premium), ma il
@@ -798,11 +832,11 @@ class _RigaGara extends ConsumerWidget {
           .read(campionatoRepositoryProvider)
           .creaPartitaDaGara(gara, campionato);
       messenger.showSnackBar(
-        SnackBar(content: Text('Creata "${nomePartitaDaGara(gara)}"')),
+        SnackBar(content: Text(l.campPartitaCreata(nomePartitaDaGara(gara)))),
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Creazione partita fallita: $e')),
+        SnackBar(content: Text(l.campCreazioneFallita('$e'))),
       );
     }
   }
@@ -823,16 +857,17 @@ class _TabClassifica extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final gareAsync = ref.watch(gareStreamProvider(campionato.id));
 
     return gareAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Errore: $e')),
+      error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
       data: (righeDb) {
         final gare = righeDb.map(_versoGaraFipav).toList();
         final classifica = calcolaClassifica(gare);
         if (classifica.isEmpty) {
-          return const Center(child: Text('Nessuna gara da cui calcolare.'));
+          return Center(child: Text(l.campNienteDaCalcolare));
         }
         final parziale = squadraUnicaDelFiltro(gare);
 
@@ -846,20 +881,22 @@ class _TabClassifica extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 columnSpacing: 18,
-                columns: const [
-                  DataColumn(label: Text('#')),
-                  DataColumn(label: Text('Squadra')),
-                  DataColumn(label: Text('G'), numeric: true),
-                  DataColumn(label: Text('V'), numeric: true),
-                  DataColumn(label: Text('P'), numeric: true),
-                  DataColumn(label: Text('Punti'), numeric: true),
+                columns: [
+                  const DataColumn(label: Text('#')),
+                  DataColumn(label: Text(l.campFiltroSquadra)),
+                  DataColumn(label: Text(l.campColGiocate), numeric: true),
+                  DataColumn(label: Text(l.campColVinte), numeric: true),
+                  DataColumn(label: Text(l.campColPerse), numeric: true),
+                  DataColumn(label: Text(l.campColPunti), numeric: true),
                   // Set e punti in chiaro (vinti-persi / fatti-subiti) più il
                   // rispettivo quoziente: sono i due criteri che decidono a
                   // parità di punti, quindi vanno letti a colpo d'occhio.
-                  DataColumn(label: Text('Set'), numeric: true),
-                  DataColumn(label: Text('Q.set'), numeric: true),
-                  DataColumn(label: Text('Punti f/s'), numeric: true),
-                  DataColumn(label: Text('Q.punti'), numeric: true),
+                  DataColumn(label: Text(l.campColSet), numeric: true),
+                  DataColumn(label: Text(l.campColQuozienteSet), numeric: true),
+                  DataColumn(
+                      label: Text(l.campColPuntiFattiSubiti), numeric: true),
+                  DataColumn(
+                      label: Text(l.campColQuozientePunti), numeric: true),
                 ],
                 rows: [
                   for (var i = 0; i < classifica.length; i++)
@@ -910,12 +947,7 @@ class _TabClassifica extends ConsumerWidget {
           const Icon(Icons.info_outline),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(
-              'Classifica parziale: il file importato contiene solo le partite '
-              'di $squadra, quindi mancano gli scontri fra le altre squadre. '
-              'Esporta dal sito FIPAV il girone completo (senza filtro '
-              'società) per la classifica intera.',
-            ),
+            child: Text(AppLocalizations.of(context).campBannerParziale(squadra)),
           ),
         ],
       ),
