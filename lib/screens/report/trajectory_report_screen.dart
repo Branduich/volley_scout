@@ -9,6 +9,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/court_trajectories_view.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
+import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -92,7 +93,10 @@ class TrajectoryReportScreen extends ConsumerStatefulWidget {
 }
 
 class _TrajectoryReportScreenState
-    extends ConsumerState<TrajectoryReportScreen> {
+    extends ConsumerState<TrajectoryReportScreen> with OrientamentoSchermata<TrajectoryReportScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   List<MatchSet> _sets = [];
   Map<int, List<ScoutAction>> _azioniPerSet = {};
   List<Player> _players = [];

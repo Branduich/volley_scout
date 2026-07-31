@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
 import '../../providers/database_provider.dart';
+import '../../utils/orientamento.dart';
 
 /// Gestione della lista modificabile delle categorie di squadra
 /// (aggiungi / rinomina / elimina / riordina). Raggiunta da "Setup squadre".
@@ -11,11 +12,20 @@ import '../../providers/database_provider.dart';
 /// eliminare o rinominare una voce qui non rompe mai una squadra esistente.
 /// La rinomina può, su richiesta, propagarsi alle squadre che usano il vecchio
 /// nome (es. "Under 18" → "Under 19" a inizio stagione).
-class CategorieScreen extends ConsumerWidget {
+class CategorieScreen extends ConsumerStatefulWidget {
   const CategorieScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CategorieScreen> createState() => _CategorieScreenState();
+}
+
+class _CategorieScreenState extends ConsumerState<CategorieScreen>
+    with OrientamentoSchermata<CategorieScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
+
+  @override
+  Widget build(BuildContext context) {
     final categorieAsync = ref.watch(categorieStreamProvider);
 
     return Scaffold(

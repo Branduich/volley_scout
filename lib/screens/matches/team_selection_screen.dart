@@ -8,15 +8,26 @@ import '../../widgets/premium_badge.dart';
 import '../premium/paywall_screen.dart';
 import '../teams/team_form_screen.dart';
 import '../live/lineup_screen.dart';
+import '../../utils/orientamento.dart';
 
 // Questa schermata si raggiunge SOLO quando il set corrente non ha ancora
 // una formazione salvata (vedi MatchesScreen._avviaOnStart): la ripresa di
 // un set già iniziato salta direttamente a ScoutScreen, senza passare di
 // qui, perché a quel punto la squadra è già fissata dalla Rotation
 // persistita — selezionarne un'altra qui creerebbe un'incoerenza.
-class TeamSelectionScreen extends ConsumerWidget {
+class TeamSelectionScreen extends ConsumerStatefulWidget {
   final VolleyMatch match;
   const TeamSelectionScreen({super.key, required this.match});
+
+  @override
+  ConsumerState<TeamSelectionScreen> createState() =>
+      _TeamSelectionScreenState();
+}
+
+class _TeamSelectionScreenState extends ConsumerState<TeamSelectionScreen>
+    with OrientamentoSchermata<TeamSelectionScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
 
   Future<void> _onTeamSelected(
       BuildContext context, WidgetRef ref, Team team) async {
@@ -27,7 +38,7 @@ class TeamSelectionScreen extends ConsumerWidget {
     // partissero dalla versione con teamId ancora null, ogni risalvataggio
     // lo sovrascriverebbe di nuovo a null (bug reale riscontrato: la
     // squadra scompariva dal report a fine partita).
-    final aggiornato = match.copyWith(teamId: Value(team.id));
+    final aggiornato = widget.match.copyWith(teamId: Value(team.id));
     await ref.read(matchRepositoryProvider).updateMatch(aggiornato);
     if (!context.mounted) return;
     Navigator.push(
@@ -39,13 +50,13 @@ class TeamSelectionScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final teamsAsync = ref.watch(teamsStreamProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          match.inCasa
+          widget.match.inCasa
               ? 'Seleziona la squadra di casa'
               : 'Seleziona la squadra in trasferta',
         ),
@@ -99,7 +110,7 @@ class TeamSelectionScreen extends ConsumerWidget {
               final team = teams[i];
               return _TeamSelectCard(
                 team: team,
-                isSelected: match.teamId == team.id,
+                isSelected: widget.match.teamId == team.id,
                 onTap: () => _onTeamSelected(context, ref, team),
               );
             },

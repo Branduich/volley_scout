@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../utils/orientamento.dart';
 
 // Punteggio finale di un set per la tabella del PDF — stesso calcolo di
 // MatchReportScreen._carica (eventi + correzione manuale + durata).
@@ -111,7 +112,10 @@ class MatchPdfScreen extends ConsumerStatefulWidget {
   ConsumerState<MatchPdfScreen> createState() => _MatchPdfScreenState();
 }
 
-class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> {
+class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with OrientamentoSchermata<MatchPdfScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   // Durata di gioco di un set (prima→ultima azione) — stessa logica di

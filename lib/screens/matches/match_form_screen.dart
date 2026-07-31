@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../utils/orientamento.dart';
 
 class MatchFormScreen extends ConsumerStatefulWidget {
   final VolleyMatch? match;
@@ -13,7 +14,10 @@ class MatchFormScreen extends ConsumerStatefulWidget {
   ConsumerState<MatchFormScreen> createState() => _MatchFormScreenState();
 }
 
-class _MatchFormScreenState extends ConsumerState<MatchFormScreen> {
+class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with OrientamentoSchermata<MatchFormScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
   late TextEditingController _avversarioController;

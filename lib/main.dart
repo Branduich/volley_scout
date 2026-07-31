@@ -16,6 +16,7 @@ import 'screens/matches/matches_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/teams/teams_screen.dart';
 import 'theme/app_theme.dart';
+import 'utils/orientamento.dart';
 import 'widgets/debug_paint_toggle.dart';
 
 Future<void> main() async {
@@ -24,10 +25,10 @@ Future<void> main() async {
   // le impostazioni si leggono in modo sincrono ovunque (vedi
   // settings_provider.dart).
   final prefs = await SharedPreferences.getInstance();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  // Orientamento di avvio: seguo il device (Home accetta il portrait). Le
+  // singole schermate lo restringono via mixin (vedi utils/orientamento.dart):
+  // setup/impostazioni/home = tutti, campo/report = solo landscape.
+  await SystemChrome.setPreferredOrientations(kOrientamentoTutti);
   // RevenueCat: configura la SDK prima di runApp (solo Android per ora — la
   // key è quella Android; iOS avrà la sua). try/catch: un fallimento non
   // deve bloccare l'avvio — lo statoPremiumProvider resta free finché la SDK
@@ -72,6 +73,9 @@ class VolleyScoutApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       locale: locale,
+      // Osserva le route per ri-applicare l'orientamento quando una schermata
+      // torna in primo piano (vedi utils/orientamento.dart).
+      navigatorObservers: [orientamentoRouteObserver],
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       // Su smartphone (schermo basso) rimpicciolisco l'AppBar di TUTTE le
@@ -115,79 +119,90 @@ class VolleyScoutApp extends ConsumerWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen>
+    with OrientamentoSchermata<HomeScreen> {
+  // Layout responsive: 2 colonne in landscape, immagine sopra + bottoni sotto
+  // in portrait — così è comoda in entrambi gli orientamenti (vedi build).
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    // Area principale: immagine brand a tutto riquadro finché non si decide
+    // quali dati mostrare qui. BoxFit.cover riempie l'area ritagliando i bordi:
+    // il logo resta centrato sia su tablet sia su telefono.
+    final immagine = Image.asset(
+      'assets/images/main_image.png',
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+    );
+    // Blocco dei tre bottoni: i due principali centrati (Spacer simmetrici),
+    // "Impostazioni" staccata in fondo.
+    final bottoni = Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const Spacer(),
+          _MenuButton(
+            icon: Icons.groups,
+            label: l.homeTeamsSetup,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TeamsScreen()),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _MenuButton(
+            icon: Icons.event_note,
+            label: l.homeMatches,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                settings: const RouteSettings(name: '/matches'),
+                builder: (_) => const MatchesScreen(),
+              ),
+            ),
+          ),
+          const Spacer(),
+          _MenuButton(
+            icon: Icons.settings,
+            label: l.homeSettings,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SettingsScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('Volley Stratego'),
         actions: const [DebugPaintToggle()],
       ),
-      body: Row(
-        children: [
-          // Area principale: immagine brand a tutto riquadro finché non si
-          // decide quali dati mostrare qui. BoxFit.cover riempie l'area (2/3
-          // della larghezza landscape × altezza piena) ritagliando i bordi:
-          // il logo resta centrato sia su tablet (quasi quadrato) sia su
-          // telefono (largo).
-          Expanded(
-            flex: 2,
-            child: Image.asset(
-              'assets/images/main_image.png',
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-          // Colonna dei tre bottoni
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // Spacer simmetrici: i due bottoni principali restano
-                  // centrati, "Impostazioni" sta in fondo, staccata.
-                  const Spacer(),
-                  _MenuButton(
-                    icon: Icons.groups,
-                    label: l.homeTeamsSetup,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TeamsScreen()),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _MenuButton(
-                    icon: Icons.event_note,
-                    label: l.homeMatches,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        settings: const RouteSettings(name: '/matches'),
-                        builder: (_) => const MatchesScreen(),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  _MenuButton(
-                    icon: Icons.settings,
-                    label: l.homeSettings,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SettingsScreen(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      body: OrientationBuilder(
+        builder: (context, orientation) {
+          // Landscape: immagine a sinistra (2/3), bottoni a destra (1/3).
+          // Portrait: immagine sopra (2/3 altezza), bottoni sotto (1/3).
+          final children = [
+            Expanded(flex: 2, child: immagine),
+            Expanded(flex: 1, child: bottoni),
+          ];
+          return orientation == Orientation.landscape
+              ? Row(children: children)
+              : Column(children: children);
+        },
       ),
     );
   }

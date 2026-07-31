@@ -8,6 +8,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/court_style.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
+import '../../utils/orientamento.dart';
 
 // `murati`: attacchi con muro punto subito (voto `=` + tocco a muro + palla
 // tornata nel campo dell'attaccante — vedi attaccoMurato in
@@ -48,7 +49,10 @@ class PlayerStatsScreen extends ConsumerStatefulWidget {
   ConsumerState<PlayerStatsScreen> createState() => _PlayerStatsScreenState();
 }
 
-class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> {
+class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with OrientamentoSchermata<PlayerStatsScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   List<MatchSet>? _sets;
   Map<int, List<ScoutAction>>? _azioniPerSet; // setId -> azioni
   List<Player>? _giocatori;

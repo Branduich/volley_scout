@@ -64,9 +64,30 @@ fallisce anche dopo `flutter clean`/stop dei daemon.
    database. Ogni schermata usa un repository tramite provider riverpod.
    Questo è il vincolo architetturale chiave per mantenere il codice modificabile.
 
-2. **Solo landscape**: forzato sia in `main.dart`
-   (`SystemChrome.setPreferredOrientations` con landscapeLeft/Right) sia nel
-   manifest Android (`android:screenOrientation="sensorLandscape"`).
+2. **Orientamento per-schermata** (era "solo landscape"): l'app nasce
+   landscape-only, ma alcune schermate di setup sono più comode anche in
+   portrait. L'orientamento NON è più un lock globale: `main()` parte
+   seguendo il device (`kOrientamentoTutti`) e ogni schermata dichiara i
+   propri orientamenti via il mixin `OrientamentoSchermata`
+   (`lib/utils/orientamento.dart`), applicati in `initState` + post-frame e
+   ri-applicati al ritorno in primo piano (`RouteObserver`/`didPopNext`,
+   registrato in `MaterialApp.navigatorObservers`).
+   - **`kOrientamentoTutti`** (portrait + landscape): Home, Impostazioni e le
+     schermate di setup leggere (`TeamsScreen`, `CategorieScreen`,
+     `MatchesScreen`, `TeamSelectionScreen`, `MatchFormScreen`,
+     `PlayerFormScreen`). `HomeScreen` è responsive (`OrientationBuilder`:
+     2 colonne in landscape, immagine sopra + bottoni sotto in portrait).
+   - **`kOrientamentoLandscape`** (solo landscape): tutte le schermate col
+     campo (`LineupScreen`, `FormationConfigScreen`, `SostituzioneScreen`,
+     `ScoutScreen`, `TacticalBoardScreen`, `EndSetScreen`), i report
+     (`MatchReportScreen`, `MatchPdfScreen`, `PlayerStatsScreen`,
+     `TrajectoryReportScreen`) e **`TeamFormScreen`** (layout a 2 colonne
+     non ancora reso responsive — backlog).
+   - Il lock del **manifest Android** (`android:screenOrientation`) è stato
+     rimosso: era malformato (fuori dal tag `<activity>`) e senza effetto —
+     l'orientamento è gestito solo lato Flutter. Nota: forzare landscape da
+     uno stato portrait funziona sui **device fisici**; alcuni **emulatori**
+     con auto-rotate off non ruotano davvero (letterbox).
 
 3. **Stream-based**: i repository espongono `Stream` (drift `.watch()`), così le
    schermate si aggiornano automaticamente a ogni modifica del DB.
@@ -250,6 +271,10 @@ lib/
 │       └── about_screen.dart             (Informazioni: versione, link legali
 │                                          placeholder, supporto, ID supporto —
 │                                          vedi sezione Premium)
+├── utils/
+│   └── orientamento.dart          (mixin OrientamentoSchermata + RouteObserver
+│                                   per l'orientamento per-schermata — vedi
+│                                   convenzione #2)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)

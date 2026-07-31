@@ -4,6 +4,7 @@ import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import 'lineup_screen.dart';
+import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF143E59);
 
@@ -15,11 +16,20 @@ const _kBg = Color(0xFF143E59);
 /// (segna la partita come `terminata` e torna a `MatchesScreen`). In Fase 4
 /// diventerà probabilmente la pagina delle statistiche del set — per ora
 /// resta un placeholder, il salvataggio dei punteggi è da decidere a parte.
-class EndSetScreen extends ConsumerWidget {
+class EndSetScreen extends ConsumerStatefulWidget {
   final VolleyMatch match;
   final Team team;
 
   const EndSetScreen({super.key, required this.match, required this.team});
+
+  @override
+  ConsumerState<EndSetScreen> createState() => _EndSetScreenState();
+}
+
+class _EndSetScreenState extends ConsumerState<EndSetScreen>
+    with OrientamentoSchermata<EndSetScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
 
   Future<bool> _confermaDialog(
       BuildContext context, String titolo, String testo) async {
@@ -51,13 +61,14 @@ class EndSetScreen extends ConsumerWidget {
           'formazione (nessuna formazione precompilata).',
     );
     if (!confermato || !context.mounted) return;
-    final nuovoMatch = match.copyWith(setCorrente: match.setCorrente + 1);
+    final nuovoMatch =
+        widget.match.copyWith(setCorrente: widget.match.setCorrente + 1);
     await ref.read(matchRepositoryProvider).updateMatch(nuovoMatch);
     if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => LineupScreen(match: nuovoMatch, team: team),
+        builder: (_) => LineupScreen(match: nuovoMatch, team: widget.team),
       ),
     );
   }
@@ -71,7 +82,7 @@ class EndSetScreen extends ConsumerWidget {
     if (!confermato || !context.mounted) return;
     await ref
         .read(matchRepositoryProvider)
-        .updateMatch(match.copyWith(stato: StatoPartita.terminata));
+        .updateMatch(widget.match.copyWith(stato: StatoPartita.terminata));
     if (!context.mounted) return;
     // Pop fino a MatchesScreen (vedi RouteSettings(name: '/matches') in
     // main.dart) — robusto a quante schermate si siano accumulate nello
@@ -81,7 +92,7 @@ class EndSetScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(

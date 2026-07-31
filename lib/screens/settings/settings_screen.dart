@@ -6,16 +6,27 @@ import '../../providers/lingua_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/orientamento.dart';
 import '../../widgets/premium_badge.dart';
 import 'about_screen.dart';
 
 /// Impostazioni dell'app (raggiunta dal bottone in fondo al menu di
 /// HomeScreen). Le voci future si aggiungono qui.
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen>
+    with OrientamentoSchermata<SettingsScreen> {
+  // Lista semplice: comoda anche in portrait.
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final impostazioni = ref.watch(impostazioniProvider);
     final premiumAttivo = ref.watch(statoPremiumProvider).attivo;

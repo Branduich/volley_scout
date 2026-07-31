@@ -8,6 +8,7 @@ import '../../widgets/certificato_dot.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import 'player_form_screen.dart';
+import '../../utils/orientamento.dart';
 
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
 // l'avatar del libero — in pallavolo il libero indossa sempre una maglia di
@@ -28,7 +29,10 @@ class TeamFormScreen extends ConsumerStatefulWidget {
   ConsumerState<TeamFormScreen> createState() => _TeamFormScreenState();
 }
 
-class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
+class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with OrientamentoSchermata<TeamFormScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
   // Nome della categoria (testo libero, scelto dalla lista Categorie). null =

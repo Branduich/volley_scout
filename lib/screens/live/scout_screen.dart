@@ -26,6 +26,7 @@ import 'end_set_screen.dart';
 import 'sostituzione_screen.dart';
 import 'tactical_board_screen.dart';
 import 'trajectory_screen.dart';
+import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
@@ -269,7 +270,10 @@ class ScoutScreen extends ConsumerStatefulWidget {
   ConsumerState<ScoutScreen> createState() => _ScoutScreenState();
 }
 
-class _ScoutScreenState extends ConsumerState<ScoutScreen> {
+class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSchermata<ScoutScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   // Set corrente: creato (con relativa rotazione iniziale) non appena si
   // risponde al dialog "Chi serve per primo?" — vedi _chiediServizioIniziale.
   MatchSet? _setCorrente;

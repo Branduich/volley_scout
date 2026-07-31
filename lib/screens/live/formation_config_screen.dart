@@ -5,6 +5,7 @@ import '../../widgets/court_view.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import 'scout_screen.dart';
+import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF0F172A);
 
@@ -54,7 +55,10 @@ class FormationConfigScreen extends StatefulWidget {
   State<FormationConfigScreen> createState() => _FormationConfigScreenState();
 }
 
-class _FormationConfigScreenState extends State<FormationConfigScreen> {
+class _FormationConfigScreenState extends State<FormationConfigScreen> with OrientamentoSchermata<FormationConfigScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   SistemaGioco _sistema = SistemaGioco.palleggiatoreUnico;
   // Slot dei palleggiatori designati: 1 nel 5-1, 2 nel 6-2. Nel 6-2 il
   // palleggiatore di RIFERIMENTO (P1) passato allo scout è quello con lo slot

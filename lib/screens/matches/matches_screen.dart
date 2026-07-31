@@ -16,9 +16,19 @@ import '../report/match_pdf_screen.dart';
 import '../report/match_report_screen.dart';
 import 'match_form_screen.dart';
 import 'team_selection_screen.dart';
+import '../../utils/orientamento.dart';
 
-class MatchesScreen extends ConsumerWidget {
+class MatchesScreen extends ConsumerStatefulWidget {
   const MatchesScreen({super.key});
+
+  @override
+  ConsumerState<MatchesScreen> createState() => _MatchesScreenState();
+}
+
+class _MatchesScreenState extends ConsumerState<MatchesScreen>
+    with OrientamentoSchermata<MatchesScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
 
   // "Inizia"/"Riprendi": se il set corrente ha già una formazione salvata
   // (ripresa di un set già iniziato, qualunque sia StatoPartita — vedi
@@ -128,7 +138,7 @@ class MatchesScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final matchesAsync = ref.watch(matchesStreamProvider);
 
     return Scaffold(

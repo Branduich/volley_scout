@@ -10,6 +10,7 @@ import '../teams/player_form_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import 'formation_config_screen.dart';
+import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF0F172A); // dark navy background
 const _kCourtImage = 'assets/images/court_bg.png';
@@ -37,7 +38,10 @@ class LineupScreen extends ConsumerStatefulWidget {
   ConsumerState<LineupScreen> createState() => _LineupScreenState();
 }
 
-class _LineupScreenState extends ConsumerState<LineupScreen> {
+class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSchermata<LineupScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   bool _doppiLibero = false;
   String _selectedSlot = 'P1';
   final Map<String, Player> _assignments = {};

@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../premium/paywall_screen.dart';
 import 'trajectory_report_screen.dart';
+import '../../utils/orientamento.dart';
 
 // Punteggio finale (eventi + correzione manuale) di un singolo set +
 // durata di gioco (prima→ultima azione registrata, null se < 2 azioni).
@@ -102,7 +103,10 @@ class MatchReportScreen extends ConsumerStatefulWidget {
   ConsumerState<MatchReportScreen> createState() => _MatchReportScreenState();
 }
 
-class _MatchReportScreenState extends ConsumerState<MatchReportScreen> {
+class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with OrientamentoSchermata<MatchReportScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   Team? _team;
   List<MatchSet>? _sets;
   List<_RigaSet>? _righeSet;

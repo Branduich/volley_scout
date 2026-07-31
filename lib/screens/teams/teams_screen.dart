@@ -6,12 +6,22 @@ import '../../widgets/premium_badge.dart';
 import '../premium/paywall_screen.dart';
 import 'categorie_screen.dart';
 import 'team_form_screen.dart';
+import '../../utils/orientamento.dart';
 
-class TeamsScreen extends ConsumerWidget {
+class TeamsScreen extends ConsumerStatefulWidget {
   const TeamsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamsScreen> createState() => _TeamsScreenState();
+}
+
+class _TeamsScreenState extends ConsumerState<TeamsScreen>
+    with OrientamentoSchermata<TeamsScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
+
+  @override
+  Widget build(BuildContext context) {
     final teamsAsync = ref.watch(teamsStreamProvider);
     // Gate premium (vedi docs/TODO_strada_A.md): da free si può avere UNA
     // sola squadra — la creazione della seconda apre il paywall. Le squadre

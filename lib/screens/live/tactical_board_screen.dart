@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/database.dart';
 import '../../models/jersey_colors.dart';
+import '../../utils/orientamento.dart';
 
 const _kCourtImage = 'assets/images/double_court_bg.png';
 
@@ -66,7 +67,10 @@ class TacticalBoardScreen extends StatefulWidget {
   State<TacticalBoardScreen> createState() => _TacticalBoardScreenState();
 }
 
-class _TacticalBoardScreenState extends State<TacticalBoardScreen> {
+class _TacticalBoardScreenState extends State<TacticalBoardScreen> with OrientamentoSchermata<TacticalBoardScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   // Posizioni correnti delle chip (normalizzate sul campo intero).
   late Map<String, Offset> _chip = Map.of(_kChipDefault);
 

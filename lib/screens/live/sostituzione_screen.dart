@@ -6,6 +6,7 @@ import '../../widgets/court_view.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import 'formation_config_screen.dart';
+import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF0F172A);
 
@@ -81,7 +82,10 @@ class SostituzioneScreen extends StatefulWidget {
   State<SostituzioneScreen> createState() => _SostituzioneScreenState();
 }
 
-class _SostituzioneScreenState extends State<SostituzioneScreen> {
+class _SostituzioneScreenState extends State<SostituzioneScreen> with OrientamentoSchermata<SostituzioneScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+
   late final Map<String, Player> _pending = Map.of(widget.seiCorrenti);
   late final Map<String, Player> _pendingLiberi = Map.of(widget.liberi);
   // Slot P1..P6 oppure chiave libero L1/L2 selezionata come "chi esce".

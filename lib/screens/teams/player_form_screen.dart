@@ -7,6 +7,7 @@ import '../../data/database.dart';
 import '../../providers/database_provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
+import '../../utils/orientamento.dart';
 
 class PlayerFormScreen extends ConsumerStatefulWidget {
   final int teamId;
@@ -17,7 +18,10 @@ class PlayerFormScreen extends ConsumerStatefulWidget {
   ConsumerState<PlayerFormScreen> createState() => _PlayerFormScreenState();
 }
 
-class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> {
+class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with OrientamentoSchermata<PlayerFormScreen> {
+  @override
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
   late TextEditingController _cognomeController;
