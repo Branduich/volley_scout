@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
-import '../../data/xls_reader.dart';
+import '../../data/spreadsheet_reader.dart';
 import '../../logic/classifica.dart';
 import '../../logic/fipav_calendario.dart';
 import '../../providers/campionato_provider.dart';
@@ -112,7 +112,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
             const SizedBox(height: AppSpacing.sm),
             const Text(
               'Scarica dal sito FIPAV l\'esportazione delle gare in formato '
-              'Excel (.xls) e importala qui: avrai il calendario completo con '
+              'Excel (.xls o .xlsx) e importala qui: avrai il calendario con '
               'date, orari e palestre, la classifica aggiornata e potrai '
               'creare le partite da scoutare con un tocco.\n\n'
               'Esporta il girone INTERO (senza filtro società) se vuoi la '
@@ -199,15 +199,19 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
 
     try {
       const gruppo = XTypeGroup(
-        label: 'Excel 97-2003',
-        extensions: ['xls'],
-        mimeTypes: ['application/vnd.ms-excel'],
+        label: 'Excel',
+        extensions: ['xls', 'xlsx'],
+        mimeTypes: [
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
       );
       final file = await openFile(acceptedTypeGroups: const [gruppo]);
       if (file == null) return; // annullato
 
       final bytes = await file.readAsBytes();
-      final parsing = parseGareFipav(leggiXls(bytes));
+      // Il formato si riconosce dai byte, non dall'estensione.
+      final parsing = parseGareFipav(leggiFoglioCalcolo(bytes));
       final esito =
           await ref.read(campionatoRepositoryProvider).importa(parsing);
 

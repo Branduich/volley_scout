@@ -9,7 +9,11 @@ già compilate — non è automatico, per scelta esplicita.
 ### Il formato del file (verificato, non ipotizzato)
 
 **BIFF8 binario dentro un contenitore OLE2/CFB** (magic `D0CF11E0`): NON un
-`.xlsx`, NON un HTML rinominato — la fixture reale è in `docs/samples/GareNettunia.xls`.
+`.xlsx`, NON un HTML rinominato — la fixture reale è in
+`docs/samples/GareNettunia.xls`. Dal 2026-07-31 si importa **anche `.xlsx`**
+(vedi sotto), con la fixture `docs/samples/Calendario completo senza 14
+giornata.xlsx`: girone COMPLETO (42 gare) con le ultime due giornate svuotate
+per simulare le gare da giocare.
 Un solo foglio, header in riga 0, 12 colonne, **tutte le celle come stringhe
 condivise** (`LABELSST`): niente date come seriale Excel, niente formule.
 
@@ -49,6 +53,27 @@ Due punti delicati, entrambi già gestiti:
 - **Numerici difensivi**: questo export non ne ha, ma un altro comitato
   potrebbe emettere "Gara N" come numero. `NUMBER`/`RK`/`MULRK` vengono
   decodificati e resi come stringa, così il parser a valle non cambia.
+
+### `.xlsx` supportato (`xlsx_reader.dart` + `spreadsheet_reader.dart`)
+
+Si importa anche l'Open XML, utile se il file viene ri-salvato da Excel/Google
+Sheets. **`data/spreadsheet_reader.dart` è il punto unico di ingresso**
+(`leggiFoglioCalcolo`): riconosce il formato dai **byte** (`D0CF11E0` → BIFF8,
+`PK` → xlsx, `<` → HTML), non dall'estensione, così un file rinominato a mano
+funziona lo stesso. È quello che chiama `CampionatoScreen`.
+
+`leggiXlsx` (dipendenze `archive` + `xml`) legge solo `xl/sharedStrings.xml` e
+la prima worksheet, risolta seguendo `workbook.xml` → `workbook.xml.rels` (il
+nome `sheet1.xml` è solo una convenzione, resta il fallback). Gestisce shared
+string (anche rich text spezzato in più `<t>`), `inlineStr`, `str`, booleani,
+numerici, riferimenti oltre la colonna Z e celle in errore. Come per il `.xls`,
+**le celle vuote non vengono registrate**: è ciò che rende innocue le **righe di
+riempimento** di Google Sheets (la fixture xlsx ha 1000 `<row>` per 43 righe
+utili — senza questo, il riepilogo di import direbbe "957 righe ignorate").
+
+Le date restano **testo** anche qui (nessuna conversione da seriale Excel): se
+un domani un file le scrivesse come numeri formattati servirebbe leggere
+`xl/styles.xml`.
 
 Errori con messaggio leggibile (`FormatException`, mostrata in un dialog):
 magic `PK` → "è un .xlsx, esporta in Excel 97-2003"; `<` → "contiene HTML".
@@ -134,13 +159,15 @@ gated), ma evita di lasciare una scorciatoia aperta.
 ### Backlog
 
 - Export PDF della classifica.
-- **Supporto `.xlsx`** (deciso 2026-07-31: a piano, non urgente — oggi l'export
-  federale è `.xls` e va bene così). Oggi un `.xlsx` viene **rifiutato con un
-  messaggio esplicito**, non crasha. Da fare: un secondo lettore (zip + XML,
-  ~80 righe con `archive`+`xml`, oppure il package `excel` — da verificare che
-  non abbia lo stesso conflitto win32 che ha già escluso `file_picker`) e uno
-  smistamento sui primi byte del file. **Nulla a valle cambia**: parser gare,
-  classifica, repository e UI lavorano già su `List<List<String>>`.
+- **`StatoDescrizione` per le gare future**: oggi la colonna è salvata ma non
+  usata da nessuna logica — `giocata` deriva SOLO dal parsing di `Risultato`,
+  quindi qualunque cosa la FIPAV ci scriva ("da disputare", vuoto, ...) non
+  rompe niente. Da rivedere a inizio stagione, quando si vedrà il calendario
+  pubblicato: se per le gare future comparisse un placeholder in `Risultato`
+  tipo `0-0`, la gara verrebbe letta come giocata (il calcolo la scarterebbe
+  comunque per la guardia `setCasa == setOspite`, ma in calendario perderebbe
+  il bottone "Crea partita") — a quel punto conviene usare `StatoDescrizione`
+  come discriminante.
 - i18n delle stringhe di `CampionatoScreen` (restano in italiano come le altre
   schermate non ancora tradotte; la sola voce Home è già localizzata:
   `homeCampionato`).

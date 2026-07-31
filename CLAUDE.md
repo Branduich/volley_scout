@@ -43,7 +43,9 @@ procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 - **csv** + **share_plus** (export CSV delle azioni partita — qui `printing`
   non basta, condivide solo PDF; vedi Export CSV in Fase 4)
 - **shared_preferences** (impostazioni app — vedi `SettingsScreen`)
-- **file_selector** (scelta del file `.xls` da importare — vedi Campionato).
+- **archive** + **xml** (lettura dei file `.xlsx`, che sono zip di XML — vedi
+  `data/xlsx_reader.dart` in Campionato)
+- **file_selector** (scelta del file `.xls`/`.xlsx` da importare — vedi Campionato).
   Scelto al posto di `file_picker`, che va in **conflitto di versione** con
   `package_info_plus ^10` (win32 ^5 vs ^6): pub risolveva file_picker a 3.0.4,
   del 2021. `file_selector` è mantenuto dal team Flutter e non ha il vincolo.
@@ -51,7 +53,7 @@ procedere **un pezzo alla volta**, testando sull'emulatore ad ogni passo.
 
 Package già installati:
 `flutter_riverpod drift sqlite3_flutter_libs path_provider path pdf printing
-shared_preferences csv share_plus file_selector`
+shared_preferences csv share_plus file_selector archive xml`
 dev: `drift_dev build_runner flutter_launcher_icons`
 
 **Workaround build Android** (`android/gradle.properties`):
@@ -204,11 +206,16 @@ lib/
 │   │                               pura + condividiCsvPartita() con share
 │   │                               sheet — bottone "CSV" in MatchesScreen,
 │   │                               vedi Export CSV in Fase 4)
-│   └── xls_reader.dart           (leggiXls() — lettore MINIMALE di .xls
-│                                   binario legacy (OLE2 + BIFF8), scritto a
-│                                   mano perché nessun package Dart legge quel
-│                                   formato; usato solo dall'import FIPAV —
-│                                   vedi Campionato)
+│   ├── xls_reader.dart           (leggiXls() — lettore MINIMALE di .xls
+│   │                               binario legacy (OLE2 + BIFF8), scritto a
+│   │                               mano perché nessun package Dart legge quel
+│   │                               formato; vedi Campionato)
+│   ├── xlsx_reader.dart          (leggiXlsx() — gemello per l'Open XML
+│   │                               (zip + XML via archive/xml); stessa griglia
+│   │                               di stringhe in uscita)
+│   └── spreadsheet_reader.dart   (leggiFoglioCalcolo() — punto UNICO di
+│                                   ingresso: riconosce .xls/.xlsx/HTML dai
+│                                   BYTE e delega; è quello che chiama la UI)
 ├── providers/
 │   ├── premium_provider.dart     (StatoPremium + statoPremiumProvider — stub
 │   │                               del freemium gate, vedi sezione Premium)
@@ -340,16 +347,23 @@ assets/
 ├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 
-docs/samples/
-└── Gare.xls        (fixture reale dell'export calendario FIPAV — usata dai
-                     test del lettore .xls, del parser gare e della
-                     classifica; vedi Campionato)
+docs/samples/     (fixture reali dell'export calendario FIPAV, usate dai test
+│                  del lettore, del parser gare e della classifica)
+├── GareNettunia.xls  (.xls binario, export FILTRATO per società: 12 gare,
+│                      solo quelle di NETTUNIA -> classifica parziale)
+└── "Calendario completo senza 14 giornata.xlsx"
+                      (.xlsx, girone COMPLETO: 42 gare, ultime due giornate
+                       svuotate per simulare le gare da giocare)
 
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
 ├── data/
-│   └── xls_reader_test.dart       (leggiXls() sulla fixture Gare.xls: griglia,
-│                                   header, celle, rifiuto di xlsx/non-Excel)
+│   ├── xls_reader_test.dart       (leggiXls() sulla fixture GareNettunia.xls:
+│   │                               griglia, header, celle, rifiuto non-Excel)
+│   └── xlsx_reader_test.dart      (leggiXlsx() sulla fixture xlsx del girone
+│                                   completo + casi limite costruiti al volo
+│                                   (inlineStr, rich text, colonne oltre la Z)
+│                                   + smistamento di leggiFoglioCalcolo)
 ├── providers/
 │   └── campionato_repository_test.dart (importa()/creaPartitaDaGara() su DB
 │                                   drift in memoria — AppDatabase.perTest)
@@ -446,8 +460,9 @@ per data decrescente (a parità di data l'ordine dal DB era arbitrario).
 ricezione/difesa + PDF/report), persistito su `MatchSets.sistemaGioco` (v16).
 Backlog 6-2: libero e scout avversario in 6-2. Vedi "Modulo 6-2" in Modello dati.
 
-**Campionato (import FIPAV + classifica)**: IMPLEMENTATO — lettore `.xls`
-binario scritto a mano (`data/xls_reader.dart`), parser gare e classifica puri e
+**Campionato (import FIPAV + classifica)**: IMPLEMENTATO — lettori `.xls`
+binario e `.xlsx` scritti a mano (`data/spreadsheet_reader.dart` smista sui
+byte del file, non sull'estensione), parser gare e classifica puri e
 testati, tabelle `Campionati`/`Gare` (v17), `CampionatoScreen` con tab
 Calendario/Classifica e creazione partite per gara. Import premium, classifica
 libera. Manca l'export PDF della classifica. Vedi la sezione "Campionato".
