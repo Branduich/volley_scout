@@ -199,10 +199,14 @@ gated), ma evita di lasciare una scorciatoia aperta.
   separare la squadra propria dal campionato con una tabella di associazione.
   Scartato perché non si presenta nella pratica (deciso 2026-07-31).
 - Niente "elimina tutti" né archiviazione: si elimina un campionato per volta.
+- **Niente export PDF della classifica** (deciso 2026-07-31, non è un backlog):
+  la classifica è la foto di un file che l'utente ha già, e la pagina si
+  consulta a video. Se un domani servisse, il materiale c'è già: la classifica
+  è calcolata da `calcolaClassifica()` e le altre pagine PDF stanno in
+  `screens/report/match_pdf_screen.dart`.
 
 ### Backlog
 
-- Export PDF della classifica.
 - **`StatoDescrizione` per le gare future**: oggi la colonna è salvata ma non
   usata da nessuna logica — `giocata` deriva SOLO dal parsing di `Risultato`,
   quindi qualunque cosa la FIPAV ci scriva ("da disputare", vuoto, ...) non

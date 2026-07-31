@@ -31,6 +31,23 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
 
   bool get isEditing => widget.player != null;
 
+  /// Il compagno che ha già il numero attualmente digitato, se c'è: alimenta
+  /// il messaggio esteso sotto la riga dei campi.
+  Player? _duplicatoCorrente(List<Player> compagni) {
+    final n = int.tryParse(_numeroController.text.trim());
+    return n == null ? null : _giocatoreConNumero(n, compagni);
+  }
+
+  /// Il compagno di squadra che porta già il numero [numero], se c'è.
+  /// Esclude sempre il giocatore in modifica: il suo numero non è un
+  /// duplicato di se stesso.
+  Player? _giocatoreConNumero(int numero, List<Player> compagni) {
+    for (final p in compagni) {
+      if (p.id != widget.player?.id && p.numero == numero) return p;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +89,24 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
     final numero = int.parse(_numeroController.text.trim());
     final scadenzaValue = Value(_scadenzaCertificato);
 
+    // Ricontrollo sul DB prima di scrivere: il validatore inline lavora sullo
+    // stream, che al primo frame può non essere ancora arrivato (e nel
+    // frattempo il roster può essere cambiato da un'altra schermata).
+    final duplicato =
+        _giocatoreConNumero(numero, await repo.getPlayersForTeam(widget.teamId));
+    if (duplicato != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)
+                .giocatoreNumeroDuplicato(duplicato.cognome),
+          ),
+        ),
+      );
+      return;
+    }
+
     if (isEditing) {
       await repo.updatePlayer(widget.player!.copyWith(
         nome: _nomeController.text.trim(),
@@ -94,18 +129,19 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
   }
 
   Future<void> _delete() async {
+    final l = AppLocalizations.of(context);
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Eliminare il giocatore?'),
+        title: Text(l.giocatoreEliminaTitolo),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Elimina'),
+            child: Text(l.comuneElimina),
           ),
         ],
       ),
@@ -118,9 +154,16 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
 
   @override
   Widget build(BuildContext context) {
+    // Roster della squadra: serve a segnalare subito un numero di maglia già
+    // preso, mentre lo si digita.
+    final l = AppLocalizations.of(context);
+    final compagni =
+        ref.watch(playersStreamProvider(widget.teamId)).value ?? const <Player>[];
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifica giocatore' : 'Nuovo giocatore'),
+        title: Text(
+          isEditing ? l.giocatoreModificaTitolo : l.giocatoreNuovoTitolo,
+        ),
         actions: [
           if (isEditing)
             IconButton(
@@ -129,14 +172,20 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
             ),
         ],
       ),
+      // ListView a TUTTA larghezza (il contenuto è centrato dentro): così lo
+      // scroll si aggancia ovunque sullo schermo, non solo sulla colonna
+      // larga 520 — su tablet il resto della pagina è area morta.
       body: Form(
         key: _formKey,
-        child: Center(
-          child: SizedBox(
-            width: 520,
-            child: ListView(
-              padding: const EdgeInsets.all(32),
-              children: [
+        child: ListView(
+          padding: const EdgeInsets.all(32),
+          children: [
+            Center(
+              child: SizedBox(
+                width: 520,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -144,13 +193,18 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
                       flex: 3,
                       child: TextFormField(
                         controller: _cognomeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Cognome',
-                          border: OutlineInputBorder(),
+                        // Su un giocatore NUOVO il campo è vuoto e il primo
+                        // gesto è sempre scrivere qui: tastiera già aperta.
+                        // In modifica no: si arriva per cambiare un campo
+                        // preciso, e la tastiera coprirebbe il resto.
+                        autofocus: !isEditing,
+                        decoration: InputDecoration(
+                          labelText: l.giocatoreCognome,
+                          border: const OutlineInputBorder(),
                         ),
                         textCapitalization: TextCapitalization.words,
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Inserisci il cognome'
+                            ? l.giocatoreCognomeVuoto
                             : null,
                       ),
                     ),
@@ -159,13 +213,13 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
                       flex: 3,
                       child: TextFormField(
                         controller: _nomeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nome',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.giocatoreNome,
+                          border: const OutlineInputBorder(),
                         ),
                         textCapitalization: TextCapitalization.words,
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Inserisci il nome'
+                            ? l.giocatoreNomeVuoto
                             : null,
                       ),
                     ),
@@ -174,37 +228,62 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
                       width: 96,
                       child: TextFormField(
                         controller: _numeroController,
-                        decoration: const InputDecoration(
-                          labelText: 'N°',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.giocatoreNumero,
+                          border: const OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
+                        // Il campo è largo 96: qui ci sta solo un messaggio
+                        // brevissimo, il dettaglio (con il cognome di chi ha
+                        // quel numero) va nella riga sotto, a tutta larghezza.
+                        onChanged: (_) => setState(() {}),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Richiesto';
+                            return l.comuneRichiesto;
                           }
                           final n = int.tryParse(v.trim());
                           if (n == null || n < 0 || n > 99) return '0–99';
+                          if (_giocatoreConNumero(n, compagni) != null) {
+                            return l.giocatoreNumeroOccupato;
+                          }
                           return null;
                         },
                       ),
                     ),
                   ],
                 ),
+                if (_duplicatoCorrente(compagni) case final duplicato?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l.giocatoreNumeroDuplicato(duplicato.cognome),
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<Ruolo>(
                   initialValue: _ruolo,
-                  decoration: const InputDecoration(
-                    labelText: 'Ruolo',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l.giocatoreRuolo,
+                    border: const OutlineInputBorder(),
                   ),
                   items: Ruolo.values
                       .map((r) => DropdownMenuItem(
-                          value: r,
-                          child: Text(ruoloLabel(r, AppLocalizations.of(context)))))
+                          value: r, child: Text(ruoloLabel(r, l))))
                       .toList(),
                   onChanged: (v) => setState(() => _ruolo = v!),
                 ),
@@ -217,16 +296,16 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
                         icon: const Icon(Icons.event_busy),
                         label: Text(
                           _scadenzaCertificato == null
-                              ? 'Scadenza certificato medico'
-                              : 'Certificato valido fino al '
-                                  '${_formatDate(_scadenzaCertificato!)}',
+                              ? l.giocatoreScadenzaCertificato
+                              : l.giocatoreCertificatoValido(
+                                  _formatDate(_scadenzaCertificato!)),
                         ),
                       ),
                     ),
                     if (_scadenzaCertificato != null)
                       IconButton(
                         icon: const Icon(Icons.clear),
-                        tooltip: 'Rimuovi scadenza',
+                        tooltip: l.giocatoreRimuoviScadenza,
                         onPressed: () =>
                             setState(() => _scadenzaCertificato = null),
                       ),
@@ -236,12 +315,15 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
                 FilledButton.icon(
                   onPressed: _save,
                   icon: const Icon(Icons.save),
-                  label: Text(
-                      isEditing ? 'Salva modifiche' : 'Aggiungi giocatore'),
+                  label: Text(isEditing
+                      ? l.comuneSalvaModifiche
+                      : l.giocatoreAggiungi),
                 ),
-              ],
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

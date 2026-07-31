@@ -225,6 +225,36 @@
   "endSetFinePartitaTitolo": "Terminare la partita?",
   "endSetFinePartitaTesto": "La partita verrà segnata come terminata.",
 
+  "comuneRichiesto": "Richiesto",
+  "comuneSalvaModifiche": "Salva modifiche",
+
+  "giocatoreNuovoTitolo": "Nuovo giocatore",
+  "giocatoreModificaTitolo": "Modifica giocatore",
+  "giocatoreEliminaTitolo": "Eliminare il giocatore?",
+  "giocatoreCognome": "Cognome",
+  "giocatoreCognomeVuoto": "Inserisci il cognome",
+  "giocatoreNome": "Nome",
+  "giocatoreNomeVuoto": "Inserisci il nome",
+  "giocatoreNumero": "N°",
+  "giocatoreRuolo": "Ruolo",
+  "giocatoreScadenzaCertificato": "Scadenza certificato medico",
+  "giocatoreCertificatoValido": "Certificato valido fino al {data}",
+  "@giocatoreCertificatoValido": {
+    "placeholders": {
+      "data": { "type": "String", "example": "31/12/2026" }
+    }
+  },
+  "giocatoreRimuoviScadenza": "Rimuovi scadenza",
+  "giocatoreAggiungi": "Aggiungi giocatore",
+  "giocatoreNumeroOccupato": "Già usato",
+  "giocatoreNumeroDuplicato": "Numero già usato da {cognome}",
+  "@giocatoreNumeroDuplicato": {
+    "description": "Errore sul campo N° quando un altro giocatore della stessa squadra ha già quel numero di maglia.",
+    "placeholders": {
+      "cognome": { "type": "String", "example": "Rossi" }
+    }
+  },
+
   "categorieSoloLista": "Solo la lista",
   "categorieAggiornaSquadre": "Aggiorna ({n})",
   "@categorieAggiornaSquadre": {

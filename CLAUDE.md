@@ -471,7 +471,7 @@ stagione dedotta dalle date, dialog "aggiorna o crea nuovo" al re-import,
 eliminazione che conserva le partite), parser gare e classifica puri e
 testati, tabelle `Campionati`/`Gare` (v17), `CampionatoScreen` con tab
 Calendario/Classifica e creazione partite per gara. Import premium, classifica
-libera. Manca l'export PDF della classifica. Vedi la sezione "Campionato".
+libera. Vedi la sezione "Campionato".
 
 **Heatmap ricezione/difesa**: dove cadono le palle avversarie nel nostro campo
 (battuta→ricezione, attacco→difesa), riusando `TrajectoryReportScreen` in

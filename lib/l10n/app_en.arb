@@ -225,6 +225,36 @@
   "endSetFinePartitaTitolo": "End the match?",
   "endSetFinePartitaTesto": "The match will be marked as finished.",
 
+  "comuneRichiesto": "Required",
+  "comuneSalvaModifiche": "Save changes",
+
+  "giocatoreNuovoTitolo": "New player",
+  "giocatoreModificaTitolo": "Edit player",
+  "giocatoreEliminaTitolo": "Delete the player?",
+  "giocatoreCognome": "Surname",
+  "giocatoreCognomeVuoto": "Enter the surname",
+  "giocatoreNome": "First name",
+  "giocatoreNomeVuoto": "Enter the first name",
+  "giocatoreNumero": "#",
+  "giocatoreRuolo": "Role",
+  "giocatoreScadenzaCertificato": "Medical certificate expiry",
+  "giocatoreCertificatoValido": "Certificate valid until {data}",
+  "@giocatoreCertificatoValido": {
+    "placeholders": {
+      "data": { "type": "String", "example": "31/12/2026" }
+    }
+  },
+  "giocatoreRimuoviScadenza": "Remove expiry date",
+  "giocatoreAggiungi": "Add player",
+  "giocatoreNumeroOccupato": "Taken",
+  "giocatoreNumeroDuplicato": "Number already used by {cognome}",
+  "@giocatoreNumeroDuplicato": {
+    "description": "Error on the number field when another player of the same team already wears that shirt number.",
+    "placeholders": {
+      "cognome": { "type": "String", "example": "Rossi" }
+    }
+  },
+
   "categorieSoloLista": "List only",
   "categorieAggiornaSquadre": "Update ({n})",
   "@categorieAggiornaSquadre": {
