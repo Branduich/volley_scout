@@ -69,8 +69,10 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
     final categoria = _categoriaEffettiva(categorie);
     if (categoria == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nessuna categoria disponibile: creane una prima.'),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).squadraNessunaCategoriaSnack,
+          ),
         ),
       );
       return;
@@ -98,19 +100,20 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
   }
 
   Future<void> _delete() async {
+    final l = AppLocalizations.of(context);
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Eliminare la squadra?'),
-        content: const Text('Verranno eliminati anche tutti i suoi giocatori.'),
+        title: Text(l.squadraEliminaTitolo),
+        content: Text(l.squadraEliminaTesto),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Elimina'),
+            child: Text(l.comuneElimina),
           ),
         ],
       ),
@@ -122,26 +125,27 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
   }
 
   Widget _buildFormFields() {
+    final l = AppLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         TextFormField(
           controller: _nomeController,
-          decoration: const InputDecoration(
-            labelText: 'Nome squadra',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.squadraNome,
+            border: const OutlineInputBorder(),
           ),
           validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Inserisci un nome' : null,
+              (v == null || v.trim().isEmpty) ? l.squadraNomeVuoto : null,
         ),
         const SizedBox(height: 16),
         _buildCategoriaField(),
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
           initialValue: _coloreDivisa,
-          decoration: const InputDecoration(
-            labelText: 'Colore divisa',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.squadraColore,
+            border: const OutlineInputBorder(),
           ),
           items: [
             // Colore fuori palette (es. squadra demo importata, che ha un
@@ -165,7 +169,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text('Personalizzato'),
+                    Text(l.squadraColorePersonalizzato),
                   ],
                 ),
               ),
@@ -201,36 +205,36 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
   // creazione), la mostro comunque come voce dedicata per non perderla — lo
   // stesso trucco del dropdown colore per un colore fuori palette.
   Widget _buildCategoriaField() {
+    final l = AppLocalizations.of(context);
     final categorieAsync = ref.watch(categorieStreamProvider);
     return categorieAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 8),
         child: LinearProgressIndicator(),
       ),
-      error: (e, _) => Text('Errore categorie: $e'),
+      error: (e, _) => Text(l.squadraErroreCategorie('$e')),
       data: (categorie) {
         final nomi = categorie.map((c) => c.nome).toList();
         final valore = _categoriaEffettiva(categorie);
         return DropdownButtonFormField<String>(
           initialValue: valore,
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Categoria',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.squadraCategoria,
+            border: const OutlineInputBorder(),
           ),
           items: [
             if (valore != null && !nomi.contains(valore))
               DropdownMenuItem(
                 value: valore,
-                child: Text('$valore (non in lista)'),
+                child: Text(l.squadraCategoriaFuoriLista(valore)),
               ),
             ...nomi.map(
               (n) => DropdownMenuItem(value: n, child: Text(n)),
             ),
           ],
           onChanged: (v) => setState(() => _categoria = v),
-          validator: (v) =>
-              v == null ? 'Nessuna categoria: creane una prima' : null,
+          validator: (v) => v == null ? l.squadraNessunaCategoria : null,
         );
       },
     );
@@ -240,6 +244,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
   // dallo scroll dei campi) così resta sempre visibile anche su schermi
   // bassi (smartphone landscape), dove prima finiva sotto la piega.
   Widget _buildSaveButton() {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       child: SizedBox(
@@ -247,7 +252,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
         child: FilledButton.icon(
           onPressed: _save,
           icon: const Icon(Icons.save),
-          label: Text(isEditing ? 'Salva modifiche' : 'Crea squadra'),
+          label: Text(isEditing ? l.comuneSalvaModifiche : l.squadraCrea),
         ),
       ),
     );
@@ -257,7 +262,11 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifica squadra' : 'Nuova squadra'),
+        title: Text(
+          isEditing
+              ? AppLocalizations.of(context).squadraModificaTitolo
+              : AppLocalizations.of(context).squadraNuovaTitolo,
+        ),
         actions: [
           if (isEditing)
             IconButton(
@@ -299,6 +308,7 @@ class _PlayersSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final playersAsync = ref.watch(playersStreamProvider(team.id));
     final jerseyColor = Color(team.coloreDivisa);
     // Dimensioni delle righe SCALATE con continuità in base all'altezza
@@ -327,7 +337,7 @@ class _PlayersSection extends ConsumerWidget {
           child: Row(
             children: [
               Text(
-                'Giocatori',
+                l.squadraGiocatori,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
@@ -339,7 +349,7 @@ class _PlayersSection extends ConsumerWidget {
                   ),
                 ),
                 icon: const Icon(Icons.person_add),
-                label: const Text('Aggiungi'),
+                label: Text(l.squadraAggiungiGiocatore),
               ),
             ],
           ),
@@ -348,12 +358,12 @@ class _PlayersSection extends ConsumerWidget {
         Expanded(
           child: playersAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Errore: $e')),
+            error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
             data: (players) {
               if (players.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text(
-                    'Nessun giocatore.\nPremi "Aggiungi" per inserirne uno.',
+                    l.squadraNessunGiocatore,
                     textAlign: TextAlign.center,
                   ),
                 );

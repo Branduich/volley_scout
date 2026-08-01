@@ -225,6 +225,57 @@
   "endSetFinePartitaTitolo": "End the match?",
   "endSetFinePartitaTesto": "The match will be marked as finished.",
 
+  "comuneOpzionale": "optional",
+
+  "squadraNuovaTitolo": "New team",
+  "squadraModificaTitolo": "Edit team",
+  "squadraEliminaTitolo": "Delete the team?",
+  "squadraEliminaTesto": "All of its players will be deleted too.",
+  "squadraNome": "Team name",
+  "squadraNomeVuoto": "Enter a name",
+  "squadraColore": "Kit colour",
+  "squadraColorePersonalizzato": "Custom",
+  "squadraCategoria": "Category",
+  "squadraCategoriaFuoriLista": "{nome} (not in the list)",
+  "@squadraCategoriaFuoriLista": {
+    "description": "Category saved on the team but no longer in the list (renamed or deleted afterwards): shown anyway so it is not lost.",
+    "placeholders": {
+      "nome": { "type": "String", "example": "Under 18" }
+    }
+  },
+  "squadraNessunaCategoria": "No categories: create one first",
+  "squadraNessunaCategoriaSnack": "No category available: create one first.",
+  "squadraErroreCategorie": "Categories error: {dettaglio}",
+  "@squadraErroreCategorie": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+  "squadraGiocatori": "Players",
+  "squadraAggiungiGiocatore": "Add",
+  "squadraNessunGiocatore": "No players yet.\nTap \"Add\" to enter one.",
+  "squadraCrea": "Create team",
+
+  "squadreTitolo": "Teams setup",
+  "squadreCategorie": "Categories",
+  "squadreNuova": "New team",
+  "squadreVuoto": "No teams yet. Tap \"New team\" to start.",
+  "squadreSelezionaCasa": "Select the home team",
+  "squadreSelezionaTrasferta": "Select the away team",
+  "squadreVuotoSelezione": "No teams available.\nTap + to create one.",
+  "squadreSeleziona": "Select",
+
+  "partitaNuovaTitolo": "New match",
+  "partitaModificaTitolo": "Edit match",
+  "partitaEliminaTitolo": "Delete the match?",
+  "partitaNome": "Match name",
+  "partitaNomeHint": "e.g. Friendly vs Verona",
+  "partitaNomeVuoto": "Enter a name",
+  "partitaAvversario": "Opponent team",
+  "partitaInCasa": "Home game",
+  "partitaCasalinga": "Playing at home",
+  "partitaInTrasferta": "Playing away",
+  "partitaPalestra": "Venue / gym",
+  "partitaCrea": "Create match",
+
   "mappaApri": "Open in maps",
   "mappaNessunaApp": "No maps app found",
 

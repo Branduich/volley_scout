@@ -137,18 +137,19 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
   }
 
   Future<void> _delete() async {
+    final l = AppLocalizations.of(context);
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Eliminare la partita?'),
+        title: Text(l.partitaEliminaTitolo),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: Text(l.comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Elimina'),
+            child: Text(l.comuneElimina),
           ),
         ],
       ),
@@ -161,9 +162,12 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifica partita' : 'Nuova partita'),
+        title: Text(
+          isEditing ? l.partitaModificaTitolo : l.partitaNuovaTitolo,
+        ),
         actions: [
           if (isEditing)
             IconButton(
@@ -189,13 +193,13 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
                   children: [
                     TextFormField(
                       controller: _nomeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome partita',
-                        border: OutlineInputBorder(),
-                        hintText: 'es. Amichevole vs Verona',
+                      decoration: InputDecoration(
+                        labelText: l.partitaNome,
+                        border: const OutlineInputBorder(),
+                        hintText: l.partitaNomeHint,
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Inserisci un nome'
+                          ? l.partitaNomeVuoto
                           : null,
                     ),
                     const SizedBox(height: 16),
@@ -221,17 +225,17 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _avversarioController,
-                      decoration: const InputDecoration(
-                        labelText: 'Squadra avversaria',
-                        border: OutlineInputBorder(),
-                        hintText: 'opzionale',
+                      decoration: InputDecoration(
+                        labelText: l.partitaAvversario,
+                        border: const OutlineInputBorder(),
+                        hintText: l.comuneOpzionale,
                       ),
                     ),
                     const SizedBox(height: 8),
                     SwitchListTile(
-                      title: const Text('In casa'),
+                      title: Text(l.partitaInCasa),
                       subtitle: Text(
-                        _inCasa ? 'Partita casalinga' : 'In trasferta',
+                        _inCasa ? l.partitaCasalinga : l.partitaInTrasferta,
                       ),
                       value: _inCasa,
                       onChanged: (v) => setState(() => _inCasa = v),
@@ -245,12 +249,12 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
                       // non fa ripartire il build).
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        labelText: 'Palestra / struttura',
+                        labelText: l.partitaPalestra,
                         border: const OutlineInputBorder(),
-                        hintText: 'opzionale',
+                        hintText: l.comuneOpzionale,
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.map_outlined),
-                          tooltip: AppLocalizations.of(context).mappaApri,
+                          tooltip: l.mappaApri,
                           onPressed:
                               _palestraController.text.trim().isEmpty
                                   ? null
@@ -263,7 +267,7 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
                       onPressed: _save,
                       icon: const Icon(Icons.save),
                       label: Text(
-                        isEditing ? 'Salva modifiche' : 'Crea partita',
+                        isEditing ? l.comuneSalvaModifiche : l.partitaCrea,
                       ),
                     ),
                   ],

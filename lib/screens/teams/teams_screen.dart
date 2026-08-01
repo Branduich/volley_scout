@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../widgets/premium_badge.dart';
@@ -22,6 +23,7 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final teamsAsync = ref.watch(teamsStreamProvider);
     // Gate premium (vedi docs/TODO_strada_A.md): da free si può avere UNA
     // sola squadra — la creazione della seconda apre il paywall. Le squadre
@@ -31,7 +33,7 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen>
     final giaUnaSquadra = teamsAsync.value?.isNotEmpty ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Setup squadre')),
+      appBar: AppBar(title: Text(l.squadreTitolo)),
       // Due bottoni sulla stessa riga in basso: "Categorie" a sinistra
       // (secondario, tonale) e "Nuova squadra" a destra (azione primaria).
       // heroTag distinti: due FAB nella stessa route altrimenti collidono.
@@ -51,7 +53,7 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen>
                 MaterialPageRoute(builder: (_) => const CategorieScreen()),
               ),
               icon: const Icon(Icons.label_outline),
-              label: const Text('Categorie'),
+              label: Text(l.squadreCategorie),
             ),
             const Spacer(),
             FloatingActionButton.extended(
@@ -73,7 +75,7 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen>
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Nuova squadra'),
+                  Text(l.squadreNuova),
                   if (giaUnaSquadra) const PremiumBadge(),
                 ],
               ),
@@ -83,14 +85,10 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen>
       ),
       body: teamsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Errore: $err')),
+        error: (err, _) => Center(child: Text(l.comuneErrore('$err'))),
         data: (teams) {
           if (teams.isEmpty) {
-            return const Center(
-              child: Text(
-                'Nessuna squadra. Tocca "Nuova squadra" per iniziare.',
-              ),
-            );
+            return Center(child: Text(l.squadreVuoto));
           }
           return ListView.separated(
             padding: const EdgeInsets.all(16),

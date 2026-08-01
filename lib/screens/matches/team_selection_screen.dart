@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../widgets/premium_badge.dart';
@@ -51,14 +52,15 @@ class _TeamSelectionScreenState extends ConsumerState<TeamSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final teamsAsync = ref.watch(teamsStreamProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           widget.match.inCasa
-              ? 'Seleziona la squadra di casa'
-              : 'Seleziona la squadra in trasferta',
+              ? l.squadreSelezionaCasa
+              : l.squadreSelezionaTrasferta,
         ),
       ),
       // Stesso gate premium di TeamsScreen: da free una sola squadra — la
@@ -84,7 +86,7 @@ class _TeamSelectionScreenState extends ConsumerState<TeamSelectionScreen>
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Nuova squadra'),
+              Text(l.squadreNuova),
               if (giaUnaSquadra) const PremiumBadge(),
             ],
           ),
@@ -92,12 +94,12 @@ class _TeamSelectionScreenState extends ConsumerState<TeamSelectionScreen>
       }),
       body: teamsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+        error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
         data: (teams) {
           if (teams.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                'Nessuna squadra disponibile.\nPremi + per crearne una.',
+                l.squadreVuotoSelezione,
                 textAlign: TextAlign.center,
               ),
             );
@@ -151,7 +153,7 @@ class _TeamSelectCard extends StatelessWidget {
         subtitle: Text(team.categoria),
         trailing: FilledButton(
           onPressed: onTap,
-          child: const Text('Seleziona'),
+          child: Text(AppLocalizations.of(context).squadreSeleziona),
         ),
         onTap: onTap,
       ),

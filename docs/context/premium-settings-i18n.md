@@ -57,9 +57,29 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
   giocatore, `court_view` e l'export CSV — più **Paywall** e **Informazioni**.
   Fatte anche le label degli enum e gli export PDF/CSV (seguono la lingua
   dell'app).
-  **Restano 4 schermate**: `tactical_board_screen`, `match_form_screen`,
-  `team_selection_screen`, `teams_screen`. Per sapere quali mancano davvero:
-  `grep -L AppLocalizations lib/screens/**/*.dart`.
+  **Completate al 100%** (2026-08-01): home, impostazioni, campionato,
+  categorie, fine set, form giocatore, form partita, **form squadra**, setup
+  squadre, selezione squadra, paywall, informazioni.
+
+  **Ancora PARZIALI** — usano `AppLocalizations` per alcune stringhe ma ne
+  hanno altre hardcoded: `match_report_screen` (~43), `matches_screen` (10),
+  `trajectory_report_screen` e `player_stats_screen` (6),
+  `sostituzione_screen`/`scout_screen`/`lineup_screen` (4),
+  `match_pdf_screen` (3), `formation_config_screen` (2),
+  `debug_paint_toggle` (1). **Mai iniziata**: `tactical_board_screen`.
+
+  **Come contarle davvero** — NON usare `grep -L AppLocalizations`: dice solo
+  se il file *importa* la classe, e una schermata con una riga tradotta
+  risulta "fatta" (è così che `team_form_screen` è rimasta in italiano per
+  sessioni). Il comando giusto cerca le stringhe rimaste:
+
+  ```
+  grep -nE "Text\('[A-Za-zÀ-ù]|labelText: '|hintText: '|tooltip: '" lib/screens/**/*.dart
+  ```
+
+  Tre risultati sono **falsi positivi voluti**: `"Volley Stratego"` e `"Volley
+  Stratego Premium"` (nome del prodotto) e `"Italiano"`/`"English"` nel
+  selettore lingua, che si scrivono sempre nella propria lingua.
   - **`Categoria` ESCLUSA dall'i18n** (deciso 2026-07-24): il suo `.label`
     non è mai mostrato a runtime — serve solo a seminare la lista categorie
     al primo avvio (`default_categorie_seeder.dart`), alla migrazione v12→v13

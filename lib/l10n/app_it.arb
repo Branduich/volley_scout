@@ -225,6 +225,57 @@
   "endSetFinePartitaTitolo": "Terminare la partita?",
   "endSetFinePartitaTesto": "La partita verrà segnata come terminata.",
 
+  "comuneOpzionale": "opzionale",
+
+  "squadraNuovaTitolo": "Nuova squadra",
+  "squadraModificaTitolo": "Modifica squadra",
+  "squadraEliminaTitolo": "Eliminare la squadra?",
+  "squadraEliminaTesto": "Verranno eliminati anche tutti i suoi giocatori.",
+  "squadraNome": "Nome squadra",
+  "squadraNomeVuoto": "Inserisci un nome",
+  "squadraColore": "Colore divisa",
+  "squadraColorePersonalizzato": "Personalizzato",
+  "squadraCategoria": "Categoria",
+  "squadraCategoriaFuoriLista": "{nome} (non in lista)",
+  "@squadraCategoriaFuoriLista": {
+    "description": "Categoria salvata sulla squadra ma non più nella lista (rinominata o eliminata dopo): si mostra comunque per non perderla.",
+    "placeholders": {
+      "nome": { "type": "String", "example": "Under 18" }
+    }
+  },
+  "squadraNessunaCategoria": "Nessuna categoria: creane una prima",
+  "squadraNessunaCategoriaSnack": "Nessuna categoria disponibile: creane una prima.",
+  "squadraErroreCategorie": "Errore categorie: {dettaglio}",
+  "@squadraErroreCategorie": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+  "squadraGiocatori": "Giocatori",
+  "squadraAggiungiGiocatore": "Aggiungi",
+  "squadraNessunGiocatore": "Nessun giocatore.\nPremi \"Aggiungi\" per inserirne uno.",
+  "squadraCrea": "Crea squadra",
+
+  "squadreTitolo": "Setup squadre",
+  "squadreCategorie": "Categorie",
+  "squadreNuova": "Nuova squadra",
+  "squadreVuoto": "Nessuna squadra. Tocca \"Nuova squadra\" per iniziare.",
+  "squadreSelezionaCasa": "Seleziona la squadra di casa",
+  "squadreSelezionaTrasferta": "Seleziona la squadra in trasferta",
+  "squadreVuotoSelezione": "Nessuna squadra disponibile.\nPremi + per crearne una.",
+  "squadreSeleziona": "Seleziona",
+
+  "partitaNuovaTitolo": "Nuova partita",
+  "partitaModificaTitolo": "Modifica partita",
+  "partitaEliminaTitolo": "Eliminare la partita?",
+  "partitaNome": "Nome partita",
+  "partitaNomeHint": "es. Amichevole vs Verona",
+  "partitaNomeVuoto": "Inserisci un nome",
+  "partitaAvversario": "Squadra avversaria",
+  "partitaInCasa": "In casa",
+  "partitaCasalinga": "Partita casalinga",
+  "partitaInTrasferta": "In trasferta",
+  "partitaPalestra": "Palestra / struttura",
+  "partitaCrea": "Crea partita",
+
   "mappaApri": "Apri in mappe",
   "mappaNessunaApp": "Nessuna app di mappe trovata",
 
