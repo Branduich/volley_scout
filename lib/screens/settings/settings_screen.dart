@@ -67,6 +67,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   .setScoutAvversariAbilitato(v),
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          Card(
+            child: SwitchListTile(
+              secondary: const Icon(Icons.school),
+              title: const Text('Mostra il tutorial nel menu'),
+              subtitle: const Text(
+                  'La guida passo passo allo scout dal vivo, su una partita '
+                  'di prova. Si avvia dal menu principale.'),
+              value: impostazioni.tutorialVisibile,
+              onChanged: (v) => ref
+                  .read(impostazioniProvider.notifier)
+                  .setTutorialVisibile(v),
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           _buildLinguaCard(context, ref, l),
           // Toggle "Simula premium": in debug sempre, in release solo con

@@ -15,6 +15,9 @@ import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
+import '../../tutorial/tutorial_controller.dart';
+import '../../tutorial/tutorial_overlay.dart';
+import '../../tutorial/tutorial_target.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../../widgets/premium_badge.dart';
@@ -256,6 +259,15 @@ class ScoutScreen extends ConsumerStatefulWidget {
   // è lo slot del palleggiatore di RIFERIMENTO (P1). Default 5-1 per sicurezza.
   final SistemaGioco sistemaGioco;
 
+  /// Modalità tutorial: la schermata è identica in tutto — stessi handler,
+  /// stesse guardie, stesse scritture — ma sopra allo Scaffold compare
+  /// `TutorialOverlay`, che oscura tutto tranne l'elemento del passo corrente
+  /// e lascia passare i tap solo lì (vedi lib/tutorial/). Gli unici due punti
+  /// che il tutorial tocca qui sono l'helper `_anchor()` (registra dove si
+  /// trovano gli elementi) e `onDrawerChanged`. La partita su cui gira è una
+  /// sandbox usa-e-getta creata da `avviaTutorial()`.
+  final bool tutorial;
+
   const ScoutScreen({
     super.key,
     required this.match,
@@ -264,6 +276,7 @@ class ScoutScreen extends ConsumerStatefulWidget {
     required this.assignments,
     this.ruoloCambiLibero,
     this.sistemaGioco = SistemaGioco.palleggiatoreUnico,
+    this.tutorial = false,
   });
 
   @override
@@ -891,9 +904,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // prescindere dal toggle (come se fosse disabilitato) — dopo il voto si
     // procede subito, nessun paywall in mezzo alla presa dati (il paywall
     // compare solo dalle voci di menu/report, azioni deliberate).
+    // Nel tutorial la traiettoria si apre sempre: è uno dei passi da mostrare,
+    // e col toggle spento resterebbe una funzione di cui non si sospetta
+    // l'esistenza. Il premium non serve forzarlo: durante il tutorial
+    // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
     Traiettoria? traiettoria;
     if (fondamentale.richiedeTraiettoria &&
-        ref.read(impostazioniProvider).traiettorieAbilitate &&
+        (widget.tutorial ||
+            ref.read(impostazioniProvider).traiettorieAbilitate) &&
         ref.read(statoPremiumProvider).attivo) {
       traiettoria = await Navigator.push<Traiettoria>(
         context,
@@ -1033,9 +1051,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // (loro metà) verso la nostra. `giocatore` è null, si passa l'etichetta
     // di ruolo per il banner. Il tipo battuta/attacco NON resta "armato" per
     // l'avversario (nessun roster): parte sempre da nonSpecificato.
+    // Nel tutorial la traiettoria si apre sempre: è uno dei passi da mostrare,
+    // e col toggle spento resterebbe una funzione di cui non si sospetta
+    // l'esistenza. Il premium non serve forzarlo: durante il tutorial
+    // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
     Traiettoria? traiettoria;
     if (fondamentale.richiedeTraiettoria &&
-        ref.read(impostazioniProvider).traiettorieAbilitate &&
+        (widget.tutorial ||
+            ref.read(impostazioniProvider).traiettorieAbilitate) &&
         ref.read(statoPremiumProvider).attivo) {
       traiettoria = await Navigator.push<Traiettoria>(
         context,
@@ -1886,6 +1909,35 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // --- Tutorial (vedi widget.tutorial e lib/tutorial/) ------------------
+  //
+  // Marca un elemento come "evidenziabile": ne registra la GlobalKey (così
+  // l'overlay sa dove bucare il velo) e ne segnala i tocchi. Fuori dal
+  // tutorial ritorna il figlio invariato — zero costo e zero effetti.
+  //
+  // Il `Listener` è un ANTENATO del GestureDetector reale: intercetta il
+  // tocco senza sottrarlo all'arena dei gesti, quindi il bottone sottostante
+  // continua a funzionare esattamente come prima.
+  //
+  // Non usarlo mai attorno a un Positioned/AnimatedPositioned (KeyedSubtree
+  // spezzerebbe il posizionamento nello Stack): ancorare il figlio.
+  Widget _anchor(TutorialTarget target, Widget child) {
+    if (!widget.tutorial) return child;
+    final controller = ref.read(tutorialControllerProvider.notifier);
+    return KeyedSubtree(
+      key: controller.registro.keyFor(target),
+      child: Listener(
+        onPointerUp: (_) => controller.tapSuTarget(target),
+        child: child,
+      ),
+    );
+  }
+
+  // Variante condizionale, per i builder chiamati sia per la nostra squadra
+  // sia per l'avversaria (punteggio, timeout): solo uno dei due è il target.
+  Widget _anchorSe(bool condizione, TutorialTarget target, Widget child) =>
+      condizione ? _anchor(target, child) : child;
+
   // actionId → "Rotazione P{iniziale} → P{finale}" per ogni correzione
   // rotazione del set, ricalcolata a ogni build (vedi _computeLabelsCorrezione)
   // e letta da _descrizioneAzione per banner e log azioni — così ogni voce
@@ -1896,9 +1948,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   Widget build(BuildContext context) {
     _labelsCorrezione = _computeLabelsCorrezione();
     _rilevaCambioPunteggio();
-    return Scaffold(
+    final scaffold = Scaffold(
       key: _scaffoldKey,
       backgroundColor: _kBg,
+      // Unico segnale che il tutorial non riesce a dedurre da solo: il drawer
+      // non ha un widget "ancorabile" finché non è aperto.
+      onDrawerChanged: widget.tutorial
+          ? (aperto) => ref.read(tutorialControllerProvider.notifier).segnale(
+                aperto
+                    ? SegnaleTutorial.drawerAperto
+                    : SegnaleTutorial.drawerChiuso,
+              )
+          : null,
       drawer: _buildUtilityDrawer(),
       floatingActionButton: _testModeEnabled
           ? FloatingActionButton.extended(
@@ -2015,17 +2076,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.menu, color: Colors.white),
-                            onPressed: () =>
-                                _scaffoldKey.currentState?.openDrawer(),
+                          _anchor(
+                            TutorialTarget.bottoneMenu,
+                            IconButton(
+                              icon: const Icon(Icons.menu, color: Colors.white),
+                              onPressed: () =>
+                                  _scaffoldKey.currentState?.openDrawer(),
+                            ),
                           ),
                           const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.undo, color: Colors.white),
-                            onPressed: _puoAnnullare
-                                ? _confermaAnnullaUltimaAzione
-                                : null,
+                          _anchor(
+                            TutorialTarget.bottoneUndo,
+                            IconButton(
+                              icon: const Icon(Icons.undo, color: Colors.white),
+                              onPressed: _puoAnnullare
+                                  ? _confermaAnnullaUltimaAzione
+                                  : null,
+                            ),
                           ),
                         ],
                       ),
@@ -2237,6 +2304,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         ],
       ),
     );
+    if (!widget.tutorial) return scaffold;
+    // Overlay FRATELLO dello Scaffold, non dentro il body: così copre anche il
+    // drawer aperto, e sparisce da solo quando si naviga a una schermata
+    // figlia (traiettoria, fine set) senza doverne gestire il ciclo di vita.
+    return Stack(
+      fit: StackFit.expand,
+      children: [scaffold, TutorialOverlay(setId: _setCorrente?.id)],
+    );
   }
 
   // Pannello laterale per i bottoni "di utilità" usati raramente (es.
@@ -2254,189 +2329,207 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   }
 
   Widget _buildUtilityDrawer() {
-    return Drawer(
-      backgroundColor: _kBg,
-      child: SafeArea(
-        // ListView, non Column: su smartphone (schermo basso) le voci non
-        // ci stanno tutte in altezza e la Column sborderebbe — così il
-        // drawer scrolla. Su tablet non cambia nulla.
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                'Utilità',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    return _anchor(
+      TutorialTarget.drawer,
+        Drawer(
+        backgroundColor: _kBg,
+        child: SafeArea(
+          // ListView, non Column: su smartphone (schermo basso) le voci non
+          // ci stanno tutte in altezza e la Column sborderebbe — così il
+          // drawer scrolla. Su tablet non cambia nulla.
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  'Utilità',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            const Divider(color: Colors.white24, height: 1),
-            ListTile(
-              leading: const Icon(Icons.swap_horiz, color: Colors.white),
-              title: const Text(
-                'Cambia campo',
-                style: TextStyle(color: Colors.white),
+              const Divider(color: Colors.white24, height: 1),
+              ListTile(
+                leading: const Icon(Icons.swap_horiz, color: Colors.white),
+                title: const Text(
+                  'Cambia campo',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  _toggleSide();
+                  _scaffoldKey.currentState?.closeDrawer();
+                },
               ),
-              onTap: () {
-                _toggleSide();
-                _scaffoldKey.currentState?.closeDrawer();
-              },
-            ),
-            // Sostituzione (cambio giocatore) — stessa condizione dei
-            // bottoni rapidi: set iniziato e fuori dalla modalità test (il
-            // cambio scrive un evento reale).
-            ListTile(
-              enabled: _bottoniRapidiAttivi,
-              leading: Icon(
-                Icons.swap_vert,
-                color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
-              ),
-              title: Text(
-                'Sostituzione',
-                style: TextStyle(
+              // Sostituzione (cambio giocatore) — stessa condizione dei
+              // bottoni rapidi: set iniziato e fuori dalla modalità test (il
+              // cambio scrive un evento reale).
+              ListTile(
+                enabled: _bottoniRapidiAttivi,
+                leading: Icon(
+                  Icons.swap_vert,
                   color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
                 ),
-              ),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                _avviaSostituzione();
-              },
-            ),
-            // Lavagna tattica (premium): campo per disporre le chip dei ruoli
-            // e disegnare durante il timeout — vedi TacticalBoardScreen.
-            ListTile(
-              leading: const Icon(Icons.dashboard, color: Colors.white),
-              title: const Text(
-                'Lavagna tattica',
-                style: TextStyle(color: Colors.white),
-              ),
-              trailing: const PremiumBadge(),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                if (_richiedePremium()) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TacticalBoardScreen(team: widget.team),
+                title: Text(
+                  'Sostituzione',
+                  style: TextStyle(
+                    color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
                   ),
-                );
-              },
-            ),
-            const Divider(color: Colors.white24, height: 1),
-            ListTile(
-              leading: const Icon(Icons.bar_chart, color: Colors.white),
-              title: const Text(
-                'Statistiche fondamentali',
-                style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  _avviaSostituzione();
+                },
               ),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PlayerStatsScreen(
-                      match: widget.match,
-                      team: widget.team,
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Report completo della partita (la stessa pagina del bottone
-            // "Report" di MatchesScreen): consultabile anche a partita in
-            // corso — i dati si ricaricano ad ogni apertura, come per le
-            // statistiche.
-            ListTile(
-              leading: const Icon(Icons.description, color: Colors.white),
-              title: const Text(
-                'Report',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MatchReportScreen(match: widget.match),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.arrow_forward, color: Colors.white),
-              title: const Text(
-                'Traiettorie battute',
-                style: TextStyle(color: Colors.white),
-              ),
-              trailing: const PremiumBadge(),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                if (_richiedePremium()) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TrajectoryReportScreen(
-                      match: widget.match,
-                      team: widget.team,
-                      fondamentale: Fondamentale.battuta,
-                    ),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.trending_up, color: Colors.white),
-              title: const Text(
-                'Traiettorie attacco',
-                style: TextStyle(color: Colors.white),
-              ),
-              trailing: const PremiumBadge(),
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                if (_richiedePremium()) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TrajectoryReportScreen(
-                      match: widget.match,
-                      team: widget.team,
-                      fondamentale: Fondamentale.attacco,
-                    ),
-                  ),
-                );
-              },
-            ),
-            const Divider(color: Colors.white24, height: 1),
-            SwitchListTile(
-              value: _showJerseyNumbers,
-              onChanged: (v) => setState(() => _showJerseyNumbers = v),
-              title: Text(
-                _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
-                style: const TextStyle(color: Colors.white),
-              ),
-              activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF00008A),
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white24,
-            ),
-            // Strumento di sviluppo per visualizzare a video tutte le
-            // combinazioni rotazione × fase: in debug sempre, in release solo
-            // negli APK "per tester" (--dart-define=PREMIUM_OVERRIDE=true),
-            // come il toggle "Simula premium". Nascosto in produzione.
-            if (overridePremiumDisponibile)
-              SwitchListTile(
-                value: _testModeEnabled,
-                onChanged: _toggleTestMode,
+              // Lavagna tattica (premium): campo per disporre le chip dei ruoli
+              // e disegnare durante il timeout — vedi TacticalBoardScreen.
+              ListTile(
+                leading: const Icon(Icons.dashboard, color: Colors.white),
                 title: const Text(
-                  'Modalità test',
+                  'Lavagna tattica',
+                  style: TextStyle(color: Colors.white),
+                ),
+                trailing: const PremiumBadge(),
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  if (_richiedePremium()) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TacticalBoardScreen(team: widget.team),
+                    ),
+                  );
+                },
+              ),
+              const Divider(color: Colors.white24, height: 1),
+              ListTile(
+                leading: const Icon(Icons.bar_chart, color: Colors.white),
+                title: const Text(
+                  'Statistiche fondamentali',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PlayerStatsScreen(
+                        match: widget.match,
+                        team: widget.team,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // Report completo della partita (la stessa pagina del bottone
+              // "Report" di MatchesScreen): consultabile anche a partita in
+              // corso — i dati si ricaricano ad ogni apertura, come per le
+              // statistiche.
+              ListTile(
+                leading: const Icon(Icons.description, color: Colors.white),
+                title: const Text(
+                  'Report',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MatchReportScreen(match: widget.match),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.arrow_forward, color: Colors.white),
+                title: const Text(
+                  'Traiettorie battute',
+                  style: TextStyle(color: Colors.white),
+                ),
+                trailing: const PremiumBadge(),
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  if (_richiedePremium()) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TrajectoryReportScreen(
+                        match: widget.match,
+                        team: widget.team,
+                        fondamentale: Fondamentale.battuta,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.trending_up, color: Colors.white),
+                title: const Text(
+                  'Traiettorie attacco',
+                  style: TextStyle(color: Colors.white),
+                ),
+                trailing: const PremiumBadge(),
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  if (_richiedePremium()) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TrajectoryReportScreen(
+                        match: widget.match,
+                        team: widget.team,
+                        fondamentale: Fondamentale.attacco,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const Divider(color: Colors.white24, height: 1),
+              SwitchListTile(
+                value: _showJerseyNumbers,
+                onChanged: (v) => setState(() => _showJerseyNumbers = v),
+                title: Text(
+                  _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                activeThumbColor: Colors.white,
+                activeTrackColor: const Color(0xFF00008A),
+                inactiveThumbColor: Colors.white70,
+                inactiveTrackColor: Colors.white24,
+              ),
+              // Strumento di sviluppo per visualizzare a video tutte le
+              // combinazioni rotazione × fase: in debug sempre, in release solo
+              // negli APK "per tester" (--dart-define=PREMIUM_OVERRIDE=true),
+              // come il toggle "Simula premium". Nascosto in produzione.
+              if (overridePremiumDisponibile)
+                SwitchListTile(
+                  value: _testModeEnabled,
+                  onChanged: _toggleTestMode,
+                  title: const Text(
+                    'Modalità test',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    'Bottone visualizzazione rotazioni',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: const Color(0xFF00008A),
+                  inactiveThumbColor: Colors.white70,
+                  inactiveTrackColor: Colors.white24,
+                ),
+              SwitchListTile(
+                value: _showActionLog,
+                onChanged: (v) => setState(() => _showActionLog = v),
+                title: const Text(
+                  'Log azioni',
                   style: TextStyle(color: Colors.white),
                 ),
                 subtitle: const Text(
-                  'Bottone visualizzazione rotazioni',
+                  'Lista delle azioni del set corrente',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 activeThumbColor: Colors.white,
@@ -2444,80 +2537,65 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 inactiveThumbColor: Colors.white70,
                 inactiveTrackColor: Colors.white24,
               ),
-            SwitchListTile(
-              value: _showActionLog,
-              onChanged: (v) => setState(() => _showActionLog = v),
-              title: const Text(
-                'Log azioni',
-                style: TextStyle(color: Colors.white),
+              const Divider(color: Colors.white24, height: 1),
+              ListTile(
+                leading: const Icon(Icons.sports_score, color: Colors.white),
+                title: const Text('Fine', style: TextStyle(color: Colors.white)),
+                // A differenza di "Indietro" qui si fa un push, non un pop:
+                // niente local history entry da gestire, basta chiudere il
+                // drawer per pulizia visiva prima di navigare.
+                onTap: () {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          EndSetScreen(match: widget.match, team: widget.team),
+                    ),
+                  );
+                },
               ),
-              subtitle: const Text(
-                'Lista delle azioni del set corrente',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ListTile(
+                leading: const Icon(Icons.arrow_back, color: Colors.white),
+                title: const Text(
+                  'Indietro',
+                  style: TextStyle(color: Colors.white),
+                ),
+                // Il Drawer registra una "local history entry" sulla route:
+                // mentre è aperto, Navigator.pop(context) chiude SOLO il
+                // drawer (consuma quella entry) invece di tornare alla
+                // schermata precedente. Si cattura il Navigator prima di
+                // chiudere il drawer esplicitamente, poi si naviga davvero
+                // sul Navigator catturato.
+                //
+                // Destinazione: se il set ha già almeno un'azione registrata
+                // (partita "cominciata"), si torna direttamente alla lista
+                // partite (route '/matches', vedi HomeScreen) — non ha senso
+                // ripassare da configurazione/formazione, che rifarebbero il
+                // setup; `popUntil` per nome regge qualsiasi profondità di
+                // stack (flusso normale vs. "Riprendi" che bypassa lineup/
+                // config). Se invece non è ancora stata presa nessuna azione,
+                // si torna com'era alla schermata precedente (configurazione).
+                onTap: () {
+                  final navigator = Navigator.of(context);
+                  final set = _setCorrente;
+                  final haAzioni = set != null &&
+                      (ref
+                              .read(scoutAzioniStreamProvider(set.id))
+                              .value
+                              ?.isNotEmpty ??
+                          false);
+                  _scaffoldKey.currentState?.closeDrawer();
+                  if (haAzioni) {
+                    navigator
+                        .popUntil((route) => route.settings.name == '/matches');
+                  } else {
+                    navigator.pop();
+                  }
+                },
               ),
-              activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF00008A),
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white24,
-            ),
-            const Divider(color: Colors.white24, height: 1),
-            ListTile(
-              leading: const Icon(Icons.sports_score, color: Colors.white),
-              title: const Text('Fine', style: TextStyle(color: Colors.white)),
-              // A differenza di "Indietro" qui si fa un push, non un pop:
-              // niente local history entry da gestire, basta chiudere il
-              // drawer per pulizia visiva prima di navigare.
-              onTap: () {
-                _scaffoldKey.currentState?.closeDrawer();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        EndSetScreen(match: widget.match, team: widget.team),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.arrow_back, color: Colors.white),
-              title: const Text(
-                'Indietro',
-                style: TextStyle(color: Colors.white),
-              ),
-              // Il Drawer registra una "local history entry" sulla route:
-              // mentre è aperto, Navigator.pop(context) chiude SOLO il
-              // drawer (consuma quella entry) invece di tornare alla
-              // schermata precedente. Si cattura il Navigator prima di
-              // chiudere il drawer esplicitamente, poi si naviga davvero
-              // sul Navigator catturato.
-              //
-              // Destinazione: se il set ha già almeno un'azione registrata
-              // (partita "cominciata"), si torna direttamente alla lista
-              // partite (route '/matches', vedi HomeScreen) — non ha senso
-              // ripassare da configurazione/formazione, che rifarebbero il
-              // setup; `popUntil` per nome regge qualsiasi profondità di
-              // stack (flusso normale vs. "Riprendi" che bypassa lineup/
-              // config). Se invece non è ancora stata presa nessuna azione,
-              // si torna com'era alla schermata precedente (configurazione).
-              onTap: () {
-                final navigator = Navigator.of(context);
-                final set = _setCorrente;
-                final haAzioni = set != null &&
-                    (ref
-                            .read(scoutAzioniStreamProvider(set.id))
-                            .value
-                            ?.isNotEmpty ??
-                        false);
-                _scaffoldKey.currentState?.closeDrawer();
-                if (haAzioni) {
-                  navigator
-                      .popUntil((route) => route.settings.name == '/matches');
-                } else {
-                  navigator.pop();
-                }
-              },
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2935,37 +3013,43 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
   Widget _buildScoreDisplay(int score, Squadra squadra) {
     final attivo = _bottoniRapidiAttivi;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _buildScoreAdjustButton(
-          Icons.remove,
-          attivo && score > 0 ? () => _correggiPunteggio(squadra, -1) : null,
-        ),
-        // Distacco tra bottoni e numero (prima erano attaccati).
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 32,
-          child: _lampeggiaSe(
-            squadra,
-            Text(
-              '$score',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+    // Il tutorial indica il gruppo punteggio NOSTRO: qui, e non nel build,
+    // perché quale dei due riquadri sia il nostro dipende da _isRightSide.
+    return _anchorSe(
+      squadra == Squadra.nostra,
+      TutorialTarget.barraPunteggio,
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildScoreAdjustButton(
+            Icons.remove,
+            attivo && score > 0 ? () => _correggiPunteggio(squadra, -1) : null,
+          ),
+          // Distacco tra bottoni e numero (prima erano attaccati).
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 32,
+            child: _lampeggiaSe(
+              squadra,
+              Text(
+                '$score',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        _buildScoreAdjustButton(
-          Icons.add,
-          attivo ? () => _correggiPunteggio(squadra, 1) : null,
-        ),
-      ],
+          const SizedBox(width: 8),
+          _buildScoreAdjustButton(
+            Icons.add,
+            attivo ? () => _correggiPunteggio(squadra, 1) : null,
+          ),
+        ],
+      ),
     );
   }
 
@@ -3011,28 +3095,34 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             : null,
       ),
       const SizedBox(width: 8),
-      _buildQuickActionButton(
-        icon: Icons.check,
-        color: AppColors.success,
-        onTap: _bottoniRapidiAttivi
-            ? () => _registraAzioneRapida(
-                Squadra.nostra,
-                TipoAzione.puntoManuale,
-                EsitoPunto.puntoNostro,
-              )
-            : null,
+      _anchor(
+        TutorialTarget.puntoNostro,
+        _buildQuickActionButton(
+          icon: Icons.check,
+          color: AppColors.success,
+          onTap: _bottoniRapidiAttivi
+              ? () => _registraAzioneRapida(
+                  Squadra.nostra,
+                  TipoAzione.puntoManuale,
+                  EsitoPunto.puntoNostro,
+                )
+              : null,
+        ),
       ),
     ];
     final timeout = _buildTimeoutButton(Squadra.nostra);
     const gap = SizedBox(width: _kTimeoutGap);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      // Gruppo a sinistra (default): timeout in coda; coi lati invertiti il
-      // gruppo va a destra e il timeout passa in testa — resta verso il
-      // centro in entrambi i casi.
-      children: _isRightSide
-          ? [timeout, gap, ...base]
-          : [...base, gap, timeout],
+    return _anchor(
+      TutorialTarget.bottoniRapidiNostri,
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        // Gruppo a sinistra (default): timeout in coda; coi lati invertiti il
+        // gruppo va a destra e il timeout passa in testa — resta verso il
+        // centro in entrambi i casi.
+        children: _isRightSide
+            ? [timeout, gap, ...base]
+            : [...base, gap, timeout],
+      ),
     );
   }
 
@@ -3105,12 +3195,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // il timeout è una riga di log come le altre, il banner ultima azione lo
   // mostra e l'undo lo annulla.
   Widget _buildTimeoutButton(Squadra squadra) {
-    return _buildQuickActionButton(
-      icon: Icons.access_time,
-      color: AppColors.brandPrimary,
-      onTap: _bottoniRapidiAttivi && _timeoutChiamati(squadra) < 2
-          ? () => _timeout(squadra)
-          : null,
+    return _anchorSe(
+      squadra == Squadra.nostra,
+      TutorialTarget.bottoneTimeoutNostro,
+      _buildQuickActionButton(
+        icon: Icons.access_time,
+        color: AppColors.brandPrimary,
+        onTap: _bottoniRapidiAttivi && _timeoutChiamati(squadra) < 2
+            ? () => _timeout(squadra)
+            : null,
+      ),
     );
   }
 
@@ -3246,11 +3340,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final f in opzioni) ...[
-          _buildBottoneFondamentale(
-            fondamentale: f,
-            ristretto: ristretto,
-            onNormale: () => _sceglieFondamentale(f),
-            onErroreDifensivo: () => _registraErroreDifensivoRapido(giocatore, f),
+          _anchorSe(
+            f == Fondamentale.attacco,
+            TutorialTarget.fondamentaleAttacco,
+            _buildBottoneFondamentale(
+              fondamentale: f,
+              ristretto: ristretto,
+              onNormale: () => _sceglieFondamentale(f),
+              onErroreDifensivo: () =>
+                  _registraErroreDifensivoRapido(giocatore, f),
+            ),
           ),
           if (f != opzioni.last) const SizedBox(height: 10),
         ],
@@ -3354,90 +3453,97 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 16,
-                  horizontal: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: _kTopBarBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 100,
-                      child: Column(
-                        children: [
-                          Text(
-                            '${player.numero}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
-                            ),
-                          ),
-                          Text(
-                            player.cognome,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (inCorso.fondamentale == null) ...[
-                      const SizedBox(height: 4),
-                      _buildSceltaFondamentale(player),
-                    ] else ...[
-                      Text(
-                        fondamentaleLabel(
-                            inCorso.fondamentale!, AppLocalizations.of(context)),
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      for (final voto in Voto.values) ...[
-                        GestureDetector(
-                          onTap: () => _registraVoto(voto),
-                          child: Container(
-                            width: 100,
-                            height: 64,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: CourtStyle.votoColor(voto),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withAlpha(120),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              voto.simbolo,
+              child: _anchor(
+                TutorialTarget.pannelloVoto,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _kTopBarBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: Column(
+                          children: [
+                            Text(
+                              '${player.numero}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 28,
+                                fontSize: 22,
+                              ),
+                            ),
+                            Text(
+                              player.cognome,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (inCorso.fondamentale == null) ...[
+                        const SizedBox(height: 4),
+                        _buildSceltaFondamentale(player),
+                      ] else ...[
+                        Text(
+                          fondamentaleLabel(
+                              inCorso.fondamentale!, AppLocalizations.of(context)),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        for (final voto in Voto.values) ...[
+                          _anchorSe(
+                            voto == Voto.positivo,
+                            TutorialTarget.votoPositivo,
+                            GestureDetector(
+                              onTap: () => _registraVoto(voto),
+                              child: Container(
+                                width: 100,
+                                height: 64,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: CourtStyle.votoColor(voto),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(120),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  voto.simbolo,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 28,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        if (voto != Voto.values.last)
-                          const SizedBox(height: 12),
+                          if (voto != Voto.values.last)
+                            const SizedBox(height: 12),
+                        ],
                       ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -3893,7 +3999,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         top: cy - tokenRadius,
         width: tokenRadius * 2,
         height: tokenRadius * 2,
-        child: GestureDetector(onTap: onTap),
+        // Ancorato QUI e non sul token disegnato nello Stack interno: questa
+        // è l'area di tap vera del battitore, ed è già in coordinate schermo.
+        child: _anchor(
+          TutorialTarget.tokenBattitore,
+          GestureDetector(onTap: onTap),
+        ),
       ),
     ];
   }

@@ -17,6 +17,8 @@ import 'screens/matches/matches_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/teams/teams_screen.dart';
 import 'theme/app_theme.dart';
+import 'tutorial/avvia_tutorial.dart';
+import 'tutorial/tutorial_sandbox.dart';
 import 'utils/orientamento.dart';
 import 'widgets/debug_paint_toggle.dart';
 
@@ -54,6 +56,10 @@ Future<void> main() async {
   final db = container.read(appDatabaseProvider);
   await seedDefaultCategorieSeNecessario(db, prefs);
   await seedDefaultTeamSeNecessario(db, prefs);
+  // Rete di sicurezza: la partita di prova del tutorial si cancella all'uscita
+  // dal tutorial stesso, ma se l'app viene chiusa a metà resterebbe a DB. Qui
+  // sparisce prima che l'utente possa vederla nelle liste.
+  await TutorialSandbox.pulisci(db, prefs);
 
   runApp(UncontrolledProviderScope(
     container: container,
@@ -120,14 +126,14 @@ class VolleyScoutApp extends ConsumerWidget {
   }
 }
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _HomeScreenState extends ConsumerState<HomeScreen>
     with OrientamentoSchermata<HomeScreen> {
   // Layout responsive: 2 colonne in landscape, immagine sopra + bottoni sotto
   // in portrait — così è comoda in entrambi gli orientamenti (vedi build).
@@ -182,6 +188,16 @@ class _HomeScreenState extends State<HomeScreen>
               MaterialPageRoute(builder: (_) => const CampionatoScreen()),
             ),
           ),
+          // Nascondibile da Impostazioni: chi ha già imparato non se la ritrova
+          // per sempre nel menu.
+          if (ref.watch(impostazioniProvider).tutorialVisibile) ...[
+            const SizedBox(height: 16),
+            _MenuButton(
+              icon: Icons.school,
+              label: 'Tutorial',
+              onTap: () => avviaTutorial(context, ref),
+            ),
+          ],
           const Spacer(),
           _MenuButton(
             icon: Icons.settings,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../config/revenuecat.dart';
+import '../tutorial/tutorial_controller.dart';
 import 'settings_provider.dart';
 
 /// Stato premium dell'utente — UNICO punto di verità per il freemium gate
@@ -51,6 +52,16 @@ class StatoPremiumNotifier extends Notifier<StatoPremium> {
   @override
   StatoPremium build() {
     ref.onDispose(() => _disposed = true);
+
+    // Durante il tutorial l'utente è premium a prescindere: la guida deve
+    // poter MOSTRARE le funzioni a pagamento (traiettorie in primis), ed è
+    // anche la vetrina migliore che ci sia. Nessun acquisto è possibile da
+    // qui e la partita è finta, quindi non c'è nulla da proteggere. Sta qui e
+    // non nelle schermate perché questo provider è l'unico punto di verità
+    // del gate.
+    if (ref.watch(tutorialControllerProvider).attivo) {
+      return StatoPremium.premium;
+    }
 
     // Toggle "Simula premium": forza il premium in debug (o in release con
     // il flag PREMIUM_OVERRIDE). In produzione la chiave viene ignorata.

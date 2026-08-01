@@ -26,15 +26,35 @@ class Impostazioni {
   /// piano scout avversari.
   final bool scoutAvversariAbilitato;
 
+  /// Se true (default), la voce "Tutorial" compare nel menu principale. Chi
+  /// l'ha già fatto la nasconde da qui; il tutorial resta comunque avviabile
+  /// dalle Impostazioni.
+  final bool tutorialVisibile;
+
   const Impostazioni({
     required this.traiettorieAbilitate,
     required this.scoutAvversariAbilitato,
+    required this.tutorialVisibile,
   });
+
+  Impostazioni copyWith({
+    bool? traiettorieAbilitate,
+    bool? scoutAvversariAbilitato,
+    bool? tutorialVisibile,
+  }) {
+    return Impostazioni(
+      traiettorieAbilitate: traiettorieAbilitate ?? this.traiettorieAbilitate,
+      scoutAvversariAbilitato:
+          scoutAvversariAbilitato ?? this.scoutAvversariAbilitato,
+      tutorialVisibile: tutorialVisibile ?? this.tutorialVisibile,
+    );
+  }
 }
 
 class ImpostazioniNotifier extends Notifier<Impostazioni> {
   static const _kTraiettorie = 'scout.traiettorieAbilitate';
   static const _kScoutAvversari = 'scout.scoutAvversariAbilitato';
+  static const _kTutorialVisibile = 'scout.tutorialVisibile';
 
   @override
   Impostazioni build() {
@@ -42,23 +62,23 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
     return Impostazioni(
       traiettorieAbilitate: prefs.getBool(_kTraiettorie) ?? true,
       scoutAvversariAbilitato: prefs.getBool(_kScoutAvversari) ?? true,
+      tutorialVisibile: prefs.getBool(_kTutorialVisibile) ?? true,
     );
   }
 
   Future<void> setTraiettorieAbilitate(bool value) async {
     await ref.read(sharedPreferencesProvider).setBool(_kTraiettorie, value);
-    state = Impostazioni(
-      traiettorieAbilitate: value,
-      scoutAvversariAbilitato: state.scoutAvversariAbilitato,
-    );
+    state = state.copyWith(traiettorieAbilitate: value);
   }
 
   Future<void> setScoutAvversariAbilitato(bool value) async {
     await ref.read(sharedPreferencesProvider).setBool(_kScoutAvversari, value);
-    state = Impostazioni(
-      traiettorieAbilitate: state.traiettorieAbilitate,
-      scoutAvversariAbilitato: value,
-    );
+    state = state.copyWith(scoutAvversariAbilitato: value);
+  }
+
+  Future<void> setTutorialVisibile(bool value) async {
+    await ref.read(sharedPreferencesProvider).setBool(_kTutorialVisibile, value);
+    state = state.copyWith(tutorialVisibile: value);
   }
 }
 

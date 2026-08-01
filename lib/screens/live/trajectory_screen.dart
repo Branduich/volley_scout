@@ -8,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/court_style.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
+import '../../tutorial/tutorial_nota.dart';
 
 const _kCourtImage = 'assets/images/double_court_bg.png';
 
@@ -510,6 +511,17 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
                                 : _buildRigaTipoAttacco(),
                           ),
                         ),
+                      // Spiegazione del tutorial, se in corso: si mostra da
+                      // sé leggendo il passo corrente e non intercetta il
+                      // trascinamento (vedi TutorialNota). Sotto al campo, e
+                      // sotto la riga dei chip quando c'è.
+                      TutorialNota(
+                        top: courtTop +
+                            courtHeight +
+                            (_mostraTipoBattuta || _mostraTipoAttacco
+                                ? 12 + 52 + 12
+                                : 12),
+                      ),
                     ],
                   ),
                 );
