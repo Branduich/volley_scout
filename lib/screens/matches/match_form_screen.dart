@@ -2,8 +2,11 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../l10n/app_localizations.dart';
+import '../../logic/indirizzo_mappa.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
+import '../../utils/mappe.dart';
 import '../../utils/orientamento.dart';
 
 class MatchFormScreen extends ConsumerStatefulWidget {
@@ -71,6 +74,22 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
       '${_pad(dt.day)}/${_pad(dt.month)}/${dt.year}';
   String _formatTime(TimeOfDay t) => '${_pad(t.hour)}:${_pad(t.minute)}';
   String _pad(int n) => n.toString().padLeft(2, '0');
+
+  /// Apre l'indirizzo della palestra nell'app di mappe. Serve sia a farsi
+  /// portare in trasferta, sia a verificare al volo un indirizzo appena
+  /// scritto a mano.
+  Future<void> _apriInMappe() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
+    final aperta = await apriInMappe(
+      queryMappaDaPalestra(_palestraController.text),
+    );
+    if (!aperta) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.mappaNessunaApp)),
+      );
+    }
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -221,10 +240,22 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _palestraController,
-                      decoration: const InputDecoration(
+                      // Ridisegna a ogni carattere: serve solo ad accendere o
+                      // spegnere l'icona qui accanto (il controller da solo
+                      // non fa ripartire il build).
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
                         labelText: 'Palestra / struttura',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                         hintText: 'opzionale',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.map_outlined),
+                          tooltip: AppLocalizations.of(context).mappaApri,
+                          onPressed:
+                              _palestraController.text.trim().isEmpty
+                                  ? null
+                                  : _apriInMappe,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),

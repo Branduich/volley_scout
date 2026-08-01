@@ -225,6 +225,9 @@
   "endSetFinePartitaTitolo": "End the match?",
   "endSetFinePartitaTesto": "The match will be marked as finished.",
 
+  "mappaApri": "Open in maps",
+  "mappaNessunaApp": "No maps app found",
+
   "comuneRichiesto": "Required",
   "comuneSalvaModifiche": "Save changes",
 

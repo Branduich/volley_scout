@@ -175,6 +175,12 @@ lib/
 │   │                               stagioneDaGare() ("2025/26" dalle date, il
 │   │                               file non ha la stagione); testate sulle
 │   │                               fixture — vedi Campionato)
+│   ├── indirizzo_mappa.dart      (queryMappaDaPalestra() — dal testo di
+│   │                               VolleyMatches.palestra alla query per l'app
+│   │                               di mappe: sposta l'indirizzo davanti al
+│   │                               comune e scarta il nome dell'impianto, che
+│   │                               confonde la ricerca; testo scritto a mano
+│   │                               restituito intatto. Testata)
 │   ├── classifica.dart           (funzioni pure calcolaClassifica() (3/2/1/0
 │   │                               punti FIPAV, quoziente set/punti) +
 │   │                               squadraUnicaDelFiltro() (rileva un export
@@ -311,9 +317,15 @@ lib/
 │                                          placeholder, supporto, ID supporto —
 │                                          vedi sezione Premium)
 ├── utils/
-│   └── orientamento.dart          (mixin OrientamentoSchermata + RouteObserver
-│                                   per l'orientamento per-schermata — vedi
-│                                   convenzione #2)
+│   ├── orientamento.dart          (mixin OrientamentoSchermata + RouteObserver
+│   │                               per l'orientamento per-schermata — vedi
+│   │                               convenzione #2)
+│   └── mappe.dart                 (apriInMappe() — cede l'indirizzo all'app di
+│                                   mappe del telefono via url_launcher: geo:
+│                                   con ripiego sull'URL di Google Maps.
+│                                   Nessuna dipendenza nuova, nessuna API key,
+│                                   nessun permesso INTERNET — icona nel campo
+│                                   palestra di MatchFormScreen)
 ├── theme/
 │   ├── app_colors.dart            (palette brand + colori semantici + superfici)
 │   ├── app_spacing.dart           (AppSpacing xs/sm/md/lg/xl/xxl, AppRadius sm/md/lg/pill)
@@ -377,6 +389,9 @@ test/
     │                               universali per completamento)
     ├── demo_match_test.dart       (valida la partita demo: replay == referto)
     ├── certificato_dot_test.dart  (soglie del pallino certificato medico)
+    ├── indirizzo_mappa_test.dart  (queryMappaDaPalestra(): tutte le forme di
+    │                               indirizzo della fixture FIPAV + testo
+    │                               scritto a mano, che non va mai riscritto)
     ├── fipav_calendario_test.dart (parseGareFipav(): fixture reale + casi
     │                               limite (gara futura, data illeggibile,
     │                               colonne in ordine diverso))
@@ -457,8 +472,10 @@ sezione "Stato attuale" qui sotto.
 token tattici, fase simmetrica + Modello A, dimming per squadra, scorciatoie
 difensive, traiettorie in input) e report a video COMPLETO (blocco in coda a
 `MatchReportScreen`); manca solo l'export PDF avversario. Vedi la sezione "Scout
-avversario". Nella lista partite le TERMINATE sono ora ordinate esplicitamente
-per data decrescente (a parità di data l'ordine dal DB era arbitrario).
+avversario". Nella lista partite le due sezioni hanno ordini OPPOSTI, entrambi
+espliciti (non si eredita il `desc` di `watchMatches()`): "Da iniziare / in
+corso" **crescente** (la partita più imminente in cima), "Terminate"
+**decrescente** (l'ultima giocata in cima).
 
 **Modulo 6-2 (doppio palleggiatore)**: IMPLEMENTATO (Fase 1 attacco + Fase 2
 ricezione/difesa + PDF/report), persistito su `MatchSets.sistemaGioco` (v16).

@@ -138,7 +138,11 @@ trascinabili, riusa `tactical_board_screen`).
 id, nome, dataOra (DateTime, salvato come int64 ms epoch da drift), inCasa (bool),
 palestra (text nullable), avversario (text nullable), teamId (FK -> Teams
 nullable, setNull on delete), lat (real nullable), lon (real nullable).
-- `lat`/`lon` riservati a futura integrazione Maps/OpenStreetMap, non visibili in UI.
+- `lat`/`lon` riservati a una futura **mappa dentro l'app**, non visibili in UI e
+  oggi **mai valorizzati**: l'apertura dell'indirizzo nell'app di mappe
+  (icona nel campo palestra di `MatchFormScreen`, vedi `utils/mappe.dart`)
+  lavora sul testo di `palestra` e non ha bisogno di coordinate. Servirebbero
+  solo con una mappa in-app, per non ri-geocodificare a ogni apertura.
 - `avversario`: nome squadra avversaria, opzionale, impostabile in
   `MatchFormScreen` tra il blocco data/ora e il toggle "In casa". Se non
   impostato, `ScoutScreen` mostra "AVVERSARI" come placeholder nel titolo.

@@ -220,6 +220,13 @@ gated), ma evita di lasciare una scorciatoia aperta.
   `app_it.arb`/`app_en.arb`. In inglese "campionato" è reso **League**,
   "calendario/gare" **Fixtures**, "classifica" **Standings**, e le colonne
   della tabella seguono le sigle inglesi (G/V/P → P/W/L).
+- **Mappa dentro l'app** per gli impianti importati (2026-08-01): l'indirizzo si
+  apre già nell'app di mappe del telefono dal form della partita
+  (`utils/mappe.dart` + `logic/indirizzo_mappa.dart`), senza dipendenze né API
+  key. Una mappa in-app costerebbe `flutter_map` + un tile provider + la
+  geocodifica con cache su `VolleyMatches.lat`/`lon` + il permesso `INTERNET`
+  esplicito (oggi c'è solo nei manifest di debug/profile, in release arriva di
+  rimbalzo da RevenueCat). Da riprendere solo se il bottone non basta.
 - Scaricamento automatico dal sito FIPAV (serve login/sessione): oggi il file lo
   scarica l'utente.
 - Nessun incrocio fra classifica importata e partite scoutate in app: la

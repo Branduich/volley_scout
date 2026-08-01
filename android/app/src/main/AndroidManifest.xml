@@ -45,5 +45,18 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Apertura dell'indirizzo della palestra nell'app di mappe (vedi
+             lib/utils/mappe.dart). Da Android 11 un'app non "vede" le altre
+             se non dichiara qui gli intent che intende risolvere: senza
+             questo blocco url_launcher non troverebbe Maps/Waze. Lo schema
+             https copre il ripiego su browser. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

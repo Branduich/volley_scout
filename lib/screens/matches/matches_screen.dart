@@ -215,12 +215,17 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
           // Due sezioni separate: partite da iniziare/continuare (qualunque
           // stato tranne terminata) e partite terminate — vedi CLAUDE.md
           // sulla semantica di StatoPartita.
+          // Le due sezioni vogliono ordini OPPOSTI, quindi entrambe ordinano
+          // esplicitamente invece di ereditare il desc di watchMatches().
+          // Da giocare: crescente, la partita più imminente in cima — è quella
+          // che si cerca aprendo la lista.
           final attive = matches
               .where((m) => m.stato != StatoPartita.terminata)
-              .toList();
-          // Ordine esplicito per data decrescente: watchMatches() ordina già
-          // per dataOra desc, ma a parità di data (es. più import demo) l'ordine
-          // dal DB è arbitrario — questo garantisce sempre le più recenti in cima.
+              .toList()
+            ..sort((a, b) => a.dataOra.compareTo(b.dataOra));
+          // Terminate: decrescente, l'ultima giocata in cima (è quella di cui
+          // si guarda il report). A parità di data l'ordine dal DB sarebbe
+          // arbitrario, es. con più import demo.
           final terminate = matches
               .where((m) => m.stato == StatoPartita.terminata)
               .toList()

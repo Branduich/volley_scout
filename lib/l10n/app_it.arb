@@ -225,6 +225,9 @@
   "endSetFinePartitaTitolo": "Terminare la partita?",
   "endSetFinePartitaTesto": "La partita verrà segnata come terminata.",
 
+  "mappaApri": "Apri in mappe",
+  "mappaNessunaApp": "Nessuna app di mappe trovata",
+
   "comuneRichiesto": "Richiesto",
   "comuneSalvaModifiche": "Salva modifiche",
 
