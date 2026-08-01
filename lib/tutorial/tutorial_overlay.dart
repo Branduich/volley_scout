@@ -49,7 +49,10 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     final controller = ref.read(tutorialControllerProvider.notifier);
     final passo = controller.passo;
 
-    final rect = controller.registro.rectOf(passo?.bersaglio);
+    var rect = controller.registro.rectOf(passo?.bersaglio);
+    // Bersaglio secondario: un solo buco che li contiene entrambi.
+    final secondo = controller.registro.rectOf(passo?.bersaglioSecondario);
+    if (rect != null && secondo != null) rect = rect.expandToInclude(secondo);
     if (_diverso(rect, _rectBersaglio)) {
       setState(() => _rectBersaglio = rect);
     }
@@ -146,9 +149,19 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     final sinistra = buco.left - gap - bordo;
     final destra = schermo.width - buco.right - gap - bordo;
 
+    // Sotto questa soglia una card non ci sta: titolo, testo e bottone
+    // vogliono almeno tanto spazio.
+    const altezzaMinima = 200.0;
+
     final aSinistra = switch (passo.lato) {
       LatoCard.sinistra => true,
       LatoCard.destra => false,
+      // In automatico si passa di lato solo quando in verticale non c'è
+      // davvero posto: capita con i bersagli alti quanto lo schermo, come il
+      // registro delle azioni.
+      LatoCard.automatico when math.max(sopra, sotto) < altezzaMinima &&
+              math.max(sinistra, destra) > math.max(sopra, sotto) =>
+        sinistra >= destra,
       _ => null,
     };
     if (aSinistra != null) {

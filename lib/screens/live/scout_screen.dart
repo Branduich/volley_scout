@@ -1938,6 +1938,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   Widget _anchorSe(bool condizione, TutorialTarget target, Widget child) =>
       condizione ? _anchor(target, child) : child;
 
+  // Variante per i builder che ciclano su un enum (voti, fondamentali): il
+  // target arriva già risolto da una delle funzioni targetXxx(), che torna
+  // null per i valori senza un bottone corrispondente.
+  Widget _anchorOpz(TutorialTarget? target, Widget child) =>
+      target == null ? child : _anchor(target, child);
+
   // actionId → "Rotazione P{iniziale} → P{finale}" per ogni correzione
   // rotazione del set, ricalcolata a ogni build (vedi _computeLabelsCorrezione)
   // e letta da _descrizioneAzione per banner e log azioni — così ogni voce
@@ -2189,32 +2195,35 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                       left: minimapLeft,
                       width: smallCourtSize,
                       height: smallCourtSize,
-                      child: GestureDetector(
-                        // Tap sulla finestra: alterna rotazione nostra/
-                        // avversaria (solo con scout avversario attivo).
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _scoutAvversariAttivo
-                            ? () => setState(
-                                () => _minimapAvversari = !_minimapAvversari)
-                            : null,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.white, width: 2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Stack(
-                              children: [
-                                Transform.rotate(
-                                  angle: _minimapSpecchiata ? math.pi : 0,
-                                  child: Image.asset(
-                                    _kSmallCourtImage,
-                                    fit: BoxFit.contain,
+                      child: _anchor(
+                        TutorialTarget.minimappa,
+                          GestureDetector(
+                          // Tap sulla finestra: alterna rotazione nostra/
+                          // avversaria (solo con scout avversario attivo).
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _scoutAvversariAttivo
+                              ? () => setState(
+                                  () => _minimapAvversari = !_minimapAvversari)
+                              : null,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.white, width: 2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Stack(
+                                children: [
+                                  Transform.rotate(
+                                    angle: _minimapSpecchiata ? math.pi : 0,
+                                    child: Image.asset(
+                                      _kSmallCourtImage,
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
-                                ),
-                                _buildRotationBadge(smallCourtSize),
-                              ],
+                                  _buildRotationBadge(smallCourtSize),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -2254,38 +2263,41 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                       Positioned(
                         top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
                         left: minimapLeft,
-                        width: smallCourtSize,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: _minimapAvversari && _scoutAvversariAttivo
-                              ? [
-                                  _buildRotationCorrectionButton(
-                                    'P${_slotDestinazioneCorrezioneAvversario(DirezioneRotazione.avanti)}',
-                                    () => _correggiRotazioneAvversario(
-                                        DirezioneRotazione.avanti),
-                                    smallCourtSize,
-                                  ),
-                                  _buildRotationCorrectionButton(
-                                    'P${_slotDestinazioneCorrezioneAvversario(DirezioneRotazione.indietro)}',
-                                    () => _correggiRotazioneAvversario(
-                                        DirezioneRotazione.indietro),
-                                    smallCourtSize,
-                                  ),
-                                ]
-                              : [
-                                  _buildRotationCorrectionButton(
-                                    'P${_slotDestinazioneCorrezione(DirezioneRotazione.avanti)}',
-                                    () => _correggiRotazione(
-                                        DirezioneRotazione.avanti),
-                                    smallCourtSize,
-                                  ),
-                                  _buildRotationCorrectionButton(
-                                    'P${_slotDestinazioneCorrezione(DirezioneRotazione.indietro)}',
-                                    () => _correggiRotazione(
-                                        DirezioneRotazione.indietro),
-                                    smallCourtSize,
-                                  ),
-                                ],
+                          width: smallCourtSize,
+                          child: _anchor(
+                            TutorialTarget.bottoniCorrezioneRotazione,
+                            Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: _minimapAvversari && _scoutAvversariAttivo
+                                ? [
+                                    _buildRotationCorrectionButton(
+                                      'P${_slotDestinazioneCorrezioneAvversario(DirezioneRotazione.avanti)}',
+                                      () => _correggiRotazioneAvversario(
+                                          DirezioneRotazione.avanti),
+                                      smallCourtSize,
+                                    ),
+                                    _buildRotationCorrectionButton(
+                                      'P${_slotDestinazioneCorrezioneAvversario(DirezioneRotazione.indietro)}',
+                                      () => _correggiRotazioneAvversario(
+                                          DirezioneRotazione.indietro),
+                                      smallCourtSize,
+                                    ),
+                                  ]
+                                : [
+                                    _buildRotationCorrectionButton(
+                                      'P${_slotDestinazioneCorrezione(DirezioneRotazione.avanti)}',
+                                      () => _correggiRotazione(
+                                          DirezioneRotazione.avanti),
+                                      smallCourtSize,
+                                    ),
+                                    _buildRotationCorrectionButton(
+                                      'P${_slotDestinazioneCorrezione(DirezioneRotazione.indietro)}',
+                                      () => _correggiRotazione(
+                                          DirezioneRotazione.indietro),
+                                      smallCourtSize,
+                                    ),
+                                  ],
+                          ),
                         ),
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
@@ -2724,80 +2736,83 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         left: _isRightSide ? 8 : null,
         right: _isRightSide ? null : 8,
         width: sc(160, 240),
-        child: Container(
-          padding: EdgeInsets.all(sc(5, 8)),
-          decoration: BoxDecoration(
-            color: _kTopBarBg.withAlpha(235),
-            borderRadius: BorderRadius.circular(sc(6, 8)),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: righe.isEmpty
-              ? Center(
-                  child: Text(
-                    'Nessuna azione',
-                    style:
-                        TextStyle(color: Colors.white54, fontSize: sc(10, 12)),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: righe.length,
-                  itemBuilder: (context, i) {
-                    final a = righe[righe.length - 1 - i]; // recente in alto
-                    final desc = _descrizioneAzione(a);
-                    // Il blu brand del "Cambio" è illeggibile sul fondo
-                    // scuro del pannello: solo qui si schiarisce.
-                    final coloreTesto = desc.colore == AppColors.brandPrimary
-                        ? Colors.lightBlueAccent
-                        : desc.colore;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
-                              style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: sc(10, 13),
-                              ),
-                            ),
-                            TextSpan(
-                              text: desc.testo,
-                              style: TextStyle(
-                                // Per punto/errore/cambio (voto assente) il
-                                // colore semantico va sul testo; per i voti
-                                // resta sul solo simbolo, più leggibile.
-                                color: desc.voto == null
-                                    ? coloreTesto
-                                    : Colors.white,
-                                fontSize: sc(11, 14),
-                              ),
-                            ),
-                            if (desc.voto != null)
+        child: _anchor(
+            TutorialTarget.logAzioni,
+            Container(
+            padding: EdgeInsets.all(sc(5, 8)),
+            decoration: BoxDecoration(
+              color: _kTopBarBg.withAlpha(235),
+              borderRadius: BorderRadius.circular(sc(6, 8)),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: righe.isEmpty
+                ? Center(
+                    child: Text(
+                      'Nessuna azione',
+                      style:
+                          TextStyle(color: Colors.white54, fontSize: sc(10, 12)),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: righe.length,
+                    itemBuilder: (context, i) {
+                      final a = righe[righe.length - 1 - i]; // recente in alto
+                      final desc = _descrizioneAzione(a);
+                      // Il blu brand del "Cambio" è illeggibile sul fondo
+                      // scuro del pannello: solo qui si schiarisce.
+                      final coloreTesto = desc.colore == AppColors.brandPrimary
+                          ? Colors.lightBlueAccent
+                          : desc.colore;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
                               TextSpan(
-                                text: '  ${desc.voto}',
+                                text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
                                 style: TextStyle(
-                                  color: coloreTesto,
-                                  fontSize: sc(12, 16),
-                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white38,
+                                  fontSize: sc(10, 13),
                                 ),
                               ),
-                            if (parziali[a.id] != null)
                               TextSpan(
-                                text: '  ${parziali[a.id]}',
+                                text: desc.testo,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  // Per punto/errore/cambio (voto assente) il
+                                  // colore semantico va sul testo; per i voti
+                                  // resta sul solo simbolo, più leggibile.
+                                  color: desc.voto == null
+                                      ? coloreTesto
+                                      : Colors.white,
                                   fontSize: sc(11, 14),
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                          ],
+                              if (desc.voto != null)
+                                TextSpan(
+                                  text: '  ${desc.voto}',
+                                  style: TextStyle(
+                                    color: coloreTesto,
+                                    fontSize: sc(12, 16),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              if (parziali[a.id] != null)
+                                TextSpan(
+                                  text: '  ${parziali[a.id]}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: sc(11, 14),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-        ),
+                      );
+                    },
+                  ),
+          ),
+          ),
       ),
     ];
   }
@@ -3340,9 +3355,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final f in opzioni) ...[
-          _anchorSe(
-            f == Fondamentale.attacco,
-            TutorialTarget.fondamentaleAttacco,
+          _anchorOpz(
+            targetFondamentaleNostro(f),
             _buildBottoneFondamentale(
               fondamentale: f,
               ristretto: ristretto,
@@ -3507,9 +3521,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         ),
                         const SizedBox(height: 12),
                         for (final voto in Voto.values) ...[
-                          _anchorSe(
-                            voto == Voto.positivo,
-                            TutorialTarget.votoPositivo,
+                          _anchorOpz(
+                            targetVotoNostro(voto),
                             GestureDetector(
                               onTap: () => _registraVoto(voto),
                               child: Container(
@@ -3581,108 +3594,117 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {},
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 16,
-                  horizontal: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: _kTopBarBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 100,
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Avversario',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
+              child: _anchor(
+                TutorialTarget.pannelloAvversario,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _kTopBarBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Avversario',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                          Text(
-                            siglaRuolo(
-                                inCorso.ruolo, AppLocalizations.of(context)),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (inCorso.fondamentale == null) ...[
-                      const SizedBox(height: 8),
-                      // In fase libera l'avversario può aver attaccato, murato o
-                      // difeso (battuta e ricezione passano dai flussi forzati
-                      // di zona 1 / fase ricezione, non da qui). Dopo un NOSTRO
-                      // `#` di attacco il pannello è ristretto a Muro/Difesa in
-                      // rosso (→ `=` diretto, vedi _difesaErroreForzataAvversaria).
-                      for (final f in const [
-                        Fondamentale.attacco,
-                        Fondamentale.muro,
-                        Fondamentale.difesa,
-                      ]) ...[
-                        _buildBottoneFondamentale(
-                          fondamentale: f,
-                          ristretto: _difesaErroreForzataAvversaria,
-                          onNormale: () => _scegliFondamentaleAvversario(f),
-                          onErroreDifensivo: () =>
-                              _registraErroreDifensivoAvversarioRapido(
-                                  inCorso.ruolo, f),
-                        ),
-                        if (f != Fondamentale.difesa)
-                          const SizedBox(height: 10),
-                      ],
-                    ] else ...[
-                      Text(
-                        fondamentaleLabel(
-                            inCorso.fondamentale!, AppLocalizations.of(context)),
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      for (final voto in Voto.values) ...[
-                        GestureDetector(
-                          onTap: () => _registraVotoAvversario(voto),
-                          child: Container(
-                            width: 100,
-                            height: 64,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: CourtStyle.votoColor(voto),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withAlpha(120),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              voto.simbolo,
+                            Text(
+                              siglaRuolo(
+                                  inCorso.ruolo, AppLocalizations.of(context)),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 28,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (inCorso.fondamentale == null) ...[
+                        const SizedBox(height: 8),
+                        // In fase libera l'avversario può aver attaccato, murato o
+                        // difeso (battuta e ricezione passano dai flussi forzati
+                        // di zona 1 / fase ricezione, non da qui). Dopo un NOSTRO
+                        // `#` di attacco il pannello è ristretto a Muro/Difesa in
+                        // rosso (→ `=` diretto, vedi _difesaErroreForzataAvversaria).
+                        for (final f in const [
+                          Fondamentale.attacco,
+                          Fondamentale.muro,
+                          Fondamentale.difesa,
+                        ]) ...[
+                          _anchorOpz(
+                            targetFondamentaleAvversario(f),
+                            _buildBottoneFondamentale(
+                              fondamentale: f,
+                              ristretto: _difesaErroreForzataAvversaria,
+                              onNormale: () => _scegliFondamentaleAvversario(f),
+                              onErroreDifensivo: () =>
+                                  _registraErroreDifensivoAvversarioRapido(
+                                      inCorso.ruolo, f),
+                            ),
+                          ),
+                          if (f != Fondamentale.difesa)
+                            const SizedBox(height: 10),
+                        ],
+                      ] else ...[
+                        Text(
+                          fondamentaleLabel(
+                              inCorso.fondamentale!, AppLocalizations.of(context)),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        for (final voto in Voto.values) ...[
+                          _anchorOpz(
+                            targetVotoAvversario(voto),
+                            GestureDetector(
+                              onTap: () => _registraVotoAvversario(voto),
+                              child: Container(
+                                width: 100,
+                                height: 64,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: CourtStyle.votoColor(voto),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(120),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  voto.simbolo,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 28,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        if (voto != Voto.values.last)
-                          const SizedBox(height: 12),
+                          if (voto != Voto.values.last)
+                            const SizedBox(height: 12),
+                        ],
                       ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -4247,11 +4269,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       top: center.dy - radius,
       width: radius * 2,
       height: radius * 2,
-      child: disabilitato
-          ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
-          : (onTap == null
-              ? tokenVisual
-              : GestureDetector(onTap: onTap, child: tokenVisual)),
+      child: _anchorSe(
+        isLibero,
+        TutorialTarget.tokenLibero,
+        disabilitato
+            ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
+            : (onTap == null
+                ? tokenVisual
+                : GestureDetector(onTap: onTap, child: tokenVisual)),
+      ),
     );
   }
 
@@ -4327,11 +4353,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       top: cy - tokenRadius,
       width: tokenRadius * 2,
       height: tokenRadius * 2,
-      child: disabilitato
-          ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
-          : (onTap == null
-              ? tokenVisual
-              : GestureDetector(onTap: onTap, child: tokenVisual)),
+      child: _anchorOpz(
+        targetRuoloNostro(roleLabel),
+        disabilitato
+            ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
+            : (onTap == null
+                ? tokenVisual
+                : GestureDetector(onTap: onTap, child: tokenVisual)),
+      ),
     );
   }
 
@@ -4457,11 +4486,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       top: cy - tokenRadius,
       width: tokenRadius * 2,
       height: tokenRadius * 2,
-      child: disabilitato
-          ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
-          : (onTap == null
-              ? tokenVisual
-              : GestureDetector(onTap: onTap, child: tokenVisual)),
+      child: _anchorOpz(
+        targetRuoloAvversario(roleLabel),
+        disabilitato
+            ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
+            : (onTap == null
+                ? tokenVisual
+                : GestureDetector(onTap: onTap, child: tokenVisual)),
+      ),
     );
   }
 }

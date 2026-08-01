@@ -61,18 +61,216 @@ List<PassoTutorial> passiTutorial() => [
             'battuta. Se non ti interessa, torna indietro con la freccia in '
             'alto: l\'azione viene registrata lo stesso, solo senza '
             'traiettoria.',
-        bersaglio: TutorialTarget.votoPositivo,
+        bersaglio: TutorialTarget.votoNostroPositivo,
         // Di lato: sopra o sotto coprirebbe gli altri quattro voti.
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>
             a.fondamentale == Fondamentale.battuta && a.voto == Voto.positivo),
       ),
 
+      // Dopo la battuta tocca agli avversari ricevere: la fase lo impone, il
+      // fondamentale è già deciso come per la nostra battuta.
+      const PassoTutorial(
+        titolo: 'La squadra avversaria',
+        testo:
+            'In questa situazione lo scout prevede una squadra avversaria che '
+            'è fittizia e utilizzata solo come supporto alla registrazione dei '
+            'voti e delle traiettorie.\n\n'
+            'Ha ricevuto il loro centrale: toccalo.',
+        bersaglio: TutorialTarget.tokenAvversarioRicezione,
+        avanzaSuComparsaDi: TutorialTarget.pannelloAvversario,
+      ),
+
+      PassoTutorial(
+        titolo: 'Il voto della ricezione',
+        testo:
+            'I voti hanno lo stesso significato, letti dalla parte di chi '
+            'riceve: # ricezione perfetta, che lascia all\'alzatore ogni '
+            'scelta, fino a = ricezione sbagliata, che vale un punto per noi.'
+            '\n\nQui la battuta li ha messi in difficoltà: dai un −.',
+        bersaglio: TutorialTarget.votoAvvNegativo,
+        // Di lato: sopra o sotto coprirebbe gli altri quattro voti.
+        lato: LatoCard.sinistra,
+        avanzaSuLog: (log, _) => log.any((a) =>
+            a.squadra == Squadra.avversari &&
+            a.fondamentale == Fondamentale.ricezione &&
+            a.voto == Voto.negativo),
+      ),
+
+      // Ricezione fatta: da qui lo scambio è in fase LIBERA, nessun
+      // fondamentale è più imposto e va scelto a mano nel pannello.
+      const PassoTutorial(
+        titolo: 'L\'attacco avversario',
+        testo:
+            'Ora simuliamo che debba attaccare il loro schiacciatore in '
+            'zona 2. Toccalo.',
+        bersaglio: TutorialTarget.tokenAvversarioAttacco,
+        // NON su `pannelloAvversario`: quello è ancora a schermo per un
+        // istante dal passo precedente e il tutorial salterebbe avanti da
+        // solo. I bottoni del fondamentale, invece, compaiono solo a
+        // pannello appena aperto — cioè esattamente dopo questo tocco.
+        avanzaSuComparsaDi: TutorialTarget.fondAvvAttacco,
+      ),
+
+      const PassoTutorial(
+        titolo: 'Scegliere il fondamentale',
+        testo:
+            'Battuta e ricezione erano obbligate dalla fase di gioco. Adesso '
+            'lo scambio è aperto e sei tu a dire cosa è successo: premi '
+            'Attacco.',
+        bersaglio: TutorialTarget.fondAvvAttacco,
+        lato: LatoCard.sinistra,
+        avanzaSuComparsaDi: TutorialTarget.votoAvvMezzoPunto,
+      ),
+
+      PassoTutorial(
+        titolo: 'Un attacco non risolutivo',
+        testo:
+            'L\'attacco non chiude il punto: la palla resta in gioco e '
+            'torna dalla nostra parte. È un attacco facile da difendere: '
+            'dai un /.',
+        testoTraiettoria:
+            'Anche per l\'attacco puoi segnare la traiettoria: trascina dal '
+            'punto di partenza a dove è arrivata la palla. Sotto al campo '
+            'puoi indicare il tipo di attacco.\n'
+            'Se durante il trascinamento indugi sulla rete, viene registrato '
+            'un tocco a muro: la traiettoria si spezza in quel punto.',
+        bersaglio: TutorialTarget.votoAvvMezzoPunto,
+        lato: LatoCard.sinistra,
+        avanzaSuLog: (log, _) => log.any((a) =>
+            a.squadra == Squadra.avversari &&
+            a.fondamentale == Fondamentale.attacco &&
+            a.voto == Voto.mezzoPunto),
+      ),
+
+      // La palla torna da noi: la risposta a un attacco è una DIFESA, non una
+      // ricezione (quella esiste solo sulla battuta avversaria).
+      const PassoTutorial(
+        titolo: 'Tocca a noi',
+        testo:
+            'Il nostro libero, in zona 5, ha difeso benissimo. Toccalo.',
+        bersaglio: TutorialTarget.tokenLibero,
+        avanzaSuComparsaDi: TutorialTarget.fondNostroDifesa,
+      ),
+
+      const PassoTutorial(
+        titolo: 'Difesa',
+        testo:
+            'La palla arrivava da un attacco: il fondamentale da scegliere '
+            'è quindi la difesa.',
+        bersaglio: TutorialTarget.fondNostroDifesa,
+        lato: LatoCard.sinistra,
+        avanzaSuComparsaDi: TutorialTarget.votoNostroPerfetto,
+      ),
+
+      PassoTutorial(
+        titolo: 'Una difesa perfetta',
+        testo:
+            'La palla è tornata all\'alzatore pulita: può costruire il gioco '
+            'come vuole. Dai un #.',
+        bersaglio: TutorialTarget.votoNostroPerfetto,
+        lato: LatoCard.sinistra,
+        avanzaSuLog: (log, _) => log.any((a) =>
+            a.squadra == Squadra.nostra &&
+            a.fondamentale == Fondamentale.difesa &&
+            a.voto == Voto.perfetto),
+      ),
+
+      const PassoTutorial(
+        titolo: 'Il nostro attacco',
+        testo:
+            'Alzata al nostro schiacciatore in zona 4, che schiaccia a terra. '
+            'Toccalo.',
+        bersaglio: TutorialTarget.tokenNostroAttaccante,
+        avanzaSuComparsaDi: TutorialTarget.fondNostroAttacco,
+      ),
+
+      const PassoTutorial(
+        titolo: 'Attacco',
+        testo: 'Il fondamentale questa volta è l\'attacco.',
+        bersaglio: TutorialTarget.fondNostroAttacco,
+        lato: LatoCard.sinistra,
+        avanzaSuComparsaDi: TutorialTarget.votoNostroPerfetto,
+      ),
+
+      PassoTutorial(
+        titolo: 'Schiacciata vincente',
+        testo:
+            'La palla è finita a terra: dai un #.\n\n'
+            'Il punteggio non cambierà subito. Con lo scout avversario attivo '
+            'il punto lo porta l\'errore di chi doveva difendere, che '
+            'registrerai fra un istante: così l\'azione viene contata una '
+            'volta sola.',
+        testoTraiettoria:
+            'Segna dove è finita la schiacciata: trascina dal punto di '
+            'partenza al punto di caduta.\n'
+            'Se indugi sulla rete viene registrato un tocco a muro e la '
+            'traiettoria si spezza in quel punto.',
+        bersaglio: TutorialTarget.votoNostroPerfetto,
+        lato: LatoCard.sinistra,
+        avanzaSuLog: (log, _) => log.any((a) =>
+            a.squadra == Squadra.nostra &&
+            a.fondamentale == Fondamentale.attacco &&
+            a.voto == Voto.perfetto),
+      ),
+
+      // Chiusura dello scambio (Modello A): dopo il nostro `#` i token
+      // avversari offrono un pannello RISTRETTO a Muro/Difesa in rosso, che
+      // registra il `=` in un colpo solo — e con esso il punto.
+      const PassoTutorial(
+        titolo: 'Chi non ci è arrivato',
+        testo:
+            'La palla è caduta nella loro zona 5, dove la difesa non ci è '
+            'arrivata. Tocca quel giocatore.',
+        bersaglio: TutorialTarget.tokenAvversarioDifesa,
+        avanzaSuComparsaDi: TutorialTarget.fondAvvDifesa,
+      ),
+
+      PassoTutorial(
+        titolo: 'Il punto',
+        testo:
+            'Il pannello si è ristretto a muro e difesa, in rosso: sono le '
+            'sole risposte possibili a una schiacciata a terra, e premendone '
+            'una registri direttamente l\'errore (=).\n\n'
+            'Premi Difesa: adesso il punteggio si muove.',
+        bersaglio: TutorialTarget.fondAvvDifesa,
+        lato: LatoCard.sinistra,
+        avanzaSuLog: (log, _) => log.any((a) =>
+            a.squadra == Squadra.avversari &&
+            a.fondamentale == Fondamentale.difesa &&
+            a.voto == Voto.errore),
+      ),
+
+      const PassoTutorial(
+        titolo: 'Il registro',
+        testo:
+            'Il punteggio adesso è 1 a 0, come si vede nella parte alta dello '
+            'schermo.\n\n'
+            'Se la finestra di registro dei voti è attiva, come in questo '
+            'caso, è possibile consultare tutte le azioni registrate.',
+        bersaglio: TutorialTarget.logAzioni,
+        avanzaConBottone: true,
+      ),
+
+      const PassoTutorial(
+        titolo: 'La rotazione',
+        testo:
+            'Ora siamo in battuta in P6. La mini mappa a sinistra indica la '
+            'rotazione e dà anche la possibilità, in caso di errore, di '
+            'cambiarla di una posizione in avanti e una all\'indietro tramite '
+            'i due bottoni.',
+        bersaglio: TutorialTarget.minimappa,
+        bersaglioSecondario: TutorialTarget.bottoniCorrezioneRotazione,
+        avanzaConBottone: true,
+      ),
+
       const PassoTutorial(
         titolo: 'Per ora è tutto',
         testo:
-            'Questo è lo scheletro del tutorial: gli altri passi arrivano '
-            'presto.\n\nAll\'uscita la partita di prova viene cancellata.',
+            'Hai registrato uno scambio intero: battuta, ricezione, attacco, '
+            'difesa e il punto che lo chiude.\n\n'
+            'Gli altri passi arrivano presto. All\'uscita la partita di prova '
+            'viene cancellata.',
         avanzaConBottone: true,
         etichettaBottone: 'Termina',
       ),

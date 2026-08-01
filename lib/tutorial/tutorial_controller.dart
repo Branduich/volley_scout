@@ -48,6 +48,13 @@ class PassoTutorial {
   /// scrim pieno (nulla è premibile a parte i bottoni della card).
   final TutorialTarget? bersaglio;
 
+  /// Secondo elemento da includere nel buco: il ritaglio diventa il rettangolo
+  /// che contiene entrambi. Serve quando una stessa funzione è composta da due
+  /// widget distinti e vicini — la mini-mappa e i suoi bottoni di correzione.
+  /// Da non usare per bersagli lontani: il buco inghiottirebbe tutto quello
+  /// che sta in mezzo.
+  final TutorialTarget? bersaglioSecondario;
+
   final LatoCard lato;
 
   final bool avanzaConBottone;
@@ -72,6 +79,7 @@ class PassoTutorial {
     this.titolo,
     this.testoTraiettoria,
     this.bersaglio,
+    this.bersaglioSecondario,
     this.lato = LatoCard.automatico,
     this.avanzaConBottone = false,
     this.etichettaBottone = 'Avanti',
