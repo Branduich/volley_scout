@@ -152,64 +152,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       width: double.infinity,
       height: double.infinity,
     );
-    // Blocco dei tre bottoni: i due principali centrati (Spacer simmetrici),
+    // Blocco dei bottoni: i principali centrati (Spacer simmetrici),
     // "Impostazioni" staccata in fondo.
-    final bottoni = Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          const Spacer(),
-          _MenuButton(
-            icon: Icons.groups,
-            label: l.homeTeamsSetup,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TeamsScreen()),
+    //
+    // Scorre quando non ci sta: su telefono in portrait questa colonna ha un
+    // terzo dell'altezza, e cinque bottoni da 64 non ci entrano. Il giro
+    // ConstrainedBox(minHeight) + IntrinsicHeight serve a non perdere gli
+    // Spacer, che dentro a uno scroll non avrebbero un'altezza su cui
+    // distribuirsi: quando lo spazio avanza la colonna resta alta quanto il
+    // riquadro e il layout è identico a prima, quando manca cresce e scorre.
+    final bottoni = LayoutBuilder(
+      builder: (context, vincoli) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: vincoli.maxHeight),
+          child: IntrinsicHeight(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                    const Spacer(),
+                    _MenuButton(
+                      icon: Icons.groups,
+                      label: l.homeTeamsSetup,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const TeamsScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _MenuButton(
+                      icon: Icons.event_note,
+                      label: l.homeMatches,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/matches'),
+                          builder: (_) => const MatchesScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _MenuButton(
+                      icon: Icons.emoji_events,
+                      label: l.homeCampionato,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CampionatoScreen()),
+                      ),
+                    ),
+                    // Nascondibile da Impostazioni: chi ha già imparato non se la ritrova
+                    // per sempre nel menu.
+                    if (ref.watch(impostazioniProvider).tutorialVisibile) ...[
+                      const SizedBox(height: 16),
+                      _MenuButton(
+                        icon: Icons.school,
+                        label: 'Tutorial',
+                        onTap: () => avviaTutorial(context, ref),
+                      ),
+                    ],
+                    const Spacer(),
+                    _MenuButton(
+                      icon: Icons.settings,
+                      label: l.homeSettings,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      ),
+                    ),
+                  ],
+      ),
             ),
           ),
-          const SizedBox(height: 16),
-          _MenuButton(
-            icon: Icons.event_note,
-            label: l.homeMatches,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                settings: const RouteSettings(name: '/matches'),
-                builder: (_) => const MatchesScreen(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _MenuButton(
-            icon: Icons.emoji_events,
-            label: l.homeCampionato,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CampionatoScreen()),
-            ),
-          ),
-          // Nascondibile da Impostazioni: chi ha già imparato non se la ritrova
-          // per sempre nel menu.
-          if (ref.watch(impostazioniProvider).tutorialVisibile) ...[
-            const SizedBox(height: 16),
-            _MenuButton(
-              icon: Icons.school,
-              label: 'Tutorial',
-              onTap: () => avviaTutorial(context, ref),
-            ),
-          ],
-          const Spacer(),
-          _MenuButton(
-            icon: Icons.settings,
-            label: l.homeSettings,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const SettingsScreen(),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
     return Scaffold(

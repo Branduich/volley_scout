@@ -218,7 +218,7 @@ List<PassoTutorial> passiTutorial() => [
       // avversari offrono un pannello RISTRETTO a Muro/Difesa in rosso, che
       // registra il `=` in un colpo solo — e con esso il punto.
       const PassoTutorial(
-        titolo: 'Chi non ci è arrivato',
+        titolo: 'Il difensore non è arrivato',
         testo:
             'La palla è caduta nella loro zona 5, dove la difesa non ci è '
             'arrivata. Tocca quel giocatore.',
@@ -269,8 +269,11 @@ List<PassoTutorial> passiTutorial() => [
         testo:
             'Hai registrato uno scambio intero: battuta, ricezione, attacco, '
             'difesa e il punto che lo chiude.\n\n'
-            'Gli altri passi arrivano presto. All\'uscita la partita di prova '
-            'viene cancellata.',
+            'Molte altre informazioni sull\'utilizzo di Volley Stratego si '
+            'possono trovare alla pagina:\n'
+            'https://sites.google.com/view/volleystratego/come-si-usa\n\n'
+            'oppure scrivendo una mail a:\n'
+            'volleystratego@gmail.com',
         avanzaConBottone: true,
         etichettaBottone: 'Termina',
       ),

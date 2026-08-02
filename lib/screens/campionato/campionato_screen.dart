@@ -148,30 +148,40 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
 
   Widget _statoVuoto() {
     final l = AppLocalizations.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.emoji_events_outlined, size: 64),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              l.campVuotoTitolo,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(l.campVuotoTesto, textAlign: TextAlign.center),
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton.icon(
-              onPressed: _importa,
-              icon: const Icon(Icons.file_open),
-              label: Row(
+    // Centrato quando c'è spazio, scorrevole quando non ce n'è: su telefono in
+    // landscape il testo esplicativo non ci sta in altezza, e un `Center` da
+    // solo non scorre — taglia. Stesso schema del menu di HomeScreen.
+    return LayoutBuilder(
+      builder: (context, vincoli) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: vincoli.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [Text(l.campImportaFile), const PremiumBadge()],
+                children: [
+                  const Icon(Icons.emoji_events_outlined, size: 64),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    l.campVuotoTitolo,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(l.campVuotoTesto, textAlign: TextAlign.center),
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton.icon(
+                    onPressed: _importa,
+                    icon: const Icon(Icons.file_open),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [Text(l.campImportaFile), const PremiumBadge()],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
