@@ -14,6 +14,17 @@ import 'tutorial_controller.dart';
 ///
 /// Si mostra da sé leggendo il passo corrente: la schermata che la ospita non
 /// deve sapere se il tutorial è in corso, le basta piazzarla nello Stack.
+/// Il "niente" di [TutorialNota]: un `Positioned` a dimensione zero, **non** un
+/// `SizedBox.shrink()`.
+///
+/// Bug reale: uno `Stack` con vincoli laschi si dimensiona sui figli NON
+/// posizionati, quindi un semplice `SizedBox.shrink()` lo faceva collassare a
+/// 0×0 e il campo delle traiettorie — che è un `Positioned(left: 0, right: 0)`
+/// — spariva in tutte le partite normali. Nel tutorial non si vedeva, perché
+/// lì la nota restituisce comunque un `Positioned`.
+const Widget _assente =
+    Positioned(left: 0, top: 0, width: 0, height: 0, child: SizedBox.shrink());
+
 class TutorialNota extends ConsumerWidget {
   /// Distanza dal bordo superiore dell'area, calcolata da chi la ospita: la
   /// nota va SOTTO al campo (e sotto la riga dei chip), e solo quella
@@ -25,10 +36,10 @@ class TutorialNota extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stato = ref.watch(tutorialControllerProvider);
-    if (!stato.attivo) return const SizedBox.shrink();
-    final testo =
-        ref.read(tutorialControllerProvider.notifier).passo?.testoTraiettoria;
-    if (testo == null) return const SizedBox.shrink();
+    final testo = stato.attivo
+        ? ref.read(tutorialControllerProvider.notifier).passo?.testoTraiettoria
+        : null;
+    if (testo == null) return _assente;
 
     final larghezza =
         (MediaQuery.sizeOf(context).width * 0.62).clamp(280.0, 620.0);

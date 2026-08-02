@@ -206,6 +206,24 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     final inizio = _inizio;
     final fine = _attuale;
     if (inizio == null || fine == null) return;
+
+    // Tratto troppo corto: quasi sempre un tocco involontario, o un dito che
+    // ha tremato. Non si conferma — il rilascio chiuderebbe la schermata con
+    // una freccia lunga zero, che non dice nulla e va poi annullata a mano.
+    // Si azzera il disegno e si resta qui, pronti a ricominciare.
+    // Soglia proporzionale al campo (con un minimo assoluto): su tablet il
+    // campo è molto più grande e la stessa distanza in pixel significherebbe
+    // molto meno.
+    if ((fine - inizio).distance < math.max(24.0, courtWidth * 0.04)) {
+      setState(() {
+        _inizio = null;
+        _attuale = null;
+        _puntoMuro = null;
+        _inZonaRete = false;
+      });
+      return;
+    }
+
     final muro = _puntoMuro;
     final risultato = (
       x1: (inizio.dx - courtLeft) / courtWidth,

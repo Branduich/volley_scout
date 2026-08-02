@@ -274,6 +274,8 @@ List<PassoTutorial> passiTutorial() => [
             'https://sites.google.com/view/volleystratego/come-si-usa\n\n'
             'oppure scrivendo una mail a:\n'
             'volleystratego@gmail.com',
+        url: 'https://sites.google.com/view/volleystratego/come-si-usa',
+        mail: 'volleystratego@gmail.com',
         avanzaConBottone: true,
         etichettaBottone: 'Termina',
       ),

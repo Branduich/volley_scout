@@ -57,6 +57,13 @@ class PassoTutorial {
 
   final LatoCard lato;
 
+  /// Pagina web da offrire con un pulsante in fondo alla card, e indirizzo a
+  /// cui scrivere. Pulsanti e non link nel testo: bersagli molto più comodi da
+  /// centrare col dito di una riga di testo, e niente `TapGestureRecognizer`
+  /// da creare e liberare a mano.
+  final String? url;
+  final String? mail;
+
   final bool avanzaConBottone;
 
   /// Etichetta del bottone quando [avanzaConBottone] è true.
@@ -81,6 +88,8 @@ class PassoTutorial {
     this.bersaglio,
     this.bersaglioSecondario,
     this.lato = LatoCard.automatico,
+    this.url,
+    this.mail,
     this.avanzaConBottone = false,
     this.etichettaBottone = 'Avanti',
     this.avanzaSuTap = false,

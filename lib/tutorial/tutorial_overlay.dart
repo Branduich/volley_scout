@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/database_provider.dart';
 import '../theme/app_spacing.dart';
@@ -202,6 +203,42 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
       );
 }
 
+/// Pulsante che apre un indirizzo fuori dall'app (la guida sul web, il client
+/// di posta). Se il dispositivo non sa gestirlo lo dice, invece di non fare
+/// nulla — stesso comportamento di `AboutScreen`.
+class _BottoneLink extends StatelessWidget {
+  final IconData icona;
+  final String etichetta;
+  final Uri uri;
+
+  const _BottoneLink({
+    required this.icona,
+    required this.etichetta,
+    required this.uri,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!ok) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Impossibile aprire $uri')),
+          );
+        }
+      },
+      icon: Icon(icona, size: 18),
+      label: Text(etichetta),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: const BorderSide(color: Colors.white38),
+      ),
+    );
+  }
+}
+
 class _CardTutorial extends StatelessWidget {
   final PassoTutorial passo;
   final double larghezza;
@@ -265,6 +302,27 @@ class _CardTutorial extends StatelessWidget {
                 ),
               ),
             ),
+            if (passo.url != null || passo.mail != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  if (passo.url != null)
+                    _BottoneLink(
+                      icona: Icons.open_in_new,
+                      etichetta: 'Apri la guida',
+                      uri: Uri.parse(passo.url!),
+                    ),
+                  if (passo.mail != null)
+                    _BottoneLink(
+                      icona: Icons.mail_outline,
+                      etichetta: 'Scrivici',
+                      uri: Uri(scheme: 'mailto', path: passo.mail!),
+                    ),
+                ],
+              ),
+            ],
             if (passo.avanzaConBottone) ...[
               const SizedBox(height: AppSpacing.sm),
               Align(
