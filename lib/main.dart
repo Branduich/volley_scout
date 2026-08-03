@@ -95,6 +95,15 @@ class VolleyScoutApp extends ConsumerWidget {
       // (LineupScreen/FormationConfig/Sostituzione) — vedi app_bar.dart:983.
       builder: (context, child) {
         if (child == null) return const SizedBox.shrink();
+        // Margine per le barre di sistema, per TUTTE le schermate. Con
+        // l'edge-to-edge imposto da Android 15 (vedi convenzione 2) la
+        // finestra non viene più rimpicciolita dal sistema: senza questo, il
+        // contenuto in fondo — l'ultima voce di un menu, un bottone — finisce
+        // dietro alla barra di navigazione, e in landscape dietro a quella
+        // laterale. `top: false` perché la barra di stato la gestisce già
+        // l'AppBar da sé. Sulle schermate a schermo intero gli inset sono
+        // zero, quindi lì non cambia nulla.
+        child = SafeArea(top: false, child: child);
         final theme = Theme.of(context);
         if (MediaQuery.of(context).size.height >= 500) return child;
         return Theme(
@@ -155,34 +164,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Blocco dei bottoni: i principali centrati (Spacer simmetrici),
     // "Impostazioni" staccata in fondo.
     //
-    // Scorre quando non ci sta: su telefono in portrait questa colonna ha un
-    // terzo dell'altezza, e cinque bottoni da 64 non ci entrano. Il giro
-    // ConstrainedBox(minHeight) + IntrinsicHeight serve a non perdere gli
-    // Spacer, che dentro a uno scroll non avrebbero un'altezza su cui
-    // distribuirsi: quando lo spazio avanza la colonna resta alta quanto il
-    // riquadro e il layout è identico a prima, quando manca cresce e scorre.
+    // Deve starci TUTTO senza scorrere, anche su telefono: i bottoni si
+    // accorciano quanto basta per entrare nell'altezza disponibile, mai sotto
+    // i 44dp (il minimo per un bersaglio da toccare) e mai sopra i 64 di
+    // partenza — su tablet, dove lo spazio avanza, restano quindi identici a
+    // prima. Se nemmeno a 44 ci stanno (schermo minuscolo) la colonna torna a
+    // scorrere invece di sbordare: il giro ConstrainedBox(minHeight) +
+    // IntrinsicHeight serve a non perdere gli Spacer, che dentro a uno scroll
+    // non avrebbero un'altezza su cui distribuirsi.
+    final tutorialVisibile = ref.watch(impostazioniProvider).tutorialVisibile;
     final bottoni = LayoutBuilder(
-      builder: (context, vincoli) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: vincoli.maxHeight),
-          child: IntrinsicHeight(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
+      builder: (context, vincoli) {
+        final quanti = tutorialVisibile ? 5 : 4;
+        // Altezza dei bottoni con margini e distacchi dati. I distacchi fissi
+        // sono `quanti - 2`: l'ultimo bottone è staccato dal gruppo dalla
+        // separazione, non da un SizedBox.
+        double altezzaCon(double padding, double distanza, double separazione) =>
+            (vincoli.maxHeight -
+                padding * 2 -
+                (quanti - 2) * distanza -
+                separazione) /
+            quanti;
+
+        // Si stringono PRIMA gli spazi e solo dopo i bottoni: perdere margine
+        // non si nota, bottoni bassi sì (e sono da centrare col dito).
+        var padding = 24.0;
+        var distanza = 16.0; // fra i bottoni del gruppo centrale
+        // Distacco MINIMO di "Impostazioni" dal gruppo. Gli Spacer da soli non
+        // bastano: quando lo spazio avanzato è poco se lo dividono in due e i
+        // due bottoni finiscono appiccicati.
+        var separazione = 24.0;
+        if (altezzaCon(padding, distanza, separazione) < 64) {
+          padding = 12.0;
+          distanza = 8.0;
+          separazione = 14.0;
+        }
+        final altezza =
+            altezzaCon(padding, distanza, separazione).clamp(44.0, 64.0);
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: vincoli.maxHeight),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: EdgeInsets.all(padding),
+                child: Column(
+                  children: [
                     const Spacer(),
                     _MenuButton(
                       icon: Icons.groups,
                       label: l.homeTeamsSetup,
+                      altezza: altezza,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const TeamsScreen()),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: distanza),
                     _MenuButton(
                       icon: Icons.event_note,
                       label: l.homeMatches,
+                      altezza: altezza,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -191,29 +232,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: distanza),
                     _MenuButton(
                       icon: Icons.emoji_events,
                       label: l.homeCampionato,
+                      altezza: altezza,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CampionatoScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const CampionatoScreen()),
                       ),
                     ),
-                    // Nascondibile da Impostazioni: chi ha già imparato non se la ritrova
-                    // per sempre nel menu.
-                    if (ref.watch(impostazioniProvider).tutorialVisibile) ...[
-                      const SizedBox(height: 16),
+                    // Nascondibile da Impostazioni: chi ha già imparato non se
+                    // la ritrova per sempre nel menu.
+                    if (tutorialVisibile) ...[
+                      SizedBox(height: distanza),
                       _MenuButton(
                         icon: Icons.school,
                         label: 'Tutorial',
+                        altezza: altezza,
                         onTap: () => avviaTutorial(context, ref),
                       ),
                     ],
                     const Spacer(),
+                    SizedBox(height: separazione),
                     _MenuButton(
                       icon: Icons.settings,
                       label: l.homeSettings,
+                      altezza: altezza,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -222,11 +268,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     ),
                   ],
-      ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
     return Scaffold(
       appBar: AppBar(
@@ -235,11 +282,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       body: OrientationBuilder(
         builder: (context, orientation) {
-          // Landscape: immagine a sinistra (2/3), bottoni a destra (1/3).
-          // Portrait: immagine sopra (2/3 altezza), bottoni sotto (1/3).
+          // Landscape: immagine a sinistra (2/3), bottoni a destra (1/3) — il
+          // menu ha comunque tutta l'altezza dello schermo.
+          // Portrait: metà e metà. Un terzo non basta più da quando le voci
+          // sono cinque, e sarebbe l'immagine a guadagnarci uno spazio che non
+          // le serve: è decorativa, il menu no.
+          final orizzontale = orientation == Orientation.landscape;
           final children = [
             Expanded(flex: 2, child: immagine),
-            Expanded(flex: 1, child: bottoni),
+            Expanded(flex: orizzontale ? 1 : 2, child: bottoni),
           ];
           return orientation == Orientation.landscape
               ? Row(children: children)
@@ -255,21 +306,31 @@ class _MenuButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// Calcolata da chi lo ospita per far entrare tutto il menu senza scorrere
+  /// (vedi HomeScreen): 64 quando lo spazio c'è, meno su schermo piccolo.
+  final double altezza;
+
   const _MenuButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.altezza = 64,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 64,
+      height: altezza,
       child: FilledButton.icon(
         onPressed: onTap,
         icon: Icon(icon),
         label: Text(label, style: const TextStyle(fontSize: 16)),
+        // Sotto i 48dp il tap-target di Material impedirebbe al bottone di
+        // rimpicciolirsi davvero: senza shrinkWrap resterebbe alto 48.
+        style: FilledButton.styleFrom(
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
       ),
     );
   }

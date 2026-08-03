@@ -2116,14 +2116,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               // sono sui lati interni): non ha più una riga propria sotto.
               children: _isRightSide
                   ? [
-                      _buildBottoniAvversario(),
+                      _gruppoRapido(_buildBottoniAvversario()),
                       _bannerCentrale(),
-                      _buildBottoniNostri(),
+                      _gruppoRapido(_buildBottoniNostri()),
                     ]
                   : [
-                      _buildBottoniNostri(),
+                      _gruppoRapido(_buildBottoniNostri()),
                       _bannerCentrale(),
-                      _buildBottoniAvversario(),
+                      _gruppoRapido(_buildBottoniAvversario()),
                     ],
             ),
           ),
@@ -2926,6 +2926,22 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // sotto — così non occupa altezza dedicata e il campo è più grande.
   // Expanded prende lo spazio centrale; FittedBox(scaleDown) rimpicciolisce
   // il banner se il testo è più largo dello spazio (es. un cambio lungo).
+  // Un gruppo di bottoni rapidi (punto/errore + timeout) nella riga sopra al
+  // campo. È disegnato a misura fissa — i bottoni e il distacco da 112 del
+  // timeout — quindi con poca larghezza i due gruppi insieme sforerebbero:
+  // succede in portrait, nel frame in cui la schermata viene costruita prima
+  // che il dispositivo abbia finito di ruotare (i due gruppi chiedono 504dp
+  // contro i ~363 di un telefono in verticale).
+  //
+  // Flexible + FittedBox(scaleDown): il gruppo si rimpicciolisce in
+  // proporzione solo quando lo spazio manca — tap compresi, il
+  // GestureDetector sta dentro la scala. Dove lo spazio c'è la scala è 1 e
+  // non cambia nulla, compreso l'allineamento dei pallini timeout
+  // nell'header, che assume le misure piene.
+  Widget _gruppoRapido(Widget gruppo) => Flexible(
+        child: FittedBox(fit: BoxFit.scaleDown, child: gruppo),
+      );
+
   Widget _bannerCentrale() {
     // Priorità al promemoria "CONCLUDI …" quando un `#` attende la difesa
     // errata (Modello A) — è il momento in cui lo scout DEVE ancora agire.

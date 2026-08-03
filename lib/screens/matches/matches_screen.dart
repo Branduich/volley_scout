@@ -364,74 +364,107 @@ class _MatchCard extends StatelessWidget {
     final dateStr =
         '${_pad(dt.day)}/${_pad(dt.month)}/${dt.year}  ${_pad(dt.hour)}:${_pad(dt.minute)}';
 
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.sports_volleyball, size: 32),
-        title: Text(match.nome, style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(
-          match.palestra != null ? '$dateStr  •  ${match.palestra}' : dateStr,
-        ),
-        // FittedBox(scaleDown): su smartphone la fila di bottoni (badge +
-        // CSV/PDF/Report + bottone Inizia da 160) non ci sta nel trailing
-        // e sborderebbe — si rimpicciolisce in proporzione. Su tablet
-        // scala = 1, nessuna differenza (stessa convenzione delle
-        // schermate formazione, vedi CLAUDE.md "supporto smartphone").
-        trailing: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _CasaBadge(inCasa: match.inCasa),
-              const SizedBox(width: 12),
-              if (onExportCsv != null) ...[
-                OutlinedButton.icon(
-                  onPressed: onExportCsv,
-                  icon: const Icon(Icons.table_view),
-                  label: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [Text('CSV'), PremiumBadge()],
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              if (onOpenPdf != null) ...[
-                OutlinedButton.icon(
-                  onPressed: onOpenPdf,
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [Text('PDF'), PremiumBadge()],
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              if (onOpenReport != null) ...[
-                OutlinedButton.icon(
-                  onPressed: onOpenReport,
-                  icon: const Icon(Icons.bar_chart),
-                  label: const Text('Report'),
-                ),
-                const SizedBox(width: 8),
-              ],
-              // Larghezza fissa (non solo "circa uguale"): altrimenti il
-              // bottone si restringe per "Inizia" rispetto a "Continua"/
-              // "Riprendi", più lunghe — stessa larghezza per tutte le label.
-              SizedBox(
-                width: 160,
-                child: FilledButton.icon(
-                  onPressed: onStart,
-                  icon: Icon(_iconaBottone()),
-                  label: Text(_labelBottone()),
-                ),
-              ),
-            ],
+    final azioni = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CasaBadge(inCasa: match.inCasa),
+        const SizedBox(width: 12),
+        if (onExportCsv != null) ...[
+          OutlinedButton.icon(
+            onPressed: onExportCsv,
+            icon: const Icon(Icons.table_view),
+            label: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [Text('CSV'), PremiumBadge()],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        if (onOpenPdf != null) ...[
+          OutlinedButton.icon(
+            onPressed: onOpenPdf,
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [Text('PDF'), PremiumBadge()],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        if (onOpenReport != null) ...[
+          OutlinedButton.icon(
+            onPressed: onOpenReport,
+            icon: const Icon(Icons.bar_chart),
+            label: const Text('Report'),
+          ),
+          const SizedBox(width: 8),
+        ],
+        // Larghezza fissa (non solo "circa uguale"): altrimenti il
+        // bottone si restringe per "Inizia" rispetto a "Continua"/
+        // "Riprendi", più lunghe — stessa larghezza per tutte le label.
+        SizedBox(
+          width: 160,
+          child: FilledButton.icon(
+            onPressed: onStart,
+            icon: Icon(_iconaBottone()),
+            label: Text(_labelBottone()),
           ),
         ),
-        onTap: onTap,
+      ],
+    );
+
+    final testata = ListTile(
+      leading: const Icon(Icons.sports_volleyball, size: 32),
+      title: Text(match.nome, style: Theme.of(context).textTheme.titleMedium),
+      subtitle: Text(
+        match.palestra != null ? '$dateStr  •  ${match.palestra}' : dateStr,
+      ),
+      onTap: onTap,
+    );
+
+    return Card(
+      child: LayoutBuilder(
+        builder: (context, vincoli) {
+          // Bottoni accanto al titolo solo se c'è larghezza per entrambi.
+          // Sotto la soglia vanno su una riga propria: nel `trailing` del
+          // ListTile chiederebbero più spazio di tutta la card, al titolo
+          // resterebbe una larghezza NEGATIVA e la disposizione si
+          // interromperebbe ("RenderBox was not laid out", riscontrato in
+          // portrait su telefono). Il `FittedBox` non salva da solo: scala il
+          // disegno, ma lo spazio lo pretende comunque.
+          if (vincoli.maxWidth >= _kLarghezzaCardEstesa) {
+            return ListTile(
+              leading: testata.leading,
+              title: testata.title,
+              subtitle: testata.subtitle,
+              trailing: FittedBox(fit: BoxFit.scaleDown, child: azioni),
+              onTap: onTap,
+            );
+          }
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              testata,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                // Qui il FittedBox ha una larghezza vera su cui lavorare:
+                // rimpicciolisce la fila quanto basta (convenzione "supporto
+                // smartphone", vedi CLAUDE.md).
+                child: FittedBox(fit: BoxFit.scaleDown, child: azioni),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
+
+/// Sotto questa larghezza la fila di bottoni non sta accanto al titolo e passa
+/// su una riga propria. Il valore tiene conto del caso peggiore — partita
+/// terminata, quindi con CSV, PDF e Report tutti presenti (~600dp di bottoni)
+/// più icona, margini e lo spazio minimo per il nome della partita.
+const double _kLarghezzaCardEstesa = 860;
 
 class _CasaBadge extends StatelessWidget {
   final bool inCasa;

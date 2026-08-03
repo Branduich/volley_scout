@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -40,8 +41,26 @@ mixin OrientamentoSchermata<T extends StatefulWidget> on State<T>
   /// Gli orientamenti che questa schermata accetta.
   List<DeviceOrientation> get orientamentiConsentiti;
 
+  /// Schermata a **schermo intero**: barre di sistema nascoste, con ritorno
+  /// temporaneo allo swipe dal bordo (`immersiveSticky`). Di default lo sono
+  /// tutte le schermate solo-landscape, cioè quelle costruite attorno al campo.
+  ///
+  /// Serve perché `targetSdk` 35+ impone l'edge-to-edge: il sistema non
+  /// rimpicciolisce più la finestra e l'app disegna SOTTO le barre. Su un
+  /// telefono con navigazione a 3 pulsanti la barra finiva sopra il campo.
+  /// Scartato `SafeArea`, che risolverebbe togliendo però ~48dp proprio dove
+  /// lo spazio è più prezioso: nascondere le barre ne fa guadagnare invece di
+  /// perderne.
+  bool get schermoIntero =>
+      listEquals(orientamentiConsentiti, kOrientamentoLandscape);
+
   void _applica() {
     SystemChrome.setPreferredOrientations(orientamentiConsentiti);
+    // Ripristinato a `edgeToEdge` dalle schermate normali: senza, uscendo da
+    // una schermata a schermo intero le barre resterebbero nascoste.
+    SystemChrome.setEnabledSystemUIMode(
+      schermoIntero ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
     // Ri-applico dopo il primo frame: una transizione portrait→landscape
     // richiesta MENTRE la route sta entrando (push da una schermata che
     // permetteva il portrait) a volte non attecchisce — la route uscente è

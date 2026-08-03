@@ -183,13 +183,23 @@ class RegistroTarget {
   /// widget non è montato in questo frame — caso normale e previsto: il
   /// pannello voto esiste solo quando è aperto, il token del battitore solo
   /// quando serviamo noi.
+  ///
+  /// Il rettangolo si ottiene trasformando quello locale con la matrice fino
+  /// alla radice, non come `localToGlobal(Offset.zero) & size`: quest'ultimo
+  /// prende l'origine giusta ma la dimensione **prima** di eventuali scale.
+  /// I pannelli voto stanno dentro un `FittedBox(scaleDown)` e su schermo
+  /// basso sono rimpiccioliti: il buco risultava più grande dei pulsanti e
+  /// sbordava.
   Rect? rectOf(TutorialTarget? target) {
     if (target == null) return null;
     final render = _keys[target]?.currentContext?.findRenderObject();
     if (render is! RenderBox || !render.attached || !render.hasSize) {
       return null;
     }
-    return render.localToGlobal(Offset.zero) & render.size;
+    return MatrixUtils.transformRect(
+      render.getTransformTo(null),
+      Offset.zero & render.size,
+    );
   }
 
   /// Da chiamare all'avvio di una sessione: due `ScoutScreen(tutorial: true)`

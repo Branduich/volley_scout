@@ -94,6 +94,22 @@ fallisce anche dopo `flutter clean`/stop dei daemon.
      l'orientamento è gestito solo lato Flutter. Nota: forzare landscape da
      uno stato portrait funziona sui **device fisici**; alcuni **emulatori**
      con auto-rotate off non ruotano davvero (letterbox).
+   - **Schermo intero sulle schermate landscape** (getter `schermoIntero` dello
+     stesso mixin, default = tutte le solo-landscape): barre di sistema
+     nascoste con `SystemUiMode.immersiveSticky`, ripristinate a `edgeToEdge`
+     dalle altre. Serve perché `targetSdk` 36 **impone** l'edge-to-edge da
+     Android 15 (API 35): il sistema non rimpicciolisce più la finestra e
+     l'app disegna SOTTO le barre — su un telefono con navigazione a 3
+     pulsanti la barra copriva il campo. Scartato `SafeArea` **sulle schermate
+     del campo**: risolverebbe togliendo ~48dp proprio dove lo spazio è più
+     prezioso, mentre nascondere le barre ne fa guadagnare.
+   - **`SafeArea(top: false)` globale** in `MaterialApp.builder` (`main.dart`):
+     sulle schermate NON a schermo intero l'edge-to-edge faceva finire dietro
+     alla barra di navigazione il contenuto in fondo (l'ultima voce del menu
+     di Home, un bottone) e, in landscape, dietro a quella laterale. `top:
+     false` perché la barra di stato la gestisce già l'AppBar. Sulle schermate
+     immersive gli inset sono zero, quindi lì è un no-op: un unico punto
+     invece di un `SafeArea` per schermata.
 
 3. **Stream-based**: i repository espongono `Stream` (drift `.watch()`), così le
    schermate si aggiornano automaticamente a ogni modifica del DB.

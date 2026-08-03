@@ -277,30 +277,53 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
       ),
       body: Form(
         key: _formKey,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 360,
-              child: Column(
+        child: LayoutBuilder(
+          builder: (context, vincoli) {
+            final form = Column(
+              children: [
+                Expanded(child: _buildFormFields()),
+                _buildSaveButton(),
+              ],
+            );
+            // Due colonne solo se ce n'è davvero lo spazio. La colonna del
+            // form è larga 360 fisse: sotto questa soglia alla lista
+            // giocatori resterebbero poche decine di pixel, e le sue righe
+            // (nome + numero + azioni) si romperebbero come è successo alle
+            // card delle partite. La schermata è dichiarata solo-landscape,
+            // ma viene comunque costruita in portrait per qualche frame
+            // mentre il dispositivo ruota: deve reggere anche lì.
+            if (vincoli.maxWidth >= _kLarghezzaDueColonne) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _buildFormFields()),
-                  _buildSaveButton(),
+                  SizedBox(width: 360, child: form),
+                  if (isEditing) ...[
+                    const VerticalDivider(width: 1),
+                    Expanded(child: _PlayersSection(team: widget.team!)),
+                  ],
                 ],
-              ),
-            ),
-            if (isEditing) ...[
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: _PlayersSection(team: widget.team!),
-              ),
-            ],
-          ],
+              );
+            }
+            // Stretta: form sopra, giocatori sotto, ciascuno con la sua metà.
+            if (!isEditing) return form;
+            return Column(
+              children: [
+                Expanded(child: form),
+                const Divider(height: 1),
+                Expanded(child: _PlayersSection(team: widget.team!)),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
+
+/// Sotto questa larghezza form e lista giocatori si impilano invece di stare
+/// affiancati: 360 fisse per il form più lo spazio minimo perché una riga
+/// giocatore resti componibile.
+const double _kLarghezzaDueColonne = 640;
 
 class _PlayersSection extends ConsumerWidget {
   final Team team;

@@ -40,7 +40,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           const SizedBox(height: AppSpacing.sm),
           Card(
             child: SwitchListTile(
-              secondary: const PremiumBadge(size: 24),
+              // `null` e non un PremiumBadge che si nasconde da sé: lo slot
+              // leading resterebbe comunque riservato, col suo margine, e il
+              // testo apparirebbe rientrato rispetto alle altre voci.
+              secondary: premiumAttivo ? null : const PremiumBadge(size: 24),
               title: Text(l.settingsTrajectoriesTitle),
               subtitle: Text(premiumAttivo
                   ? l.settingsTrajectoriesSubtitle
