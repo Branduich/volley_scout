@@ -44,13 +44,21 @@ StatoPremium _daCustomerInfo(CustomerInfo info) {
 class StatoPremiumNotifier extends Notifier<StatoPremium> {
   static const _kDebugForzaPremium = 'premium.debugForzaPremium';
 
-  // invalidateSelf() (dal toggle debug) crea una NUOVA istanza: il flag,
-  // settato via onDispose della vecchia, evita che una getCustomerInfo()
-  // ancora in volo scriva lo stato su un notifier già dismesso.
+  // Protegge dallo scrivere lo stato da una getCustomerInfo() ancora in volo
+  // quando il provider è già stato smontato.
   bool _disposed = false;
 
   @override
   StatoPremium build() {
+    // Da rimettere a false a ogni build: il notifier è lo STESSO oggetto tra
+    // un rebuild e l'altro (Riverpod richiama build() sull'istanza esistente,
+    // dopo aver eseguito gli onDispose del giro precedente). Senza questa
+    // riga, dopo la prima invalidazione il flag restava true per sempre e sia
+    // il listener di RevenueCat sia _caricaIniziale() smettevano di
+    // aggiornare lo stato: un acquisto non sbloccava più niente, senza alcun
+    // errore visibile. Il provider viene invalidato di suo dall'uso del
+    // tutorial (vedi sotto) e dal toggle "Simula premium".
+    _disposed = false;
     ref.onDispose(() => _disposed = true);
 
     // Durante il tutorial l'utente è premium a prescindere: la guida deve
