@@ -164,6 +164,42 @@ void main() {
       expect(r[21], ''); // nessun uscente
     });
 
+    // Il voto errore esce come `'=` e non `=`: senza l'apice Excel valuta la
+    // cella come formula e mostra #NAME? (vedi _simboloVoto). Gli altri
+    // simboli restano nudi.
+    test('voto errore: apice davanti al simbolo, gli altri simboli nudi', () {
+      final righe = righeCsvPartita(
+        l: l,
+        match: _match(avversario: 'Clai'),
+        team: _team(),
+        sets: [_set(100, 1)],
+        azioniPerSet: {
+          100: [
+            _azione(
+              id: 1,
+              setId: 100,
+              ordine: 1,
+              giocatoreId: 1,
+              fondamentale: Fondamentale.ricezione,
+              voto: Voto.errore,
+              esitoPunto: EsitoPunto.puntoAvversario,
+            ),
+            _azione(
+              id: 2,
+              setId: 100,
+              ordine: 2,
+              giocatoreId: 1,
+              fondamentale: Fondamentale.difesa,
+              voto: Voto.positivo,
+            ),
+          ],
+        },
+        playerById: players,
+      );
+      expect(righe[1][10], "'=");
+      expect(righe[2][10], '+');
+    });
+
     // Formato internazionale (Impostazioni → Export): cambia SOLO il
     // separatore decimale; testi e ordine delle colonne restano identici.
     // Il separatore di CAMPO non si vede qui — lo applica il converter in

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugPaintSizeEnabled;
 
+import '../l10n/app_localizations.dart';
+
 /// Bottone (solo `kDebugMode`) che alterna `debugPaintSizeEnabled`, il flag
 /// GLOBALE di Flutter che disegna i bordi di ogni render box (celle, padding,
 /// baseline del testo). Essendo globale, una volta acceso da qualunque
@@ -22,7 +24,7 @@ class _DebugPaintToggleState extends State<DebugPaintToggle> {
   Widget build(BuildContext context) {
     if (!kDebugMode) return const SizedBox.shrink();
     return IconButton(
-      tooltip: 'Debug: bordi di layout',
+      tooltip: AppLocalizations.of(context).debugBordiLayout,
       icon: Icon(debugPaintSizeEnabled ? Icons.grid_on : Icons.grid_off),
       onPressed: () {
         debugPaintSizeEnabled = !debugPaintSizeEnabled;

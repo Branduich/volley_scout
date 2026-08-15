@@ -618,6 +618,11 @@
   },
   "pdfLabelAce": "Ace",
   "pdfLabelPunto": "Pt",
+  "homeTutorial": "Tutorial",
+  "settingsTutorialTitle": "Mostra il tutorial nel menu",
+  "settingsTutorialSubtitle": "La guida passo passo allo scout dal vivo, su una partita di prova. Si avvia dal menu principale.",
+  "debugBordiLayout": "Debug: bordi di layout",
+
   "settingsSectionExport": "Export",
   "settingsCsvFormatoTitle": "Formato del CSV",
   "settingsCsvFormatoSubtitle": "Come il foglio di calcolo legge il file. Dipende dalle impostazioni regionali del computer su cui lo apri, non dalla lingua dell'app: se aprendo l'export le colonne finiscono tutte in una, cambia formato.",

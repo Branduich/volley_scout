@@ -62,6 +62,20 @@ String _dec(double? v, FormatoCsv formato) {
   return formato == FormatoCsv.europeo ? s.replaceAll('.', ',') : s;
 }
 
+// Simbolo del voto, protetto per i fogli di calcolo. Excel (e Google Sheets)
+// valutano come FORMULA ogni cella che comincia con `=`: il voto errore
+// arrivava come #NAME?. L'apice iniziale è il marcatore di testo — Excel lo
+// consuma e in cella si legge `=` (verificato sul campo, aprendo il file col
+// doppio clic). Gli altri quattro simboli (#, + , /, -) arrivano intatti e
+// restano nudi: `+`/`-` diventano formule solo se seguiti da qualcosa.
+// NB: chi legge il CSV da script (o con un parser che non conosce la
+// convenzione Excel) trova la stringa `'=` — è il prezzo di avere il file
+// leggibile al doppio clic, che è il caso d'uso vero di questo export.
+String _simboloVoto(Voto? voto) {
+  final simbolo = voto?.simbolo ?? '';
+  return simbolo == '=' ? "'=" : simbolo;
+}
+
 String _nomeGiocatore(Player? giocatore) =>
     giocatore == null ? '' : '${giocatore.cognome} ${giocatore.nome}';
 
@@ -167,7 +181,7 @@ List<List<String>> righeCsvPartita({
         _nomeGiocatore(giocatore),
         giocatore == null ? '' : ruoloLabel(giocatore.ruolo, l),
         a.fondamentale == null ? '' : fondamentaleLabel(a.fondamentale!, l),
-        a.voto?.simbolo ?? '',
+        _simboloVoto(a.voto),
         _labelTipoEsecuzione(a, l),
         switch (a.esitoPunto) {
           EsitoPunto.puntoNostro =>

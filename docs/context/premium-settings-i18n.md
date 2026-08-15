@@ -34,6 +34,13 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   coincidere con la lingua dell'app (app in inglese su un PC italiano). Per
   questo è una voce esplicita in Impostazioni → Export invece che un
   automatismo. Il BOM UTF-8 c'è sempre, in entrambi i formati.
+  **Voto errore = `'=` (con l'apice)**, in entrambi i formati: Excel valuta
+  come formula ogni cella che comincia con `=` e mostrava `#NAME?`; l'apice è
+  il marcatore di testo, che Excel consuma (in cella si legge `=`). Provate
+  anche virgolette e `="="`: le prime non bastano, la seconda produce una
+  vera formula (illeggibile da script). Gli altri quattro simboli
+  (`#`, `+`, `/`, `-`) restano nudi — `+`/`-` diventano formule solo se
+  seguiti da qualcosa. Vedi `_simboloVoto` in `match_csv_exporter.dart`.
 - **Pensata per il gating premium futuro** (es. traiettorie solo premium):
   il resto del codice legge solo `impostazioniProvider`, il gating potrà
   limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.
@@ -91,8 +98,16 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
   usare `context` direttamente farebbe scattare
   `use_build_context_synchronously`.
 
-  **Ancora PARZIALI** — usano `AppLocalizations` per alcune stringhe ma ne
-  hanno altre hardcoded: `debug_paint_toggle` (1), `campionato_screen` (1).
+  **Fuori dalle schermate, FATTE** (2026-08-15): la voce "Tutorial" del menu
+  di Home (`homeTutorial`), il toggle "Mostra il tutorial nel menu" in
+  Impostazioni (`settingsTutorial*`) e il tooltip di `debug_paint_toggle`
+  (`debugBordiLayout`) — il tutorial vero e proprio resta da tradurre, vedi
+  sotto.
+
+  **Restano in italiano di proposito** (NON sono un backlog): "Excel" in
+  `campionato_screen` (nome di prodotto), `Text('P$r')` nel selettore
+  rotazione del report (sigla di posizione), i nomi delle giocatrici finte di
+  `tutorial_sandbox` (dati demo, non interfaccia).
   Fuori dalle schermate: l'header del CSV (`kCsvHeader` in
   `data/match_csv_exporter.dart`, 22 colonne) è una `const List<String>`
   italiana — i VALORI passano già da `enum_l10n`, l'intestazione no; è usata

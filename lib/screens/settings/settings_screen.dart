@@ -76,10 +76,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           Card(
             child: SwitchListTile(
               secondary: const Icon(Icons.school),
-              title: const Text('Mostra il tutorial nel menu'),
-              subtitle: const Text(
-                  'La guida passo passo allo scout dal vivo, su una partita '
-                  'di prova. Si avvia dal menu principale.'),
+              title: Text(l.settingsTutorialTitle),
+              subtitle: Text(l.settingsTutorialSubtitle),
               value: impostazioni.tutorialVisibile,
               onChanged: (v) => ref
                   .read(impostazioniProvider.notifier)

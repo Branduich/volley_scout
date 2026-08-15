@@ -531,6 +531,11 @@
   "pdfPaginaAttacchiPerRotazione": "{squadra} attacks — by rotation",
   "pdfLabelAce": "Ace",
   "pdfLabelPunto": "Kill",
+  "homeTutorial": "Tutorial",
+  "settingsTutorialTitle": "Show the tutorial in the menu",
+  "settingsTutorialSubtitle": "The step-by-step guide to live scouting, on a practice match. You start it from the main menu.",
+  "debugBordiLayout": "Debug: layout borders",
+
   "settingsSectionExport": "Export",
   "settingsCsvFormatoTitle": "CSV format",
   "settingsCsvFormatoSubtitle": "How your spreadsheet reads the file. It depends on the regional settings of the computer you open it on, not on the app language: if every column lands in one, switch format.",

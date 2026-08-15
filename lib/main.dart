@@ -249,7 +249,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       SizedBox(height: distanza),
                       _MenuButton(
                         icon: Icons.school,
-                        label: 'Tutorial',
+                        label: l.homeTutorial,
                         altezza: altezza,
                         onTap: () => avviaTutorial(context, ref),
                       ),
