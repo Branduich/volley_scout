@@ -2758,57 +2758,81 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                     itemCount: righe.length,
                     itemBuilder: (context, i) {
                       final a = righe[righe.length - 1 - i]; // recente in alto
+                      // Riga SOTTO nel pannello = azione PRECEDENTE nel tempo
+                      // (la lista è rovesciata). Se appartiene a un altro
+                      // scambio, `a` è la prima azione del suo rally: ci si
+                      // disegna sotto una linea, così ogni gruppo di righe
+                      // resta visivamente uno scambio. Nessun separatore in
+                      // fondo alla lista (sotto non c'è nulla da separare).
+                      final precedente = i + 1 < righe.length
+                          ? righe[righe.length - 2 - i]
+                          : null;
+                      final fineScambio =
+                          precedente != null && precedente.rallyId != a.rallyId;
                       final desc = _descrizioneAzione(a);
                       // Il blu brand del "Cambio" è illeggibile sul fondo
                       // scuro del pannello: solo qui si schiarisce.
                       final coloreTesto = desc.colore == AppColors.brandPrimary
                           ? Colors.lightBlueAccent
                           : desc.colore;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text.rich(
                               TextSpan(
-                                text: '${a.ordine}·r${numeroRally[a.rallyId]}  ',
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: sc(10, 13),
-                                ),
-                              ),
-                              TextSpan(
-                                text: desc.testo,
-                                style: TextStyle(
-                                  // Per punto/errore/cambio (voto assente) il
-                                  // colore semantico va sul testo; per i voti
-                                  // resta sul solo simbolo, più leggibile.
-                                  color: desc.voto == null
-                                      ? coloreTesto
-                                      : Colors.white,
-                                  fontSize: sc(11, 14),
-                                ),
-                              ),
-                              if (desc.voto != null)
-                                TextSpan(
-                                  text: '  ${desc.voto}',
-                                  style: TextStyle(
-                                    color: coloreTesto,
-                                    fontSize: sc(12, 16),
-                                    fontWeight: FontWeight.bold,
+                                children: [
+                                  TextSpan(
+                                    text:
+                                        '${a.ordine}·r${numeroRally[a.rallyId]}  ',
+                                    style: TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: sc(10, 13),
+                                    ),
                                   ),
-                                ),
-                              if (parziali[a.id] != null)
-                                TextSpan(
-                                  text: '  ${parziali[a.id]}',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: sc(11, 14),
-                                    fontWeight: FontWeight.bold,
+                                  TextSpan(
+                                    text: desc.testo,
+                                    style: TextStyle(
+                                      // Per punto/errore/cambio (voto assente)
+                                      // il colore semantico va sul testo; per i
+                                      // voti resta sul solo simbolo, più
+                                      // leggibile.
+                                      color: desc.voto == null
+                                          ? coloreTesto
+                                          : Colors.white,
+                                      fontSize: sc(11, 14),
+                                    ),
                                   ),
-                                ),
-                            ],
+                                  if (desc.voto != null)
+                                    TextSpan(
+                                      text: '  ${desc.voto}',
+                                      style: TextStyle(
+                                        color: coloreTesto,
+                                        fontSize: sc(12, 16),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  if (parziali[a.id] != null)
+                                    TextSpan(
+                                      text: '  ${parziali[a.id]}',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: sc(11, 14),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                          if (fineScambio)
+                            Divider(
+                              height: sc(7, 9),
+                              thickness: 1,
+                              color: Colors.white24,
+                            ),
+                        ],
                       );
                     },
                   ),
