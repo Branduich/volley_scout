@@ -42,11 +42,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           const SizedBox(height: AppSpacing.sm),
           Card(
             child: SwitchListTile(
-              // `null` e non un PremiumBadge che si nasconde da sé: lo slot
-              // leading resterebbe comunque riservato, col suo margine, e il
-              // testo apparirebbe rientrato rispetto alle altre voci.
-              secondary: premiumAttivo ? null : const PremiumBadge(size: 24),
-              title: Text(l.settingsTrajectoriesTitle),
+              // Ogni voce ha la sua icona nello slot `secondary` (allineamento
+              // uniforme della lista), quindi il badge premium non può stare
+              // lì: va in coda al titolo, dove si nasconde da sé quando
+              // l'abbonamento è attivo.
+              // Stessa icona dei bottoni "Traiettorie attacco" (drawer dello
+              // scout e report): stessa feature, stesso segno.
+              secondary: const Icon(Icons.trending_up),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(child: Text(l.settingsTrajectoriesTitle)),
+                  const PremiumBadge(size: 20),
+                ],
+              ),
               subtitle: Text(premiumAttivo
                   ? l.settingsTrajectoriesSubtitle
                   : l.settingsTrajectoriesSubtitlePremium),
@@ -64,6 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           const SizedBox(height: AppSpacing.sm),
           Card(
             child: SwitchListTile(
+              secondary: const Icon(Icons.groups),
               title: Text(l.settingsOpponentScoutTitle),
               subtitle: Text(l.settingsOpponentScoutSubtitle),
               value: impostazioni.scoutAvversariAbilitato,
@@ -122,6 +132,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             const SizedBox(height: AppSpacing.sm),
             Card(
               child: SwitchListTile(
+                secondary: const Icon(Icons.workspace_premium),
                 title: Text(l.settingsSimulatePremium),
                 subtitle: Text(l.settingsSimulatePremiumSubtitle),
                 value:
