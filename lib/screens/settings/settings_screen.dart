@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../l10n/enum_l10n.dart';
+import '../../models/enums.dart';
 import '../../providers/lingua_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -82,6 +84,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               onChanged: (v) => ref
                   .read(impostazioniProvider.notifier)
                   .setTutorialVisibile(v),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(l.settingsSectionExport,
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.sm),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.table_view),
+              title: Text(l.settingsCsvFormatoTitle),
+              subtitle: Text(l.settingsCsvFormatoSubtitle),
+              // Dropdown sotto al testo (non nel trailing): le due etichette
+              // sono lunghe e affiancate al sottotitolo starebbero strette.
+              trailing: DropdownButton<FormatoCsv>(
+                value: impostazioni.formatoCsv,
+                onChanged: (v) => v == null
+                    ? null
+                    : ref
+                        .read(impostazioniProvider.notifier)
+                        .setFormatoCsv(v),
+                items: [
+                  for (final f in FormatoCsv.values)
+                    DropdownMenuItem(value: f, child: Text(formatoCsvLabel(f, l))),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),

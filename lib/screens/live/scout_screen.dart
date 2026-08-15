@@ -1325,16 +1325,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final avversario = widget.match.avversario?.trim();
     final nomeAvversario = (avversario != null && avversario.isNotEmpty)
         ? avversario
-        : 'Avversari';
+        : AppLocalizations.of(context).scoutAvversariGenerico;
 
     final scelta = await showDialog<Squadra>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Chi serve per primo?'),
-        content: const Text(
-          'Indica quale squadra è al servizio per iniziare il set.',
-        ),
+        title: Text(AppLocalizations.of(context).scoutServizioTitolo),
+        content: Text(AppLocalizations.of(context).scoutServizioTesto),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context, Squadra.nostra),
@@ -1583,7 +1581,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final avversarioRaw = widget.match.avversario?.trim();
     final avversario = (avversarioRaw != null && avversarioRaw.isNotEmpty)
         ? avversarioRaw
-        : 'AVVERSARI';
+        : AppLocalizations.of(context).scoutAvversariMaiuscolo;
     final nostroASinistra = !_isRightSide;
     return nostroASinistra ? '$nostro - $avversario' : '$avversario - $nostro';
   }
@@ -1714,9 +1712,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final confermato = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
-          'Annullare l\'ultima azione?',
-          style: TextStyle(fontSize: 14),
+        title: Text(
+          AppLocalizations.of(context).scoutUndoTitolo,
+          style: const TextStyle(fontSize: 14),
         ),
         content: Text(
           testoAzione,
@@ -1725,11 +1723,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
+            child: Text(AppLocalizations.of(context).comuneAnnulla),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Conferma'),
+            child: Text(AppLocalizations.of(context).comuneConferma),
           ),
         ],
       ),
@@ -1813,10 +1811,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final idsFinali = {for (final p in tuttiFinali) p.id};
     if (idsFinali.length != tuttiFinali.length) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Sostituzione non valida: un giocatore comparirebbe due '
-            'volte in campo',
+            AppLocalizations.of(context).scoutSostituzioneNonValida,
           ),
         ),
       );
@@ -2341,6 +2338,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   }
 
   Widget _buildUtilityDrawer() {
+    final l = AppLocalizations.of(context);
     return _anchor(
       TutorialTarget.drawer,
         Drawer(
@@ -2352,11 +2350,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Text(
-                  'Utilità',
-                  style: TextStyle(
+                  l.scoutDrawerTitolo,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -2366,9 +2364,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               const Divider(color: Colors.white24, height: 1),
               ListTile(
                 leading: const Icon(Icons.swap_horiz, color: Colors.white),
-                title: const Text(
-                  'Cambia campo',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutCambiaCampo,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () {
                   _toggleSide();
@@ -2385,7 +2383,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                   color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
                 ),
                 title: Text(
-                  'Sostituzione',
+                  l.scoutSostituzione,
                   style: TextStyle(
                     color: _bottoniRapidiAttivi ? Colors.white : Colors.white38,
                   ),
@@ -2399,9 +2397,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               // e disegnare durante il timeout — vedi TacticalBoardScreen.
               ListTile(
                 leading: const Icon(Icons.dashboard, color: Colors.white),
-                title: const Text(
-                  'Lavagna tattica',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutLavagnaTattica,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 trailing: const PremiumBadge(),
                 onTap: () {
@@ -2418,9 +2416,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               const Divider(color: Colors.white24, height: 1),
               ListTile(
                 leading: const Icon(Icons.bar_chart, color: Colors.white),
-                title: const Text(
-                  'Statistiche fondamentali',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutStatisticheFondamentali,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () {
                   _scaffoldKey.currentState?.closeDrawer();
@@ -2441,9 +2439,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               // statistiche.
               ListTile(
                 leading: const Icon(Icons.description, color: Colors.white),
-                title: const Text(
-                  'Report',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.partiteReport,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () {
                   _scaffoldKey.currentState?.closeDrawer();
@@ -2457,9 +2455,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               ),
               ListTile(
                 leading: const Icon(Icons.arrow_forward, color: Colors.white),
-                title: const Text(
-                  'Traiettorie battute',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutTraiettorieBattute,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 trailing: const PremiumBadge(),
                 onTap: () {
@@ -2479,9 +2477,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               ),
               ListTile(
                 leading: const Icon(Icons.trending_up, color: Colors.white),
-                title: const Text(
-                  'Traiettorie attacco',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutTraiettorieAttacco,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 trailing: const PremiumBadge(),
                 onTap: () {
@@ -2504,7 +2502,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 value: _showJerseyNumbers,
                 onChanged: (v) => setState(() => _showJerseyNumbers = v),
                 title: Text(
-                  _showJerseyNumbers ? 'Mostra ruoli' : 'Mostra numeri',
+                  _showJerseyNumbers ? l.scoutMostraRuoli : l.scoutMostraNumeri,
                   style: const TextStyle(color: Colors.white),
                 ),
                 activeThumbColor: Colors.white,
@@ -2520,13 +2518,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 SwitchListTile(
                   value: _testModeEnabled,
                   onChanged: _toggleTestMode,
-                  title: const Text(
-                    'Modalità test',
-                    style: TextStyle(color: Colors.white),
+                  title: Text(
+                    l.scoutModalitaTest,
+                    style: const TextStyle(color: Colors.white),
                   ),
-                  subtitle: const Text(
-                    'Bottone visualizzazione rotazioni',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  subtitle: Text(
+                    l.scoutModalitaTestSottotitolo,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   activeThumbColor: Colors.white,
                   activeTrackColor: const Color(0xFF00008A),
@@ -2536,13 +2534,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               SwitchListTile(
                 value: _showActionLog,
                 onChanged: (v) => setState(() => _showActionLog = v),
-                title: const Text(
-                  'Log azioni',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutLogAzioni,
+                  style: const TextStyle(color: Colors.white),
                 ),
-                subtitle: const Text(
-                  'Lista delle azioni del set corrente',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                subtitle: Text(
+                  l.scoutLogAzioniSottotitolo,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 activeThumbColor: Colors.white,
                 activeTrackColor: const Color(0xFF00008A),
@@ -2552,7 +2550,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               const Divider(color: Colors.white24, height: 1),
               ListTile(
                 leading: const Icon(Icons.sports_score, color: Colors.white),
-                title: const Text('Fine', style: TextStyle(color: Colors.white)),
+                title: Text(
+                  l.scoutFine,
+                  style: const TextStyle(color: Colors.white),
+                ),
                 // A differenza di "Indietro" qui si fa un push, non un pop:
                 // niente local history entry da gestire, basta chiudere il
                 // drawer per pulizia visiva prima di navigare.
@@ -2569,9 +2570,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               ),
               ListTile(
                 leading: const Icon(Icons.arrow_back, color: Colors.white),
-                title: const Text(
-                  'Indietro',
-                  style: TextStyle(color: Colors.white),
+                title: Text(
+                  l.scoutIndietro,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 // Il Drawer registra una "local history entry" sulla route:
                 // mentre è aperto, Navigator.pop(context) chiude SOLO il
@@ -2748,7 +2749,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             child: righe.isEmpty
                 ? Center(
                     child: Text(
-                      'Nessuna azione',
+                      AppLocalizations.of(context).scoutNessunaAzione,
                       style:
                           TextStyle(color: Colors.white54, fontSize: sc(10, 12)),
                     ),
@@ -2874,7 +2875,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // quella attuale) — così ogni voce del log resta corretta.
     if (azione.tipo == TipoAzione.correzioneRotazione) {
       return (
-        testo: _labelsCorrezione[azione.id] ?? 'Rotazione corretta',
+        testo: _labelsCorrezione[azione.id] ??
+            AppLocalizations.of(context).scoutRotazioneCorretta,
         voto: null,
         colore: AppColors.brandPrimary,
       );
@@ -2966,8 +2968,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // sempre lo scout). Ricezione dopo una battuta, Difesa dopo un attacco.
   Widget _buildBannerConcludi(Fondamentale difesa) {
     final label = difesa == Fondamentale.ricezione
-        ? 'CONCLUDI RICEZIONE'
-        : 'CONCLUDI DIFESA';
+        ? AppLocalizations.of(context).scoutConcludiRicezione
+        : AppLocalizations.of(context).scoutConcludiDifesa;
     return Container(
       padding:
           EdgeInsets.symmetric(horizontal: _sc(16, 20), vertical: _sc(6, 8)),
@@ -3629,9 +3631,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         width: 100,
                         child: Column(
                           children: [
-                            const Text(
-                              'Avversario',
-                              style: TextStyle(
+                            Text(
+                              AppLocalizations.of(
+                                context,
+                              ).scoutAvversarioEtichetta,
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
                               ),
@@ -4128,9 +4132,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               color: _kTopBarBg,
               borderRadius: BorderRadius.circular(999),
             ),
-            child: const Text(
-              'Tocca la zona del palleggiatore avversario',
-              style: TextStyle(
+            child: Text(
+              AppLocalizations.of(context).scoutSelezionaPAvversario,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),

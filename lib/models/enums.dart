@@ -141,6 +141,24 @@ enum TipoAttacco {
   pallonetto;
 }
 
+/// Formato del file CSV esportato (impostazione, vedi `Impostazioni`).
+///
+/// NON è legato alla lingua dell'app: Excel decide come leggere un CSV in
+/// base alle **impostazioni regionali del computer** su cui lo si apre, e le
+/// due cose possono non coincidere (app in inglese su un PC italiano, o il
+/// contrario). Per questo è una scelta esplicita dell'utente.
+/// - `europeo`: separatore `;`, decimali con la virgola — Excel italiano/
+///   europeo apre il file al doppio clic, senza import guidato (default
+///   storico, era l'unico formato).
+/// - `internazionale`: separatore `,`, decimali col punto — il CSV
+///   "standard", per Excel in locale EN/US, Google Sheets e qualunque script.
+enum FormatoCsv {
+  // Etichette localizzate in lib/l10n/enum_l10n.dart (formatoCsvLabel).
+  // Il `.name` è la chiave salvata in shared_preferences.
+  europeo,
+  internazionale;
+}
+
 /// Tipo di esecuzione di una battuta — stessa logica di TipoAttacco.
 enum TipoBattuta {
   // Etichette localizzate in lib/l10n/enum_l10n.dart (tipoBattutaLabel).

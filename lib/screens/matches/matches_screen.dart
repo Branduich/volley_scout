@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/premium_badge.dart';
 import '../live/scout_screen.dart';
@@ -126,6 +127,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
 
       await condividiCsvPartita(
         l: l,
+        formato: ref.read(impostazioniProvider).formatoCsv,
         match: match,
         team: team,
         sets: sets,
@@ -133,23 +135,26 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
         playerById: {for (final p in players) p.id: p},
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Export CSV fallito: $e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.partiteCsvFallito('$e'))),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final matchesAsync = ref.watch(matchesStreamProvider);
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Partite'),
+        title: Text(l.partiteTitolo),
         actions: [
           // Solo in debug: importa la partita demo (Clai-Nettunia, 5 set)
           // per sviluppare/provare i report — vedi DemoMatchImporter.
           if (kDebugMode)
             IconButton(
-              tooltip: 'Genera partita demo',
+              tooltip: l.partiteDemoTooltip,
               icon: const Icon(Icons.science),
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
@@ -158,11 +163,11 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
                     ref.read(appDatabaseProvider),
                   ).importa();
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Importata "$nome"')),
+                    SnackBar(content: Text(l.partiteDemoImportata(nome))),
                   );
                 } catch (e) {
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Import demo fallito: $e')),
+                    SnackBar(content: Text(l.partiteDemoFallito('$e'))),
                   );
                 }
               },
@@ -194,7 +199,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Nuova partita'),
+              Text(l.partitaNuovaTitolo),
               if (giaUnaPartita) const PremiumBadge(),
             ],
           ),
@@ -202,14 +207,11 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
       }),
       body: matchesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+        error: (e, _) => Center(child: Text(l.comuneErrore('$e'))),
         data: (matches) {
           if (matches.isEmpty) {
-            return const Center(
-              child: Text(
-                'Nessuna partita.\nPremi + per aggiungerne una.',
-                textAlign: TextAlign.center,
-              ),
+            return Center(
+              child: Text(l.partiteVuoto, textAlign: TextAlign.center),
             );
           }
           // Due sezioni separate: partite da iniziare/continuare (qualunque
@@ -266,7 +268,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             children: [
               if (attive.isNotEmpty) ...[
-                const _SectionHeader('Da iniziare / in corso'),
+                _SectionHeader(l.partiteSezioneAttive),
                 for (final m in attive) ...[
                   buildCard(m),
                   const SizedBox(height: 8),
@@ -274,7 +276,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
               ],
               if (terminate.isNotEmpty) ...[
                 if (attive.isNotEmpty) const SizedBox(height: 8),
-                const _SectionHeader('Terminate'),
+                _SectionHeader(l.partiteSezioneTerminate),
                 for (final m in terminate) ...[
                   buildCard(m),
                   const SizedBox(height: 8),
@@ -334,15 +336,15 @@ class _MatchCard extends StatelessWidget {
   // Inizia (mai cominciata) / Continua (in corso o sospesa) / Riprendi
   // (terminata, vedi "MatchesScreen a due sezioni" in CLAUDE.md) — stesso
   // bottone/onStart per tutti e tre, solo label e icona cambiano.
-  String _labelBottone() {
+  String _labelBottone(AppLocalizations l) {
     switch (match.stato) {
       case StatoPartita.terminata:
-        return 'Riprendi';
+        return l.partiteRiprendi;
       case StatoPartita.configurazione:
-        return 'Inizia';
+        return l.partiteInizia;
       case StatoPartita.inCorso:
       case StatoPartita.sospesa:
-        return 'Continua';
+        return l.partiteContinua;
     }
   }
 
@@ -360,6 +362,7 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final dt = match.dataOra;
     final dateStr =
         '${_pad(dt.day)}/${_pad(dt.month)}/${dt.year}  ${_pad(dt.hour)}:${_pad(dt.minute)}';
@@ -395,7 +398,7 @@ class _MatchCard extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onOpenReport,
             icon: const Icon(Icons.bar_chart),
-            label: const Text('Report'),
+            label: Text(l.partiteReport),
           ),
           const SizedBox(width: 8),
         ],
@@ -407,7 +410,7 @@ class _MatchCard extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: onStart,
             icon: Icon(_iconaBottone()),
-            label: Text(_labelBottone()),
+            label: Text(_labelBottone(l)),
           ),
         ),
       ],
@@ -472,6 +475,7 @@ class _CasaBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -479,7 +483,7 @@ class _CasaBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        inCasa ? 'Casa' : 'Trasferta',
+        inCasa ? l.partiteCasa : l.partiteTrasferta,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,

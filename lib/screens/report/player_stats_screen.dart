@@ -26,12 +26,15 @@ typedef _RigaGiocatore = ({
 /// `idAttacchiSuRicezione` in database_provider.dart, stessa regola del
 /// riepilogo fondamentali di MatchReportScreen).
 enum _FiltroAttacco {
-  tutti('Tutti gli attacchi'),
-  suRicezione('Su ricezione'),
-  suDifesa('Su difesa');
+  tutti,
+  suRicezione,
+  suDifesa;
 
-  final String label;
-  const _FiltroAttacco(this.label);
+  String label(AppLocalizations l) => switch (this) {
+    _FiltroAttacco.tutti => l.reportFiltroAttacchiTutti,
+    _FiltroAttacco.suRicezione => l.reportFiltroSuRicezione,
+    _FiltroAttacco.suDifesa => l.reportFiltroSuDifesa,
+  };
 }
 
 /// Statistiche per giocatore e per fondamentale (Fase 4) — consultabile sia
@@ -155,6 +158,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
   @override
   Widget build(BuildContext context) {
     final sets = _sets;
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(widget.team.nome)),
       body: sets == null
@@ -170,19 +174,19 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
                         width: 200,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _setSelezionato,
-                          decoration: const InputDecoration(
-                            labelText: 'Set',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportSet,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Partita intera'),
+                              child: Text(l.reportPartitaIntera),
                             ),
                             for (final s in sets)
                               DropdownMenuItem(
                                 value: s.numero,
-                                child: Text('Set ${s.numero}'),
+                                child: Text(l.reportSetNumero(s.numero)),
                               ),
                           ],
                           onChanged: (v) => setState(() => _setSelezionato = v),
@@ -193,9 +197,9 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
                         width: 220,
                         child: DropdownButtonFormField<Fondamentale>(
                           initialValue: _fondamentale,
-                          decoration: const InputDecoration(
-                            labelText: 'Fondamentale',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportFondamentale,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
                             for (final f in const [
@@ -225,14 +229,14 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
                           width: 220,
                           child: DropdownButtonFormField<_FiltroAttacco>(
                             initialValue: _filtroAttacco,
-                            decoration: const InputDecoration(
-                              labelText: 'Attacchi',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: l.reportAttacchi,
+                              border: const OutlineInputBorder(),
                             ),
                             items: [
                               for (final f in _FiltroAttacco.values)
                                 DropdownMenuItem(
-                                    value: f, child: Text(f.label)),
+                                    value: f, child: Text(f.label(l))),
                             ],
                             onChanged: (v) =>
                                 setState(() => _filtroAttacco = v!),
@@ -244,8 +248,8 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
                   const SizedBox(height: AppSpacing.lg),
                   Expanded(
                     child: _righe.isEmpty
-                        ? const Center(child: Text('Nessun voto registrato.'))
-                        : SingleChildScrollView(child: _buildTabella(_righe)),
+                        ? Center(child: Text(l.reportNessunVoto))
+                        : SingleChildScrollView(child: _buildTabella(_righe, l)),
                   ),
                 ],
               ),
@@ -253,7 +257,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
     );
   }
 
-  Widget _buildTabella(List<_RigaGiocatore> righe) {
+  Widget _buildTabella(List<_RigaGiocatore> righe, AppLocalizations l) {
     const voti = Voto.values;
     // Colonna "Murati" solo per l'attacco (sottoinsieme degli errori `=`,
     // deducibile dalla traiettoria — vedi attaccoMurato).
@@ -280,10 +284,10 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
         TableRow(
           decoration: const BoxDecoration(color: AppColors.surfaceDim),
           children: [
-            _headerCell('Giocatori', allineaSinistra: true),
+            _headerCell(l.reportGiocatori, allineaSinistra: true),
             for (final v in voti) _headerCell(v.simbolo, fontSize: 28),
-            if (mostraMurati) _headerCell('Murati'),
-            _headerCell('TOT'),
+            if (mostraMurati) _headerCell(l.reportMurati),
+            _headerCell(l.reportTot),
           ],
         ),
         for (var i = 0; i < righe.length; i++)
@@ -303,7 +307,7 @@ class _PlayerStatsScreenState extends ConsumerState<PlayerStatsScreen> with Orie
         TableRow(
           decoration: const BoxDecoration(color: AppColors.surfaceDim),
           children: [
-            _headerCell('Totale', allineaSinistra: true),
+            _headerCell(l.reportTotale, allineaSinistra: true),
             for (final v in voti)
               _votoCell(totaliPerVoto[v] ?? 0, totaleComplessivo, v),
             if (mostraMurati) _muratiCell(totaleMurati, totaleComplessivo),

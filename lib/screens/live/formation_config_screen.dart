@@ -260,19 +260,22 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> with Orie
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(
         backgroundColor: _kBg,
         foregroundColor: Colors.white,
-        title: Text('Configurazione formazione – ${widget.team.nome}'),
+        title: Text(l.configTitolo(widget.team.nome)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton(
               onPressed: _canConfirm ? _onAvanti : null,
               child: Text(
-                widget.modalitaConferma ? 'Conferma' : 'Inizia scout',
+                widget.modalitaConferma
+                    ? l.comuneConferma
+                    : l.configIniziaScout,
               ),
             ),
           ),
@@ -288,9 +291,9 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> with Orie
             if (!widget.modalitaConferma) ...[
               Row(
                 children: [
-                  const Text(
-                    'Sistema di gioco:',
-                    style: TextStyle(
+                  Text(
+                    l.configSistemaGioco,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -320,7 +323,7 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> with Orie
               ),
               const SizedBox(height: 12),
             ],
-            _buildCampi(),
+            _buildCampi(l),
           ],
         ),
       ),
@@ -333,12 +336,12 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> with Orie
   // ~33% per campo invece di riempire la larghezza (che li rendeva troppo
   // grandi). Su tablet la scala è ~1 (campi a piena dimensione). Un solo
   // campo (senza libero) usa la stessa taglia.
-  Widget _buildCampi() {
+  Widget _buildCampi(AppLocalizations l) {
     final campoPalleggiatore = LabeledCourt(
-      title: _is62 ? 'Palleggiatori' : 'Palleggiatore',
+      title: _is62 ? l.configPalleggiatori : l.configPalleggiatore,
       subtitle: _is62
-          ? 'Conferma i due palleggiatori – ${_palleggiatoriSlots.length}/2 selezionati'
-          : 'Conferma il palleggiatore',
+          ? l.configConfermaPalleggiatori(_palleggiatoriSlots.length)
+          : l.configConfermaPalleggiatore,
       subtitleColor: _is62 && _palleggiatoriSlots.length == 2
           ? Colors.lightBlue
           : Colors.white54,
@@ -354,9 +357,8 @@ class _FormationConfigScreenState extends State<FormationConfigScreen> with Orie
     final campoLibero = (!_hasLibero || _is62)
         ? null
         : LabeledCourt(
-            title: 'Cambi del libero',
-            subtitle:
-                'Conferma i due cambi del libero – ${_centraliSlots.length}/2 selezionati',
+            title: l.configCambiLibero,
+            subtitle: l.configConfermaCambiLibero(_centraliSlots.length),
             subtitleColor:
                 _centraliSlots.length == 2 ? Colors.lightBlue : Colors.white54,
             child: CourtView(

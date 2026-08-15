@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/enums.dart';
+
 /// Istanza di SharedPreferences caricata una volta in `main()` (prima di
 /// `runApp`) e iniettata con override sul `ProviderScope` — così le
 /// impostazioni si leggono in modo sincrono ovunque, senza FutureProvider.
@@ -31,22 +33,31 @@ class Impostazioni {
   /// dalle Impostazioni.
   final bool tutorialVisibile;
 
+  /// Separatore di campo e decimale dell'export CSV (default `europeo`, il
+  /// formato storico). Scelta esplicita e NON derivata dalla lingua dell'app:
+  /// a decidere è il locale del computer su cui si apre il file — vedi
+  /// `FormatoCsv`.
+  final FormatoCsv formatoCsv;
+
   const Impostazioni({
     required this.traiettorieAbilitate,
     required this.scoutAvversariAbilitato,
     required this.tutorialVisibile,
+    required this.formatoCsv,
   });
 
   Impostazioni copyWith({
     bool? traiettorieAbilitate,
     bool? scoutAvversariAbilitato,
     bool? tutorialVisibile,
+    FormatoCsv? formatoCsv,
   }) {
     return Impostazioni(
       traiettorieAbilitate: traiettorieAbilitate ?? this.traiettorieAbilitate,
       scoutAvversariAbilitato:
           scoutAvversariAbilitato ?? this.scoutAvversariAbilitato,
       tutorialVisibile: tutorialVisibile ?? this.tutorialVisibile,
+      formatoCsv: formatoCsv ?? this.formatoCsv,
     );
   }
 }
@@ -55,14 +66,22 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
   static const _kTraiettorie = 'scout.traiettorieAbilitate';
   static const _kScoutAvversari = 'scout.scoutAvversariAbilitato';
   static const _kTutorialVisibile = 'scout.tutorialVisibile';
+  static const _kFormatoCsv = 'export.formatoCsv';
 
   @override
   Impostazioni build() {
     final prefs = ref.watch(sharedPreferencesProvider);
+    final formatoSalvato = prefs.getString(_kFormatoCsv);
     return Impostazioni(
       traiettorieAbilitate: prefs.getBool(_kTraiettorie) ?? true,
       scoutAvversariAbilitato: prefs.getBool(_kScoutAvversari) ?? true,
       tutorialVisibile: prefs.getBool(_kTutorialVisibile) ?? true,
+      // Valore sconosciuto (chiave scritta da una versione futura) → default,
+      // mai un'eccezione da byName().
+      formatoCsv: FormatoCsv.values
+              .where((f) => f.name == formatoSalvato)
+              .firstOrNull ??
+          FormatoCsv.europeo,
     );
   }
 
@@ -79,6 +98,13 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
   Future<void> setTutorialVisibile(bool value) async {
     await ref.read(sharedPreferencesProvider).setBool(_kTutorialVisibile, value);
     state = state.copyWith(tutorialVisibile: value);
+  }
+
+  Future<void> setFormatoCsv(FormatoCsv value) async {
+    await ref
+        .read(sharedPreferencesProvider)
+        .setString(_kFormatoCsv, value.name);
+    state = state.copyWith(formatoCsv: value);
   }
 }
 

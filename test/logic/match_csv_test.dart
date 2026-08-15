@@ -115,7 +115,7 @@ void main() {
         azioniPerSet: const {},
         playerById: const {},
       );
-      expect(righe, [kCsvHeader]);
+      expect(righe, [csvHeader(l)]);
     });
 
     test('riga scout: nomi, voto, tipo esecuzione e traiettoria risolti', () {
@@ -162,6 +162,43 @@ void main() {
       expect(r[15], '0,100'); // decimali con la virgola
       expect(r[18], '0,500');
       expect(r[21], ''); // nessun uscente
+    });
+
+    // Formato internazionale (Impostazioni → Export): cambia SOLO il
+    // separatore decimale; testi e ordine delle colonne restano identici.
+    // Il separatore di CAMPO non si vede qui — lo applica il converter in
+    // condividiCsvPartita, non righeCsvPartita.
+    test('formato internazionale: decimali col punto', () {
+      final righe = righeCsvPartita(
+        l: l,
+        match: _match(avversario: 'Clai'),
+        team: _team(),
+        sets: [_set(100, 1)],
+        azioniPerSet: {
+          100: [
+            _azione(
+              id: 1,
+              setId: 100,
+              ordine: 1,
+              giocatoreId: 1,
+              fondamentale: Fondamentale.battuta,
+              voto: Voto.perfetto,
+              esitoPunto: EsitoPunto.puntoNostro,
+              x1: 0.1,
+              y1: 0.25,
+              x2: 0.8,
+              y2: 0.5,
+            ),
+          ],
+        },
+        playerById: players,
+        formato: FormatoCsv.internazionale,
+      );
+      final r = righe[1];
+      expect(r[15], '0.100');
+      expect(r[16], '0.250');
+      expect(r[18], '0.500');
+      expect(r[19], ''); // muro assente: cella vuota in entrambi i formati
     });
 
     test('punteggio progressivo per set e azioni ordinate per ordine', () {
@@ -309,7 +346,7 @@ void main() {
       final r = righe[1];
       expect(r[5], 'Timeout');
       for (final i in [6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 20, 21]) {
-        expect(r[i], '', reason: 'colonna $i (${kCsvHeader[i]})');
+        expect(r[i], '', reason: 'colonna $i (${csvHeader(l)[i]})');
       }
     });
   });

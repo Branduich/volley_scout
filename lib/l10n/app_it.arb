@@ -276,6 +276,30 @@
   "partitaPalestra": "Palestra / struttura",
   "partitaCrea": "Crea partita",
 
+  "partiteTitolo": "Partite",
+  "partiteVuoto": "Nessuna partita.\nPremi + per aggiungerne una.",
+  "partiteSezioneAttive": "Da iniziare / in corso",
+  "partiteSezioneTerminate": "Terminate",
+  "partiteInizia": "Inizia",
+  "partiteContinua": "Continua",
+  "partiteRiprendi": "Riprendi",
+  "partiteReport": "Report",
+  "partiteCasa": "Casa",
+  "partiteTrasferta": "Trasferta",
+  "partiteCsvFallito": "Export CSV fallito: {dettaglio}",
+  "@partiteCsvFallito": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+  "partiteDemoTooltip": "Genera partita demo",
+  "partiteDemoImportata": "Importata \"{nome}\"",
+  "@partiteDemoImportata": {
+    "placeholders": { "nome": { "type": "String" } }
+  },
+  "partiteDemoFallito": "Import demo fallito: {dettaglio}",
+  "@partiteDemoFallito": {
+    "placeholders": { "dettaglio": { "type": "String" } }
+  },
+
   "mappaApri": "Apri in mappe",
   "mappaNessunaApp": "Nessuna app di mappe trovata",
 
@@ -360,5 +384,282 @@
   "aboutNonDisponibile": "Non disponibile",
   "aboutCopia": "Copia",
   "aboutIdCopiato": "ID copiato",
-  "aboutLinkNonApribile": "Impossibile aprire il link"
+  "aboutLinkNonApribile": "Impossibile aprire il link",
+
+  "lineupConfermaFormazione": "Conferma formazione",
+  "lineupDoppioLibero": "Doppio libero",
+  "lineupGiocatori": "Giocatori",
+  "lineupAggiungi": "Aggiungi",
+
+  "configTitolo": "Configurazione formazione – {squadra}",
+  "@configTitolo": {
+    "placeholders": { "squadra": { "type": "String", "example": "Nettunia" } }
+  },
+  "configIniziaScout": "Inizia scout",
+  "configSistemaGioco": "Sistema di gioco:",
+  "configPalleggiatore": "Palleggiatore",
+  "configPalleggiatori": "Palleggiatori",
+  "configConfermaPalleggiatore": "Conferma il palleggiatore",
+  "configConfermaPalleggiatori": "Conferma i due palleggiatori – {n}/2 selezionati",
+  "@configConfermaPalleggiatori": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "configCambiLibero": "Cambi del libero",
+  "configConfermaCambiLibero": "Conferma i due cambi del libero – {n}/2 selezionati",
+  "@configConfermaCambiLibero": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+
+  "sostTitolo": "Sostituzioni",
+  "sostAvanti": "Avanti",
+  "sostInCampo": "In campo",
+  "sostIstruzioni": "Tocca chi esce, poi chi entra dalla panchina",
+  "sostCambiDaConfermare": "{n, plural, =1{1 cambio da confermare} other{{n} cambi da confermare}}",
+  "@sostCambiDaConfermare": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "sostSelezionaUscente": "Seleziona prima chi esce (tap sulla card in campo)",
+  "sostPanchina": "Panchina",
+  "sostNessunGiocatore": "Nessun giocatore disponibile",
+
+  "scoutAvversariGenerico": "Avversari",
+  "scoutAvversariMaiuscolo": "AVVERSARI",
+  "scoutServizioTitolo": "Chi serve per primo?",
+  "scoutServizioTesto": "Indica quale squadra è al servizio per iniziare il set.",
+  "scoutUndoTitolo": "Annullare l'ultima azione?",
+  "scoutSostituzioneNonValida": "Sostituzione non valida: un giocatore comparirebbe due volte in campo",
+  "scoutDrawerTitolo": "Menu",
+  "scoutCambiaCampo": "Cambia campo",
+  "scoutSostituzione": "Sostituzione",
+  "scoutLavagnaTattica": "Lavagna tattica",
+  "scoutStatisticheFondamentali": "Statistiche fondamentali",
+  "scoutTraiettorieBattute": "Traiettorie battute",
+  "scoutTraiettorieAttacco": "Traiettorie attacco",
+  "scoutMostraRuoli": "Mostra ruoli",
+  "scoutMostraNumeri": "Mostra numeri",
+  "scoutModalitaTest": "Modalità test",
+  "scoutModalitaTestSottotitolo": "Bottone visualizzazione rotazioni",
+  "scoutLogAzioni": "Log azioni",
+  "scoutLogAzioniSottotitolo": "Mostra la lista delle azioni",
+  "scoutFine": "Fine",
+  "scoutIndietro": "Indietro",
+  "scoutNessunaAzione": "Nessuna azione",
+  "scoutRotazioneCorretta": "Rotazione corretta",
+  "scoutConcludiRicezione": "CONCLUDI RICEZIONE",
+  "scoutConcludiDifesa": "CONCLUDI DIFESA",
+  "@scoutConcludiDifesa": {
+    "description": "Promemoria dopo un attacco vincente avversario: lo scambio si chiude registrando l'azione difensiva, che può essere una difesa MA ANCHE un muro — in inglese si usa quindi il generico \"action\", non \"dig\"."
+  },
+  "scoutAvversarioEtichetta": "Avversario",
+  "scoutSelezionaPAvversario": "Tocca la zona del palleggiatore avversario",
+
+  "traiettoriaTitolo": "Imposta traiettoria",
+
+  "lavagnaTitolo": "Lavagna tattica",
+  "lavagnaAnnullaTratto": "Annulla ultimo tratto",
+  "lavagnaPulisci": "Pulisci la board",
+  "lavagnaColoreTratto": "Colore tratto",
+
+  "reportSet": "Set",
+  "reportSetNumero": "Set {n}",
+  "@reportSetNumero": {
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
+  "reportPartitaIntera": "Partita intera",
+  "reportFondamentale": "Fondamentale",
+  "reportGiocatore": "Giocatore",
+  "reportGiocatori": "Giocatori",
+  "reportRuolo": "Ruolo",
+  "reportTutti": "Tutti",
+  "reportTutte": "Tutte",
+  "reportTuttiGiocatori": "Tutti i giocatori",
+  "reportTuttiRuoli": "Tutti i ruoli",
+  "reportTutteRotazioni": "Tutte le rotazioni",
+  "reportRotazioneSlot": "Rotazione {slot}",
+  "@reportRotazioneSlot": {
+    "placeholders": { "slot": { "type": "String", "example": "P1" } }
+  },
+  "reportRotazione": "Rotazione",
+  "reportAttacchi": "Attacchi",
+  "reportFiltroAttacchiTutti": "Tutti gli attacchi",
+  "reportFiltroSuRicezione": "Su ricezione",
+  "reportFiltroSuDifesa": "Su difesa",
+  "reportMurati": "Murati",
+  "reportTotale": "Totale",
+  "reportTot": "TOT",
+  "reportNessunVoto": "Nessun voto registrato.",
+  "reportNessunaAzioneFiltri": "Nessuna azione registrata per i filtri selezionati.",
+
+  "reportHeatmapRicezione": "Heatmap ricezione",
+  "reportHeatmapDifesa": "Heatmap difesa",
+  "reportTitoloAvversario": "{titolo} — avversario",
+  "@reportTitoloAvversario": {
+    "description": "Suffisso sul titolo delle viste traiettorie quando si guardano le azioni della squadra avversaria.",
+    "placeholders": { "titolo": { "type": "String", "example": "Traiettorie battute" } }
+  },
+  "reportAce": "Ace  #",
+  "reportPuntoVincente": "Punto  #",
+  "reportInCampo": "In campo",
+  "reportErroreSimbolo": "Errore  =",
+  "reportTotaleConTraiettoria": "Totale: {n}  •  con traiettoria: {conTraiettoria}",
+  "@reportTotaleConTraiettoria": {
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "conTraiettoria": { "type": "num", "format": "compact" }
+    }
+  },
+  "reportTipoDiBattuta": "Tipo di battuta",
+  "reportTipoDiAttacco": "Tipo di attacco",
+  "reportMostraHeatmap": "Mostra heatmap arrivi",
+  "reportNascondiHeatmap": "Nascondi heatmap arrivi",
+
+  "reportTitolo": "Report partita",
+  "reportNostraSquadra": "Nostra squadra",
+  "reportPunteggioFinale": "Punteggio finale",
+  "reportPunteggioPerSet": "Punteggio per set",
+  "reportNessunSet": "Nessun set giocato.",
+  "reportRiepilogoFondamentali": "Riepilogo fondamentali",
+  "reportPuntiErroriGenerici": "Punti ed errori generici",
+  "reportPuntiGenerici": "Punti generici",
+  "reportErroriGenerici": "Errori generici",
+  "reportTipologiaErroriAvversari": "Tipologia errori avversari",
+  "reportTraiettorie": "Traiettorie",
+  "reportFormazioniPartenza": "Formazioni di partenza",
+  "reportDistribuzioneAlzate": "Distribuzione alzate",
+  "reportAlzate": "Alzate",
+  "reportFiltroAlzateTutte": "Tutte",
+  "reportNessunAttaccoScope": "Nessun attacco registrato per lo scope selezionato.",
+  "reportEfficienza": "Efficienza",
+  "reportEfficienzaBattuta": "Efficienza battuta",
+  "reportEfficienzaAttacco": "Efficienza attacco",
+  "reportPositivita": "Positività",
+  "reportPositivitaRicezione": "Positività ricezione",
+  "reportErroreRicezione": "Errore ricezione",
+  "reportPositivitaDifesa": "Positività difesa",
+  "reportFormulaPositivita": "(# + +) / totale × 100",
+  "reportFormulaErrore": "(=) / totale × 100",
+  "reportFormulaEfficienza": "(# − =) / totale × 100",
+  "reportDettaglioEfficienza": "Punti: {punti} · Errori: {errori} · Totale: {totale}",
+  "@reportDettaglioEfficienza": {
+    "placeholders": {
+      "punti": { "type": "num", "format": "compact" },
+      "errori": { "type": "num", "format": "compact" },
+      "totale": { "type": "num", "format": "compact" }
+    }
+  },
+  "reportDettaglioPositive": "Positive: {n} · Totale: {totale}",
+  "@reportDettaglioPositive": {
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "totale": { "type": "num", "format": "compact" }
+    }
+  },
+  "reportDettaglioErrori": "Errori: {n} · Totale: {totale}",
+  "@reportDettaglioErrori": {
+    "placeholders": {
+      "n": { "type": "num", "format": "compact" },
+      "totale": { "type": "num", "format": "compact" }
+    }
+  },
+  "reportStatisticaPremium": "Statistica premium",
+  "reportStatisticaPremiumSblocca": "Tocca per sbloccare con Volley Stratego Premium.",
+
+  "pdfTitolo": "Report PDF",
+  "pdfErroreGenerazione": "ERRORE generazione PDF",
+  "pdfTitoloStatistiche": "Statistiche giocatori {squadra} — Partita intera",
+  "@pdfTitoloStatistiche": {
+    "placeholders": { "squadra": { "type": "String", "example": "Nettunia" } }
+  },
+  "pdfTitoloStatisticheSet": "Statistiche giocatori {squadra} — Set {n}",
+  "@pdfTitoloStatisticheSet": {
+    "placeholders": {
+      "squadra": { "type": "String", "example": "Nettunia" },
+      "n": { "type": "num", "format": "compact" }
+    }
+  },
+  "pdfColPunteggio": "Punteggio",
+  "pdfColEsito": "Esito",
+  "pdfColDurata": "Durata",
+  "pdfTotali": "TOTALI",
+  "pdfTipologiaErrori": "Tipologia errori {squadra}: {dettaglio}",
+  "@pdfTipologiaErrori": {
+    "description": "Riga sotto lo specchietto generici del PDF: conteggio dei motivi di errore avversario.",
+    "placeholders": {
+      "squadra": { "type": "String", "example": "Clai Imola" },
+      "dettaglio": { "type": "String", "example": "Battuta 4, Invasione 1" }
+    }
+  },
+  "pdfGruppoGiocatore": "GIOCATORE",
+  "pdfColNome": "Nome",
+  "pdfGruppoBattuta": "BATTUTA",
+  "pdfGruppoAttacco": "ATTACCO",
+  "pdfColMurati": "MURI",
+  "pdfGruppoAttSuRicezione": "ATT. SU RIC.",
+  "pdfGruppoAttSuDifesa": "ATT. SU DIF.",
+  "pdfGruppoRicezione": "RICEZIONE",
+  "pdfGruppoDifesa": "DIFESA",
+  "pdfGruppoMuro": "MURO",
+  "pdfGruppoPuntiErrori": "PT - ERR",
+  "pdfPaginaBattute": "Battute {squadra}",
+  "@pdfPaginaBattute": {
+    "placeholders": { "squadra": { "type": "String", "example": "Nettunia" } }
+  },
+  "pdfPaginaAttacchi": "Attacchi {squadra}",
+  "@pdfPaginaAttacchi": {
+    "placeholders": { "squadra": { "type": "String", "example": "Nettunia" } }
+  },
+  "pdfPaginaBattutePerRuolo": "Battute {squadra} — per ruolo",
+  "@pdfPaginaBattutePerRuolo": {
+    "placeholders": { "squadra": { "type": "String", "example": "Clai Imola" } }
+  },
+  "pdfPaginaAttacchiPerRotazione": "Attacchi {squadra} — per rotazione",
+  "@pdfPaginaAttacchiPerRotazione": {
+    "placeholders": { "squadra": { "type": "String", "example": "Clai Imola" } }
+  },
+  "pdfLabelAce": "Ace",
+  "pdfLabelPunto": "Pt",
+  "settingsSectionExport": "Export",
+  "settingsCsvFormatoTitle": "Formato del CSV",
+  "settingsCsvFormatoSubtitle": "Come il foglio di calcolo legge il file. Dipende dalle impostazioni regionali del computer su cui lo apri, non dalla lingua dell'app: se aprendo l'export le colonne finiscono tutte in una, cambia formato.",
+  "settingsCsvFormatoEuropeo": "Europeo (; e virgola)",
+  "settingsCsvFormatoInternazionale": "Internazionale (, e punto)",
+
+  "csvColSet": "Set",
+  "csvColOrdine": "Ordine",
+  "csvColRally": "Rally",
+  "csvColOrario": "Orario",
+  "csvColSquadra": "Squadra",
+  "csvColTipoAzione": "Tipo azione",
+  "csvColNumero": "Numero",
+  "csvColGiocatore": "Giocatore",
+  "csvColRuolo": "Ruolo",
+  "csvColFondamentale": "Fondamentale",
+  "csvColVoto": "Voto",
+  "csvColTipoEsecuzione": "Tipo esecuzione",
+  "csvColEsito": "Esito",
+  "csvColPuntiCasa": "Punti casa",
+  "csvColPuntiTrasferta": "Punti trasferta",
+  "csvColTraiettoriaX1": "Traiettoria X1",
+  "csvColTraiettoriaY1": "Traiettoria Y1",
+  "csvColTraiettoriaX2": "Traiettoria X2",
+  "csvColTraiettoriaY2": "Traiettoria Y2",
+  "csvColMuroX": "Muro X",
+  "csvColMuroY": "Muro Y",
+  "csvColEsce": "Esce",
+  "csvNoi": "Noi",
+  "csvTipoScout": "Scout",
+  "csvTipoPuntoManuale": "Punto manuale",
+  "csvTipoErroreGenerico": "Errore generico",
+  "csvTipoCambioGiocatore": "Cambio giocatore",
+  "csvTipoTimeout": "Timeout",
+  "csvTipoCorrezioneRotazione": "Correzione rotazione",
+  "csvRotazioneAvanti": "Avanti",
+  "csvRotazioneIndietro": "Indietro",
+  "csvEsitoPuntoCasa": "Punto casa",
+  "csvEsitoPuntoTrasferta": "Punto trasferta",
+
+  "pdfChipRicezione": "Ric",
+  "pdfChipDifesa": "Dif",
+  "pdfPaginaDistribuzione": "Distribuzione alzate — partita intera",
+  "pdfPaginaDistribuzioneNota": "In ogni zona: alzate dopo ricezione (Ric) e dopo difesa (Dif) — percentuali sul totale della rotazione per ciascuna fase."
 }

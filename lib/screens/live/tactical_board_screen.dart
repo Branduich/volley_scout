@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/database.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/jersey_colors.dart';
 import '../../utils/orientamento.dart';
 
@@ -106,7 +107,7 @@ class _TacticalBoardScreenState extends State<TacticalBoardScreen> with Orientam
       backgroundColor: _kBg,
       body: Column(
         children: [
-          _buildTopBar(),
+          _buildTopBar(context),
           Expanded(
             child: LayoutBuilder(
               builder: (context, c) {
@@ -229,20 +230,20 @@ class _TacticalBoardScreenState extends State<TacticalBoardScreen> with Orientam
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context) {
     return Container(
       height: 80,
       color: _kTopBarBg,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          const Positioned(
+          Positioned(
             left: 220,
             right: 112,
             bottom: 4,
             child: Text(
-              'Lavagna tattica',
-              style: TextStyle(
+              AppLocalizations.of(context).lavagnaTitolo,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
@@ -262,7 +263,8 @@ class _TacticalBoardScreenState extends State<TacticalBoardScreen> with Orientam
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () => Navigator.pop(context),
                 ),
-                for (final colore in _kColoriTratto) _buildPenna(colore),
+                for (final colore in _kColoriTratto)
+                  _buildPenna(context, colore),
               ],
             ),
           ),
@@ -276,14 +278,14 @@ class _TacticalBoardScreenState extends State<TacticalBoardScreen> with Orientam
                   icon: const Icon(Icons.undo),
                   color: Colors.white,
                   disabledColor: Colors.white24,
-                  tooltip: 'Annulla ultimo tratto',
+                  tooltip: AppLocalizations.of(context).lavagnaAnnullaTratto,
                   onPressed: _tratti.isEmpty ? null : _annullaUltimoTratto,
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
                   color: Colors.white,
                   disabledColor: Colors.white24,
-                  tooltip: 'Pulisci la board',
+                  tooltip: AppLocalizations.of(context).lavagnaPulisci,
                   onPressed: _boardVuota && _mapEquals(_chip, _kChipDefault)
                       ? null
                       : _pulisciBoard,
@@ -298,7 +300,7 @@ class _TacticalBoardScreenState extends State<TacticalBoardScreen> with Orientam
 
   // Penna colore in header: icona pennello tinta col colore, cerchio di
   // sfondo bianco tenue quando è quella selezionata.
-  Widget _buildPenna(Color colore) {
+  Widget _buildPenna(BuildContext context, Color colore) {
     final selezionata = _coloreTratto == colore;
     return Container(
       decoration: BoxDecoration(
@@ -307,7 +309,7 @@ class _TacticalBoardScreenState extends State<TacticalBoardScreen> with Orientam
       ),
       child: IconButton(
         icon: Icon(Icons.create, color: colore),
-        tooltip: 'Colore tratto',
+        tooltip: AppLocalizations.of(context).lavagnaColoreTratto,
         onPressed: () => setState(() => _coloreTratto = colore),
       ),
     );

@@ -150,7 +150,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       pw.MultiPage(
         pageFormat: format,
         build: (context) => [
-          pw.Text('ERRORE generazione PDF',
+          pw.Text(AppLocalizations.of(this.context).pdfErroreGenerazione,
               style:
                   pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 8),
@@ -233,14 +233,14 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
     // ridotto alle azioni di quel set, intestazione "Set N").
     // Nomi per i titoli delle pagine statistiche (nostra squadra + avversario,
     // 'Avversari' se non impostato — stessa convenzione di ScoutScreen/report).
-    final nomeNostro = team?.nome ?? 'Nostra squadra';
-    final avv = match.avversario?.trim();
-    final nomeAvv = (avv != null && avv.isNotEmpty) ? avv : 'Avversari';
+    // Getter sincroni della State (niente BuildContext dopo un await).
+    final nomeNostro = _nomeNostro(team);
+    final nomeAvv = _nomeAvversario;
     if (stats.isNotEmpty) {
       doc.addPage(_buildPaginaStatistiche(
         format: format,
         logo: logo,
-        titolo: 'Statistiche giocatori $nomeNostro — Partita intera',
+        titolo: _l.pdfTitoloStatistiche(nomeNostro),
         stats: stats,
         azioniGenerici: azioniPerSet.values,
         team: team,
@@ -253,7 +253,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       doc.addPage(_buildPaginaStatistiche(
         format: format,
         logo: logo,
-        titolo: 'Statistiche giocatori $nomeNostro — Set ${set.numero}',
+        titolo: _l.pdfTitoloStatisticheSet(nomeNostro, set.numero),
         stats: statsSet,
         azioniGenerici: [azioniSet],
         team: team,
@@ -275,7 +275,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       doc.addPage(_buildPaginaStatistiche(
         format: format,
         logo: logo,
-        titolo: 'Statistiche giocatori $nomeAvv — Partita intera',
+        titolo: _l.pdfTitoloStatistiche(nomeAvv),
         stats: statsAvv,
         azioniGenerici: const [],
         team: team,
@@ -288,7 +288,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         doc.addPage(_buildPaginaStatistiche(
           format: format,
           logo: logo,
-          titolo: 'Statistiche giocatori $nomeAvv — Set ${set.numero}',
+          titolo: _l.pdfTitoloStatisticheSet(nomeAvv, set.numero),
           stats: statsSet,
           azioniGenerici: const [],
           team: team,
@@ -303,15 +303,15 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       _aggiungiPagineTraiettorieAvversario(
         doc, format, logo, nomeAvv, azioniPerSet, slotAvvPerAzione,
         fondamentale: Fondamentale.battuta,
-        titoloPagina: 'Battute $nomeAvv — per ruolo',
-        labelVincente: 'Ace',
+        titoloPagina: _l.pdfPaginaBattutePerRuolo(nomeAvv),
+        labelVincente: _l.pdfLabelAce,
         perRuolo: true,
       );
       _aggiungiPagineTraiettorieAvversario(
         doc, format, logo, nomeAvv, azioniPerSet, slotAvvPerAzione,
         fondamentale: Fondamentale.attacco,
-        titoloPagina: 'Attacchi $nomeAvv — per rotazione',
-        labelVincente: 'Pt',
+        titoloPagina: _l.pdfPaginaAttacchiPerRotazione(nomeAvv),
+        labelVincente: _l.pdfLabelPunto,
         perRuolo: false,
       );
     }
@@ -377,13 +377,12 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         header: (context) => _buildHeaderPagina(context, logo),
         build: (context) => [
           pw.Text(
-            'Distribuzione alzate — partita intera',
+            _l.pdfPaginaDistribuzione,
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 2),
           pw.Text(
-            'In ogni zona: alzate dopo ricezione (Ric) e dopo difesa (Dif) — '
-            'percentuali sul totale della rotazione per ciascuna fase.',
+            _l.pdfPaginaDistribuzioneNota,
             style: const pw.TextStyle(fontSize: 8),
           ),
           pw.SizedBox(height: 8),
@@ -464,9 +463,9 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         top: riga * ch + (ch - altezzaCard) / 2,
         child: pw.Column(
           children: [
-            chip('Ric', r, totRic, nero: true),
+            chip(_l.pdfChipRicezione, r, totRic, nero: true),
             pw.SizedBox(height: 3),
-            chip('Dif', d, totDif, nero: false),
+            chip(_l.pdfChipDifesa, d, totDif, nero: false),
           ],
         ),
       );
@@ -481,7 +480,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'Rotazione P$rotazione',
+                _l.reportRotazioneSlot('P$rotazione'),
                 style:
                     pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               ),
@@ -536,7 +535,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         if (mostraGenerici) ...[
           pw.SizedBox(height: 16),
           pw.Text(
-            'Punti ed errori generici',
+            _l.reportPuntiErroriGenerici,
             style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 4),
@@ -587,10 +586,17 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
     final avversario = widget.match.avversario?.trim();
     return (avversario != null && avversario.isNotEmpty)
         ? avversario
-        : 'Avversari';
+        : AppLocalizations.of(context).scoutAvversariGenerico;
   }
 
-  String _nomeNostro(Team? team) => team?.nome ?? 'Nostra squadra';
+  String _nomeNostro(Team? team) =>
+      team?.nome ?? AppLocalizations.of(context).reportNostraSquadra;
+
+  // Scorciatoia alle stringhe tradotte. Getter SINCRONO: il PDF si costruisce
+  // in metodi async, e usare `context` direttamente dopo un await farebbe
+  // scattare use_build_context_synchronously (il widget è comunque montato:
+  // la generazione parte da PdfPreview, che vive in questa schermata).
+  AppLocalizations get _l => AppLocalizations.of(context);
 
   // ── Sezioni del documento (una funzione per sezione: i prossimi pezzi
   // aggiungono funzioni qui senza toccare l'impianto) ─────────────────────
@@ -675,7 +681,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
 
   pw.Widget _buildTabellaSet(List<_RigaSetPdf> righeSet) {
     if (righeSet.isEmpty) {
-      return pw.Text('Nessun set giocato.',
+      return pw.Text(_l.reportNessunSet,
           style: const pw.TextStyle(fontSize: 12));
     }
     pw.Widget cella(String testo,
@@ -724,16 +730,16 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
-            cella('Set', bold: true, align: pw.TextAlign.left),
-            cella('Punteggio', bold: true),
-            cella('Esito', bold: true),
-            cella('Durata', bold: true),
+            cella(_l.reportSet, bold: true, align: pw.TextAlign.left),
+            cella(_l.pdfColPunteggio, bold: true),
+            cella(_l.pdfColEsito, bold: true),
+            cella(_l.pdfColDurata, bold: true),
           ],
         ),
         for (final riga in righeSet)
           pw.TableRow(
             children: [
-              cella('Set ${riga.numero}', align: pw.TextAlign.left),
+              cella(_l.reportSetNumero(riga.numero), align: pw.TextAlign.left),
               cella('${riga.nostro} - ${riga.avversario}'),
               cellaEsito(riga.nostro, riga.avversario),
               cella(riga.durata == null ? '—' : _formatDurata(riga.durata!)),
@@ -744,7 +750,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey200),
           children: [
-            cella('Totale', bold: true, align: pw.TextAlign.left),
+            cella(_l.reportTotale, bold: true, align: pw.TextAlign.left),
             cella('$puntiNostri - $puntiAvversari', bold: true),
             cellaEsito(setVintiNostri, setVintiAvversario),
             cella(_formatDurata(durataTotale), bold: true),
@@ -870,7 +876,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
           ]
         : <String>[
             p == null ? '' : '${p.numero}',
-            p == null ? 'TOTALI' : p.cognome,
+            p == null ? l.pdfTotali : p.cognome,
             p == null ? '' : siglaRuoloBreve(p.ruolo, l),
           ];
     return [
@@ -928,36 +934,39 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
     // Gruppi di colonne: label gruppo, colonne (header, larghezza), colore
     // (palette del foglio Google Sheets di riferimento).
     final gruppi = <(String, List<(String, double)>, PdfColor)>[
-      ('GIOCATORE', const [('#', 18.0), ('Nome', 56.0), ('R', 16.0)],
-          const PdfColor.fromInt(0xFFDD7E6B)),
       (
-        'BATTUTA',
+        _l.pdfGruppoGiocatore,
+        [('#', 18.0), (_l.pdfColNome, 56.0), ('R', 16.0)],
+        const PdfColor.fromInt(0xFFDD7E6B)
+      ),
+      (
+        _l.pdfGruppoBattuta,
         const [('TOT', wTot), ('PT', wPt), ('ER', wEr), ('EF%', wEff)],
         const PdfColor.fromInt(0xFFFCE5CD)
       ),
       (
-        'ATTACCO',
-        const [
+        _l.pdfGruppoAttacco,
+        [
           ('TOT', wTot),
           ('PT', wPt),
           ('ER', wEr),
-          ('MURI', wMuri),
+          (_l.pdfColMurati, wMuri),
           ('EF%', wEff),
         ],
         const PdfColor.fromInt(0xFFD9EAD3)
       ),
       (
-        'ATT. SU RIC.',
+        _l.pdfGruppoAttSuRicezione,
         const [('TOT', wTot), ('PT', wPt), ('ER', wEr), ('EF%', wEff)],
         const PdfColor.fromInt(0xFFEBF3E8)
       ),
       (
-        'ATT. SU DIF.',
+        _l.pdfGruppoAttSuDifesa,
         const [('TOT', wTot), ('PT', wPt), ('ER', wEr), ('EF%', wEff)],
         const PdfColor.fromInt(0xFFEBF3E8)
       ),
       (
-        'RICEZIONE',
+        _l.pdfGruppoRicezione,
         const [
           ('TOT', wTot),
           ('++', wPp),
@@ -968,7 +977,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         const PdfColor.fromInt(0xFFC9DAF8)
       ),
       (
-        'DIFESA',
+        _l.pdfGruppoDifesa,
         const [
           ('TOT', wTot),
           ('++', wPp),
@@ -979,12 +988,12 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         const PdfColor.fromInt(0xFF9FC5E8)
       ),
       (
-        'MURO',
+        _l.pdfGruppoMuro,
         const [('TOT', wTot), ('PT', wPt)],
         const PdfColor.fromInt(0xFFEAD1DC)
       ),
       (
-        'PT - ERR',
+        _l.pdfGruppoPuntiErrori,
         const [('PT', wPt), ('ER', wEr)],
         const PdfColor.fromInt(0xFFD5A6BD)
       ),
@@ -1156,12 +1165,12 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
                 ],
               ),
               pw.TableRow(children: [
-                cella('Punti generici', bold: true),
+                cella(_l.reportPuntiGenerici, bold: true),
                 cella('$puntiNostri'),
                 cella('$puntiAvv'),
               ]),
               pw.TableRow(children: [
-                cella('Errori generici', bold: true),
+                cella(_l.reportErroriGenerici, bold: true),
                 cella('$erroriNostri'),
                 cella('$erroriAvv'),
               ]),
@@ -1171,11 +1180,11 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         if (erroriAvv > 0) ...[
           pw.SizedBox(height: 4),
           pw.Text(
-            'Tipologia errori $_nomeAvversario: ${[
+            _l.pdfTipologiaErrori(_nomeAvversario, [
               for (final m in MotivoErrore.values)
                 if ((motivi[m] ?? 0) > 0)
                   '${motivoErroreLabel(m, AppLocalizations.of(context))} ${motivi[m]}',
-            ].join(' · ')}',
+            ].join(' · ')),
             style: const pw.TextStyle(fontSize: 8),
           ),
         ],
@@ -1235,7 +1244,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
                 titolo: '${battitori[j].numero}  ${battitori[j].cognome}',
                 azioni: perGiocatore[battitori[j].id]!,
                 larghezza: larghezzaCella,
-                labelVincente: 'Ace',
+                labelVincente: _l.pdfLabelAce,
               ),
             ],
           ],
@@ -1250,7 +1259,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         header: (context) => _buildHeaderPagina(context, logo),
         build: (context) => [
           pw.Text(
-            'Battute ${_nomeNostro(team)}',
+            _l.pdfPaginaBattute(_nomeNostro(team)),
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
@@ -1321,7 +1330,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
                     '${chiavi[j].$2 == 0 ? '' : ' — P${chiavi[j].$2}'}',
                 azioni: perChiave[chiavi[j]]!,
                 larghezza: larghezzaCella,
-                labelVincente: 'Pt',
+                labelVincente: _l.pdfLabelPunto,
               ),
             ],
           ],
@@ -1336,7 +1345,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         header: (context) => _buildHeaderPagina(context, logo),
         build: (context) => [
           pw.Text(
-            'Attacchi ${_nomeNostro(team)}',
+            _l.pdfPaginaAttacchi(_nomeNostro(team)),
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
@@ -1397,7 +1406,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       ..sort((a, b) => ordine(a).compareTo(ordine(b)));
     String titoloCella(String k) => perRuolo
         ? aliasRuoloAvversario(k, AppLocalizations.of(context))
-        : 'Rotazione $k';
+        : _l.reportRotazioneSlot(k);
 
     const gap = 12.0;
     const larghezzaCella = (802 - 2 * gap) / 3;
@@ -1679,7 +1688,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         header: (context) => _buildHeaderPagina(context, logo),
         build: (context) => [
           pw.Text(
-            'Formazioni di partenza',
+            _l.reportFormazioniPartenza,
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
@@ -1882,7 +1891,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Report PDF')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).pdfTitolo)),
       body: PdfPreview(
         build: _buildPdf,
         // A4 orizzontale, fisso: i contenuti (campi traiettorie/formazioni,

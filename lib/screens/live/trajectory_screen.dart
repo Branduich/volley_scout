@@ -262,7 +262,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
     final l = AppLocalizations.of(context);
     final testo = giocatore != null
         ? '${giocatore.numero} - ${giocatore.cognome} - ${fondamentaleLabel(widget.fondamentale, l)}'
-        : 'Avversario ${widget.etichettaAvversario} - ${fondamentaleLabel(widget.fondamentale, l)}';
+        : '${l.scoutAvversarioEtichetta} ${widget.etichettaAvversario} - ${fondamentaleLabel(widget.fondamentale, l)}';
     final voto = widget.voto.simbolo;
     final colore = CourtStyle.votoColor(widget.voto);
     return Container(
@@ -388,6 +388,7 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _kBg,
       body: Column(
@@ -402,13 +403,13 @@ class _TrajectoryScreenState extends State<TrajectoryScreen> {
             child: Stack(
               alignment: Alignment.bottomCenter,
               children: [
-                const Positioned(
+                Positioned(
                   left: 56,
                   right: 56,
                   bottom: 4,
                   child: Text(
-                    'Imposta traiettoria',
-                    style: TextStyle(
+                    l.traiettoriaTitolo,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,

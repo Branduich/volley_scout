@@ -25,6 +25,15 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   dedicata). Se `true`, all'avvio di un nuovo set `ScoutScreen` chiede di
   posizionare il palleggiatore avversario sul campo; se `false` lo scout resta
   a una sola squadra (comportamento originale, zero token avversari).
+- **`formatoCsv`** (enum `FormatoCsv`, default `europeo`, chiave
+  `export.formatoCsv`): separatore di campo e decimale dell'export CSV —
+  `europeo` = `;` + virgola (formato storico, Excel italiano lo apre al
+  doppio clic), `internazionale` = `,` + punto. **Non è legato alla lingua
+  dell'app**, e non deve diventarlo: a decidere come si legge un CSV sono le
+  impostazioni regionali del computer su cui lo si apre, che possono non
+  coincidere con la lingua dell'app (app in inglese su un PC italiano). Per
+  questo è una voce esplicita in Impostazioni → Export invece che un
+  automatismo. Il BOM UTF-8 c'è sempre, in entrambi i formati.
 - **Pensata per il gating premium futuro** (es. traiettorie solo premium):
   il resto del codice legge solo `impostazioniProvider`, il gating potrà
   limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.
@@ -61,12 +70,45 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
   categorie, fine set, form giocatore, form partita, **form squadra**, setup
   squadre, selezione squadra, paywall, informazioni.
 
+  **Completate anche** (2026-08-15): `matches_screen` (chiavi `partite*`) e
+  **tutto lo scout live** — `lineup_screen` (`lineup*`),
+  `formation_config_screen` (`config*`), `sostituzione_screen` (`sost*`),
+  `scout_screen` (`scout*`), `trajectory_screen` (`traiettoria*`) e
+  `tactical_board_screen` (`lavagna*`, prima mai iniziata).
+
+  **Completati anche i report** (2026-08-15): `match_report_screen`,
+  `match_pdf_screen`, `trajectory_report_screen`, `player_stats_screen` —
+  chiavi `report*` (condivise fra le quattro: filtri Set/Giocatore/Ruolo/
+  Rotazione, titoli sezione, formule e dettagli delle card) e `pdf*` (solo
+  documento: titoli pagina, intestazioni della mega tabella, chip Ric/Dif).
+  Gli enum `_FiltroAttacco`/`_FiltroAlzate` non hanno più un `label` fisso nel
+  costruttore: ora è un metodo `label(AppLocalizations l)`.
+  Le **sigle di colonna** della mega tabella PDF (TOT, PT, ER, EF%, POS%, ++)
+  restano invariate in ogni lingua: le larghezze sono fisse e tradurle
+  sfonderebbe la tabella. Tradotti solo i titoli di gruppo e "Nome"/"MURI".
+  In `match_pdf_screen` le stringhe si leggono dal getter sincrono `_l`
+  (`AppLocalizations.of(context)`): il PDF si costruisce in metodi `async` e
+  usare `context` direttamente farebbe scattare
+  `use_build_context_synchronously`.
+
   **Ancora PARZIALI** — usano `AppLocalizations` per alcune stringhe ma ne
-  hanno altre hardcoded: `match_report_screen` (~43), `matches_screen` (10),
-  `trajectory_report_screen` e `player_stats_screen` (6),
-  `sostituzione_screen`/`scout_screen`/`lineup_screen` (4),
-  `match_pdf_screen` (3), `formation_config_screen` (2),
-  `debug_paint_toggle` (1). **Mai iniziata**: `tactical_board_screen`.
+  hanno altre hardcoded: `debug_paint_toggle` (1), `campionato_screen` (1).
+  Fuori dalle schermate: l'header del CSV (`kCsvHeader` in
+  `data/match_csv_exporter.dart`, 22 colonne) è una `const List<String>`
+  italiana — i VALORI passano già da `enum_l10n`, l'intestazione no; è usata
+  anche dai test, quindi localizzarla vuol dire toccare `match_csv_test`.
+
+  **Tutorial interattivo — tutto da tradurre** (aggiunto 2026-08-01/03): è il
+  blocco di testo più corposo rimasto. I 17 passi stanno in
+  `lib/tutorial/tutorial_steps.dart` (titolo + testo, più `testoTraiettoria`
+  per le note su `TrajectoryScreen`); il contorno è sparso fra
+  `tutorial_overlay.dart` ("Avanti"/"Termina"/"Apri la guida"/"Scrivici",
+  tooltip "Esci dal tutorial", "Impossibile aprire …"), `main.dart` (la voce
+  "Tutorial" del menu) e `settings_screen.dart` (toggle "Mostra il tutorial nel
+  menu"). Sono hardcoded in italiano di proposito: si spostano in ARB (prefisso
+  `tutorial*`) **quando la sequenza dei passi è stabile**, per non tradurre due
+  volte testi ancora in revisione. Da NON tradurre: l'URL del sito e
+  `volleystratego@gmail.com` nella scheda finale.
 
   **Come contarle davvero** — NON usare `grep -L AppLocalizations`: dice solo
   se il file *importa* la classe, e una schermata con una riga tradotta

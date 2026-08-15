@@ -130,14 +130,15 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton(
               onPressed: _canConfirm ? _onConferma : null,
-              child: const Text('Conferma formazione'),
+              child: Text(AppLocalizations.of(context).lineupConfermaFormazione),
             ),
           ),
         ],
       ),
       body: playersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+        error: (e, _) =>
+            Center(child: Text(AppLocalizations.of(context).comuneErrore('$e'))),
         data: (players) => Row(
           children: [
             Expanded(flex: courtFlex, child: _buildCourtSection()),
@@ -207,9 +208,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
             if (!_doppiLibero) _assignments.remove('L2');
           }),
         ),
-        const Text(
-          'Doppio libero',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context).lineupDoppioLibero,
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 15,
@@ -276,7 +277,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
           height: cellHeight,
           child: _buildSlot(
             'L1',
-            phaseLabel: _doppiLibero ? 'Ricezione' : null,
+            phaseLabel: _doppiLibero
+                ? AppLocalizations.of(context).fondamentaleRicezione
+                : null,
           ),
         ),
         if (_doppiLibero) ...[
@@ -284,7 +287,10 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
           SizedBox(
             width: cellWidth,
             height: cellHeight,
-            child: _buildSlot('L2', phaseLabel: 'Difesa'),
+            child: _buildSlot(
+              'L2',
+              phaseLabel: AppLocalizations.of(context).fondamentaleDifesa,
+            ),
           ),
         ],
       ],
@@ -464,7 +470,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
             child: Row(
               children: [
                 Text(
-                  'Giocatori',
+                  AppLocalizations.of(context).lineupGiocatori,
                   style: Theme.of(
                     context,
                   ).textTheme.titleMedium?.copyWith(color: Colors.white),
@@ -478,7 +484,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
                     ),
                   ),
                   icon: const Icon(Icons.person_add),
-                  label: const Text('Aggiungi'),
+                  label: Text(AppLocalizations.of(context).lineupAggiungi),
                 ),
               ],
             ),
@@ -558,7 +564,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
                               if (!assigned)
                                 IconButton(
                                   icon: Icon(Icons.edit, size: editIconSize),
-                                  tooltip: 'Modifica giocatore',
+                                  tooltip: AppLocalizations.of(
+                                    context,
+                                  ).giocatoreModificaTitolo,
                                   onPressed: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(

@@ -112,3 +112,10 @@ String aliasRuoloAvversario(String code, AppLocalizations l) => switch (code) {
       'C2' => '${l.ruoloCentrale} 2',
       _ => code,
     };
+
+/// Etichetta del formato CSV nella pagina Impostazioni. Il separatore mostrato
+/// fra parentesi è quello reale del file (campi e decimali).
+String formatoCsvLabel(FormatoCsv f, AppLocalizations l) => switch (f) {
+      FormatoCsv.europeo => l.settingsCsvFormatoEuropeo,
+      FormatoCsv.internazionale => l.settingsCsvFormatoInternazionale,
+    };

@@ -21,12 +21,15 @@ const _kSlots = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 // ricezione nello stesso scambio (idAttacchiSuRicezione), il resto "su
 // difesa".
 enum _FiltroAttacco {
-  tutti('Tutti gli attacchi'),
-  suRicezione('Su ricezione'),
-  suDifesa('Su difesa');
+  tutti,
+  suRicezione,
+  suDifesa;
 
-  final String label;
-  const _FiltroAttacco(this.label);
+  String label(AppLocalizations l) => switch (this) {
+    _FiltroAttacco.tutti => l.reportFiltroAttacchiTutti,
+    _FiltroAttacco.suRicezione => l.reportFiltroSuRicezione,
+    _FiltroAttacco.suDifesa => l.reportFiltroSuDifesa,
+  };
 }
 
 // Stessa logica di _ruotata in ricalcola_stato.dart (privata lì) — chi era
@@ -71,21 +74,21 @@ class TrajectoryReportScreen extends ConsumerStatefulWidget {
 
   bool get _avversario => squadra == Squadra.avversari;
 
-  String get _title {
+  String _title(AppLocalizations l) {
     if (modalitaHeatmap) {
       return fondamentale == Fondamentale.battuta
-          ? 'Heatmap ricezione'
-          : 'Heatmap difesa';
+          ? l.reportHeatmapRicezione
+          : l.reportHeatmapDifesa;
     }
     final base = fondamentale == Fondamentale.battuta
-        ? 'Traiettorie battute'
-        : 'Traiettorie attacco';
-    return _avversario ? '$base — avversario' : base;
+        ? l.scoutTraiettorieBattute
+        : l.scoutTraiettorieAttacco;
+    return _avversario ? l.reportTitoloAvversario(base) : base;
   }
 
   // Etichetta per la cella "vincente" della mini-tabella.
-  String get _labelVincente =>
-      fondamentale == Fondamentale.battuta ? 'Ace  #' : 'Punto  #';
+  String _labelVincente(AppLocalizations l) =>
+      fondamentale == Fondamentale.battuta ? l.reportAce : l.reportPuntoVincente;
 
   @override
   ConsumerState<TrajectoryReportScreen> createState() =>
@@ -391,7 +394,7 @@ class _TrajectoryReportScreenState
             right: 56,
             bottom: 4,
             child: Text(
-              widget._title,
+              widget._title(AppLocalizations.of(context)),
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -440,10 +443,13 @@ class _TrajectoryReportScreenState
             child: _buildDropdown<MatchSet?>(
               value: _setFiltro,
               items: [
-                const DropdownMenuItem(
-                    value: null, child: Text('Partita intera')),
+                DropdownMenuItem(
+                    value: null,
+                    child: Text(AppLocalizations.of(context).reportPartitaIntera)),
                 ..._sets.map((s) => DropdownMenuItem(
-                    value: s, child: Text('Set ${s.numero}'))),
+                    value: s,
+                    child: Text(
+                        AppLocalizations.of(context).reportSetNumero(s.numero)))),
               ],
               onChanged: (v) {
                 setState(() {
@@ -476,10 +482,14 @@ class _TrajectoryReportScreenState
               child: _buildDropdown<String?>(
                 value: _rotazioneFiltro,
                 items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('Tutte le rotazioni')),
+                  DropdownMenuItem(
+                      value: null,
+                      child: Text(
+                          AppLocalizations.of(context).reportTutteRotazioni)),
                   ..._kSlots.map((s) => DropdownMenuItem(
-                      value: s, child: Text('Rotazione $s'))),
+                      value: s,
+                      child: Text(
+                          AppLocalizations.of(context).reportRotazioneSlot(s)))),
                 ],
                 onChanged: (v) {
                   setState(() {
@@ -497,7 +507,9 @@ class _TrajectoryReportScreenState
                 value: _filtroAttacco,
                 items: [
                   for (final f in _FiltroAttacco.values)
-                    DropdownMenuItem(value: f, child: Text(f.label)),
+                    DropdownMenuItem(
+                        value: f,
+                        child: Text(f.label(AppLocalizations.of(context)))),
                 ],
                 onChanged: (v) {
                   setState(() {
@@ -515,8 +527,10 @@ class _TrajectoryReportScreenState
                 ? _buildDropdown<String?>(
                     value: _ruoloFiltro,
                     items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Tutti i ruoli')),
+                      DropdownMenuItem(
+                          value: null,
+                          child:
+                              Text(AppLocalizations.of(context).reportTuttiRuoli)),
                       ..._ruoliFiltrati.map((r) => DropdownMenuItem(
                           value: r,
                           child: Text(
@@ -527,8 +541,10 @@ class _TrajectoryReportScreenState
                 : _buildDropdown<Player?>(
                     value: _playerFiltro,
                     items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Tutti i giocatori')),
+                      DropdownMenuItem(
+                          value: null,
+                          child: Text(
+                              AppLocalizations.of(context).reportTuttiGiocatori)),
                       ..._giocatoriFiltrati.map((p) => DropdownMenuItem(
                           value: p,
                           child: Text('${p.numero}  ${p.cognome}'))),
@@ -543,8 +559,8 @@ class _TrajectoryReportScreenState
             const SizedBox(width: 8),
             IconButton(
               tooltip: _mostraHeatmap
-                  ? 'Nascondi heatmap arrivi'
-                  : 'Mostra heatmap arrivi',
+                  ? AppLocalizations.of(context).reportNascondiHeatmap
+                  : AppLocalizations.of(context).reportMostraHeatmap,
               icon: Icon(
                 Icons.local_fire_department,
                 color:
@@ -597,12 +613,12 @@ class _TrajectoryReportScreenState
     // per il messaggio "vuoto" aggiungo 8px in cima per riprodurre il vecchio
     // scostamento a +24, la mini-tabella resta a +16.
     final Widget footer = tutte.isEmpty
-        ? const Padding(
-            padding: EdgeInsets.only(top: 8),
+        ? Padding(
+            padding: const EdgeInsets.only(top: 8),
             child: Center(
               child: Text(
-                'Nessuna azione registrata per i filtri selezionati.',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
+                AppLocalizations.of(context).reportNessunaAzioneFiltri,
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -690,7 +706,9 @@ class _TrajectoryReportScreenState
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          isBattuta ? 'Tipo di battuta' : 'Tipo di attacco',
+          isBattuta
+              ? AppLocalizations.of(context).reportTipoDiBattuta
+              : AppLocalizations.of(context).reportTipoDiAttacco,
           style: const TextStyle(
             color: Colors.white70,
             fontSize: 12,
@@ -755,16 +773,30 @@ class _TrajectoryReportScreenState
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildStatCell(widget._labelVincente, vincenti, AppColors.success),
+            _buildStatCell(
+              widget._labelVincente(AppLocalizations.of(context)),
+              vincenti,
+              AppColors.success,
+            ),
             const SizedBox(width: 12),
-            _buildStatCell('In campo', normali, Colors.grey.shade600),
+            _buildStatCell(
+              AppLocalizations.of(context).reportInCampo,
+              normali,
+              Colors.grey.shade600,
+            ),
             const SizedBox(width: 12),
-            _buildStatCell('Errore  =', errori, Colors.red),
+            _buildStatCell(
+              AppLocalizations.of(context).reportErroreSimbolo,
+              errori,
+              Colors.red,
+            ),
           ],
         ),
         const SizedBox(height: 6),
         Text(
-          'Totale: ${tutte.length}  •  con traiettoria: $conTraj',
+          AppLocalizations.of(
+            context,
+          ).reportTotaleConTraiettoria(tutte.length, conTraj),
           style: const TextStyle(color: Colors.white, fontSize: 13),
           textAlign: TextAlign.center,
         ),

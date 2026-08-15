@@ -389,6 +389,22 @@ docs/samples/     (fixture reali dell'export calendario FIPAV, usate dai test
 
 test/
 ├── widget_test.dart       (smoke test HomeScreen)
+├── layout_dimensioni_test.dart (rete di sicurezza sui layout dipendenti dalla
+│                           LARGHEZZA: monta Home, Campionato vuoto,
+│                           MatchesScreen con partita terminata (caso peggiore:
+│                           CSV+PDF+Report), TeamFormScreen in modifica e
+│                           ScoutScreen a tre dimensioni fisse — telefono
+│                           verticale/orizzontale e tablet — e pretende
+│                           `tester.takeException() == null`, cioè nessun
+│                           `RenderFlex overflowed` né `RenderBox was not laid
+│                           out`. **MAI ESEGUITO** (2026-08-04): scritto e
+│                           `analyze`-pulito, ma `flutter test` andava in crash
+│                           per un lock su build/native_assets/windows/
+│                           sqlite3.dll (processo `flutter_tester` appeso) —
+│                           da lanciare, un fallimento può benissimo essere
+│                           reale. Lo scenario di ScoutScreen riusa
+│                           `TutorialSandbox.semina()`. Vedi la convenzione 2
+│                           sulle barre di sistema per il contesto)
 ├── data/
 │   ├── xls_reader_test.dart       (leggiXls() sulla fixture GareNettunia.xls:
 │   │                               griglia, header, celle, rifiuto non-Excel)

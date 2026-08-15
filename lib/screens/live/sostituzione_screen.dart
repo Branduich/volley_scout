@@ -189,9 +189,9 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
     final slot = _selectedSlot;
     if (slot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Seleziona prima chi esce (tap sulla card in campo)'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).sostSelezionaUscente),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -239,6 +239,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final cambi = _slotCambiati.length + _liberiCambiati.length;
     // Stessa impaginazione responsive di LineupScreen: su smartphone
     // (altezza bassa) il campo si restringe (flex 5:5) e la panchina prende
@@ -252,13 +253,13 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
       appBar: AppBar(
         backgroundColor: _kBg,
         foregroundColor: Colors.white,
-        title: const Text('Sostituzioni'),
+        title: Text(l.sostTitolo),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton(
               onPressed: _onAvanti,
-              child: const Text('Avanti'),
+              child: Text(l.sostAvanti),
             ),
           ),
         ],
@@ -287,11 +288,10 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       LabeledCourt(
-                        title: 'In campo',
+                        title: l.sostInCampo,
                         subtitle: cambi == 0
-                            ? 'Tocca chi esce, poi chi entra dalla panchina'
-                            : '$cambi cambi${cambi == 1 ? "o" : ""} '
-                                  'da confermare',
+                            ? l.sostIstruzioni
+                            : l.sostCambiDaConfermare(cambi),
                         subtitleColor: cambi == 0
                             ? Colors.white54
                             : Colors.lightBlue,
@@ -331,11 +331,11 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(8, 12, 16, 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 12, 16, 8),
                   child: Text(
-                    'Panchina',
-                    style: TextStyle(
+                    l.sostPanchina,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -347,11 +347,11 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
                     padding: const EdgeInsets.fromLTRB(8, 0, 16, 16),
                     children: [
                       if (_panchinaVisibile.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
                           child: Text(
-                            'Nessun giocatore disponibile',
-                            style: TextStyle(color: Colors.white54),
+                            l.sostNessunGiocatore,
+                            style: const TextStyle(color: Colors.white54),
                           ),
                         ),
                       for (final voce in _panchinaVisibile) ...[

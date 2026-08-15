@@ -51,12 +51,15 @@ typedef _Formazione = ({
 /// una ricezione o solo dopo difesa — stessa partizione binaria di
 /// `idAttacchiSuRicezione` usata ovunque (PDF compreso).
 enum _FiltroAlzate {
-  tutte('Tutte'),
-  suRicezione('Su ricezione'),
-  suDifesa('Su difesa');
+  tutte,
+  suRicezione,
+  suDifesa;
 
-  final String label;
-  const _FiltroAlzate(this.label);
+  String label(AppLocalizations l) => switch (this) {
+    _FiltroAlzate.tutte => l.reportFiltroAlzateTutte,
+    _FiltroAlzate.suRicezione => l.reportFiltroSuRicezione,
+    _FiltroAlzate.suDifesa => l.reportFiltroSuDifesa,
+  };
 }
 
 // Ordine/etichette delle righe del riepilogo fondamentali, fissato dallo
@@ -630,9 +633,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
   Widget build(BuildContext context) {
     final sets = _sets;
     final righeSet = _righeSet;
+    final l = AppLocalizations.of(context);
     if (sets == null || righeSet == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Report partita')),
+        appBar: AppBar(title: Text(l.reportTitolo)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -640,11 +644,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
     final avversario = widget.match.avversario?.trim();
     final nomeAvversario = (avversario != null && avversario.isNotEmpty)
         ? avversario
-        : 'Avversari';
+        : l.scoutAvversariGenerico;
     final dt = widget.match.dataOra;
     final dataOraStr =
         '${_pad(dt.day)}/${_pad(dt.month)}/${dt.year} ${_pad(dt.hour)}:${_pad(dt.minute)}';
-    final nomeNostro = _team?.nome ?? 'Nostra squadra';
+    final nomeNostro = _team?.nome ?? l.reportNostraSquadra;
 
     var setVintiNostri = 0;
     var setVintiAvversario = 0;
@@ -661,7 +665,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Report partita'),
+        title: Text(l.reportTitolo),
         actions: const [DebugPaintToggle()],
       ),
       body: SingleChildScrollView(
@@ -690,7 +694,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 ),
               const SizedBox(height: 32),
               Text(
-                'Punteggio finale',
+                l.reportPunteggioFinale,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
@@ -743,12 +747,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               ),
               const SizedBox(height: 32),
               Text(
-                'Punteggio per set',
+                l.reportPunteggioPerSet,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               if (righeSet.isEmpty)
-                const Text('Nessun set giocato.')
+                Text(l.reportNessunSet)
               else
                 Card(
                   // clipBehavior: lo sfondo colorato della riga Totale deve
@@ -758,7 +762,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     children: [
                       for (final riga in righeSet) ...[
                         ListTile(
-                          title: Text('Set ${riga.numero}'),
+                          title: Text(l.reportSetNumero(riga.numero)),
                           trailing: _trailingPunteggio(
                             nostro: riga.nostro,
                             avversario: riga.avversario,
@@ -773,9 +777,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       // "Totale" di PlayerStatsScreen.
                       ListTile(
                         tileColor: AppColors.surfaceDim,
-                        title: const Text(
-                          'Totale',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        title: Text(
+                          l.reportTotale,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         trailing: _trailingPunteggio(
                           nostro: puntiNostri,
@@ -790,7 +794,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 ),
               const SizedBox(height: 32),
               Text(
-                'Riepilogo fondamentali',
+                l.reportRiepilogoFondamentali,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
@@ -802,19 +806,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     width: 220,
                     child: DropdownButtonFormField<int?>(
                       initialValue: _setSelezionato,
-                      decoration: const InputDecoration(
-                        labelText: 'Set',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.reportSet,
+                        border: const OutlineInputBorder(),
                       ),
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Partita intera'),
+                          child: Text(l.reportPartitaIntera),
                         ),
                         for (final s in sets)
                           DropdownMenuItem(
                             value: s.numero,
-                            child: Text('Set ${s.numero}'),
+                            child: Text(l.reportSetNumero(s.numero)),
                           ),
                       ],
                       onChanged: (v) => setState(() => _setSelezionato = v),
@@ -824,14 +828,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     width: 260,
                     child: DropdownButtonFormField<int?>(
                       initialValue: _giocatoreSelezionato,
-                      decoration: const InputDecoration(
-                        labelText: 'Giocatore',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.reportGiocatore,
+                        border: const OutlineInputBorder(),
                       ),
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Tutti'),
+                          child: Text(l.reportTutti),
                         ),
                         for (final p in _giocatoriConAzioni)
                           DropdownMenuItem(
@@ -849,7 +853,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               _buildTabellaFondamentali(_riepilogoFondamentali),
               const SizedBox(height: 32),
               ..._sezionePremium(
-                titolo: 'Punti ed errori generici',
+                titolo: l.reportPuntiErroriGenerici,
                 figli: [
                   _buildSpecchiettoGenerici(
                     _riepilogoGenerici,
@@ -865,7 +869,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               if (_team != null) ...[
                 const SizedBox(height: 32),
                 Text(
-                  'Traiettorie',
+                  l.reportTraiettorie,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -875,17 +879,23 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                   children: [
                     OutlinedButton.icon(
                       icon: const Icon(Icons.arrow_forward),
-                      label: const Row(
+                      label: Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [Text('Traiettorie battute'), PremiumBadge()],
+                        children: [
+                          Text(l.scoutTraiettorieBattute),
+                          const PremiumBadge(),
+                        ],
                       ),
                       onPressed: () => _apriTraiettorie(Fondamentale.battuta),
                     ),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.trending_up),
-                      label: const Row(
+                      label: Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [Text('Traiettorie attacco'), PremiumBadge()],
+                        children: [
+                          Text(l.scoutTraiettorieAttacco),
+                          const PremiumBadge(),
+                        ],
                       ),
                       onPressed: () => _apriTraiettorie(Fondamentale.attacco),
                     ),
@@ -895,17 +905,23 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     if (_scoutDueSquadre) ...[
                       OutlinedButton.icon(
                         icon: const Icon(Icons.local_fire_department),
-                        label: const Row(
+                        label: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [Text('Heatmap ricezione'), PremiumBadge()],
+                          children: [
+                            Text(l.reportHeatmapRicezione),
+                            const PremiumBadge(),
+                          ],
                         ),
                         onPressed: () => _apriHeatmap(Fondamentale.battuta),
                       ),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.local_fire_department),
-                        label: const Row(
+                        label: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [Text('Heatmap difesa'), PremiumBadge()],
+                          children: [
+                            Text(l.reportHeatmapDifesa),
+                            const PremiumBadge(),
+                          ],
                         ),
                         onPressed: () => _apriHeatmap(Fondamentale.attacco),
                       ),
@@ -916,7 +932,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               if (_formazioni != null && _formazioni!.isNotEmpty) ...[
                 const SizedBox(height: 32),
                 ..._sezionePremium(
-                  titolo: 'Formazioni di partenza',
+                  titolo: l.reportFormazioniPartenza,
                   figli: [
                     LayoutBuilder(
                       builder: (context, c) {
@@ -946,7 +962,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               ],
               const SizedBox(height: 32),
               ..._sezionePremium(
-                titolo: 'Distribuzione alzate',
+                titolo: l.reportDistribuzioneAlzate,
                 figli: [
                   Wrap(
                     spacing: 16,
@@ -956,19 +972,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 220,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _setDistribuzione,
-                          decoration: const InputDecoration(
-                            labelText: 'Set',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportSet,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Partita intera'),
+                              child: Text(l.reportPartitaIntera),
                             ),
                             for (final s in sets)
                               DropdownMenuItem(
                                 value: s.numero,
-                                child: Text('Set ${s.numero}'),
+                                child: Text(l.reportSetNumero(s.numero)),
                               ),
                           ],
                           onChanged: (v) =>
@@ -979,13 +995,13 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 220,
                         child: DropdownButtonFormField<_FiltroAlzate>(
                           initialValue: _filtroDistribuzione,
-                          decoration: const InputDecoration(
-                            labelText: 'Alzate',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportAlzate,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
                             for (final f in _FiltroAlzate.values)
-                              DropdownMenuItem(value: f, child: Text(f.label)),
+                              DropdownMenuItem(value: f, child: Text(f.label(l))),
                           ],
                           onChanged: (v) =>
                               setState(() => _filtroDistribuzione = v!),
@@ -995,14 +1011,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 220,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _rotazioneDistribuzione,
-                          decoration: const InputDecoration(
-                            labelText: 'Rotazione',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportRotazione,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Tutte'),
+                              child: Text(l.reportTutte),
                             ),
                             for (var r = 1; r <= 6; r++)
                               DropdownMenuItem(value: r, child: Text('P$r')),
@@ -1019,7 +1035,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               ),
               const SizedBox(height: 32),
               ..._sezionePremium(
-                titolo: 'Efficienza',
+                titolo: l.reportEfficienza,
                 figli: [
                   Wrap(
                     spacing: 16,
@@ -1029,19 +1045,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 220,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _setEfficienza,
-                          decoration: const InputDecoration(
-                            labelText: 'Set',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportSet,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Partita intera'),
+                              child: Text(l.reportPartitaIntera),
                             ),
                             for (final s in sets)
                               DropdownMenuItem(
                                 value: s.numero,
-                                child: Text('Set ${s.numero}'),
+                                child: Text(l.reportSetNumero(s.numero)),
                               ),
                           ],
                           onChanged: (v) => setState(() => _setEfficienza = v),
@@ -1051,14 +1067,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 260,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _giocatoreEfficienza,
-                          decoration: const InputDecoration(
-                            labelText: 'Giocatore',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportGiocatore,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Tutti'),
+                              child: Text(l.reportTutti),
                             ),
                             for (final p in _giocatoriConAzioni)
                               DropdownMenuItem(
@@ -1078,11 +1094,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     runSpacing: 16,
                     children: [
                       _buildEfficienzaCard(
-                        'Efficienza battuta',
+                        l.reportEfficienzaBattuta,
                         _efficienzaDati(Fondamentale.battuta),
                       ),
                       _buildEfficienzaCard(
-                        'Efficienza attacco',
+                        l.reportEfficienzaAttacco,
                         _efficienzaDati(Fondamentale.attacco),
                       ),
                     ],
@@ -1091,7 +1107,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               ),
               const SizedBox(height: 32),
               ..._sezionePremium(
-                titolo: 'Positività',
+                titolo: l.reportPositivita,
                 figli: [
                   Wrap(
                     spacing: 16,
@@ -1101,19 +1117,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 220,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _setPositivita,
-                          decoration: const InputDecoration(
-                            labelText: 'Set',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportSet,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Partita intera'),
+                              child: Text(l.reportPartitaIntera),
                             ),
                             for (final s in sets)
                               DropdownMenuItem(
                                 value: s.numero,
-                                child: Text('Set ${s.numero}'),
+                                child: Text(l.reportSetNumero(s.numero)),
                               ),
                           ],
                           onChanged: (v) => setState(() => _setPositivita = v),
@@ -1123,14 +1139,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         width: 260,
                         child: DropdownButtonFormField<int?>(
                           initialValue: _giocatorePositivita,
-                          decoration: const InputDecoration(
-                            labelText: 'Giocatore',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.reportGiocatore,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Tutti'),
+                              child: Text(l.reportTutti),
                             ),
                             for (final p in _giocatoriConAzioni)
                               DropdownMenuItem(
@@ -1154,31 +1170,40 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                         runSpacing: 16,
                         children: [
                           _buildPercentCard(
-                            titolo: 'Positività ricezione',
-                            formula: '(# + +) / totale × 100',
+                            titolo: l.reportPositivitaRicezione,
+                            formula: l.reportFormulaPositivita,
                             numeratore: ricezione.positive,
                             totale: ricezione.totale,
                             color: AppColors.brandPrimary,
                             dettaglio:
-                                'Positive: ${ricezione.positive} · Totale: ${ricezione.totale}',
+                                l.reportDettaglioPositive(
+                                  ricezione.positive,
+                                  ricezione.totale,
+                                ),
                           ),
                           _buildPercentCard(
-                            titolo: 'Errore ricezione',
-                            formula: '(=) / totale × 100',
+                            titolo: l.reportErroreRicezione,
+                            formula: l.reportFormulaErrore,
                             numeratore: ricezione.errori,
                             totale: ricezione.totale,
                             color: Colors.red,
                             dettaglio:
-                                'Errori: ${ricezione.errori} · Totale: ${ricezione.totale}',
+                                l.reportDettaglioErrori(
+                                  ricezione.errori,
+                                  ricezione.totale,
+                                ),
                           ),
                           _buildPercentCard(
-                            titolo: 'Positività difesa',
-                            formula: '(# + +) / totale × 100',
+                            titolo: l.reportPositivitaDifesa,
+                            formula: l.reportFormulaPositivita,
                             numeratore: difesa.positive,
                             totale: difesa.totale,
                             color: AppColors.brandPrimary,
                             dettaglio:
-                                'Positive: ${difesa.positive} · Totale: ${difesa.totale}',
+                                l.reportDettaglioPositive(
+                                  difesa.positive,
+                                  difesa.totale,
+                                ),
                           ),
                         ],
                       );
@@ -1194,7 +1219,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 const SizedBox(height: 24),
                 // --- Riepilogo fondamentali avversario ---
                 Text(
-                  'Riepilogo fondamentali',
+                  l.reportRiepilogoFondamentali,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -1221,7 +1246,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 if (_team != null) ...[
                   const SizedBox(height: 32),
                   Text(
-                    'Traiettorie',
+                    l.reportTraiettorie,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
@@ -1231,11 +1256,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     children: [
                       OutlinedButton.icon(
                         icon: const Icon(Icons.arrow_forward),
-                        label: const Row(
+                        label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Traiettorie battute'),
-                            PremiumBadge(),
+                            Text(l.scoutTraiettorieBattute),
+                            const PremiumBadge(),
                           ],
                         ),
                         onPressed: () => _apriTraiettorie(Fondamentale.battuta,
@@ -1243,11 +1268,11 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       ),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.trending_up),
-                        label: const Row(
+                        label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Traiettorie attacco'),
-                            PremiumBadge(),
+                            Text(l.scoutTraiettorieAttacco),
+                            const PremiumBadge(),
                           ],
                         ),
                         onPressed: () => _apriTraiettorie(Fondamentale.attacco,
@@ -1259,7 +1284,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 const SizedBox(height: 32),
                 // --- Distribuzione alzate avversario ---
                 Text(
-                  'Distribuzione alzate',
+                  l.reportDistribuzioneAlzate,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -1273,13 +1298,13 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       width: 220,
                       child: DropdownButtonFormField<_FiltroAlzate>(
                         initialValue: _filtroDistribuzioneAvv,
-                        decoration: const InputDecoration(
-                          labelText: 'Alzate',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.reportAlzate,
+                          border: const OutlineInputBorder(),
                         ),
                         items: [
                           for (final f in _FiltroAlzate.values)
-                            DropdownMenuItem(value: f, child: Text(f.label)),
+                            DropdownMenuItem(value: f, child: Text(f.label(l))),
                         ],
                         onChanged: (v) =>
                             setState(() => _filtroDistribuzioneAvv = v!),
@@ -1289,14 +1314,14 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       width: 220,
                       child: DropdownButtonFormField<int?>(
                         initialValue: _rotazioneDistribuzioneAvv,
-                        decoration: const InputDecoration(
-                          labelText: 'Rotazione',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.reportRotazione,
+                          border: const OutlineInputBorder(),
                         ),
                         items: [
-                          const DropdownMenuItem(
+                          DropdownMenuItem(
                             value: null,
-                            child: Text('Tutte'),
+                            child: Text(l.reportTutte),
                           ),
                           for (var r = 1; r <= 6; r++)
                             DropdownMenuItem(value: r, child: Text('P$r')),
@@ -1312,7 +1337,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 const SizedBox(height: 32),
                 // --- Efficienza avversario ---
                 Text(
-                  'Efficienza',
+                  l.reportEfficienza,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -1332,7 +1357,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                   runSpacing: 16,
                   children: [
                     _buildEfficienzaCard(
-                      'Efficienza battuta',
+                      l.reportEfficienzaBattuta,
                       _efficienzaDatiScope(
                         Fondamentale.battuta,
                         squadra: Squadra.avversari,
@@ -1341,7 +1366,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       ),
                     ),
                     _buildEfficienzaCard(
-                      'Efficienza attacco',
+                      l.reportEfficienzaAttacco,
                       _efficienzaDatiScope(
                         Fondamentale.attacco,
                         squadra: Squadra.avversari,
@@ -1354,7 +1379,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 const SizedBox(height: 32),
                 // --- Positività avversario ---
                 Text(
-                  'Positività',
+                  l.reportPositivita,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -1388,31 +1413,40 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       runSpacing: 16,
                       children: [
                         _buildPercentCard(
-                          titolo: 'Positività ricezione',
-                          formula: '(# + +) / totale × 100',
+                          titolo: l.reportPositivitaRicezione,
+                          formula: l.reportFormulaPositivita,
                           numeratore: ricezione.positive,
                           totale: ricezione.totale,
                           color: AppColors.brandPrimary,
                           dettaglio:
-                              'Positive: ${ricezione.positive} · Totale: ${ricezione.totale}',
+                              l.reportDettaglioPositive(
+                                  ricezione.positive,
+                                  ricezione.totale,
+                                ),
                         ),
                         _buildPercentCard(
-                          titolo: 'Errore ricezione',
-                          formula: '(=) / totale × 100',
+                          titolo: l.reportErroreRicezione,
+                          formula: l.reportFormulaErrore,
                           numeratore: ricezione.errori,
                           totale: ricezione.totale,
                           color: Colors.red,
                           dettaglio:
-                              'Errori: ${ricezione.errori} · Totale: ${ricezione.totale}',
+                              l.reportDettaglioErrori(
+                                  ricezione.errori,
+                                  ricezione.totale,
+                                ),
                         ),
                         _buildPercentCard(
-                          titolo: 'Positività difesa',
-                          formula: '(# + +) / totale × 100',
+                          titolo: l.reportPositivitaDifesa,
+                          formula: l.reportFormulaPositivita,
                           numeratore: difesa.positive,
                           totale: difesa.totale,
                           color: AppColors.brandPrimary,
                           dettaglio:
-                              'Positive: ${difesa.positive} · Totale: ${difesa.totale}',
+                              l.reportDettaglioPositive(
+                                  difesa.positive,
+                                  difesa.totale,
+                                ),
                         ),
                       ],
                     );
@@ -1447,18 +1481,19 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
   // Selettori delle sezioni avversarie (uno per sezione, stato dedicato):
   // Set (null = Partita intera) e Ruolo (null = Tutti; solo i ruoli con dati).
   Widget _dropdownSetAvv(int? value, ValueChanged<int?> onChanged) {
+    final l = AppLocalizations.of(context);
     return SizedBox(
       width: 220,
       child: DropdownButtonFormField<int?>(
         initialValue: value,
-        decoration: const InputDecoration(
-          labelText: 'Set',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: l.reportSet,
+          border: const OutlineInputBorder(),
         ),
         items: [
-          const DropdownMenuItem(value: null, child: Text('Partita intera')),
+          DropdownMenuItem(value: null, child: Text(l.reportPartitaIntera)),
           for (final s in _sets ?? const <MatchSet>[])
-            DropdownMenuItem(value: s.numero, child: Text('Set ${s.numero}')),
+            DropdownMenuItem(value: s.numero, child: Text(l.reportSetNumero(s.numero))),
         ],
         onChanged: onChanged,
       ),
@@ -1466,16 +1501,17 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
   }
 
   Widget _dropdownRuoloAvv(String? value, ValueChanged<String?> onChanged) {
+    final l = AppLocalizations.of(context);
     return SizedBox(
       width: 200,
       child: DropdownButtonFormField<String?>(
         initialValue: value,
-        decoration: const InputDecoration(
-          labelText: 'Ruolo',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: l.reportRuolo,
+          border: const OutlineInputBorder(),
         ),
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tutti')),
+          DropdownMenuItem(value: null, child: Text(l.reportTutti)),
           for (final r in _ruoliAvversariConAzioni)
             DropdownMenuItem(
                 value: r,
@@ -1561,10 +1597,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
   // degli attacchi nello scope; il numero sotto è il conteggio di quella zona.
   Widget _buildDistribuzioneCourt(({Map<String, int> conteggi, int totale}) d) {
     if (d.totale == 0) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Nessun attacco registrato per lo scope selezionato.'),
+          padding: const EdgeInsets.all(24),
+          child: Text(AppLocalizations.of(context).reportNessunAttaccoScope),
         ),
       );
     }
@@ -1686,7 +1722,10 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(titolo, style: Theme.of(context).textTheme.titleMedium),
-              const Text('(# − =) / totale × 100', style: _kFormulaStyle),
+              Text(
+                AppLocalizations.of(context).reportFormulaEfficienza,
+                style: _kFormulaStyle,
+              ),
               const SizedBox(height: 8),
               Text(
                 efficienza == null ? '—' : '${efficienza.round()}%',
@@ -1698,7 +1737,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
               ),
               const SizedBox(height: 4),
               Text(
-                'Punti: ${d.punti} · Errori: ${d.errori} · Totale: ${d.totale}',
+                AppLocalizations.of(
+                  context,
+                ).reportDettaglioEfficienza(d.punti, d.errori, d.totale),
                 style: const TextStyle(fontSize: 14, color: Colors.black54),
               ),
             ],
@@ -1777,10 +1818,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
       Card(
         child: ListTile(
           leading: const Icon(Icons.lock_outline),
-          title: const Text('Statistica premium'),
-          subtitle: const Text(
-            'Tocca per sbloccare con Volley Stratego '
-            'Premium.',
+          title: Text(AppLocalizations.of(context).reportStatisticaPremium),
+          subtitle: Text(
+            AppLocalizations.of(context).reportStatisticaPremiumSblocca,
           ),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.push(
@@ -1868,9 +1908,12 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
             TableRow(
               decoration: const BoxDecoration(color: AppColors.surfaceDim),
               children: [
-                _headerCell('Fondamentale', allineaSinistra: true),
+                _headerCell(
+                  AppLocalizations.of(context).reportFondamentale,
+                  allineaSinistra: true,
+                ),
                 for (final v in voti) _headerCell(v.simbolo, fontSize: 22),
-                _headerCell('TOT'),
+                _headerCell(AppLocalizations.of(context).reportTot),
               ],
             ),
             for (var i = 0; i < righe.length; i++)
@@ -1935,7 +1978,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 TableRow(
                   decoration: const BoxDecoration(color: Colors.white),
                   children: [
-                    _labelCell('Punti generici'),
+                    _labelCell(AppLocalizations.of(context).reportPuntiGenerici),
                     _totaleCell(r.puntiNostri),
                     _totaleCell(r.puntiAvversari),
                   ],
@@ -1943,7 +1986,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 TableRow(
                   decoration: const BoxDecoration(color: AppColors.surface),
                   children: [
-                    _labelCell('Errori generici'),
+                    _labelCell(
+                      AppLocalizations.of(context).reportErroriGenerici,
+                    ),
                     _totaleCell(r.erroriNostri),
                     _totaleCell(r.erroriAvversari),
                   ],
@@ -1953,7 +1998,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
             if (r.erroriAvversari > 0) ...[
               const SizedBox(height: 16),
               Text(
-                'Tipologia errori avversari',
+                AppLocalizations.of(context).reportTipologiaErroriAvversari,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),

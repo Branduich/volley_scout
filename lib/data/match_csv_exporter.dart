@@ -11,52 +11,67 @@ import 'database.dart';
 // Export CSV di tutte le ScoutAction di una partita (bottone "CSV" sulla
 // card delle partite terminate — futura feature premium, per ora sempre
 // disponibile). Colonne "parlanti": join sui nomi (giocatori, squadre,
-// label degli enum), mai ID. Separatore `;` + decimali con la virgola +
-// BOM UTF-8: il formato che Excel in locale italiano apre correttamente
-// senza import guidato.
+// label degli enum), mai ID.
+//
+// Separatore di campo e decimale seguono l'impostazione `FormatoCsv`
+// (Impostazioni → Export), NON la lingua dell'app: a decidere come si legge
+// un CSV è il locale del computer su cui lo si apre. `europeo` (default,
+// formato storico) = `;` + decimali con la virgola, quello che Excel
+// italiano apre al doppio clic; `internazionale` = `,` + punto.
+// Il BOM UTF-8 in testa c'è sempre: serve a far riconoscere la codifica
+// (accenti nei cognomi), a prescindere dal separatore.
 
-/// Header del CSV, esposto per i test.
-const List<String> kCsvHeader = [
-  'Set',
-  'Ordine',
-  'Rally',
-  'Orario',
-  'Squadra',
-  'Tipo azione',
-  'Numero',
-  'Giocatore',
-  'Ruolo',
-  'Fondamentale',
-  'Voto',
-  'Tipo esecuzione',
-  'Esito',
-  'Punti casa',
-  'Punti trasferta',
-  'Traiettoria X1',
-  'Traiettoria Y1',
-  'Traiettoria X2',
-  'Traiettoria Y2',
-  'Muro X',
-  'Muro Y',
-  'Esce',
-];
+/// Header del CSV, esposto per i test. Funzione e non più costante: segue la
+/// lingua dell'app come il resto del file (i VALORI passavano già da
+/// `enum_l10n`). L'ORDINE delle colonne non cambia mai — i test indicizzano
+/// per posizione, e chi si è fatto un foglio-modello si aspetta le stesse
+/// colonne allo stesso posto in ogni lingua.
+List<String> csvHeader(AppLocalizations l) => [
+      l.csvColSet,
+      l.csvColOrdine,
+      l.csvColRally,
+      l.csvColOrario,
+      l.csvColSquadra,
+      l.csvColTipoAzione,
+      l.csvColNumero,
+      l.csvColGiocatore,
+      l.csvColRuolo,
+      l.csvColFondamentale,
+      l.csvColVoto,
+      l.csvColTipoEsecuzione,
+      l.csvColEsito,
+      l.csvColPuntiCasa,
+      l.csvColPuntiTrasferta,
+      l.csvColTraiettoriaX1,
+      l.csvColTraiettoriaY1,
+      l.csvColTraiettoriaX2,
+      l.csvColTraiettoriaY2,
+      l.csvColMuroX,
+      l.csvColMuroY,
+      l.csvColEsce,
+    ];
 
 String _pad(int n) => n.toString().padLeft(2, '0');
 
-// Decimali con la virgola (3 cifre): con separatore `;`, Excel italiano li
-// riconosce come numeri — col punto diventerebbero testo (o peggio, date).
-String _dec(double? v) => v == null ? '' : v.toStringAsFixed(3).replaceAll('.', ',');
+// Decimali a 3 cifre. Col formato `europeo` la virgola: con separatore `;`,
+// Excel italiano li riconosce come numeri — col punto diventerebbero testo
+// (o peggio, date). Col formato `internazionale` restano col punto.
+String _dec(double? v, FormatoCsv formato) {
+  if (v == null) return '';
+  final s = v.toStringAsFixed(3);
+  return formato == FormatoCsv.europeo ? s.replaceAll('.', ',') : s;
+}
 
 String _nomeGiocatore(Player? giocatore) =>
     giocatore == null ? '' : '${giocatore.cognome} ${giocatore.nome}';
 
-String _labelTipoAzione(TipoAzione tipo) => switch (tipo) {
-      TipoAzione.scout => 'Scout',
-      TipoAzione.puntoManuale => 'Punto manuale',
-      TipoAzione.erroreGenerico => 'Errore generico',
-      TipoAzione.cambioGiocatore => 'Cambio giocatore',
-      TipoAzione.timeout => 'Timeout',
-      TipoAzione.correzioneRotazione => 'Correzione rotazione',
+String _labelTipoAzione(TipoAzione tipo, AppLocalizations l) => switch (tipo) {
+      TipoAzione.scout => l.csvTipoScout,
+      TipoAzione.puntoManuale => l.csvTipoPuntoManuale,
+      TipoAzione.erroreGenerico => l.csvTipoErroreGenerico,
+      TipoAzione.cambioGiocatore => l.csvTipoCambioGiocatore,
+      TipoAzione.timeout => l.csvTipoTimeout,
+      TipoAzione.correzioneRotazione => l.csvTipoCorrezioneRotazione,
     };
 
 // La colonna `tipoEsecuzione` è polimorfica (vedi CLAUDE.md): il .name che
@@ -78,8 +93,8 @@ String _labelTipoEsecuzione(ScoutAction a, AppLocalizations l) {
   if (a.tipo == TipoAzione.correzioneRotazione) {
     return switch (
         DirezioneRotazione.values.where((d) => d.name == nome).firstOrNull) {
-      DirezioneRotazione.avanti => 'Avanti',
-      DirezioneRotazione.indietro => 'Indietro',
+      DirezioneRotazione.avanti => l.csvRotazioneAvanti,
+      DirezioneRotazione.indietro => l.csvRotazioneIndietro,
       null => nome,
     };
   }
@@ -121,10 +136,11 @@ List<List<String>> righeCsvPartita({
   required List<MatchSet> sets,
   required Map<int, List<ScoutAction>> azioniPerSet,
   required Map<int, Player> playerById,
+  FormatoCsv formato = FormatoCsv.europeo,
 }) {
-  final nomeNoi = team?.nome ?? 'Noi';
-  final nomeLoro = match.avversario ?? 'Avversari';
-  final righe = <List<String>>[List.of(kCsvHeader)];
+  final nomeNoi = team?.nome ?? l.csvNoi;
+  final nomeLoro = match.avversario ?? l.scoutAvversariGenerico;
+  final righe = <List<String>>[csvHeader(l)];
 
   final setsOrdinati = List.of(sets)
     ..sort((a, b) => a.numero.compareTo(b.numero));
@@ -146,7 +162,7 @@ List<List<String>> righeCsvPartita({
         '${a.rallyId}',
         '${_pad(ts.hour)}:${_pad(ts.minute)}:${_pad(ts.second)}',
         a.squadra == Squadra.nostra ? nomeNoi : nomeLoro,
-        _labelTipoAzione(a.tipo),
+        _labelTipoAzione(a.tipo, l),
         giocatore == null ? '' : '${giocatore.numero}',
         _nomeGiocatore(giocatore),
         giocatore == null ? '' : ruoloLabel(giocatore.ruolo, l),
@@ -155,19 +171,19 @@ List<List<String>> righeCsvPartita({
         _labelTipoEsecuzione(a, l),
         switch (a.esitoPunto) {
           EsitoPunto.puntoNostro =>
-            match.inCasa ? 'Punto casa' : 'Punto trasferta',
+            match.inCasa ? l.csvEsitoPuntoCasa : l.csvEsitoPuntoTrasferta,
           EsitoPunto.puntoAvversario =>
-            match.inCasa ? 'Punto trasferta' : 'Punto casa',
+            match.inCasa ? l.csvEsitoPuntoTrasferta : l.csvEsitoPuntoCasa,
           EsitoPunto.nessuno => '',
         },
         '${match.inCasa ? puntiNoi : puntiLoro}',
         '${match.inCasa ? puntiLoro : puntiNoi}',
-        _dec(a.traiettoriaX1),
-        _dec(a.traiettoriaY1),
-        _dec(a.traiettoriaX2),
-        _dec(a.traiettoriaY2),
-        _dec(a.traiettoriaMuroX),
-        _dec(a.traiettoriaMuroY),
+        _dec(a.traiettoriaX1, formato),
+        _dec(a.traiettoriaY1, formato),
+        _dec(a.traiettoriaX2, formato),
+        _dec(a.traiettoriaY2, formato),
+        _dec(a.traiettoriaMuroX, formato),
+        _dec(a.traiettoriaMuroY, formato),
         _nomeGiocatore(uscente),
       ]);
     }
@@ -185,6 +201,7 @@ Future<void> condividiCsvPartita({
   required List<MatchSet> sets,
   required Map<int, List<ScoutAction>> azioniPerSet,
   required Map<int, Player> playerById,
+  FormatoCsv formato = FormatoCsv.europeo,
 }) async {
   final righe = righeCsvPartita(
     l: l,
@@ -193,8 +210,14 @@ Future<void> condividiCsvPartita({
     sets: sets,
     azioniPerSet: azioniPerSet,
     playerById: playerById,
+    formato: formato,
   );
-  final csv = const ListToCsvConverter(fieldDelimiter: ';').convert(righe);
+  // Il separatore di campo va d'accordo col decimale scelto in _dec: con la
+  // virgola decimale il delimitatore DEVE essere `;`, altrimenti ogni numero
+  // spaccherebbe la riga in due colonne.
+  final csv = ListToCsvConverter(
+    fieldDelimiter: formato == FormatoCsv.europeo ? ';' : ',',
+  ).convert(righe);
 
   final dt = match.dataOra;
   final nomeSano = match.nome
