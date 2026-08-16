@@ -335,6 +335,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
     final conferma = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: Text(l.campEliminaTitolo),
         content: Text(
           l.campEliminaTesto(_nomeConStagione(campionato), gare),
@@ -475,6 +476,7 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
       await showDialog<void>(
         context: context,
         builder: (_) => AlertDialog(
+          scrollable: true,
           title: Text(l.campImportNonRiuscitoTitolo),
           content: Text(e.message),
           actions: [

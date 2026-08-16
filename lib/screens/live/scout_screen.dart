@@ -1331,6 +1331,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(AppLocalizations.of(context).scoutServizioTitolo),
         content: Text(AppLocalizations.of(context).scoutServizioTesto),
         actions: [
@@ -1712,6 +1713,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final confermato = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(
           AppLocalizations.of(context).scoutUndoTitolo,
           style: const TextStyle(fontSize: 14),

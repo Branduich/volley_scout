@@ -98,23 +98,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           Text(l.settingsSectionExport,
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.sm),
+          // NON un ListTile con la dropdown nel `trailing`: le etichette del
+          // formato sono lunghe ("Europeo (; e virgola)") e il trailing si
+          // prende la larghezza della più lunga — su telefono in portrait al
+          // titolo restavano due lettere per riga. Testo sopra, dropdown
+          // sotto a tutta larghezza (`isExpanded`), che regge qualunque
+          // etichetta e qualunque lingua.
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.table_view),
-              title: Text(l.settingsCsvFormatoTitle),
-              subtitle: Text(l.settingsCsvFormatoSubtitle),
-              // Dropdown sotto al testo (non nel trailing): le due etichette
-              // sono lunghe e affiancate al sottotitolo starebbero strette.
-              trailing: DropdownButton<FormatoCsv>(
-                value: impostazioni.formatoCsv,
-                onChanged: (v) => v == null
-                    ? null
-                    : ref
-                        .read(impostazioniProvider.notifier)
-                        .setFormatoCsv(v),
-                items: [
-                  for (final f in FormatoCsv.values)
-                    DropdownMenuItem(value: f, child: Text(formatoCsvLabel(f, l))),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.table_view),
+                      // Stesso stacco icona-titolo del ListTile (M3).
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          l.settingsCsvFormatoTitle,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    l.settingsCsvFormatoSubtitle,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  DropdownButtonFormField<FormatoCsv>(
+                    initialValue: impostazioni.formatoCsv,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (v) => v == null
+                        ? null
+                        : ref
+                              .read(impostazioniProvider.notifier)
+                              .setFormatoCsv(v),
+                    items: [
+                      for (final f in FormatoCsv.values)
+                        DropdownMenuItem(
+                          value: f,
+                          child: Text(formatoCsvLabel(f, l)),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -161,27 +202,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  // Selezione lingua (dropdown compatta): Sistema / Italiano / English.
-  // `null` = segue il dispositivo. Le lingue si mostrano col proprio
-  // autonimo (non tradotto); "Predefinita del sistema" è localizzato.
+  // Selezione lingua: Sistema / Italiano / English. `null` = segue il
+  // dispositivo. Le lingue si mostrano col proprio autonimo (non tradotto);
+  // "Predefinita del sistema" è localizzato — ed è la voce lunga che, nel
+  // `trailing` di un ListTile, stringeva il titolo su telefono in portrait.
+  // Stesso impianto della card del formato CSV: testo sopra, dropdown sotto
+  // a tutta larghezza.
   Widget _buildLinguaCard(
       BuildContext context, WidgetRef ref, AppLocalizations l) {
     final corrente = ref.watch(linguaProvider); // null = sistema
     final notifier = ref.read(linguaProvider.notifier);
 
     return Card(
-      child: ListTile(
-        leading: const Icon(Icons.language),
-        title: Text(l.settingsSectionLanguage),
-        trailing: DropdownButton<String>(
-          value: corrente?.languageCode ?? 'system',
-          onChanged: (v) => notifier.setLingua(
-            v == null || v == 'system' ? null : Locale(v),
-          ),
-          items: [
-            DropdownMenuItem(value: 'system', child: Text(l.languageSystem)),
-            const DropdownMenuItem(value: 'it', child: Text('Italiano')),
-            const DropdownMenuItem(value: 'en', child: Text('English')),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.language),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    l.settingsSectionLanguage,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<String>(
+              initialValue: corrente?.languageCode ?? 'system',
+              isExpanded: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (v) => notifier.setLingua(
+                v == null || v == 'system' ? null : Locale(v),
+              ),
+              items: [
+                DropdownMenuItem(value: 'system', child: Text(l.languageSystem)),
+                const DropdownMenuItem(value: 'it', child: Text('Italiano')),
+                const DropdownMenuItem(value: 'en', child: Text('English')),
+              ],
+            ),
           ],
         ),
       ),

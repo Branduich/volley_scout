@@ -30,8 +30,12 @@ class TeamFormScreen extends ConsumerStatefulWidget {
 }
 
 class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with OrientamentoSchermata<TeamFormScreen> {
+  // Schermata di setup: comoda anche in portrait, come le altre. Il layout a
+  // due colonne non è un vincolo — il LayoutBuilder in `build` impila form e
+  // giocatori sotto _kLarghezzaDueColonne (quel ramo esisteva già per reggere
+  // i frame di rotazione, ora è il layout portrait vero e proprio).
   @override
-  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoLandscape;
+  List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
 
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nomeController;
@@ -104,6 +108,7 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> with Orientamen
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        scrollable: true,
         title: Text(l.squadraEliminaTitolo),
         content: Text(l.squadraEliminaTesto),
         actions: [

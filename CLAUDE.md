@@ -81,14 +81,18 @@ fallisce anche dopo `flutter clean`/stop dei daemon.
    - **`kOrientamentoTutti`** (portrait + landscape): Home, Impostazioni e le
      schermate di setup leggere (`TeamsScreen`, `CategorieScreen`,
      `MatchesScreen`, `TeamSelectionScreen`, `MatchFormScreen`,
-     `PlayerFormScreen`). `HomeScreen` è responsive (`OrientationBuilder`:
-     2 colonne in landscape, immagine sopra + bottoni sotto in portrait).
+     `PlayerFormScreen`, `TeamFormScreen`). `HomeScreen` è responsive
+     (`OrientationBuilder`: 2 colonne in landscape, immagine sopra + bottoni
+     sotto in portrait). **`TeamFormScreen`** usa un `LayoutBuilder`: due
+     colonne (form 360 fisse | lista giocatori) sopra
+     `_kLarghezzaDueColonne` = 640, altrimenti impilate a metà altezza
+     ciascuna — quel ramo esisteva già per reggere i frame di rotazione,
+     dal 2026-08-16 è il layout portrait vero e proprio.
    - **`kOrientamentoLandscape`** (solo landscape): tutte le schermate col
      campo (`LineupScreen`, `FormationConfigScreen`, `SostituzioneScreen`,
      `ScoutScreen`, `TacticalBoardScreen`, `EndSetScreen`), i report
      (`MatchReportScreen`, `MatchPdfScreen`, `PlayerStatsScreen`,
-     `TrajectoryReportScreen`) e **`TeamFormScreen`** (layout a 2 colonne
-     non ancora reso responsive — backlog).
+     `TrajectoryReportScreen`).
    - Il lock del **manifest Android** (`android:screenOrientation`) è stato
      rimosso: era malformato (fuori dal tag `<activity>`) e senza effetto —
      l'orientamento è gestito solo lato Flutter. Nota: forzare landscape da

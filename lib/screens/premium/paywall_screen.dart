@@ -25,7 +25,9 @@ class PaywallScreen extends StatefulWidget {
           l.paywallVantaggioSquadreTesto
         ),
         (
-          Icons.gesture,
+          // Stessa icona dei bottoni "Traiettorie attacco" (drawer dello
+          // scout, report) e della voce traiettorie in Impostazioni.
+          Icons.trending_up,
           l.paywallVantaggioTraiettorieTitolo,
           l.paywallVantaggioTraiettorieTesto
         ),

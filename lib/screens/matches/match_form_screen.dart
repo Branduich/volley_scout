@@ -141,6 +141,7 @@ class _MatchFormScreenState extends ConsumerState<MatchFormScreen> with Orientam
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        scrollable: true,
         title: Text(l.partitaEliminaTitolo),
         actions: [
           TextButton(

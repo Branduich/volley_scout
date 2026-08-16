@@ -38,6 +38,7 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
     final confermato = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(titolo),
         content: Text(testo),
         actions: [

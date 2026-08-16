@@ -133,6 +133,7 @@ class _PlayerFormScreenState extends ConsumerState<PlayerFormScreen> with Orient
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        scrollable: true,
         title: Text(l.giocatoreEliminaTitolo),
         actions: [
           TextButton(

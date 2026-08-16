@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/database_provider.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/orientamento.dart';
 
 /// Gestione della lista modificabile delle categorie di squadra
@@ -172,6 +173,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        scrollable: true,
         title: Text(l.categorieEliminaTitolo(cat.nome)),
         content: Text(messaggio),
         actions: [
@@ -201,6 +203,7 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     return showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        scrollable: true,
         title: Text(l.categorieCascataTitolo),
         content: Text(l.categorieCascataTesto(nSquadre, vecchio, nuovo)),
         actions: [
@@ -232,46 +235,90 @@ class _CategorieScreenState extends ConsumerState<CategorieScreen>
     final l = AppLocalizations.of(context);
     final controller = TextEditingController(text: iniziale);
     final formKey = GlobalKey<FormState>();
-    return showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(titolo),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-            decoration: InputDecoration(
-              labelText: l.categorieNomeLabel,
-              border: const OutlineInputBorder(),
+
+    void conferma(BuildContext ctx) {
+      if (formKey.currentState!.validate()) {
+        Navigator.pop(ctx, controller.text.trim());
+      }
+    }
+
+    Widget campo(BuildContext ctx) => Form(
+      key: formKey,
+      child: TextFormField(
+        controller: controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: InputDecoration(
+          labelText: l.categorieNomeLabel,
+          border: const OutlineInputBorder(),
+        ),
+        validator: (v) {
+          final t = (v ?? '').trim();
+          if (t.isEmpty) return l.categorieNomeVuoto;
+          if (nomiVietatiLower.contains(t.toLowerCase())) {
+            return l.categorieDuplicata;
+          }
+          return null;
+        },
+        onFieldSubmitted: (_) => conferma(ctx),
+      ),
+    );
+
+    // Schermo BASSO = telefono in landscape: con la tastiera aperta restano
+    // ~90dp di altezza utile. Lì un dialog centrato è inservibile — anche
+    // rendendolo `scrollable` si riduce a una striscia in cui il campo di
+    // testo non si vede più (visto sul device). Si usa allora il dialog A
+    // TUTTO SCHERMO, che è il pattern Material per l'input su altezze
+    // compatte: niente margini sprecati e i bottoni vivono nella barra in
+    // alto, quindi restano visibili qualunque cosa faccia la tastiera.
+    // Soglia sull'altezza TOTALE dello schermo (non su quella residua): non
+    // dipende da quando la tastiera compare, così il dialog non cambia forma
+    // sotto le dita.
+    final schermoBasso = MediaQuery.of(context).size.height < 500;
+    if (schermoBasso) {
+      return showDialog<String>(
+        context: context,
+        builder: (ctx) => Dialog.fullscreen(
+          child: Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: l.comuneAnnulla,
+                onPressed: () => Navigator.pop(ctx),
+              ),
+              title: Text(titolo),
+              actions: [
+                TextButton(
+                  onPressed: () => conferma(ctx),
+                  child: Text(l.comuneSalva),
+                ),
+              ],
             ),
-            validator: (v) {
-              final t = (v ?? '').trim();
-              if (t.isEmpty) return l.categorieNomeVuoto;
-              if (nomiVietatiLower.contains(t.toLowerCase())) {
-                return l.categorieDuplicata;
-              }
-              return null;
-            },
-            onFieldSubmitted: (_) {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, controller.text.trim());
-              }
-            },
+            // Scrollabile: con la tastiera aperta il body scende sotto i
+            // 40dp e senza scroll il campo + l'errore di validazione
+            // sfonderebbero di nuovo.
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: campo(ctx),
+            ),
           ),
         ),
+      );
+    }
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        scrollable: true,
+        title: Text(titolo),
+        content: campo(ctx),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: Text(l.comuneAnnulla),
           ),
           FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, controller.text.trim());
-              }
-            },
+            onPressed: () => conferma(ctx),
             child: Text(l.comuneSalva),
           ),
         ],
