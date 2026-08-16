@@ -10,9 +10,11 @@ import 'tutorial_target.dart';
 /// aggiunte: un valore in `TutorialTarget` e un `_anchor(...)` attorno al
 /// widget in `scout_screen.dart`.
 ///
-/// STATO: scheletro. Cinque passi rappresentativi, uno per ciascun meccanismo
-/// di avanzamento, più le card di apertura e chiusura. La lista definitiva è
-/// in preparazione (vedi il piano).
+/// STATO: sequenza completa (2026-08-16). Uno scambio intero — battuta,
+/// ricezione, attacco, difesa e il punto che lo chiude — poi registro,
+/// rotazione, timeout e annullamento, infine la card di chiusura coi
+/// riferimenti al sito e alla mail. Ancora tutta in ITALIANO: si sposta in ARB
+/// (prefisso `tutorial*`) quando i testi saranno assestati.
 ///
 /// Vincolo da rispettare quando si allunga: **usare voti `+`, mai `#`**. Con
 /// lo scout avversari attivo un `#` apre il ramo "errore difensivo forzato"
@@ -264,30 +266,11 @@ List<PassoTutorial> passiTutorial() => [
         avanzaConBottone: true,
       ),
 
-      const PassoTutorial(
-        titolo: 'Per ora è tutto',
-        testo:
-            'Hai registrato uno scambio intero: battuta, ricezione, attacco, '
-            'difesa e il punto che lo chiude.\n\n'
-            'Molte altre informazioni sull\'utilizzo di Volley Stratego si '
-            'possono trovare alla pagina:\n'
-            'https://sites.google.com/view/volleystratego/come-si-usa\n\n'
-            'oppure scrivendo una mail a:\n'
-            'volleystratego@gmail.com',
-        url: 'https://sites.google.com/view/volleystratego/come-si-usa',
-        mail: 'volleystratego@gmail.com',
-        avanzaConBottone: true,
-        etichettaBottone: 'Termina',
-      ),
-    ];
-
-/// Timeout e annullamento: messi da parte, andranno inseriti più avanti nella
-/// sequenza (decisione dell'utente — si parte dalla battuta). Tenuti come
-/// codice e non come commento così restano compilati e non invecchiano.
-///
-/// Vanno reinseriti INSIEME e in quest'ordine: il secondo annulla il timeout
-/// registrato dal primo.
-List<PassoTutorial> passiTimeout() => [
+      // Timeout e annullamento in coda, appena prima della chiusura: sono i
+      // due pulsanti "di servizio" della barra, e il secondo passo annulla il
+      // timeout registrato dal primo — vanno quindi tenuti INSIEME e in
+      // quest'ordine.
+      //
       // Avanzamento su AZIONE PERSISTITA.
       PassoTutorial(
         titolo: 'Timeout',
@@ -307,8 +290,80 @@ List<PassoTutorial> passiTimeout() => [
         testo:
             'Tutto quello che registri finisce in un elenco e si può '
             'annullare. Annulla il timeout con la freccia in alto a destra: '
-            'ti verrà chiesta una conferma.',
+            'ti verrà chiesta una conferma.\n\n'
+            'Accanto alla freccia c\'è un secondo pulsante che annulla '
+            'l\'intero scambio in un colpo solo, per quando l\'arbitro fa '
+            'rigiocare l\'azione: ora è spento, perché un timeout non fa '
+            'parte di uno scambio.',
         bersaglio: TutorialTarget.bottoneUndo,
         avanzaSuLog: (log, lunghezzaIniziale) => log.length < lunghezzaIniziale,
+      ),
+
+      // --- Il menu di utilità -------------------------------------------
+      // Tre passi: aprilo, leggi cosa contiene, chiudilo. Il terzo NON è
+      // decorativo: con il drawer aperto il "Termina" della card finale
+      // (Navigator.pop) chiuderebbe il drawer invece di uscire dal tutorial,
+      // perché il Drawer registra una local history entry sulla route.
+      const PassoTutorial(
+        titolo: 'Il menu',
+        testo:
+            'Nella barra in alto, a sinistra, c\'è il bottone per aprire il '
+            'menu, dove si trovano tutte le voci che servono per seguire la '
+            'partita.\n\nAprilo.',
+        bersaglio: TutorialTarget.bottoneMenu,
+        avanzaSuSegnale: SegnaleTutorial.drawerAperto,
+      ),
+
+      const PassoTutorial(
+        titolo: 'Cosa c\'è nel menu',
+        testo:
+            'Dall\'alto:\n\n'
+            '• Cambia campo — sposta le squadre da un lato all\'altro dello '
+            'schermo, per seguire il cambio campo di fine set\n'
+            '• Sostituzione — cambio giocatori a set in corso\n'
+            '• Lavagna tattica — una lavagna su cui disegnare durante un '
+            'timeout\n'
+            '• Statistiche fondamentali e Report — i dati della partita, '
+            'consultabili anche mentre giochi\n'
+            '• Traiettorie battute e attacco — in che posizione sono cadute '
+            'le palle\n'
+            '• Mostra ruoli / numeri — cosa mostrare nelle pedine dei '
+            'giocatori in campo\n'
+            '• Log azioni — mostra o nasconde il registro delle azioni\n'
+            '• Fine — termina il set o la partita\n'
+            '• Indietro — esce dallo scout per poi poterlo riprendere in '
+            'seguito',
+        // Nessun bersaglio di proposito: il velo copre tutto e NIENTE è
+        // premibile. Bucare il drawer intero lo renderebbe tappabile voce per
+        // voce, e un tocco su "Fine" o "Indietro" porterebbe l'utente fuori
+        // dal tutorial mentre sta solo leggendo. Il menu resta comunque
+        // leggibile sotto al velo, che è al 45%.
+        avanzaConBottone: true,
+      ),
+
+      const PassoTutorial(
+        titolo: 'Cambia campo',
+        testo:
+            'Proviamone una: premi "Cambia campo". Le due squadre si '
+            'scambiano di posto sullo schermo — e il menu si chiude.',
+        bersaglio: TutorialTarget.voceCambiaCampo,
+        lato: LatoCard.destra,
+        avanzaSuSegnale: SegnaleTutorial.drawerChiuso,
+      ),
+
+      const PassoTutorial(
+        titolo: 'Per ora è tutto',
+        testo:
+            'Hai registrato uno scambio intero: battuta, ricezione, attacco, '
+            'difesa e il punto che lo chiude.\n\n'
+            'Molte altre informazioni sull\'utilizzo di Volley Stratego si '
+            'possono trovare alla pagina:\n'
+            'https://sites.google.com/view/volleystratego/come-si-usa\n\n'
+            'oppure scrivendo una mail a:\n'
+            'volleystratego@gmail.com',
+        url: 'https://sites.google.com/view/volleystratego/come-si-usa',
+        mail: 'volleystratego@gmail.com',
+        avanzaConBottone: true,
+        etichettaBottone: 'Termina',
       ),
     ];

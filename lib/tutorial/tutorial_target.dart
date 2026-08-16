@@ -72,6 +72,15 @@ enum TutorialTarget {
   /// Il drawer di utilità aperto.
   drawer,
 
+  /// La voce "Cambia campo" dentro il drawer. È l'unica voce evidenziata a
+  /// sé: serve al passo che CHIUDE il menu, perché il suo `onTap` chiama
+  /// `closeDrawer()`. Chiudere il drawer prima della card finale non è
+  /// estetica — con il drawer aperto il "Termina" (che fa `Navigator.pop`)
+  /// consumerebbe la local history entry del Drawer e chiuderebbe quello
+  /// invece di uscire dal tutorial (stesso trabocchetto della voce
+  /// "Indietro", vedi scout-live.md).
+  voceCambiaCampo,
+
   // --- Bottoni dei voti, nostro pannello (vedi targetVotoNostro) ---------
   votoNostroPerfetto,
   votoNostroPositivo,

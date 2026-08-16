@@ -2479,16 +2479,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 ),
               ),
               const Divider(color: Colors.white24, height: 1),
-              ListTile(
-                leading: const Icon(Icons.swap_horiz, color: Colors.white),
-                title: Text(
-                  l.scoutCambiaCampo,
-                  style: const TextStyle(color: Colors.white),
+              _anchor(
+                TutorialTarget.voceCambiaCampo,
+                ListTile(
+                  leading: const Icon(Icons.swap_horiz, color: Colors.white),
+                  title: Text(
+                    l.scoutCambiaCampo,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  onTap: () {
+                    _toggleSide();
+                    _scaffoldKey.currentState?.closeDrawer();
+                  },
                 ),
-                onTap: () {
-                  _toggleSide();
-                  _scaffoldKey.currentState?.closeDrawer();
-                },
               ),
               // Sostituzione (cambio giocatore) — stessa condizione dei
               // bottoni rapidi: set iniziato e fuori dalla modalità test (il
