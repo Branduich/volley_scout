@@ -799,6 +799,26 @@ class ScoutActionRepository {
         .go();
   }
 
+  /// Undo dell'INTERO scambio: elimina le azioni di gioco con quel `rallyId`
+  /// (l'arbitro fa rigiocare l'azione). Come per l'undo singolo non si
+  /// "inverte" nulla: punteggio, servizio e rotazione sono derivati dagli
+  /// eventi rimasti.
+  ///
+  /// I **cambi giocatore sono esclusi**: una sostituzione avviene a palla
+  /// ferma, quindi non fa parte dello scambio — ma nel DB ne condivide il
+  /// `rallyId`, perché in `_registraAzione` solo `timeout` e
+  /// `correzioneRotazione` interrompono l'ereditarietà (la prima azione dopo
+  /// un cambio eredita il rallyId del cambio). Senza questa esclusione, un
+  /// "si rigioca" riporterebbe in panchina un giocatore appena entrato.
+  Future<void> annullaRally({required int setId, required int rallyId}) {
+    return (_db.delete(_db.scoutActions)
+          ..where((a) =>
+              a.setId.equals(setId) &
+              a.rallyId.equals(rallyId) &
+              a.tipo.equalsValue(TipoAzione.cambioGiocatore).not()))
+        .go();
+  }
+
   /// Quante righe appartengono a un gruppo di cambi (per il testo del
   /// dialog di conferma undo: "verranno annullati N cambi").
   Future<int> contaGruppoCambio(int setId, int gruppoCambio) async {

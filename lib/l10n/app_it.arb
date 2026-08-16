@@ -427,6 +427,13 @@
   "scoutServizioTitolo": "Chi serve per primo?",
   "scoutServizioTesto": "Indica quale squadra è al servizio per iniziare il set.",
   "scoutUndoTitolo": "Annullare l'ultima azione?",
+  "scoutUndoRallyTooltip": "Annulla lo scambio",
+  "scoutUndoRallyTitolo": "Annullare l'intero scambio?",
+  "scoutUndoRallyTesto": "{n, plural, =1{Verrà eliminata 1 azione dello scambio.} other{Verranno eliminate {n} azioni dello scambio.}}",
+  "@scoutUndoRallyTesto": {
+    "description": "Conferma dell'undo di tutto lo scambio (l'arbitro fa rigiocare l'azione): dice solo QUANTE azioni spariscono, non quali — si legge a bordo campo.",
+    "placeholders": { "n": { "type": "num", "format": "compact" } }
+  },
   "scoutSostituzioneNonValida": "Sostituzione non valida: un giocatore comparirebbe due volte in campo",
   "scoutDrawerTitolo": "Menu",
   "scoutCambiaCampo": "Cambia campo",

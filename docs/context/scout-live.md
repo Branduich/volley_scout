@@ -208,6 +208,32 @@
     poi chiamare `.pop()` sul Navigator già catturato — quel pop non passa
     più dalla local history entry (già consumata dalla chiusura esplicita)
     e naviga davvero alla schermata precedente.
+- **Annulla lo scambio** (IMPLEMENTATO): secondo bottone in barra superiore
+  (icona `Icons.replay`), **a sinistra dell'undo singolo** — che resta
+  all'estremo destro, dove il dito lo cerca già. Serve al caso reale in cui
+  l'arbitro fa **rigiocare l'azione** (fischio dubbio): cancella in un colpo
+  tutte le azioni di gioco dello scambio, punto compreso, invece di premere
+  l'undo N volte contando a memoria. Il titolo partita è passato a margini
+  `left/right: 104` (erano 56, dimensionati per una icona per lato).
+  - `_azioniUltimoRally` (getter, derivato dallo stesso stream): azioni con il
+    `rallyId` dell'ultima azione, **escluse quelle non di gioco**. Da NON
+    confondere con `_azioniRallyCorrente`, che serve alla logica di fase e
+    considera solo lo scambio ANCORA APERTO e le sole azioni `scout`.
+  - **I cambi giocatore NON si annullano** con questo tasto: una sostituzione
+    avviene a palla ferma, quindi non fa parte dello scambio — ma nel DB ne
+    condivide il `rallyId`, perché in `_registraAzione` solo `timeout` e
+    `correzioneRotazione` interrompono l'ereditarietà (la prima azione dopo un
+    cambio eredita il rallyId del cambio). Senza l'esclusione, un "si rigioca"
+    rimanderebbe in panchina un giocatore appena entrato. L'esclusione vive in
+    `ScoutActionRepository.annullaRally` ed è coperta da un test dedicato
+    (`test/providers/scout_action_repository_test.dart`).
+  - `_puoAnnullareRally`: come `_puoAnnullare` più `_azioniUltimoRally` non
+    vuota — quindi **spento se l'ultima azione è un timeout, una correzione
+    rotazione o un cambio** (per quelle c'è l'undo singolo).
+  - Conferma col **solo conteggio** ("Verranno eliminate N azioni dello
+    scambio"), non l'elenco: si legge a bordo campo. Irreversibile come
+    l'undo singolo. Punteggio/servizio/rotazione si ricalcolano da soli dagli
+    eventi rimasti: nessuna inversione manuale.
 - **Undo** (IMPLEMENTATO): bottone "annulla" nella barra superiore (vedi
   sopra). `_puoAnnullare` (bool): attivo solo con `_setCorrente != null`,
   fuori dalla modalità test (che non scrive azioni reali) e con almeno

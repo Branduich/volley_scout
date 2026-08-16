@@ -394,6 +394,41 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return righe.last; // watchAzioni ordina per `ordine` crescente
   }
 
+  // Azioni DI GIOCO dell'ultimo scambio — aperto O appena chiuso: quelle che
+  // spariscono con "annulla lo scambio", quando l'arbitro fa rigiocare
+  // l'azione. Lista vuota se non c'è niente da annullare.
+  //
+  // NON è `_azioniRallyCorrente` (più sotto), che serve alla logica di fase e
+  // per questo considera solo lo scambio ANCORA APERTO e le sole azioni
+  // `scout`: qui servono anche i punti/errori rapidi che chiudono lo scambio,
+  // ed è proprio uno scambio già chiuso quello che di solito si rigioca.
+  //
+  // I cambi giocatore sono esclusi: avvengono a palla ferma, quindi non fanno
+  // parte dello scambio — ma ne condividono il `rallyId` (in
+  // `_registraAzione` solo timeout e correzione rotazione interrompono
+  // l'ereditarietà). Stessa esclusione lato repository, vedi annullaRally.
+  // Se l'ultima azione NON è di gioco (timeout, correzione, cambio) il gruppo
+  // resta vuoto e il tasto si spegne da solo: per quelle c'è l'undo singolo.
+  List<ScoutAction> get _azioniUltimoRally {
+    final ultima = _ultimaAzione;
+    if (ultima == null || !_eDiGioco(ultima)) return const [];
+    final set = _setCorrente;
+    if (set == null) return const [];
+    final righe = ref.watch(scoutAzioniStreamProvider(set.id)).value;
+    if (righe == null) return const [];
+    return [
+      for (final a in righe)
+        if (a.rallyId == ultima.rallyId && _eDiGioco(a)) a,
+    ];
+  }
+
+  // Un'azione "di gioco" apre o continua uno scambio. Le altre
+  // (cambioGiocatore, timeout, correzioneRotazione) stanno a palla ferma.
+  bool _eDiGioco(ScoutAction a) =>
+      a.tipo == TipoAzione.scout ||
+      a.tipo == TipoAzione.puntoManuale ||
+      a.tipo == TipoAzione.erroreGenerico;
+
   // Chi è al servizio ora. Fuori dalla modalità test, deriva dallo stato
   // reale (ricalcolaStato sugli eventi persistiti); prima che il set inizi
   // ricade su null. In modalità test, ignora tutto questo e usa
@@ -1683,6 +1718,55 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   bool get _puoAnnullare =>
       !_testModeEnabled && _setCorrente != null && _ultimaAzione != null;
 
+  // "Annulla lo scambio": stesse condizioni dell'undo singolo, più il fatto
+  // che ci sia davvero uno scambio da annullare. Se l'ultima azione è un
+  // timeout, una correzione rotazione o un cambio, _azioniUltimoRally torna
+  // vuota e il tasto resta spento (per quelle c'è l'undo singolo).
+  bool get _puoAnnullareRally =>
+      _puoAnnullare && _azioniUltimoRally.isNotEmpty;
+
+  // Conferma prima di cancellare TUTTO lo scambio (irreversibile: non c'è un
+  // redo). Mostra solo il CONTEGGIO, non l'elenco: si legge a bordo campo,
+  // quando l'arbitro ha appena fischiato di rigiocare.
+  Future<void> _confermaAnnullaRally() async {
+    final azioni = _azioniUltimoRally;
+    if (azioni.isEmpty) return;
+    final confermato = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final l = AppLocalizations.of(context);
+        return AlertDialog(
+          scrollable: true,
+          title: Text(l.scoutUndoRallyTitolo, style: const TextStyle(fontSize: 14)),
+          content: Text(
+            l.scoutUndoRallyTesto(azioni.length),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l.comuneAnnulla),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l.comuneConferma),
+            ),
+          ],
+        );
+      },
+    );
+    if (confermato != true) return;
+    final set = _setCorrente;
+    if (set == null) return;
+    await ref
+        .read(scoutActionRepositoryProvider)
+        .annullaRally(setId: set.id, rallyId: azioni.first.rallyId);
+    if (!mounted) return;
+    // Come l'undo singolo: punteggio/servizio/rotazione si ricalcolano da soli
+    // dallo stream, qui basta chiudere un eventuale pannello voto aperto.
+    setState(() => _votoInCorso = null);
+  }
+
   // Dialog di conferma prima dell'undo vero e proprio (irreversibile: una
   // volta eliminata l'azione non c'è un "redo") — mostra una descrizione
   // dell'azione che verrebbe eliminata, riusando _descrizioneAzione (stesso
@@ -2002,9 +2086,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                     headerConstraints.maxWidth * 0.70 - scoreControlWidth / 2;
                 return Stack(
                   children: [
+                    // Margini simmetrici da 104 = due icone (48+48) più aria:
+                    // a destra ci sono "annulla scambio" + undo, a sinistra
+                    // solo il menu. Simmetrici e non 56/104 per non spostare
+                    // il centro del titolo, che è centrato: su telefono costa
+                    // un po' di larghezza (va in ellissi prima), ma il titolo
+                    // resta dov'è invece di apparire storto.
                     Positioned(
-                      left: 56,
-                      right: 56,
+                      left: 104,
+                      right: 104,
                       bottom: 4,
                       child: Text(
                         _matchTitle,
@@ -2090,10 +2180,35 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                             ),
                           ),
                           const Spacer(),
+                          // "Si rigioca l'azione": cancella l'intero scambio.
+                          // Sta PRIMA dell'undo singolo, che resta all'estremo
+                          // destro dove il dito lo cerca già.
+                          // Il colore va su IconButton, NON sull'Icon: un
+                          // `Icon(color: ...)` esplicito vince su quello che
+                          // il bottone applica da disabilitato, e l'icona
+                          // resterebbe bianca anche spenta.
+                          IconButton(
+                            // Icona disegnata a mano: ImageIcon la ricolora
+                            // usando SOLO l'alpha della sagoma, quindi segue
+                            // color/disabledColor come le icone Material.
+                            icon: const ImageIcon(
+                              AssetImage('assets/ui_icons/annulla_scambio.png'),
+                            ),
+                            color: Colors.white,
+                            disabledColor: Colors.white38,
+                            tooltip: AppLocalizations.of(
+                              context,
+                            ).scoutUndoRallyTooltip,
+                            onPressed: _puoAnnullareRally
+                                ? _confermaAnnullaRally
+                                : null,
+                          ),
                           _anchor(
                             TutorialTarget.bottoneUndo,
                             IconButton(
-                              icon: const Icon(Icons.undo, color: Colors.white),
+                              icon: const Icon(Icons.undo),
+                              color: Colors.white,
+                              disabledColor: Colors.white38,
                               onPressed: _puoAnnullare
                                   ? _confermaAnnullaUltimaAzione
                                   : null,

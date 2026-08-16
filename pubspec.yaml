@@ -100,6 +100,10 @@ flutter:
     # Logo app (già usato per l'icona launcher): caricato a runtime anche
     # nell'header del report PDF (match_pdf_screen.dart).
     - assets/icon/
+    # Icone disegnate a mano usate DENTRO l'interfaccia (ImageIcon): sagome
+    # monocrome su fondo trasparente, la tinta la mette il widget. Cartella
+    # separata da `assets/icon/`, che è tutt'altro: lì c'è il logo dell'app.
+    - assets/ui_icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
