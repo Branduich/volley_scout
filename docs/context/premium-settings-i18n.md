@@ -113,17 +113,24 @@ Traduzione IT→EN con l'i18n ufficiale di Flutter (`flutter_localizations` +
   italiana — i VALORI passano già da `enum_l10n`, l'intestazione no; è usata
   anche dai test, quindi localizzarla vuol dire toccare `match_csv_test`.
 
-  **Tutorial interattivo — tutto da tradurre** (aggiunto 2026-08-01/03): è il
-  blocco di testo più corposo rimasto. I 17 passi stanno in
-  `lib/tutorial/tutorial_steps.dart` (titolo + testo, più `testoTraiettoria`
-  per le note su `TrajectoryScreen`); il contorno è sparso fra
-  `tutorial_overlay.dart` ("Avanti"/"Termina"/"Apri la guida"/"Scrivici",
-  tooltip "Esci dal tutorial", "Impossibile aprire …"), `main.dart` (la voce
-  "Tutorial" del menu) e `settings_screen.dart` (toggle "Mostra il tutorial nel
-  menu"). Sono hardcoded in italiano di proposito: si spostano in ARB (prefisso
-  `tutorial*`) **quando la sequenza dei passi è stabile**, per non tradurre due
-  volte testi ancora in revisione. Da NON tradurre: l'URL del sito e
-  `volleystratego@gmail.com` nella scheda finale.
+  **Tutorial interattivo — FATTO** (2026-08-16): tutti i 23 passi di
+  `lib/tutorial/tutorial_steps.dart` (titolo + testo + `testoTraiettoria`) e il
+  contorno (`tutorial_overlay.dart`, i due nomi della sandbox) sono in ARB col
+  prefisso `tutorial*`. Impianto: `passiTutorial(AppLocalizations l)` costruisce
+  la sequenza **già tradotta** — le stringhe si risolvono una volta in
+  `TutorialController.inizia(l)`, non a ogni build della card; `avviaTutorial`
+  cattura `l` PRIMA degli await e lo passa anche a `TutorialSandbox.semina`
+  (nome squadra e partita di prova si vedono nel titolo della barra).
+  `PassoTutorial.etichettaBottone` è nullable: `null` = "Avanti", che la card
+  risolve da `AppLocalizations` (il default di un parametro deve essere const).
+  Da NON tradurre: l'URL del sito e `volleystratego@gmail.com` della scheda
+  finale, e i nomi della rosa finta in `tutorial_sandbox.dart` (dati demo).
+  **Se rinomini una voce del drawer, allinea `tutorialVociMenuTesto`**: è
+  l'unico punto del tutorial che duplica le etichette dell'interfaccia.
+
+  **Inglese AMERICANO** (deciso 2026-08-16): color/defense, non colour/defence.
+  Nei testi del tutorial "zona" è reso **position** (non *zone*), così rimanda
+  alle etichette P1…P6 dei token in campo.
 
   **Come contarle davvero** — NON usare `grep -L AppLocalizations`: dice solo
   se il file *importa* la classe, e una schermata con una riga tradotta

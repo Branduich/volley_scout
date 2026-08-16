@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import 'tutorial_steps.dart';
 import 'tutorial_target.dart';
 
@@ -66,8 +67,10 @@ class PassoTutorial {
 
   final bool avanzaConBottone;
 
-  /// Etichetta del bottone quando [avanzaConBottone] è true.
-  final String etichettaBottone;
+  /// Etichetta del bottone quando [avanzaConBottone] è true. `null` = quella
+  /// di default ("Avanti"), che la card risolve da `AppLocalizations`: qui non
+  /// può stare, il default di un parametro deve essere const.
+  final String? etichettaBottone;
 
   final bool avanzaSuTap;
   final TutorialTarget? avanzaSuComparsaDi;
@@ -91,7 +94,7 @@ class PassoTutorial {
     this.url,
     this.mail,
     this.avanzaConBottone = false,
-    this.etichettaBottone = 'Avanti',
+    this.etichettaBottone,
     this.avanzaSuTap = false,
     this.avanzaSuComparsaDi,
     this.avanzaSuSegnale,
@@ -137,10 +140,13 @@ class TutorialController extends Notifier<StatoTutorial> {
       ? _passi[state.indice]
       : null;
 
-  void inizia() {
+  /// [l] serve a costruire i passi già tradotti: la sequenza si compone una
+  /// volta sola all'avvio, quindi le stringhe si risolvono qui e non a ogni
+  /// build della card.
+  void inizia(AppLocalizations l) {
     registro.clear();
     _passi = [
-      for (final p in passiTutorial()) if (p.mostraSe?.call(ref) ?? true) p,
+      for (final p in passiTutorial(l)) if (p.mostraSe?.call(ref) ?? true) p,
     ];
     state = const StatoTutorial(attivo: true);
   }

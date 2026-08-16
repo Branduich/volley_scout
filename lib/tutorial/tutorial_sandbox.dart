@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../models/enums.dart';
 
 /// Squadra + partita + set finti su cui gira il tutorial: dati veri a DB (la
@@ -22,8 +23,11 @@ class TutorialSandbox {
   static const _kMatchId = 'tutorial.matchId';
   static const _kTeamId = 'tutorial.teamId';
 
-  static const nomeTeam = 'Squadra tutorial';
-  static const nomeMatch = 'Partita di prova';
+  // Nomi di squadra e partita di prova: si vedono nel titolo della barra
+  // durante il tutorial, quindi seguono la lingua dell'app. Arrivano da
+  // `semina`, che riceve le stringhe già risolte: qui non c'è un
+  // BuildContext. La CANCELLAZIONE non li usa (avviene per id salvato in
+  // prefs), quindi cambiare lingua a metà non lascia orfani in giro.
 
   /// Cancella la partita e la squadra di prova dell'ultima sessione, se ci
   /// sono. Idempotente: se non c'è nulla non fa nulla.
@@ -56,11 +60,12 @@ class TutorialSandbox {
   static Future<({VolleyMatch match, Team team, int setId})> semina(
     AppDatabase db,
     SharedPreferences prefs,
+    AppLocalizations l,
   ) async {
     await pulisci(db, prefs);
 
     final team = await db.into(db.teams).insertReturning(TeamsCompanion.insert(
-          nome: nomeTeam,
+          nome: l.tutorialSquadraNome,
           categoria: Categoria.terzaDivisione.label,
           coloreDivisa: 0xFF1E3A8A,
         ));
@@ -104,10 +109,10 @@ class TutorialSandbox {
 
     final match = await db.into(db.volleyMatches).insertReturning(
           VolleyMatchesCompanion.insert(
-            nome: nomeMatch,
+            nome: l.tutorialPartitaNome,
             dataOra: DateTime.now(),
             inCasa: true,
-            avversario: const Value('Avversari'),
+            avversario: Value(l.scoutAvversariGenerico),
             teamId: Value(teamId),
             // Già `inCorso`: evita l'UPDATE che ScoutScreen farebbe altrimenti
             // per riportarla in corso alla ripresa.

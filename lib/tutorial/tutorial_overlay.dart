@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/database_provider.dart';
 import '../theme/app_spacing.dart';
 import 'tutorial_controller.dart';
@@ -222,10 +223,11 @@ class _BottoneLink extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () async {
         final messenger = ScaffoldMessenger.of(context);
+        final l = AppLocalizations.of(context);
         final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
         if (!ok) {
           messenger.showSnackBar(
-            SnackBar(content: Text('Impossibile aprire $uri')),
+            SnackBar(content: Text(l.tutorialLinkNonApribile('$uri'))),
           );
         }
       },
@@ -286,7 +288,7 @@ class _CardTutorial extends StatelessWidget {
                 IconButton(
                   onPressed: onEsci,
                   icon: const Icon(Icons.close, color: Colors.white70),
-                  tooltip: 'Esci dal tutorial',
+                  tooltip: AppLocalizations.of(context).tutorialEsci,
                 ),
               ],
             ),
@@ -311,13 +313,13 @@ class _CardTutorial extends StatelessWidget {
                   if (passo.url != null)
                     _BottoneLink(
                       icona: Icons.open_in_new,
-                      etichetta: 'Apri la guida',
+                      etichetta: AppLocalizations.of(context).tutorialApriGuida,
                       uri: Uri.parse(passo.url!),
                     ),
                   if (passo.mail != null)
                     _BottoneLink(
                       icona: Icons.mail_outline,
-                      etichetta: 'Scrivici',
+                      etichetta: AppLocalizations.of(context).tutorialScrivici,
                       uri: Uri(scheme: 'mailto', path: passo.mail!),
                     ),
                 ],
@@ -329,7 +331,10 @@ class _CardTutorial extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: FilledButton(
                   onPressed: onAvanti,
-                  child: Text(passo.etichettaBottone),
+                  child: Text(
+                    passo.etichettaBottone ??
+                        AppLocalizations.of(context).tutorialAvanti,
+                  ),
                 ),
               ),
             ],

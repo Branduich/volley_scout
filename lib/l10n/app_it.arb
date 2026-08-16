@@ -386,6 +386,92 @@
   "aboutIdCopiato": "ID copiato",
   "aboutLinkNonApribile": "Impossibile aprire il link",
 
+  "tutorialAvanti": "Avanti",
+  "tutorialInizia": "Inizia",
+  "tutorialBenvenutoTitolo": "Benvenuto",
+  "tutorialBenvenutoTesto": "Questa è la pagina di scout di una partita di prova: niente di quello che registri verrà salvato.\n\nSegui le indicazioni — a ogni passo puoi premere solo il pulsante evidenziato e ti mostrerò come dare un punteggio ad ogni fondamentale.",
+
+  "tutorialTreTocchiTitolo": "Tre tocchi",
+  "tutorialTreTocchiTesto": "Il modo completo di registrare è a tre tocchi: giocatore, fondamentale, voto.\n\nSiamo al servizio: tocca il giocatore che batte, fuori dal campo.",
+
+  "tutorialVotoTitolo": "Il voto",
+  "tutorialVotoTesto": "In battuta il fondamentale è già deciso, quindi resta solo il voto. Per la battuta significano:\n\n#  battuta punto (ace)\n+  battuta buona: all'avversario resta solo un attacco scontato\n/  battuta normale: il ricevitore ha qualche problema ad appoggiare bene all'alzatore\n−  battuta facile, ricevuta positivamente\n=  battuta sbagliata (a rete o fuori campo): punto avversario\n\nDai un + a questa battuta.",
+  "tutorialVotoTraiettoria": "Dopo il voto puoi segnare dove è andata la palla: trascina il dito dal battitore fino al punto di arrivo, al rilascio l'azione viene registrata. Sotto al campo puoi anche indicare il tipo di battuta. Se non ti interessa, torna indietro con la freccia in alto: l'azione viene registrata lo stesso, solo senza traiettoria.",
+
+  "tutorialAvversariTitolo": "La squadra avversaria",
+  "tutorialAvversariTesto": "In questa situazione lo scout prevede una squadra avversaria che è fittizia e utilizzata solo come supporto alla registrazione dei voti e delle traiettorie.\n\nHa ricevuto il loro centrale: toccalo.",
+
+  "tutorialVotoRicezioneTitolo": "Il voto della ricezione",
+  "tutorialVotoRicezioneTesto": "I voti hanno lo stesso significato, letti dalla parte di chi riceve: # ricezione perfetta, che lascia all'alzatore ogni scelta, fino a = ricezione sbagliata, che vale un punto per noi.\n\nQui la battuta li ha messi in difficoltà: dai un −.",
+
+  "tutorialAttaccoAvvTitolo": "L'attacco avversario",
+  "tutorialAttaccoAvvTesto": "Ora simuliamo che debba attaccare il loro schiacciatore in zona 2. Toccalo.",
+
+  "tutorialSceltaFondTitolo": "Scegliere il fondamentale",
+  "tutorialSceltaFondTesto": "Battuta e ricezione erano obbligate dalla fase di gioco. Adesso lo scambio è aperto e sei tu a dire cosa è successo: premi Attacco.",
+
+  "tutorialAttaccoNonRisolutivoTitolo": "Un attacco non risolutivo",
+  "tutorialAttaccoNonRisolutivoTesto": "L'attacco non chiude il punto: la palla resta in gioco e torna dalla nostra parte. È un attacco facile da difendere: dai un /.",
+  "tutorialAttaccoNonRisolutivoTraiettoria": "Anche per l'attacco puoi segnare la traiettoria: trascina dal punto di partenza a dove è arrivata la palla. Sotto al campo puoi indicare il tipo di attacco.\nSe durante il trascinamento indugi sulla rete, viene registrato un tocco a muro: la traiettoria si spezza in quel punto.",
+
+  "tutorialToccaANoiTitolo": "Tocca a noi",
+  "tutorialToccaANoiTesto": "Il nostro libero, in zona 5, ha difeso benissimo. Toccalo.",
+
+  "tutorialDifesaTitolo": "Difesa",
+  "tutorialDifesaTesto": "La palla arrivava da un attacco: il fondamentale da scegliere è quindi la difesa.",
+
+  "tutorialDifesaPerfettaTitolo": "Una difesa perfetta",
+  "tutorialDifesaPerfettaTesto": "La palla è tornata all'alzatore pulita: può costruire il gioco come vuole. Dai un #.",
+
+  "tutorialNostroAttaccoTitolo": "Il nostro attacco",
+  "tutorialNostroAttaccoTesto": "Alzata al nostro schiacciatore in zona 4, che schiaccia a terra. Toccalo.",
+
+  "tutorialAttaccoTitolo": "Attacco",
+  "tutorialAttaccoTesto": "Il fondamentale questa volta è l'attacco.",
+
+  "tutorialSchiacciataTitolo": "Schiacciata vincente",
+  "tutorialSchiacciataTesto": "La palla è finita a terra: dai un #.\n\nIl punteggio non cambierà subito. Con lo scout avversario attivo il punto lo porta l'errore di chi doveva difendere, che registrerai fra un istante: così l'azione viene contata una volta sola.",
+  "tutorialSchiacciataTraiettoria": "Segna dove è finita la schiacciata: trascina dal punto di partenza al punto di caduta.\nSe indugi sulla rete viene registrato un tocco a muro e la traiettoria si spezza in quel punto.",
+
+  "tutorialDifensoreTitolo": "Il difensore non è arrivato",
+  "tutorialDifensoreTesto": "La palla è caduta nella loro zona 5, dove la difesa non ci è arrivata. Tocca quel giocatore.",
+
+  "tutorialPuntoTitolo": "Il punto",
+  "tutorialPuntoTesto": "Il pannello si è ristretto a muro e difesa, in rosso: sono le sole risposte possibili a una schiacciata a terra, e premendone una registri direttamente l'errore (=).\n\nPremi Difesa: adesso il punteggio si muove.",
+
+  "tutorialRegistroTitolo": "Il registro",
+  "tutorialRegistroTesto": "Il punteggio adesso è 1 a 0, come si vede nella parte alta dello schermo.\n\nSe la finestra di registro dei voti è attiva, come in questo caso, è possibile consultare tutte le azioni registrate.",
+
+  "tutorialRotazioneTitolo": "La rotazione",
+  "tutorialRotazioneTesto": "Ora siamo in battuta in P6. La mini mappa a sinistra indica la rotazione e dà anche la possibilità, in caso di errore, di cambiarla di una posizione in avanti e una all'indietro tramite i due bottoni.",
+
+  "tutorialTimeoutTitolo": "Timeout",
+  "tutorialTimeoutTesto": "Ogni squadra ha due timeout per set. Chiamane uno per la tua squadra: premi il pulsante con l'orologio.",
+
+  "tutorialAnnullareTitolo": "Annullare",
+  "tutorialAnnullareTesto": "Tutto quello che registri finisce in un elenco e si può annullare. Annulla il timeout con la freccia in alto a destra: ti verrà chiesta una conferma.\n\nAccanto alla freccia c'è un secondo pulsante che annulla l'intero scambio in un colpo solo, per quando l'arbitro fa rigiocare l'azione: ora è spento, perché un timeout non fa parte di uno scambio.",
+
+  "tutorialMenuTitolo": "Il menu",
+  "tutorialMenuTesto": "Nella barra in alto, a sinistra, c'è il bottone per aprire il menu, dove si trovano tutte le voci che servono per seguire la partita.\n\nAprilo.",
+
+  "tutorialVociMenuTitolo": "Cosa c'è nel menu",
+  "tutorialVociMenuTesto": "Dall'alto:\n\n• Cambia campo — sposta le squadre da un lato all'altro dello schermo, per seguire il cambio campo di fine set\n• Sostituzione — cambio giocatori a set in corso\n• Lavagna tattica — una lavagna su cui disegnare durante un timeout\n• Statistiche fondamentali e Report — i dati della partita, consultabili anche mentre giochi\n• Traiettorie battute e attacco — in che posizione sono cadute le palle\n• Mostra ruoli / numeri — cosa mostrare nelle pedine dei giocatori in campo\n• Log azioni — mostra o nasconde il registro delle azioni\n• Fine — termina il set o la partita\n• Indietro — esce dallo scout per poi poterlo riprendere in seguito",
+
+  "tutorialCambiaCampoTitolo": "Cambia campo",
+  "tutorialCambiaCampoTesto": "Proviamone una: premi \"Cambia campo\". Le due squadre si scambiano di posto sullo schermo — e il menu si chiude.",
+  "tutorialFineTitolo": "Per ora è tutto",
+  "tutorialFineTesto": "Hai registrato uno scambio intero: battuta, ricezione, attacco, difesa e il punto che lo chiude.\n\nMolte altre informazioni sull'utilizzo di Volley Stratego si possono trovare alla pagina:\nhttps://sites.google.com/view/volleystratego/come-si-usa\n\noppure scrivendo una mail a:\nvolleystratego@gmail.com",
+  "tutorialSquadraNome": "Squadra tutorial",
+  "tutorialPartitaNome": "Partita di prova",
+  "tutorialApriGuida": "Apri la guida",
+  "tutorialScrivici": "Scrivici",
+  "tutorialTermina": "Termina",
+  "tutorialEsci": "Esci dal tutorial",
+  "tutorialLinkNonApribile": "Impossibile aprire {uri}",
+  "@tutorialLinkNonApribile": {
+    "placeholders": { "uri": { "type": "String", "example": "mailto:volleystratego@gmail.com" } }
+  },
+
   "lineupConfermaFormazione": "Conferma formazione",
   "lineupDoppioLibero": "Doppio libero",
   "lineupGiocatori": "Giocatori",

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/enums.dart';
 import '../providers/database_provider.dart';
 import '../providers/settings_provider.dart';
@@ -16,9 +17,12 @@ import 'tutorial_sandbox.dart';
 /// Unico punto dell'app che sa dell'esistenza della sandbox: `ScoutScreen`
 /// riceve dati come se fossero quelli di una partita vera.
 Future<void> avviaTutorial(BuildContext context, WidgetRef ref) async {
+  // Preso PRIMA degli await: i passi si costruiscono già tradotti, e usare
+  // `context` dopo un await farebbe scattare use_build_context_synchronously.
+  final l = AppLocalizations.of(context);
   final db = ref.read(appDatabaseProvider);
   final prefs = ref.read(sharedPreferencesProvider);
-  final dati = await TutorialSandbox.semina(db, prefs);
+  final dati = await TutorialSandbox.semina(db, prefs, l);
 
   // Formazione ricostruita dal DB con lo stesso percorso di "Riprendi" in
   // MatchesScreen: se un domani cambia il formato, il tutorial lo segue.
@@ -31,7 +35,7 @@ Future<void> avviaTutorial(BuildContext context, WidgetRef ref) async {
     return;
   }
 
-  ref.read(tutorialControllerProvider.notifier).inizia();
+  ref.read(tutorialControllerProvider.notifier).inizia(l);
   if (!context.mounted) {
     await TutorialSandbox.pulisci(db, prefs);
     return;

@@ -163,7 +163,11 @@ void main() {
   // formazione completa e coerente (set creato, rotazione, libero).
   perOgniDimensione('ScoutScreen', (db) async {
     final prefs = await SharedPreferences.getInstance();
-    final dati = await TutorialSandbox.semina(db, prefs);
+    final dati = await TutorialSandbox.semina(
+      db,
+      prefs,
+      lookupAppLocalizations(const Locale('it')),
+    );
     final formazione =
         await MatchSetRepository(db).caricaFormazione(dati.setId);
     return ScoutScreen(

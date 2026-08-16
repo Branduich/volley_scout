@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import '../models/enums.dart';
 import 'tutorial_controller.dart';
 import 'tutorial_target.dart';
@@ -10,59 +11,39 @@ import 'tutorial_target.dart';
 /// aggiunte: un valore in `TutorialTarget` e un `_anchor(...)` attorno al
 /// widget in `scout_screen.dart`.
 ///
-/// STATO: sequenza completa (2026-08-16). Uno scambio intero — battuta,
-/// ricezione, attacco, difesa e il punto che lo chiude — poi registro,
-/// rotazione, timeout e annullamento, infine la card di chiusura coi
-/// riferimenti al sito e alla mail. Ancora tutta in ITALIANO: si sposta in ARB
-/// (prefisso `tutorial*`) quando i testi saranno assestati.
+/// STATO: sequenza completa e TRADOTTA (2026-08-16). Uno scambio intero —
+/// battuta, ricezione, attacco, difesa e il punto che lo chiude — poi
+/// registro, rotazione, timeout e annullamento, il menu di utilità in tre
+/// passi, infine la card di chiusura coi riferimenti al sito e alla mail.
+///
+/// I testi vivono in `lib/l10n/*.arb` col prefisso `tutorial*` e arrivano qui
+/// già risolti tramite [l]: la sequenza si compone una volta sola in
+/// `TutorialController.inizia`, non a ogni build della card.
 ///
 /// Vincolo da rispettare quando si allunga: **usare voti `+`, mai `#`**. Con
 /// lo scout avversari attivo un `#` apre il ramo "errore difensivo forzato"
 /// (Modello A) e la schermata si aspetta la risposta dell'altra squadra, cosa
 /// che complica il passo successivo.
-List<PassoTutorial> passiTutorial() => [
-      const PassoTutorial(
-        titolo: 'Benvenuto',
-        testo:
-            'Questa è la pagina di scout di una partita di prova: niente di '
-            'quello che registri verrà salvato.\n\n'
-            'Segui le indicazioni — a ogni passo puoi premere solo il pulsante '
-            'evidenziato e ti mostrerò come dare un punteggio ad ogni '
-            'fondamentale.',
+List<PassoTutorial> passiTutorial(AppLocalizations l) => [
+      PassoTutorial(
+        titolo: l.tutorialBenvenutoTitolo,
+        testo: l.tutorialBenvenutoTesto,
         avanzaConBottone: true,
-        etichettaBottone: 'Inizia',
+        etichettaBottone: l.tutorialInizia,
       ),
 
       // --- avanzamento su COMPARSA DI UN ALTRO TARGET ---------------------
-      const PassoTutorial(
-        titolo: 'Tre tocchi',
-        testo:
-            'Il modo completo di registrare è a tre tocchi: giocatore, '
-            'fondamentale, voto.\n\n'
-            'Siamo al servizio: tocca il giocatore che batte, fuori dal campo.',
+      PassoTutorial(
+        titolo: l.tutorialTreTocchiTitolo,
+        testo: l.tutorialTreTocchiTesto,
         bersaglio: TutorialTarget.tokenBattitore,
         avanzaSuComparsaDi: TutorialTarget.pannelloVoto,
       ),
 
       PassoTutorial(
-        titolo: 'Il voto',
-        testo:
-            'In battuta il fondamentale è già deciso, quindi resta solo il '
-            'voto. Per la battuta significano:\n\n'
-            '#  battuta punto (ace)\n'
-            '+  battuta buona: all\'avversario resta solo un attacco scontato\n'
-            '/  battuta normale: il ricevitore ha qualche problema ad '
-            'appoggiare bene all\'alzatore\n'
-            '−  battuta facile, ricevuta positivamente\n'
-            '=  battuta sbagliata (a rete o fuori campo): punto avversario\n\n'
-            'Dai un + a questa battuta.',
-        testoTraiettoria:
-            'Dopo il voto puoi segnare dove è andata la palla: trascina il '
-            'dito dal battitore fino al punto di arrivo, al rilascio l\'azione '
-            'viene registrata. Sotto al campo puoi anche indicare il tipo di '
-            'battuta. Se non ti interessa, torna indietro con la freccia in '
-            'alto: l\'azione viene registrata lo stesso, solo senza '
-            'traiettoria.',
+        titolo: l.tutorialVotoTitolo,
+        testo: l.tutorialVotoTesto,
+        testoTraiettoria: l.tutorialVotoTraiettoria,
         bersaglio: TutorialTarget.votoNostroPositivo,
         // Di lato: sopra o sotto coprirebbe gli altri quattro voti.
         lato: LatoCard.sinistra,
@@ -72,24 +53,16 @@ List<PassoTutorial> passiTutorial() => [
 
       // Dopo la battuta tocca agli avversari ricevere: la fase lo impone, il
       // fondamentale è già deciso come per la nostra battuta.
-      const PassoTutorial(
-        titolo: 'La squadra avversaria',
-        testo:
-            'In questa situazione lo scout prevede una squadra avversaria che '
-            'è fittizia e utilizzata solo come supporto alla registrazione dei '
-            'voti e delle traiettorie.\n\n'
-            'Ha ricevuto il loro centrale: toccalo.',
+      PassoTutorial(
+        titolo: l.tutorialAvversariTitolo,
+        testo: l.tutorialAvversariTesto,
         bersaglio: TutorialTarget.tokenAvversarioRicezione,
         avanzaSuComparsaDi: TutorialTarget.pannelloAvversario,
       ),
 
       PassoTutorial(
-        titolo: 'Il voto della ricezione',
-        testo:
-            'I voti hanno lo stesso significato, letti dalla parte di chi '
-            'riceve: # ricezione perfetta, che lascia all\'alzatore ogni '
-            'scelta, fino a = ricezione sbagliata, che vale un punto per noi.'
-            '\n\nQui la battuta li ha messi in difficoltà: dai un −.',
+        titolo: l.tutorialVotoRicezioneTitolo,
+        testo: l.tutorialVotoRicezioneTesto,
         bersaglio: TutorialTarget.votoAvvNegativo,
         // Di lato: sopra o sotto coprirebbe gli altri quattro voti.
         lato: LatoCard.sinistra,
@@ -101,11 +74,9 @@ List<PassoTutorial> passiTutorial() => [
 
       // Ricezione fatta: da qui lo scambio è in fase LIBERA, nessun
       // fondamentale è più imposto e va scelto a mano nel pannello.
-      const PassoTutorial(
-        titolo: 'L\'attacco avversario',
-        testo:
-            'Ora simuliamo che debba attaccare il loro schiacciatore in '
-            'zona 2. Toccalo.',
+      PassoTutorial(
+        titolo: l.tutorialAttaccoAvvTitolo,
+        testo: l.tutorialAttaccoAvvTesto,
         bersaglio: TutorialTarget.tokenAvversarioAttacco,
         // NON su `pannelloAvversario`: quello è ancora a schermo per un
         // istante dal passo precedente e il tutorial salterebbe avanti da
@@ -114,29 +85,18 @@ List<PassoTutorial> passiTutorial() => [
         avanzaSuComparsaDi: TutorialTarget.fondAvvAttacco,
       ),
 
-      const PassoTutorial(
-        titolo: 'Scegliere il fondamentale',
-        testo:
-            'Battuta e ricezione erano obbligate dalla fase di gioco. Adesso '
-            'lo scambio è aperto e sei tu a dire cosa è successo: premi '
-            'Attacco.',
+      PassoTutorial(
+        titolo: l.tutorialSceltaFondTitolo,
+        testo: l.tutorialSceltaFondTesto,
         bersaglio: TutorialTarget.fondAvvAttacco,
         lato: LatoCard.sinistra,
         avanzaSuComparsaDi: TutorialTarget.votoAvvMezzoPunto,
       ),
 
       PassoTutorial(
-        titolo: 'Un attacco non risolutivo',
-        testo:
-            'L\'attacco non chiude il punto: la palla resta in gioco e '
-            'torna dalla nostra parte. È un attacco facile da difendere: '
-            'dai un /.',
-        testoTraiettoria:
-            'Anche per l\'attacco puoi segnare la traiettoria: trascina dal '
-            'punto di partenza a dove è arrivata la palla. Sotto al campo '
-            'puoi indicare il tipo di attacco.\n'
-            'Se durante il trascinamento indugi sulla rete, viene registrato '
-            'un tocco a muro: la traiettoria si spezza in quel punto.',
+        titolo: l.tutorialAttaccoNonRisolutivoTitolo,
+        testo: l.tutorialAttaccoNonRisolutivoTesto,
+        testoTraiettoria: l.tutorialAttaccoNonRisolutivoTraiettoria,
         bersaglio: TutorialTarget.votoAvvMezzoPunto,
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>
@@ -147,29 +107,24 @@ List<PassoTutorial> passiTutorial() => [
 
       // La palla torna da noi: la risposta a un attacco è una DIFESA, non una
       // ricezione (quella esiste solo sulla battuta avversaria).
-      const PassoTutorial(
-        titolo: 'Tocca a noi',
-        testo:
-            'Il nostro libero, in zona 5, ha difeso benissimo. Toccalo.',
+      PassoTutorial(
+        titolo: l.tutorialToccaANoiTitolo,
+        testo: l.tutorialToccaANoiTesto,
         bersaglio: TutorialTarget.tokenLibero,
         avanzaSuComparsaDi: TutorialTarget.fondNostroDifesa,
       ),
 
-      const PassoTutorial(
-        titolo: 'Difesa',
-        testo:
-            'La palla arrivava da un attacco: il fondamentale da scegliere '
-            'è quindi la difesa.',
+      PassoTutorial(
+        titolo: l.tutorialDifesaTitolo,
+        testo: l.tutorialDifesaTesto,
         bersaglio: TutorialTarget.fondNostroDifesa,
         lato: LatoCard.sinistra,
         avanzaSuComparsaDi: TutorialTarget.votoNostroPerfetto,
       ),
 
       PassoTutorial(
-        titolo: 'Una difesa perfetta',
-        testo:
-            'La palla è tornata all\'alzatore pulita: può costruire il gioco '
-            'come vuole. Dai un #.',
+        titolo: l.tutorialDifesaPerfettaTitolo,
+        testo: l.tutorialDifesaPerfettaTesto,
         bersaglio: TutorialTarget.votoNostroPerfetto,
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>
@@ -178,36 +133,25 @@ List<PassoTutorial> passiTutorial() => [
             a.voto == Voto.perfetto),
       ),
 
-      const PassoTutorial(
-        titolo: 'Il nostro attacco',
-        testo:
-            'Alzata al nostro schiacciatore in zona 4, che schiaccia a terra. '
-            'Toccalo.',
+      PassoTutorial(
+        titolo: l.tutorialNostroAttaccoTitolo,
+        testo: l.tutorialNostroAttaccoTesto,
         bersaglio: TutorialTarget.tokenNostroAttaccante,
         avanzaSuComparsaDi: TutorialTarget.fondNostroAttacco,
       ),
 
-      const PassoTutorial(
-        titolo: 'Attacco',
-        testo: 'Il fondamentale questa volta è l\'attacco.',
+      PassoTutorial(
+        titolo: l.tutorialAttaccoTitolo,
+        testo: l.tutorialAttaccoTesto,
         bersaglio: TutorialTarget.fondNostroAttacco,
         lato: LatoCard.sinistra,
         avanzaSuComparsaDi: TutorialTarget.votoNostroPerfetto,
       ),
 
       PassoTutorial(
-        titolo: 'Schiacciata vincente',
-        testo:
-            'La palla è finita a terra: dai un #.\n\n'
-            'Il punteggio non cambierà subito. Con lo scout avversario attivo '
-            'il punto lo porta l\'errore di chi doveva difendere, che '
-            'registrerai fra un istante: così l\'azione viene contata una '
-            'volta sola.',
-        testoTraiettoria:
-            'Segna dove è finita la schiacciata: trascina dal punto di '
-            'partenza al punto di caduta.\n'
-            'Se indugi sulla rete viene registrato un tocco a muro e la '
-            'traiettoria si spezza in quel punto.',
+        titolo: l.tutorialSchiacciataTitolo,
+        testo: l.tutorialSchiacciataTesto,
+        testoTraiettoria: l.tutorialSchiacciataTraiettoria,
         bersaglio: TutorialTarget.votoNostroPerfetto,
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>
@@ -219,22 +163,16 @@ List<PassoTutorial> passiTutorial() => [
       // Chiusura dello scambio (Modello A): dopo il nostro `#` i token
       // avversari offrono un pannello RISTRETTO a Muro/Difesa in rosso, che
       // registra il `=` in un colpo solo — e con esso il punto.
-      const PassoTutorial(
-        titolo: 'Il difensore non è arrivato',
-        testo:
-            'La palla è caduta nella loro zona 5, dove la difesa non ci è '
-            'arrivata. Tocca quel giocatore.',
+      PassoTutorial(
+        titolo: l.tutorialDifensoreTitolo,
+        testo: l.tutorialDifensoreTesto,
         bersaglio: TutorialTarget.tokenAvversarioDifesa,
         avanzaSuComparsaDi: TutorialTarget.fondAvvDifesa,
       ),
 
       PassoTutorial(
-        titolo: 'Il punto',
-        testo:
-            'Il pannello si è ristretto a muro e difesa, in rosso: sono le '
-            'sole risposte possibili a una schiacciata a terra, e premendone '
-            'una registri direttamente l\'errore (=).\n\n'
-            'Premi Difesa: adesso il punteggio si muove.',
+        titolo: l.tutorialPuntoTitolo,
+        testo: l.tutorialPuntoTesto,
         bersaglio: TutorialTarget.fondAvvDifesa,
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>
@@ -243,24 +181,16 @@ List<PassoTutorial> passiTutorial() => [
             a.voto == Voto.errore),
       ),
 
-      const PassoTutorial(
-        titolo: 'Il registro',
-        testo:
-            'Il punteggio adesso è 1 a 0, come si vede nella parte alta dello '
-            'schermo.\n\n'
-            'Se la finestra di registro dei voti è attiva, come in questo '
-            'caso, è possibile consultare tutte le azioni registrate.',
+      PassoTutorial(
+        titolo: l.tutorialRegistroTitolo,
+        testo: l.tutorialRegistroTesto,
         bersaglio: TutorialTarget.logAzioni,
         avanzaConBottone: true,
       ),
 
-      const PassoTutorial(
-        titolo: 'La rotazione',
-        testo:
-            'Ora siamo in battuta in P6. La mini mappa a sinistra indica la '
-            'rotazione e dà anche la possibilità, in caso di errore, di '
-            'cambiarla di una posizione in avanti e una all\'indietro tramite '
-            'i due bottoni.',
+      PassoTutorial(
+        titolo: l.tutorialRotazioneTitolo,
+        testo: l.tutorialRotazioneTesto,
         bersaglio: TutorialTarget.minimappa,
         bersaglioSecondario: TutorialTarget.bottoniCorrezioneRotazione,
         avanzaConBottone: true,
@@ -273,10 +203,8 @@ List<PassoTutorial> passiTutorial() => [
       //
       // Avanzamento su AZIONE PERSISTITA.
       PassoTutorial(
-        titolo: 'Timeout',
-        testo:
-            'Ogni squadra ha due timeout per set. Chiamane uno per la tua '
-            'squadra: premi il pulsante con l\'orologio.',
+        titolo: l.tutorialTimeoutTitolo,
+        testo: l.tutorialTimeoutTesto,
         bersaglio: TutorialTarget.bottoneTimeoutNostro,
         avanzaSuLog: (log, _) =>
             log.isNotEmpty &&
@@ -286,15 +214,8 @@ List<PassoTutorial> passiTutorial() => [
 
       // Avanzamento su LOG PIÙ CORTO (undo).
       PassoTutorial(
-        titolo: 'Annullare',
-        testo:
-            'Tutto quello che registri finisce in un elenco e si può '
-            'annullare. Annulla il timeout con la freccia in alto a destra: '
-            'ti verrà chiesta una conferma.\n\n'
-            'Accanto alla freccia c\'è un secondo pulsante che annulla '
-            'l\'intero scambio in un colpo solo, per quando l\'arbitro fa '
-            'rigiocare l\'azione: ora è spento, perché un timeout non fa '
-            'parte di uno scambio.',
+        titolo: l.tutorialAnnullareTitolo,
+        testo: l.tutorialAnnullareTesto,
         bersaglio: TutorialTarget.bottoneUndo,
         avanzaSuLog: (log, lunghezzaIniziale) => log.length < lunghezzaIniziale,
       ),
@@ -304,35 +225,16 @@ List<PassoTutorial> passiTutorial() => [
       // decorativo: con il drawer aperto il "Termina" della card finale
       // (Navigator.pop) chiuderebbe il drawer invece di uscire dal tutorial,
       // perché il Drawer registra una local history entry sulla route.
-      const PassoTutorial(
-        titolo: 'Il menu',
-        testo:
-            'Nella barra in alto, a sinistra, c\'è il bottone per aprire il '
-            'menu, dove si trovano tutte le voci che servono per seguire la '
-            'partita.\n\nAprilo.',
+      PassoTutorial(
+        titolo: l.tutorialMenuTitolo,
+        testo: l.tutorialMenuTesto,
         bersaglio: TutorialTarget.bottoneMenu,
         avanzaSuSegnale: SegnaleTutorial.drawerAperto,
       ),
 
-      const PassoTutorial(
-        titolo: 'Cosa c\'è nel menu',
-        testo:
-            'Dall\'alto:\n\n'
-            '• Cambia campo — sposta le squadre da un lato all\'altro dello '
-            'schermo, per seguire il cambio campo di fine set\n'
-            '• Sostituzione — cambio giocatori a set in corso\n'
-            '• Lavagna tattica — una lavagna su cui disegnare durante un '
-            'timeout\n'
-            '• Statistiche fondamentali e Report — i dati della partita, '
-            'consultabili anche mentre giochi\n'
-            '• Traiettorie battute e attacco — in che posizione sono cadute '
-            'le palle\n'
-            '• Mostra ruoli / numeri — cosa mostrare nelle pedine dei '
-            'giocatori in campo\n'
-            '• Log azioni — mostra o nasconde il registro delle azioni\n'
-            '• Fine — termina il set o la partita\n'
-            '• Indietro — esce dallo scout per poi poterlo riprendere in '
-            'seguito',
+      PassoTutorial(
+        titolo: l.tutorialVociMenuTitolo,
+        testo: l.tutorialVociMenuTesto,
         // Nessun bersaglio di proposito: il velo copre tutto e NIENTE è
         // premibile. Bucare il drawer intero lo renderebbe tappabile voce per
         // voce, e un tocco su "Fine" o "Indietro" porterebbe l'utente fuori
@@ -341,29 +243,21 @@ List<PassoTutorial> passiTutorial() => [
         avanzaConBottone: true,
       ),
 
-      const PassoTutorial(
-        titolo: 'Cambia campo',
-        testo:
-            'Proviamone una: premi "Cambia campo". Le due squadre si '
-            'scambiano di posto sullo schermo — e il menu si chiude.',
+      PassoTutorial(
+        titolo: l.tutorialCambiaCampoTitolo,
+        testo: l.tutorialCambiaCampoTesto,
         bersaglio: TutorialTarget.voceCambiaCampo,
         lato: LatoCard.destra,
         avanzaSuSegnale: SegnaleTutorial.drawerChiuso,
       ),
 
-      const PassoTutorial(
-        titolo: 'Per ora è tutto',
-        testo:
-            'Hai registrato uno scambio intero: battuta, ricezione, attacco, '
-            'difesa e il punto che lo chiude.\n\n'
-            'Molte altre informazioni sull\'utilizzo di Volley Stratego si '
-            'possono trovare alla pagina:\n'
-            'https://sites.google.com/view/volleystratego/come-si-usa\n\n'
-            'oppure scrivendo una mail a:\n'
-            'volleystratego@gmail.com',
+      PassoTutorial(
+        titolo: l.tutorialFineTitolo,
+        testo: l.tutorialFineTesto,
+        // URL e mail restano qui e NON in ARB: non sono testo da tradurre.
         url: 'https://sites.google.com/view/volleystratego/come-si-usa',
         mail: 'volleystratego@gmail.com',
         avanzaConBottone: true,
-        etichettaBottone: 'Termina',
+        etichettaBottone: l.tutorialTermina,
       ),
     ];

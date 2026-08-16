@@ -233,7 +233,7 @@
   "squadraEliminaTesto": "All of its players will be deleted too.",
   "squadraNome": "Team name",
   "squadraNomeVuoto": "Enter a name",
-  "squadraColore": "Kit colour",
+  "squadraColore": "Kit color",
   "squadraColorePersonalizzato": "Custom",
   "squadraCategoria": "Category",
   "squadraCategoriaFuoriLista": "{nome} (not in the list)",
@@ -377,6 +377,89 @@
   "aboutIdCopiato": "ID copied",
   "aboutLinkNonApribile": "Could not open the link",
 
+  "tutorialAvanti": "Next",
+  "tutorialInizia": "Start",
+  "tutorialBenvenutoTitolo": "Welcome",
+  "tutorialBenvenutoTesto": "This is the scouting page for a practice match: nothing you record here will be saved.\n\nJust follow along — at each step only the highlighted button can be pressed, and I'll show you how to rate every skill.",
+
+  "tutorialTreTocchiTitolo": "Three taps",
+  "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating.\n\nWe're serving: tap the player about to serve, outside the court.",
+
+  "tutorialVotoTitolo": "The rating",
+  "tutorialVotoTesto": "On a serve the skill is already decided, so only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
+  "tutorialVotoTraiettoria": "After the rating you can mark where the ball went: drag your finger from the server to the landing point, and the action is recorded when you let go. Below the court you can also set the type of serve. If you'd rather skip it, go back with the arrow at the top: the action is recorded anyway, just without a trajectory.",
+
+  "tutorialAvversariTitolo": "The opposing team",
+  "tutorialAvversariTesto": "Here the scout also tracks an opposing team. It is a fictional one: it only exists to help you record their ratings and trajectories.\n\nTheir middle blocker passed the ball: tap them.",
+
+  "tutorialVotoRicezioneTitolo": "Rating the pass",
+  "tutorialVotoRicezioneTesto": "The ratings mean the same thing, read from the passer's side: # a perfect pass, leaving the setter every option, down to = a missed pass, which is a point for us.\n\nHere the serve gave them trouble: give it a −.",
+
+  "tutorialAttaccoAvvTitolo": "The opponent's attack",
+  "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Tap them.",
+
+  "tutorialSceltaFondTitolo": "Choosing the skill",
+  "tutorialSceltaFondTesto": "Serve and pass were forced by the phase of play. Now the rally is open and it's up to you to say what happened: press Attack.",
+
+  "tutorialAttaccoNonRisolutivoTitolo": "An attack that doesn't finish",
+  "tutorialAttaccoNonRisolutivoTesto": "The attack doesn't win the point: the ball stays alive and comes back to our side. It was an easy ball to dig: give it a /.",
+  "tutorialAttaccoNonRisolutivoTraiettoria": "You can mark the trajectory of an attack too: drag from where it started to where the ball landed. Below the court you can set the type of attack.\nIf you pause on the net while dragging, a block touch is recorded: the trajectory bends at that point.",
+
+  "tutorialToccaANoiTitolo": "Our turn",
+  "tutorialToccaANoiTesto": "Our libero, in position 5, came up with a great dig. Tap them.",
+
+  "tutorialDifesaTitolo": "Dig",
+  "tutorialDifesaTesto": "The ball came off an attack, so the skill to choose is the dig.",
+
+  "tutorialDifesaPerfettaTitolo": "A perfect dig",
+  "tutorialDifesaPerfettaTesto": "The ball came back to the setter clean: they can run whatever they want. Give it a #.",
+
+  "tutorialNostroAttaccoTitolo": "Our attack",
+  "tutorialNostroAttaccoTesto": "The set goes to our outside hitter in position 4, who puts it away. Tap them.",
+
+  "tutorialAttaccoTitolo": "Attack",
+  "tutorialAttaccoTesto": "This time the skill is the attack.",
+
+  "tutorialSchiacciataTitolo": "Kill",
+  "tutorialSchiacciataTesto": "The ball hit the floor: give it a #.\n\nThe score won't move just yet. With opponent scouting on, the point comes from the error of whoever had to dig it, which you'll record in a moment: that way the rally is counted only once.",
+  "tutorialSchiacciataTraiettoria": "Mark where the attack landed: drag from where it started to where the ball hit the floor.\nIf you pause on the net, a block touch is recorded and the trajectory bends at that point.",
+
+  "tutorialDifensoreTitolo": "The defender didn't get there",
+  "tutorialDifensoreTesto": "The ball landed in their position 5, where the defense couldn't reach it. Tap that player.",
+
+  "tutorialPuntoTitolo": "The point",
+  "tutorialPuntoTesto": "The panel has narrowed down to block and dig, in red: they are the only possible answers to a ball on the floor, and pressing one records the error (=) straight away.\n\nPress Dig: now the score moves.",
+
+  "tutorialRegistroTitolo": "The action log",
+  "tutorialRegistroTesto": "The score is now 1 to 0, as you can see at the top of the screen.\n\nWhen the action log is on, as it is here, you can go back over everything you have recorded.",
+
+  "tutorialRotazioneTitolo": "The rotation",
+  "tutorialRotazioneTesto": "We are now serving in P6. The mini map on the left shows the rotation, and the two buttons let you move it one position forward or backward if it ever goes out of sync.",
+
+  "tutorialTimeoutTitolo": "Timeout",
+  "tutorialTimeoutTesto": "Each team gets two timeouts per set. Call one for your team: press the button with the clock.",
+
+  "tutorialAnnullareTitolo": "Undo",
+  "tutorialAnnullareTesto": "Everything you record goes into a list and can be undone. Undo the timeout with the arrow at the top right: you will be asked to confirm.\n\nNext to the arrow there is a second button that undoes a whole rally at once, for when the referee has the point replayed: right now it is off, because a timeout is not part of a rally.",
+
+  "tutorialMenuTitolo": "The menu",
+  "tutorialMenuTesto": "At the top left of the bar there is the button that opens the menu, where you find everything you need to follow the match.\n\nOpen it.",
+
+  "tutorialVociMenuTitolo": "What's in the menu",
+  "tutorialVociMenuTesto": "From the top:\n\n• Switch sides — moves the teams from one side of the screen to the other, to follow the change of ends between sets\n• Substitution — swap players with the set under way\n• Tactical board — a board to draw on during a timeout\n• Skill statistics and Report — the numbers of the match, which you can check while you play too\n• Serve and attack trajectories — where the balls landed\n• Show roles / numbers — what to display on the players on court\n• Action log — shows or hides the log of the actions\n• End — ends the set or the match\n• Back — leaves the scout, so you can pick it up again later",
+
+  "tutorialCambiaCampoTitolo": "Switch sides",
+  "tutorialCambiaCampoTesto": "Let's try one: press \"Switch sides\". The two teams swap places on the screen — and the menu closes.",
+  "tutorialFineTitolo": "That's it for now",
+  "tutorialFineTesto": "You have recorded a whole rally: serve, pass, attack, dig and the point that ends it.\n\nYou can find much more about using Volley Stratego at:\nhttps://sites.google.com/view/volleystratego/come-si-usa\n\nor by writing to:\nvolleystratego@gmail.com",
+  "tutorialSquadraNome": "Tutorial team",
+  "tutorialPartitaNome": "Practice match",
+  "tutorialApriGuida": "Open the guide",
+  "tutorialScrivici": "Write to us",
+  "tutorialTermina": "Finish",
+  "tutorialEsci": "Quit the tutorial",
+  "tutorialLinkNonApribile": "Could not open {uri}",
+
   "lineupConfermaFormazione": "Confirm line-up",
   "lineupDoppioLibero": "Two liberos",
   "lineupGiocatori": "Players",
@@ -437,7 +520,7 @@
   "lavagnaTitolo": "Tactical board",
   "lavagnaAnnullaTratto": "Undo last stroke",
   "lavagnaPulisci": "Clear the board",
-  "lavagnaColoreTratto": "Stroke colour",
+  "lavagnaColoreTratto": "Stroke color",
 
   "reportSet": "Set",
   "reportSetNumero": "Set {n}",
@@ -464,7 +547,7 @@
   "reportNessunaAzioneFiltri": "No actions recorded for the selected filters.",
 
   "reportHeatmapRicezione": "Passing heatmap",
-  "reportHeatmapDifesa": "Defence heatmap",
+  "reportHeatmapDifesa": "Defense heatmap",
   "reportTitoloAvversario": "{titolo} — opponent",
   "reportAce": "Ace  #",
   "reportPuntoVincente": "Kill  #",
