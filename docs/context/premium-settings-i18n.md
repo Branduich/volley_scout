@@ -189,7 +189,13 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   **Collegato a RevenueCat** (sezione 4 della roadmap FATTA): lo stato viene
   dall'entitlement `premium` (`_daCustomerInfo`: `free` senza abbonamento,
   `trial` in prova, `premium` da abbonati), aggiornato in tempo reale dal
-  listener `addCustomerInfoUpdateListener`. Config in
+  listener `addCustomerInfoUpdateListener`. **Più un `AppLifecycleListener`
+  che al `resume` richiama `_sincronizza()`**: da `free` forza
+  `Purchases.syncPurchases()`, altrimenti solo `getCustomerInfo()`. Serve agli
+  acquisti fatti FUORI dall'app — codice promozionale riscattato dal Play
+  Store (l'utente esce, riscatta, rientra) o abbonamento comprato su un altro
+  dispositivo: senza, il gate resterebbe chiuso finché l'utente non trova
+  "Ripristina acquisti" nel paywall. Config in
   `lib/config/revenuecat.dart` (SDK key Android pubblica via
   `String.fromEnvironment` con fallback, entitlement/offering id);
   `Purchases.configure` in `main()` (solo Android, in try/catch — un

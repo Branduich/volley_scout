@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -92,6 +93,16 @@ class StatoPremiumNotifier extends Notifier<StatoPremium> {
       // Purchases non configurato (piattaforma non supportata): resta free.
     }
 
+    // Acquisti fatti FUORI dall'app: codice promozionale riscattato dal Play
+    // Store (esce dall'app, riscatta, rientra) o abbonamento comprato su un
+    // altro dispositivo. Il listener qui sopra scatta solo quando la SDK va a
+    // rileggere di suo: senza un aggancio al ciclo di vita il gate resterebbe
+    // chiuso finché l'utente non trova "Ripristina acquisti" nel paywall.
+    // L'SDK Android interroga già gli acquisti al foreground, ma non è
+    // garantito dal nostro codice — questo lo rende deterministico.
+    final cicloVita = AppLifecycleListener(onResume: _sincronizza);
+    ref.onDispose(cicloVita.dispose);
+
     _caricaIniziale();
     return StatoPremium.free; // finché non arriva l'info reale (cache RC)
   }
@@ -102,6 +113,23 @@ class StatoPremiumNotifier extends Notifier<StatoPremium> {
       if (!_disposed) state = _daCustomerInfo(info);
     } catch (_) {
       // Offline al primo avvio o SDK non pronta: resta free.
+    }
+  }
+
+  /// Rimette in pari l'entitlement al ritorno in primo piano (vedi il commento
+  /// in `build()`). Da `free` si forza `syncPurchases()`, che posta a
+  /// RevenueCat un acquisto Play che la SDK non ha ancora registrato — è
+  /// esattamente il caso del codice promozionale riscattato dal Play Store.
+  /// Già sbloccati basta `getCustomerInfo()`: legge la cache, costa poco e
+  /// intercetta comunque scadenze e rimborsi.
+  Future<void> _sincronizza() async {
+    if (_disposed) return;
+    try {
+      if (state == StatoPremium.free) await Purchases.syncPurchases();
+      final info = await Purchases.getCustomerInfo();
+      if (!_disposed) state = _daCustomerInfo(info);
+    } catch (_) {
+      // Offline o SDK non configurata: lo stato resta quello che è.
     }
   }
 
