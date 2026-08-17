@@ -3798,12 +3798,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                       ),
                       if (inCorso.fondamentale == null) ...[
                         const SizedBox(height: 8),
-                        // In fase libera l'avversario può aver attaccato, murato o
-                        // difeso (battuta e ricezione passano dai flussi forzati
-                        // di zona 1 / fase ricezione, non da qui). Dopo un NOSTRO
-                        // `#` di attacco il pannello è ristretto a Muro/Difesa in
-                        // rosso (→ `=` diretto, vedi _difesaErroreForzataAvversaria).
+                        // In fase libera l'avversario può aver alzato,
+                        // attaccato, murato o difeso — le stesse quattro voci del
+                        // nostro pannello (battuta e ricezione passano dai flussi
+                        // forzati di zona 1 / fase ricezione, non da qui). Dopo un
+                        // NOSTRO `#` di attacco il pannello è ristretto a Muro/
+                        // Difesa in rosso (→ `=` diretto, vedi
+                        // _difesaErroreForzataAvversaria).
                         for (final f in const [
+                          Fondamentale.alzata,
                           Fondamentale.attacco,
                           Fondamentale.muro,
                           Fondamentale.difesa,

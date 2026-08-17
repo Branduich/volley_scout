@@ -168,7 +168,9 @@ TutorialTarget? targetFondamentaleNostro(Fondamentale f) => switch (f) {
       _ => null,
     };
 
-/// Il pannello avversario offre solo Attacco/Muro/Difesa.
+/// Il pannello avversario offre le stesse quattro voci del nostro, ma il
+/// tutorial ne evidenzia solo tre: l'alzata avversaria non è un passo della
+/// sequenza guidata, quindi non ha un target (→ `null`, nessuna àncora).
 TutorialTarget? targetFondamentaleAvversario(Fondamentale f) => switch (f) {
       Fondamentale.attacco => TutorialTarget.fondAvvAttacco,
       Fondamentale.muro => TutorialTarget.fondAvvMuro,

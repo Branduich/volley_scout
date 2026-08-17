@@ -1234,14 +1234,9 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildTabellaFondamentali([
-                  // L'avversario non registra alzate (il pannello avversario
-                  // offre solo Attacco/Muro/Difesa): riga sempre vuota, nascosta.
-                  for (final r in _riepilogoFondamentaliPer(
-                      Squadra.avversari, _setAvversario,
-                      ruoloFiltro: _ruoloAvversario))
-                    if (r.chiave != 'alzata') r,
-                ]),
+                _buildTabellaFondamentali(_riepilogoFondamentaliPer(
+                    Squadra.avversari, _setAvversario,
+                    ruoloFiltro: _ruoloAvversario)),
                 // --- Traiettorie avversario (per ruolo) ---
                 if (_team != null) ...[
                   const SizedBox(height: 32),
