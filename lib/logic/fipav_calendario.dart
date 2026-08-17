@@ -187,26 +187,65 @@ String? stagioneDaGare(Iterable<GaraFipav> gare) {
 /// `dd/MM/yyyy` + `HH:mm` (l'ora può mancare → mezzanotte). Parsing a mano
 /// invece che con `intl`: il formato è fisso e così la funzione resta pura e
 /// senza inizializzazione delle locale.
+///
+/// Accetta anche il **seriale Excel** (`46672` = 12/10/2027) al posto del
+/// testo: l'export federale scrive le date come testo, ma un file ri-salvato
+/// da Excel/Google Sheets le converte in date vere, che i lettori rendono come
+/// numero grezzo (vedi `data/xlsx_reader.dart`).
 DateTime? _parseData(String? data, String? ora) {
   if (data == null) return null;
-  final d = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(data.trim());
-  if (d == null) return null;
 
-  var ore = 0;
-  var minuti = 0;
-  if (ora != null) {
-    final o = RegExp(r'^(\d{1,2})[:.](\d{2})').firstMatch(ora.trim());
-    if (o != null) {
-      ore = int.parse(o.group(1)!);
-      minuti = int.parse(o.group(2)!);
-    }
+  final ore = _parseOra(ora);
+
+  final d = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(data.trim());
+  if (d != null) {
+    return DateTime(
+      int.parse(d.group(3)!),
+      int.parse(d.group(2)!),
+      int.parse(d.group(1)!),
+      ore.$1,
+      ore.$2,
+    );
   }
 
-  return DateTime(
-    int.parse(d.group(3)!),
-    int.parse(d.group(2)!),
-    int.parse(d.group(1)!),
-    ore,
-    minuti,
-  );
+  final giorno = _dataDaSeriale(data);
+  if (giorno == null) return null;
+  // Un seriale con parte decimale porta già l'orario; la colonna Ora, se c'è,
+  // resta comunque la fonte più leggibile e vince.
+  if (ora != null && (ore.$1 != 0 || ore.$2 != 0)) {
+    return DateTime(giorno.year, giorno.month, giorno.day, ore.$1, ore.$2);
+  }
+  return giorno;
+}
+
+/// `HH:mm` → (ore, minuti); `(0, 0)` se assente o illeggibile. Accetta anche
+/// la frazione di giorno (`0.458333` = 11:00), come la scrivono i fogli di
+/// calcolo quando l'ora è una cella oraria vera invece che testo.
+(int, int) _parseOra(String? ora) {
+  if (ora == null) return (0, 0);
+  final testo = ora.trim();
+
+  // La frazione va tentata PRIMA: `0.875` combacerebbe anche con il formato
+  // `H.mm` (leggendolo come 0h 87min), che è chiaramente non quello che è.
+  final frazione = double.tryParse(testo);
+  if (frazione != null) {
+    if (frazione < 0 || frazione >= 1) return (0, 0);
+    final minutiTotali = (frazione * 1440).round();
+    return (minutiTotali ~/ 60 % 24, minutiTotali % 60);
+  }
+
+  final o = RegExp(r'^(\d{1,2})[:.](\d{2})').firstMatch(testo);
+  if (o != null) return (int.parse(o.group(1)!), int.parse(o.group(2)!));
+  return (0, 0);
+}
+
+/// Il seriale data dei fogli di calcolo: giorni dal 30/12/1899, parte decimale
+/// = frazione di giorno. Fuori da un intervallo plausibile di date sportive si
+/// rifiuta il valore, per non scambiare un numero qualsiasi per una data.
+DateTime? _dataDaSeriale(String testo) {
+  final seriale = double.tryParse(testo.trim());
+  if (seriale == null || seriale < 20000 || seriale > 80000) return null;
+  final giorni = seriale.floor();
+  final secondi = ((seriale - giorni) * 86400).round();
+  return DateTime(1899, 12, 30 + giorni).add(Duration(seconds: secondi));
 }

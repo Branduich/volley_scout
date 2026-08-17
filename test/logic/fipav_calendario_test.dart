@@ -174,6 +174,42 @@ void main() {
       );
     });
 
+    test('data come seriale Excel (file ri-salvato da Google Sheets)', () {
+      // 46672 = 12/10/2027: la colonna Data non è più testo quando il file
+      // passa da un foglio di calcolo che la converte in data vera.
+      final esito = parseGareFipav(conRighe([
+        ['Serie C', '1', '1', '46672', '11:00', 'ALFA', 'BETA', '', ''],
+      ]));
+
+      expect(esito.righeScartate, 0);
+      expect(esito.gare.single.dataOra, DateTime(2027, 10, 12, 11, 0));
+    });
+
+    test('seriale con parte decimale: porta con sé l\'orario', () {
+      final esito = parseGareFipav(conRighe([
+        ['Serie C', '1', '1', '46672.5', '', 'ALFA', 'BETA', '', ''],
+      ]));
+
+      expect(esito.gare.single.dataOra, DateTime(2027, 10, 12, 12, 0));
+    });
+
+    test('ora come frazione di giorno', () {
+      final esito = parseGareFipav(conRighe([
+        ['Serie C', '1', '1', '05/02/2026', '0.875', 'ALFA', 'BETA', '', ''],
+      ]));
+
+      expect(esito.gare.single.dataOra, DateTime(2026, 2, 5, 21, 0));
+    });
+
+    test('un numero fuori intervallo non è una data', () {
+      final esito = parseGareFipav(conRighe([
+        ['Serie C', '1', '1', '386', '11:00', 'ALFA', 'BETA', '', ''],
+      ]));
+
+      expect(esito.gare, isEmpty);
+      expect(esito.righeScartate, 1);
+    });
+
     test('colonne in ordine diverso: si mappano per nome', () {
       final esito = parseGareFipav([
         ['SquadraOspite', 'Data', 'SquadraCasa', 'Campionato'],
