@@ -250,9 +250,11 @@ Store via RevenueCat, trial 15gg gestito dallo store). Stato attuale
   "Offerte non disponibili", il resto della pagina resta.
 - **`lib/screens/settings/about_screen.dart`**: "Informazioni" (voce in
   fondo a `SettingsScreen`) — versione via `package_info_plus`, link
-  Privacy/Terms **placeholder** (costanti `_kUrl*` null finché non esistono
-  gli URL iubenda — requisito Play: policy raggiungibile in-app), email
-  supporto placeholder, "Gestisci abbonamento" (deep link sottoscrizioni
+  Privacy Policy e Terms of Use (costanti `_kUrl*`, **valorizzati**: documenti
+  generati con **Termly** e pubblicati su Google Sites,
+  `sites.google.com/view/volleystratego/...` — requisito Play: policy
+  raggiungibile in-app), email supporto `volleystratego@gmail.com`,
+  "Gestisci abbonamento" (deep link sottoscrizioni
   Play via `url_launcher`), riga "ID supporto" = `Purchases.appUserID`
   (bottone Copia).
 - **Package name Android**: `it.branduich.volleystratego` (identità
