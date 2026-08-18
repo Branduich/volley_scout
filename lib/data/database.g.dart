@@ -271,6 +271,16 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+    'uid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: nuovoUid,
+  );
   static const VerificationMeta _nomeMeta = const VerificationMeta('nome');
   @override
   late final GeneratedColumn<String> nome = GeneratedColumn<String>(
@@ -307,7 +317,13 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, nome, categoria, coloreDivisa];
+  List<GeneratedColumn> get $columns => [
+    id,
+    uid,
+    nome,
+    categoria,
+    coloreDivisa,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -322,6 +338,12 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uid')) {
+      context.handle(
+        _uidMeta,
+        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
+      );
     }
     if (data.containsKey('nome')) {
       context.handle(
@@ -363,6 +385,10 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      uid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uid'],
+      )!,
       nome: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}nome'],
@@ -386,11 +412,13 @@ class $TeamsTable extends Teams with TableInfo<$TeamsTable, Team> {
 
 class Team extends DataClass implements Insertable<Team> {
   final int id;
+  final String uid;
   final String nome;
   final String categoria;
   final int coloreDivisa;
   const Team({
     required this.id,
+    required this.uid,
     required this.nome,
     required this.categoria,
     required this.coloreDivisa,
@@ -399,6 +427,7 @@ class Team extends DataClass implements Insertable<Team> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['uid'] = Variable<String>(uid);
     map['nome'] = Variable<String>(nome);
     map['categoria'] = Variable<String>(categoria);
     map['colore_divisa'] = Variable<int>(coloreDivisa);
@@ -408,6 +437,7 @@ class Team extends DataClass implements Insertable<Team> {
   TeamsCompanion toCompanion(bool nullToAbsent) {
     return TeamsCompanion(
       id: Value(id),
+      uid: Value(uid),
       nome: Value(nome),
       categoria: Value(categoria),
       coloreDivisa: Value(coloreDivisa),
@@ -421,6 +451,7 @@ class Team extends DataClass implements Insertable<Team> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Team(
       id: serializer.fromJson<int>(json['id']),
+      uid: serializer.fromJson<String>(json['uid']),
       nome: serializer.fromJson<String>(json['nome']),
       categoria: serializer.fromJson<String>(json['categoria']),
       coloreDivisa: serializer.fromJson<int>(json['coloreDivisa']),
@@ -431,6 +462,7 @@ class Team extends DataClass implements Insertable<Team> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'uid': serializer.toJson<String>(uid),
       'nome': serializer.toJson<String>(nome),
       'categoria': serializer.toJson<String>(categoria),
       'coloreDivisa': serializer.toJson<int>(coloreDivisa),
@@ -439,11 +471,13 @@ class Team extends DataClass implements Insertable<Team> {
 
   Team copyWith({
     int? id,
+    String? uid,
     String? nome,
     String? categoria,
     int? coloreDivisa,
   }) => Team(
     id: id ?? this.id,
+    uid: uid ?? this.uid,
     nome: nome ?? this.nome,
     categoria: categoria ?? this.categoria,
     coloreDivisa: coloreDivisa ?? this.coloreDivisa,
@@ -451,6 +485,7 @@ class Team extends DataClass implements Insertable<Team> {
   Team copyWithCompanion(TeamsCompanion data) {
     return Team(
       id: data.id.present ? data.id.value : this.id,
+      uid: data.uid.present ? data.uid.value : this.uid,
       nome: data.nome.present ? data.nome.value : this.nome,
       categoria: data.categoria.present ? data.categoria.value : this.categoria,
       coloreDivisa: data.coloreDivisa.present
@@ -463,6 +498,7 @@ class Team extends DataClass implements Insertable<Team> {
   String toString() {
     return (StringBuffer('Team(')
           ..write('id: $id, ')
+          ..write('uid: $uid, ')
           ..write('nome: $nome, ')
           ..write('categoria: $categoria, ')
           ..write('coloreDivisa: $coloreDivisa')
@@ -471,12 +507,13 @@ class Team extends DataClass implements Insertable<Team> {
   }
 
   @override
-  int get hashCode => Object.hash(id, nome, categoria, coloreDivisa);
+  int get hashCode => Object.hash(id, uid, nome, categoria, coloreDivisa);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Team &&
           other.id == this.id &&
+          other.uid == this.uid &&
           other.nome == this.nome &&
           other.categoria == this.categoria &&
           other.coloreDivisa == this.coloreDivisa);
@@ -484,17 +521,20 @@ class Team extends DataClass implements Insertable<Team> {
 
 class TeamsCompanion extends UpdateCompanion<Team> {
   final Value<int> id;
+  final Value<String> uid;
   final Value<String> nome;
   final Value<String> categoria;
   final Value<int> coloreDivisa;
   const TeamsCompanion({
     this.id = const Value.absent(),
+    this.uid = const Value.absent(),
     this.nome = const Value.absent(),
     this.categoria = const Value.absent(),
     this.coloreDivisa = const Value.absent(),
   });
   TeamsCompanion.insert({
     this.id = const Value.absent(),
+    this.uid = const Value.absent(),
     required String nome,
     required String categoria,
     required int coloreDivisa,
@@ -503,12 +543,14 @@ class TeamsCompanion extends UpdateCompanion<Team> {
        coloreDivisa = Value(coloreDivisa);
   static Insertable<Team> custom({
     Expression<int>? id,
+    Expression<String>? uid,
     Expression<String>? nome,
     Expression<String>? categoria,
     Expression<int>? coloreDivisa,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (uid != null) 'uid': uid,
       if (nome != null) 'nome': nome,
       if (categoria != null) 'categoria': categoria,
       if (coloreDivisa != null) 'colore_divisa': coloreDivisa,
@@ -517,12 +559,14 @@ class TeamsCompanion extends UpdateCompanion<Team> {
 
   TeamsCompanion copyWith({
     Value<int>? id,
+    Value<String>? uid,
     Value<String>? nome,
     Value<String>? categoria,
     Value<int>? coloreDivisa,
   }) {
     return TeamsCompanion(
       id: id ?? this.id,
+      uid: uid ?? this.uid,
       nome: nome ?? this.nome,
       categoria: categoria ?? this.categoria,
       coloreDivisa: coloreDivisa ?? this.coloreDivisa,
@@ -534,6 +578,9 @@ class TeamsCompanion extends UpdateCompanion<Team> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
     }
     if (nome.present) {
       map['nome'] = Variable<String>(nome.value);
@@ -551,6 +598,7 @@ class TeamsCompanion extends UpdateCompanion<Team> {
   String toString() {
     return (StringBuffer('TeamsCompanion(')
           ..write('id: $id, ')
+          ..write('uid: $uid, ')
           ..write('nome: $nome, ')
           ..write('categoria: $categoria, ')
           ..write('coloreDivisa: $coloreDivisa')
@@ -576,6 +624,16 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'PRIMARY KEY AUTOINCREMENT',
     ),
+  );
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+    'uid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: nuovoUid,
   );
   static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
   @override
@@ -649,6 +707,7 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    uid,
     teamId,
     nome,
     cognome,
@@ -670,6 +729,12 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uid')) {
+      context.handle(
+        _uidMeta,
+        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
+      );
     }
     if (data.containsKey('team_id')) {
       context.handle(
@@ -725,6 +790,10 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      uid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uid'],
+      )!,
       teamId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}team_id'],
@@ -764,6 +833,7 @@ class $PlayersTable extends Players with TableInfo<$PlayersTable, Player> {
 
 class Player extends DataClass implements Insertable<Player> {
   final int id;
+  final String uid;
   final int teamId;
   final String nome;
   final String cognome;
@@ -772,6 +842,7 @@ class Player extends DataClass implements Insertable<Player> {
   final DateTime? scadenzaCertificato;
   const Player({
     required this.id,
+    required this.uid,
     required this.teamId,
     required this.nome,
     required this.cognome,
@@ -783,6 +854,7 @@ class Player extends DataClass implements Insertable<Player> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['uid'] = Variable<String>(uid);
     map['team_id'] = Variable<int>(teamId);
     map['nome'] = Variable<String>(nome);
     map['cognome'] = Variable<String>(cognome);
@@ -801,6 +873,7 @@ class Player extends DataClass implements Insertable<Player> {
   PlayersCompanion toCompanion(bool nullToAbsent) {
     return PlayersCompanion(
       id: Value(id),
+      uid: Value(uid),
       teamId: Value(teamId),
       nome: Value(nome),
       cognome: Value(cognome),
@@ -819,6 +892,7 @@ class Player extends DataClass implements Insertable<Player> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Player(
       id: serializer.fromJson<int>(json['id']),
+      uid: serializer.fromJson<String>(json['uid']),
       teamId: serializer.fromJson<int>(json['teamId']),
       nome: serializer.fromJson<String>(json['nome']),
       cognome: serializer.fromJson<String>(json['cognome']),
@@ -834,6 +908,7 @@ class Player extends DataClass implements Insertable<Player> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'uid': serializer.toJson<String>(uid),
       'teamId': serializer.toJson<int>(teamId),
       'nome': serializer.toJson<String>(nome),
       'cognome': serializer.toJson<String>(cognome),
@@ -845,6 +920,7 @@ class Player extends DataClass implements Insertable<Player> {
 
   Player copyWith({
     int? id,
+    String? uid,
     int? teamId,
     String? nome,
     String? cognome,
@@ -853,6 +929,7 @@ class Player extends DataClass implements Insertable<Player> {
     Value<DateTime?> scadenzaCertificato = const Value.absent(),
   }) => Player(
     id: id ?? this.id,
+    uid: uid ?? this.uid,
     teamId: teamId ?? this.teamId,
     nome: nome ?? this.nome,
     cognome: cognome ?? this.cognome,
@@ -865,6 +942,7 @@ class Player extends DataClass implements Insertable<Player> {
   Player copyWithCompanion(PlayersCompanion data) {
     return Player(
       id: data.id.present ? data.id.value : this.id,
+      uid: data.uid.present ? data.uid.value : this.uid,
       teamId: data.teamId.present ? data.teamId.value : this.teamId,
       nome: data.nome.present ? data.nome.value : this.nome,
       cognome: data.cognome.present ? data.cognome.value : this.cognome,
@@ -880,6 +958,7 @@ class Player extends DataClass implements Insertable<Player> {
   String toString() {
     return (StringBuffer('Player(')
           ..write('id: $id, ')
+          ..write('uid: $uid, ')
           ..write('teamId: $teamId, ')
           ..write('nome: $nome, ')
           ..write('cognome: $cognome, ')
@@ -893,6 +972,7 @@ class Player extends DataClass implements Insertable<Player> {
   @override
   int get hashCode => Object.hash(
     id,
+    uid,
     teamId,
     nome,
     cognome,
@@ -905,6 +985,7 @@ class Player extends DataClass implements Insertable<Player> {
       identical(this, other) ||
       (other is Player &&
           other.id == this.id &&
+          other.uid == this.uid &&
           other.teamId == this.teamId &&
           other.nome == this.nome &&
           other.cognome == this.cognome &&
@@ -915,6 +996,7 @@ class Player extends DataClass implements Insertable<Player> {
 
 class PlayersCompanion extends UpdateCompanion<Player> {
   final Value<int> id;
+  final Value<String> uid;
   final Value<int> teamId;
   final Value<String> nome;
   final Value<String> cognome;
@@ -923,6 +1005,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   final Value<DateTime?> scadenzaCertificato;
   const PlayersCompanion({
     this.id = const Value.absent(),
+    this.uid = const Value.absent(),
     this.teamId = const Value.absent(),
     this.nome = const Value.absent(),
     this.cognome = const Value.absent(),
@@ -932,6 +1015,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   });
   PlayersCompanion.insert({
     this.id = const Value.absent(),
+    this.uid = const Value.absent(),
     required int teamId,
     required String nome,
     required String cognome,
@@ -945,6 +1029,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
        ruolo = Value(ruolo);
   static Insertable<Player> custom({
     Expression<int>? id,
+    Expression<String>? uid,
     Expression<int>? teamId,
     Expression<String>? nome,
     Expression<String>? cognome,
@@ -954,6 +1039,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (uid != null) 'uid': uid,
       if (teamId != null) 'team_id': teamId,
       if (nome != null) 'nome': nome,
       if (cognome != null) 'cognome': cognome,
@@ -966,6 +1052,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
 
   PlayersCompanion copyWith({
     Value<int>? id,
+    Value<String>? uid,
     Value<int>? teamId,
     Value<String>? nome,
     Value<String>? cognome,
@@ -975,6 +1062,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   }) {
     return PlayersCompanion(
       id: id ?? this.id,
+      uid: uid ?? this.uid,
       teamId: teamId ?? this.teamId,
       nome: nome ?? this.nome,
       cognome: cognome ?? this.cognome,
@@ -989,6 +1077,9 @@ class PlayersCompanion extends UpdateCompanion<Player> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
     }
     if (teamId.present) {
       map['team_id'] = Variable<int>(teamId.value);
@@ -1019,6 +1110,7 @@ class PlayersCompanion extends UpdateCompanion<Player> {
   String toString() {
     return (StringBuffer('PlayersCompanion(')
           ..write('id: $id, ')
+          ..write('uid: $uid, ')
           ..write('teamId: $teamId, ')
           ..write('nome: $nome, ')
           ..write('cognome: $cognome, ')
@@ -1048,6 +1140,16 @@ class $VolleyMatchesTable extends VolleyMatches
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'PRIMARY KEY AUTOINCREMENT',
     ),
+  );
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+    'uid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: nuovoUid,
   );
   static const VerificationMeta _nomeMeta = const VerificationMeta('nome');
   @override
@@ -1160,6 +1262,7 @@ class $VolleyMatchesTable extends VolleyMatches
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    uid,
     nome,
     dataOra,
     inCasa,
@@ -1185,6 +1288,12 @@ class $VolleyMatchesTable extends VolleyMatches
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uid')) {
+      context.handle(
+        _uidMeta,
+        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
+      );
     }
     if (data.containsKey('nome')) {
       context.handle(
@@ -1264,6 +1373,10 @@ class $VolleyMatchesTable extends VolleyMatches
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      uid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uid'],
+      )!,
       nome: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}nome'],
@@ -1320,6 +1433,7 @@ class $VolleyMatchesTable extends VolleyMatches
 
 class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   final int id;
+  final String uid;
   final String nome;
   final DateTime dataOra;
   final bool inCasa;
@@ -1332,6 +1446,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   final int setCorrente;
   const VolleyMatch({
     required this.id,
+    required this.uid,
     required this.nome,
     required this.dataOra,
     required this.inCasa,
@@ -1347,6 +1462,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['uid'] = Variable<String>(uid);
     map['nome'] = Variable<String>(nome);
     map['data_ora'] = Variable<DateTime>(dataOra);
     map['in_casa'] = Variable<bool>(inCasa);
@@ -1377,6 +1493,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   VolleyMatchesCompanion toCompanion(bool nullToAbsent) {
     return VolleyMatchesCompanion(
       id: Value(id),
+      uid: Value(uid),
       nome: Value(nome),
       dataOra: Value(dataOra),
       inCasa: Value(inCasa),
@@ -1403,6 +1520,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return VolleyMatch(
       id: serializer.fromJson<int>(json['id']),
+      uid: serializer.fromJson<String>(json['uid']),
       nome: serializer.fromJson<String>(json['nome']),
       dataOra: serializer.fromJson<DateTime>(json['dataOra']),
       inCasa: serializer.fromJson<bool>(json['inCasa']),
@@ -1420,6 +1538,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'uid': serializer.toJson<String>(uid),
       'nome': serializer.toJson<String>(nome),
       'dataOra': serializer.toJson<DateTime>(dataOra),
       'inCasa': serializer.toJson<bool>(inCasa),
@@ -1435,6 +1554,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
 
   VolleyMatch copyWith({
     int? id,
+    String? uid,
     String? nome,
     DateTime? dataOra,
     bool? inCasa,
@@ -1447,6 +1567,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
     int? setCorrente,
   }) => VolleyMatch(
     id: id ?? this.id,
+    uid: uid ?? this.uid,
     nome: nome ?? this.nome,
     dataOra: dataOra ?? this.dataOra,
     inCasa: inCasa ?? this.inCasa,
@@ -1461,6 +1582,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   VolleyMatch copyWithCompanion(VolleyMatchesCompanion data) {
     return VolleyMatch(
       id: data.id.present ? data.id.value : this.id,
+      uid: data.uid.present ? data.uid.value : this.uid,
       nome: data.nome.present ? data.nome.value : this.nome,
       dataOra: data.dataOra.present ? data.dataOra.value : this.dataOra,
       inCasa: data.inCasa.present ? data.inCasa.value : this.inCasa,
@@ -1482,6 +1604,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   String toString() {
     return (StringBuffer('VolleyMatch(')
           ..write('id: $id, ')
+          ..write('uid: $uid, ')
           ..write('nome: $nome, ')
           ..write('dataOra: $dataOra, ')
           ..write('inCasa: $inCasa, ')
@@ -1499,6 +1622,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
   @override
   int get hashCode => Object.hash(
     id,
+    uid,
     nome,
     dataOra,
     inCasa,
@@ -1515,6 +1639,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
       identical(this, other) ||
       (other is VolleyMatch &&
           other.id == this.id &&
+          other.uid == this.uid &&
           other.nome == this.nome &&
           other.dataOra == this.dataOra &&
           other.inCasa == this.inCasa &&
@@ -1529,6 +1654,7 @@ class VolleyMatch extends DataClass implements Insertable<VolleyMatch> {
 
 class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   final Value<int> id;
+  final Value<String> uid;
   final Value<String> nome;
   final Value<DateTime> dataOra;
   final Value<bool> inCasa;
@@ -1541,6 +1667,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   final Value<int> setCorrente;
   const VolleyMatchesCompanion({
     this.id = const Value.absent(),
+    this.uid = const Value.absent(),
     this.nome = const Value.absent(),
     this.dataOra = const Value.absent(),
     this.inCasa = const Value.absent(),
@@ -1554,6 +1681,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   });
   VolleyMatchesCompanion.insert({
     this.id = const Value.absent(),
+    this.uid = const Value.absent(),
     required String nome,
     required DateTime dataOra,
     required bool inCasa,
@@ -1571,6 +1699,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
        setCorrente = Value(setCorrente);
   static Insertable<VolleyMatch> custom({
     Expression<int>? id,
+    Expression<String>? uid,
     Expression<String>? nome,
     Expression<DateTime>? dataOra,
     Expression<bool>? inCasa,
@@ -1584,6 +1713,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (uid != null) 'uid': uid,
       if (nome != null) 'nome': nome,
       if (dataOra != null) 'data_ora': dataOra,
       if (inCasa != null) 'in_casa': inCasa,
@@ -1599,6 +1729,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
 
   VolleyMatchesCompanion copyWith({
     Value<int>? id,
+    Value<String>? uid,
     Value<String>? nome,
     Value<DateTime>? dataOra,
     Value<bool>? inCasa,
@@ -1612,6 +1743,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   }) {
     return VolleyMatchesCompanion(
       id: id ?? this.id,
+      uid: uid ?? this.uid,
       nome: nome ?? this.nome,
       dataOra: dataOra ?? this.dataOra,
       inCasa: inCasa ?? this.inCasa,
@@ -1630,6 +1762,9 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
     }
     if (nome.present) {
       map['nome'] = Variable<String>(nome.value);
@@ -1670,6 +1805,7 @@ class VolleyMatchesCompanion extends UpdateCompanion<VolleyMatch> {
   String toString() {
     return (StringBuffer('VolleyMatchesCompanion(')
           ..write('id: $id, ')
+          ..write('uid: $uid, ')
           ..write('nome: $nome, ')
           ..write('dataOra: $dataOra, ')
           ..write('inCasa: $inCasa, ')
@@ -5493,6 +5629,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ScoutActionsTable scoutActions = $ScoutActionsTable(this);
   late final $CampionatiTable campionati = $CampionatiTable(this);
   late final $GareTable gare = $GareTable(this);
+  late final Index idxTeamsUid = Index(
+    'idx_teams_uid',
+    'CREATE UNIQUE INDEX idx_teams_uid ON teams (uid)',
+  );
+  late final Index idxPlayersUid = Index(
+    'idx_players_uid',
+    'CREATE UNIQUE INDEX idx_players_uid ON players (uid)',
+  );
+  late final Index idxVolleyMatchesUid = Index(
+    'idx_volley_matches_uid',
+    'CREATE UNIQUE INDEX idx_volley_matches_uid ON volley_matches (uid)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5507,6 +5655,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     scoutActions,
     campionati,
     gare,
+    idxTeamsUid,
+    idxPlayersUid,
+    idxVolleyMatchesUid,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5763,6 +5914,7 @@ typedef $$CategorieTableProcessedTableManager =
 typedef $$TeamsTableCreateCompanionBuilder =
     TeamsCompanion Function({
       Value<int> id,
+      Value<String> uid,
       required String nome,
       required String categoria,
       required int coloreDivisa,
@@ -5770,6 +5922,7 @@ typedef $$TeamsTableCreateCompanionBuilder =
 typedef $$TeamsTableUpdateCompanionBuilder =
     TeamsCompanion Function({
       Value<int> id,
+      Value<String> uid,
       Value<String> nome,
       Value<String> categoria,
       Value<int> coloreDivisa,
@@ -5845,6 +5998,11 @@ class $$TeamsTableFilterComposer extends Composer<_$AppDatabase, $TeamsTable> {
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uid => $composableBuilder(
+    column: $table.uid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5953,6 +6111,11 @@ class $$TeamsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get nome => $composableBuilder(
     column: $table.nome,
     builder: (column) => ColumnOrderings(column),
@@ -5980,6 +6143,9 @@ class $$TeamsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   GeneratedColumn<String> get nome =>
       $composableBuilder(column: $table.nome, builder: (column) => column);
@@ -6101,11 +6267,13 @@ class $$TeamsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
                 Value<String> nome = const Value.absent(),
                 Value<String> categoria = const Value.absent(),
                 Value<int> coloreDivisa = const Value.absent(),
               }) => TeamsCompanion(
                 id: id,
+                uid: uid,
                 nome: nome,
                 categoria: categoria,
                 coloreDivisa: coloreDivisa,
@@ -6113,11 +6281,13 @@ class $$TeamsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
                 required String nome,
                 required String categoria,
                 required int coloreDivisa,
               }) => TeamsCompanion.insert(
                 id: id,
+                uid: uid,
                 nome: nome,
                 categoria: categoria,
                 coloreDivisa: coloreDivisa,
@@ -6228,6 +6398,7 @@ typedef $$TeamsTableProcessedTableManager =
 typedef $$PlayersTableCreateCompanionBuilder =
     PlayersCompanion Function({
       Value<int> id,
+      Value<String> uid,
       required int teamId,
       required String nome,
       required String cognome,
@@ -6238,6 +6409,7 @@ typedef $$PlayersTableCreateCompanionBuilder =
 typedef $$PlayersTableUpdateCompanionBuilder =
     PlayersCompanion Function({
       Value<int> id,
+      Value<String> uid,
       Value<int> teamId,
       Value<String> nome,
       Value<String> cognome,
@@ -6398,6 +6570,11 @@ class $$PlayersTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uid => $composableBuilder(
+    column: $table.uid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6615,6 +6792,11 @@ class $$PlayersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get nome => $composableBuilder(
     column: $table.nome,
     builder: (column) => ColumnOrderings(column),
@@ -6675,6 +6857,9 @@ class $$PlayersTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   GeneratedColumn<String> get nome =>
       $composableBuilder(column: $table.nome, builder: (column) => column);
@@ -6904,6 +7089,7 @@ class $$PlayersTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
                 Value<int> teamId = const Value.absent(),
                 Value<String> nome = const Value.absent(),
                 Value<String> cognome = const Value.absent(),
@@ -6912,6 +7098,7 @@ class $$PlayersTableTableManager
                 Value<DateTime?> scadenzaCertificato = const Value.absent(),
               }) => PlayersCompanion(
                 id: id,
+                uid: uid,
                 teamId: teamId,
                 nome: nome,
                 cognome: cognome,
@@ -6922,6 +7109,7 @@ class $$PlayersTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
                 required int teamId,
                 required String nome,
                 required String cognome,
@@ -6930,6 +7118,7 @@ class $$PlayersTableTableManager
                 Value<DateTime?> scadenzaCertificato = const Value.absent(),
               }) => PlayersCompanion.insert(
                 id: id,
+                uid: uid,
                 teamId: teamId,
                 nome: nome,
                 cognome: cognome,
@@ -7158,6 +7347,7 @@ typedef $$PlayersTableProcessedTableManager =
 typedef $$VolleyMatchesTableCreateCompanionBuilder =
     VolleyMatchesCompanion Function({
       Value<int> id,
+      Value<String> uid,
       required String nome,
       required DateTime dataOra,
       required bool inCasa,
@@ -7172,6 +7362,7 @@ typedef $$VolleyMatchesTableCreateCompanionBuilder =
 typedef $$VolleyMatchesTableUpdateCompanionBuilder =
     VolleyMatchesCompanion Function({
       Value<int> id,
+      Value<String> uid,
       Value<String> nome,
       Value<DateTime> dataOra,
       Value<bool> inCasa,
@@ -7258,6 +7449,11 @@ class $$VolleyMatchesTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uid => $composableBuilder(
+    column: $table.uid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7395,6 +7591,11 @@ class $$VolleyMatchesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get nome => $composableBuilder(
     column: $table.nome,
     builder: (column) => ColumnOrderings(column),
@@ -7475,6 +7676,9 @@ class $$VolleyMatchesTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
 
   GeneratedColumn<String> get nome =>
       $composableBuilder(column: $table.nome, builder: (column) => column);
@@ -7614,6 +7818,7 @@ class $$VolleyMatchesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
                 Value<String> nome = const Value.absent(),
                 Value<DateTime> dataOra = const Value.absent(),
                 Value<bool> inCasa = const Value.absent(),
@@ -7626,6 +7831,7 @@ class $$VolleyMatchesTableTableManager
                 Value<int> setCorrente = const Value.absent(),
               }) => VolleyMatchesCompanion(
                 id: id,
+                uid: uid,
                 nome: nome,
                 dataOra: dataOra,
                 inCasa: inCasa,
@@ -7640,6 +7846,7 @@ class $$VolleyMatchesTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
                 required String nome,
                 required DateTime dataOra,
                 required bool inCasa,
@@ -7652,6 +7859,7 @@ class $$VolleyMatchesTableTableManager
                 required int setCorrente,
               }) => VolleyMatchesCompanion.insert(
                 id: id,
+                uid: uid,
                 nome: nome,
                 dataOra: dataOra,
                 inCasa: inCasa,

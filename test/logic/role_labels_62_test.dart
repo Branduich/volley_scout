@@ -12,6 +12,7 @@ import 'package:volley_scout/models/enums.dart';
 
 Player _p(int id, Ruolo ruolo) => Player(
       id: id,
+      uid: 'player-$id',
       teamId: 1,
       nome: 'Nome$id',
       cognome: 'Cognome$id',

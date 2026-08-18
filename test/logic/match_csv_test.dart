@@ -10,6 +10,7 @@ import 'package:volley_scout/models/enums.dart';
 
 VolleyMatch _match({String? avversario, bool inCasa = true}) => VolleyMatch(
       id: 1,
+      uid: 'match-1',
       nome: 'Partita test',
       dataOra: DateTime(2026, 7, 10, 18, 30),
       inCasa: inCasa,
@@ -24,6 +25,7 @@ VolleyMatch _match({String? avversario, bool inCasa = true}) => VolleyMatch(
 
 Team _team() => Team(
       id: 10,
+      uid: 'team-10',
       nome: 'Nettunia',
       categoria: 'Terza Divisione',
       coloreDivisa: 0xFF0000FF,
@@ -31,6 +33,7 @@ Team _team() => Team(
 
 Player _player(int id, int numero, String cognome, Ruolo ruolo) => Player(
       id: id,
+      uid: 'player-$id',
       teamId: 10,
       nome: 'Nome$numero',
       cognome: cognome,

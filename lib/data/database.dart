@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/enums.dart';
+import 'uid.dart';
 
 part 'database.g.dart';
 
@@ -91,8 +92,18 @@ class Categorie extends Table {
   IntColumn get ordine => integer()(); // per il riordino manuale in lista
 }
 
+// L'indice UNIQUE si dichiara qui e NON con .unique() sulla colonna: in SQLite
+// un vincolo UNIQUE non si può aggiungere con ALTER TABLE, quindi un DB
+// migrato da v18 non potrebbe averlo e divergerebbe da uno appena creato.
+// Come indice invece è identico nei due casi (createAll lo crea per le
+// installazioni pulite, la migrazione v19 con CREATE UNIQUE INDEX). Stessa
+// cosa su Players e VolleyMatches.
+@TableIndex(name: 'idx_teams_uid', columns: {#uid}, unique: true)
 class Teams extends Table {
   IntColumn get id => integer().autoIncrement()();
+  // Identificatore stabile per backup/ripristino e dashboard — vedi uid.dart.
+  // Schema v19.
+  TextColumn get uid => text().clientDefault(nuovoUid)();
   TextColumn get nome => text().withLength(min: 1, max: 100)();
   // Testo libero (nome della categoria), scelto dalla lista Categorie — vedi
   // sopra. Da schema v13; prima era .map(CategoriaConverter).
@@ -100,8 +111,10 @@ class Teams extends Table {
   IntColumn get coloreDivisa => integer()(); // valore ARGB del colore
 }
 
+@TableIndex(name: 'idx_players_uid', columns: {#uid}, unique: true)
 class Players extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uid => text().clientDefault(nuovoUid)(); // v19, vedi Teams
   IntColumn get teamId =>
       integer().references(Teams, #id, onDelete: KeyAction.cascade)();
   TextColumn get nome => text().withLength(min: 1, max: 50)();
@@ -112,8 +125,10 @@ class Players extends Table {
 }
 
 @DataClassName('VolleyMatch')
+@TableIndex(name: 'idx_volley_matches_uid', columns: {#uid}, unique: true)
 class VolleyMatches extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get uid => text().clientDefault(nuovoUid)(); // v19, vedi Teams
   TextColumn get nome => text().withLength(min: 1, max: 100)();
   DateTimeColumn get dataOra => dateTime()();
   BoolColumn get inCasa => boolean()();
@@ -315,7 +330,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.perTest(super.executor);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -486,6 +501,27 @@ class AppDatabase extends _$AppDatabase {
           if (from < 18 && !await _hasColumn('campionati', 'stagione')) {
             await customStatement(
                 'ALTER TABLE campionati ADD COLUMN stagione TEXT');
+          }
+          if (from < 19) {
+            // uid stabili su squadre/giocatori/partite — vedi data/uid.dart.
+            // DEFAULT '' è obbligatorio: SQLite rifiuta un ADD COLUMN NOT NULL
+            // senza default. Le righe già esistenti restano quindi con uid
+            // vuoto per un istante e vengono riempite subito dopo con lo
+            // stesso formato del generatore Dart (32 hex minuscoli).
+            for (final tabella in ['teams', 'players', 'volley_matches']) {
+              if (!await _hasColumn(tabella, 'uid')) {
+                await customStatement('ALTER TABLE $tabella ADD COLUMN '
+                    "uid TEXT NOT NULL DEFAULT ''");
+              }
+              // Un uid per riga (randomblob è valutato per ogni riga, non una
+              // volta sola). Idempotente: al secondo giro nessuna riga ha più
+              // l'uid vuoto, quindi non si riscrive nulla di già assegnato.
+              await customStatement(
+                  "UPDATE $tabella SET uid = lower(hex(randomblob(16))) "
+                  "WHERE uid = '' OR uid IS NULL");
+              await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
+                  'idx_${tabella}_uid ON $tabella (uid)');
+            }
           }
         },
         beforeOpen: (details) async {

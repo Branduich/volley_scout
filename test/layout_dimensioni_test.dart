@@ -13,9 +13,18 @@
 //
 // Per aggiungere una schermata basta una nuova `group` che chiami
 // `verificaLayout` per ciascuna dimensione.
+//
+// Due trappole risolte (2026-08-18), da non reintrodurre: i font veri vanno
+// caricati (`caricaFontApp`, altrimenti si misura Ahem) e l'albero va smontato
+// dentro il test (vedi la fine di `verificaLayout`, altrimenti drift lascia un
+// timer pendente e NESSUN test che legge dal DB può passare).
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,6 +39,7 @@ import 'package:volley_scout/screens/live/scout_screen.dart';
 import 'package:volley_scout/screens/matches/matches_screen.dart';
 import 'package:volley_scout/screens/teams/team_form_screen.dart';
 import 'package:volley_scout/theme/app_theme.dart';
+import 'package:volley_scout/theme/app_typography.dart';
 import 'package:volley_scout/tutorial/tutorial_sandbox.dart';
 
 /// Dimensioni in pixel fisici, con la densità del dispositivo corrispondente.
@@ -41,6 +51,24 @@ const _densitaTelefono = 2.625;
 const _densitaTablet = 2.0;
 
 typedef CostruisciSchermata = Future<Widget> Function(AppDatabase db);
+
+/// Carica i quattro pesi di Barlow nel motore di test.
+///
+/// **Obbligatorio in un test che misura larghezze**: senza, i widget test
+/// disegnano col font di prova del framework (Ahem), dove ogni carattere
+/// occupa un quadrato pieno pari al corpo. "Importa file FIPAV" misura così
+/// 292 pixel invece dei ~150 di Barlow, e un bottone che nell'app sta comodo
+/// sfora di 42 pixel — falso allarme reale, capitato prima di caricare i font.
+/// Vale anche il contrario: con testi larghi il doppio, un layout troppo
+/// stretto potrebbe non emergere mai dove Ahem lo fa già scattare altrove.
+Future<void> caricaFontApp() async {
+  final loader = FontLoader(AppTypography.fontFamily);
+  for (final peso in const ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    final file = File('assets/fonts/Barlow/Barlow-$peso.ttf');
+    loader.addFont(file.readAsBytes().then(ByteData.sublistView));
+  }
+  await loader.load();
+}
 
 /// Monta [schermata] a [dimensioni] e pretende che nessuna eccezione di
 /// layout venga segnalata.
@@ -82,7 +110,23 @@ Future<void> verificaLayout(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 600));
 
-  expect(tester.takeException(), isNull);
+  final eccezione = tester.takeException();
+
+  // Smontaggio ESPLICITO prima di concludere, altrimenti nessun test che
+  // legge dal database può passare. Chiudendo l'albero, riverpod chiude i
+  // StreamProvider e drift annulla le query in ascolto
+  // (StreamQueryStore.markAsClosed), che si ripulisce con un Timer di durata
+  // zero. Se lo smontaggio avviene da solo a fine test — cioè dopo l'ultimo
+  // pump — quel timer non scade mai e il framework fallisce con "A Timer is
+  // still pending", mascherando il vero esito del test.
+  await tester.pumpWidget(const SizedBox.shrink());
+  // La durata NON è decorativa: `pump()` senza argomento svuota solo le
+  // microtask e non fa avanzare l'orologio finto (`elapse` è chiamato solo
+  // `if (duration != null)`, flutter_test/binding.dart), quindi un Timer di
+  // durata zero non scadrebbe mai.
+  await tester.pump(const Duration(milliseconds: 1));
+
+  expect(eccezione, isNull);
 }
 
 /// Le tre dimensioni di riferimento, per non ripeterle in ogni gruppo.
@@ -118,6 +162,11 @@ Future<int> _creaSquadra(AppDatabase db) => db.into(db.teams).insert(
     );
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await caricaFontApp();
+  });
+
   // Menu principale: cinque voci da 64dp non entrano in un terzo di schermo.
   perOgniDimensione('HomeScreen', (db) async => const HomeScreen());
 

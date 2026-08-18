@@ -66,6 +66,10 @@ dev_dependencies:
   drift_dev: ^2.34.0
   build_runner: ^2.15.0
   flutter_launcher_icons: ^0.14.4
+  # Solo per test/data/migrazione_uid_test.dart: apre un DB sqlite in memoria
+  # "a mano" per degradarlo a schema v18 e verificare la migrazione. Arriva
+  # comunque con drift, ma un import diretto va dichiarato.
+  sqlite3: ^3.5.0
 
 # Icona app — generata con `dart run flutter_launcher_icons`. image_path è la
 # versione appiattita su sfondo bianco (icona legacy/iOS, niente trasparenza);

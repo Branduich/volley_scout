@@ -401,15 +401,52 @@ test/
 │                           verticale/orizzontale e tablet — e pretende
 │                           `tester.takeException() == null`, cioè nessun
 │                           `RenderFlex overflowed` né `RenderBox was not laid
-│                           out`. **MAI ESEGUITO** (2026-08-04): scritto e
-│                           `analyze`-pulito, ma `flutter test` andava in crash
-│                           per un lock su build/native_assets/windows/
-│                           sqlite3.dll (processo `flutter_tester` appeso) —
-│                           da lanciare, un fallimento può benissimo essere
-│                           reale. Lo scenario di ScoutScreen riusa
+│                           out`. **15 test VERDI in ~3 secondi** (2026-08-18);
+│                           era "MAI ESEGUITO" dal 2026-08-04 e alla prima
+│                           accensione dava 12 fallimenti in 50 minuti — tutti
+│                           risolti, e NESSUNO era un bug dell'app:
+│                           (1) `verificaLayout` deve **smontare l'albero dentro
+│                           il test** (`pumpWidget(SizedBox.shrink())`) e poi
+│                           fare un `pump` **con una durata**: allo smontaggio
+│                           riverpod chiude i StreamProvider e drift programma un
+│                           Timer di durata zero (`StreamQueryStore.markAsClosed`)
+│                           che, se lo smontaggio avviene da solo a fine test,
+│                           resta pendente → "A Timer is still pending" su OGNI
+│                           schermata che legge dal DB (passava solo Home) + due
+│                           minuti di agonia allo spegnimento dell'isolate.
+│                           `pump()` senza argomento NON basta: non fa avanzare
+│                           l'orologio finto (`elapse` solo `if (duration !=
+│                           null)`, flutter_test/binding.dart);
+│                           (2) i **font veri vanno caricati** (`caricaFontApp`,
+│                           i 4 pesi di Barlow in `setUpAll`): senza, si misura
+│                           il font di prova Ahem, dove ogni carattere è un
+│                           quadrato pieno — "Importa file FIPAV" 292px invece di
+│                           ~150, da cui un falso "RenderFlex overflowed by 42
+│                           pixels" su CampionatoScreen che nell'app non esiste.
+│                           Il crash storico su build/native_assets/windows/
+│                           sqlite3.dll è invece **due `flutter test` in
+│                           parallelo**: uno per volta e non capita.
+│                           Lo scenario di ScoutScreen riusa
 │                           `TutorialSandbox.semina()`. Vedi la convenzione 2
 │                           sulle barre di sistema per il contesto)
 ├── data/
+│   ├── uid_test.dart              (uid stabili, schema v19: formato 32 hex,
+│   │                               1000 generazioni senza collisioni, uid
+│   │                               assegnato d'ufficio a squadre/giocatori/
+│   │                               partite, duplicato rifiutato dall'indice
+│   │                               unico, uid esplicito conservato — serve al
+│   │                               ripristino da backup)
+│   ├── migrazione_uid_test.dart   (migrazione v18→v19 su un DB CON DATI: crea
+│   │                               lo schema corrente, lo degrada a v18 (DROP
+│   │                               INDEX + DROP COLUMN + PRAGMA user_version) e
+│   │                               riapre, così il ramo `from < 19` gira
+│   │                               davvero. Verifica uid validi e distinti,
+│   │                               dati preesistenti intatti, indice unico
+│   │                               attivo e — importante — che un RETRY della
+│   │                               migrazione non rigeneri gli uid già
+│   │                               assegnati, che sarebbero orfani nei backup
+│   │                               già esportati. Usa `package:sqlite3`
+│   │                               direttamente, da cui la dev_dependency)
 │   ├── xls_reader_test.dart       (leggiXls() sulla fixture GareNettunia.xls:
 │   │                               griglia, header, celle, rifiuto non-Excel)
 │   └── xlsx_reader_test.dart      (leggiXlsx() sulla fixture xlsx del girone
