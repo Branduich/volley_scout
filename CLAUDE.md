@@ -228,7 +228,27 @@ lib/
 │   ├── default_team_seeder.dart  (squadra demo "Volley Star" pre-caricata
 │   │                               al primo avvio, seed una-tantum via flag)
 │   ├── demo_match_importer.dart  (import partita demo da assets/demo/ —
-│   │                               solo debug, vedi Fase 4)
+│   │                               solo debug, vedi Fase 4; `importaDaJson()`
+│   │                               è la variante senza rootBundle usata dai
+│   │                               test, che leggono l'asset con File)
+│   ├── uid.dart                  (nuovoUid() — identità stabile di una riga,
+│   │                               32 hex da Random.secure(); schema v19, vedi
+│   │                               Modello dati e docs/dati-stagionali.md)
+│   ├── backup_model.dart         (DTO del file di backup + toJson/fromJson —
+│   │                               PURO: nessun import drift/riverpod/l10n,
+│   │                               destinato a packages/volley_stats al passo 5
+│   │                               del piano. Formato in docs/backup-format.md)
+│   ├── backup_share.dart         (condividiBackup() + nomeFileBackup() — share
+│   │                               sheet del .json, stessa combinazione
+│   │                               XFile.fromData+fileNameOverrides+subject del
+│   │                               CSV. File a parte: è l'unico pezzo del
+│   │                               backup che dipende da un plugin)
+│   ├── backup_json.dart          (ponte righe drift <-> DTO: costruisciBackup()
+│   │                               + codificaBackup() + leggiBackupDaByte()
+│   │                               con le guardie sul file scelto dall'utente
+│   │                               (gzip, zip/xlsx, BOM, JSON non valido,
+│   │                               versione futura). Resta nell'app: è l'unico
+│   │                               punto che conosce sia drift sia il formato)
 │   ├── match_csv_exporter.dart   (export CSV azioni partita: righeCsvPartita()
 │   │                               pura + condividiCsvPartita() con share
 │   │                               sheet — bottone "CSV" in MatchesScreen,
@@ -259,7 +279,12 @@ lib/
 │   │                               teamsStream, playersStream, categorieStream,
 │   │                               matchesStream; helper condivisi su righe
 │   │                               ScoutAction: azioneScoutDaRiga(),
-│   │                               idAttacchiSuRicezione(), attaccoMurato())
+│   │                               idAttacchiSuRicezione(), attaccoMurato();
+│   │                               **BackupRepository** (leggiTutto()/
+│   │                               esportaTutto()/conteggi()) — legge TUTTE le
+│   │                               tabelle in un colpo, la versione dell'app
+│   │                               gliela passa la UI per non dipendere da
+│   │                               package_info_plus, vedi docs/backup-format.md)
 │   └── settings_provider.dart    (Impostazioni + impostazioniProvider su
 │                                   shared_preferences; sharedPreferencesProvider
 │                                   sovrascritto in main() — vedi Impostazioni)
@@ -447,6 +472,17 @@ test/
 │   │                               assegnati, che sarebbero orfani nei backup
 │   │                               già esportati. Usa `package:sqlite3`
 │   │                               direttamente, da cui la dev_dependency)
+│   ├── backup_json_test.dart      (round-trip del backup: semina la partita
+│   │                               demo su DB in memoria, esporta, ri-parsa e
+│   │                               **rigioca le azioni ri-parsate con
+│   │                               ricalcolaStato() pretendendo i punteggi del
+│   │                               referto** — la prova che il formato non
+│   │                               perde niente. Più: riferimenti per uid tutti
+│   │                               risolvibili, i 5 voti tutti presenti,
+│   │                               traiettorie conservate, coordinate a max 4
+│   │                               decimali, e ogni guardia di lettura,
+│   │                               compreso "un campo sconosciuto non fa
+│   │                               cadere l'import" (regola additiva))
 │   ├── xls_reader_test.dart       (leggiXls() sulla fixture GareNettunia.xls:
 │   │                               griglia, header, celle, rifiuto non-Excel)
 │   └── xlsx_reader_test.dart      (leggiXlsx() sulla fixture xlsx del girone

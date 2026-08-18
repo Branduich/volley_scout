@@ -628,6 +628,24 @@
   "settingsCsvFormatoEuropeo": "European (; and comma)",
   "settingsCsvFormatoInternazionale": "International (, and dot)",
 
+  "settingsSectionBackup": "Backup",
+  "backupEsportaTitolo": "Export backup",
+  "backupEsportaSottotitolo": "Teams, players, matches and every scouted action in a single file. Keep it somewhere safe: if you lose your phone, that file is your season.",
+  "backupPrivacy": "The file stays on your device: you choose who to send it to, it is never sent to us.",
+  "backupInCorso": "Preparing the backup…",
+  "backupPronto": "{partite, plural, =0{Backup ready (no matches yet)} =1{Backup ready: 1 match, {azioni} actions} other{Backup ready: {partite} matches, {azioni} actions}}",
+  "@backupPronto": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "azioni": { "type": "int" }
+    }
+  },
+  "backupVuoto": "There is nothing to save yet: create a team or a match first.",
+  "backupErrore": "Backup failed: {errore}",
+  "@backupErrore": {
+    "placeholders": { "errore": { "type": "String" } }
+  },
+
   "csvColSet": "Set",
   "csvColOrdine": "Order",
   "csvColRally": "Rally",

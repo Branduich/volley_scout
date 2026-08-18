@@ -41,6 +41,17 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   vera formula (illeggibile da script). Gli altri quattro simboli
   (`#`, `+`, `/`, `-`) restano nudi — `+`/`-` diventano formule solo se
   seguiti da qualcosa. Vedi `_simboloVoto` in `match_csv_exporter.dart`.
+- **Sezione "Backup"** (chiavi ARB `backup*`, sotto Export): voce "Esporta
+  backup" → `BackupRepository.esportaTutto()` → `condividiBackup()` (share
+  sheet, `application/json`, nome col la data). **Non è gated premium**: è
+  portabilità dei dati dell'utente, e il limite free "una sola partita" rende
+  comunque poco interessante il file per chi non paga. Su database vuoto non
+  apre lo share sheet, mostra "niente da salvare" (i conteggi arrivano da
+  `BackupRepository.conteggi()`). La riga sulla privacy ("il file resta sul tuo
+  dispositivo") è **sempre visibile**, non in un dialog: il file contiene
+  cognomi di minorenni e va detto prima del tocco, non dopo. Formato in
+  `docs/backup-format.md`, piano in `docs/dati-stagionali.md`. Il **ripristino**
+  arriva al passo 4 e si aggiungerà in questa stessa sezione.
 - **Pensata per il gating premium futuro** (es. traiettorie solo premium):
   il resto del codice legge solo `impostazioniProvider`, il gating potrà
   limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.

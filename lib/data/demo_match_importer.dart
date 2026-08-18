@@ -30,9 +30,14 @@ class DemoMatchImporter {
   };
 
   /// Ritorna il nome della partita importata (per la SnackBar di conferma).
-  Future<String> importa() async {
-    final json = jsonDecode(await rootBundle.loadString(assetPath))
-        as Map<String, dynamic>;
+  Future<String> importa() async =>
+      importaDaJson(await rootBundle.loadString(assetPath));
+
+  /// Come [importa] ma sul JSON già letto. Serve ai test, che prendono l'asset
+  /// con `File` (la cwd dei test è la root del progetto) e restano così puri:
+  /// `rootBundle` richiederebbe il binding di Flutter.
+  Future<String> importaDaJson(String sorgente) async {
+    final json = jsonDecode(sorgente) as Map<String, dynamic>;
     final matchNome = json['matchNome'] as String;
     final dataOra = DateTime.parse(json['dataOra'] as String);
 

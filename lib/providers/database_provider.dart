@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/backup_json.dart';
 import '../data/database.dart';
 import '../logic/attack_positions.dart';
 import '../logic/ricalcola_stato.dart';
@@ -1060,4 +1061,56 @@ final scoutActionRepositoryProvider = Provider<ScoutActionRepository>((ref) {
 final scoutAzioniStreamProvider =
     StreamProvider.family<List<ScoutAction>, int>((ref, setId) {
   return ref.watch(scoutActionRepositoryProvider).watchAzioni(setId);
+});
+
+/// Export (e, dal passo 4, ripristino) del backup completo — vedi
+/// docs/backup-format.md e docs/dati-stagionali.md.
+///
+/// Legge **tutte** le tabelle in una volta: un backup parziale non avrebbe
+/// senso né come copia di sicurezza né come sorgente della dashboard
+/// stagionale, e le partite senza la loro anagrafica sarebbero illeggibili.
+class BackupRepository {
+  BackupRepository(this._db);
+  final AppDatabase _db;
+
+  /// Le righe grezze. Separata da [esportaTutto] perché è il punto in cui si
+  /// interroga il database: la conversione in DTO (`costruisciBackup`) è pura e
+  /// si testa senza DB.
+  Future<RigheBackup> leggiTutto() async => RigheBackup(
+        categorie: await _db.select(_db.categorie).get(),
+        squadre: await _db.select(_db.teams).get(),
+        giocatori: await _db.select(_db.players).get(),
+        partite: await _db.select(_db.volleyMatches).get(),
+        sets: await _db.select(_db.matchSets).get(),
+        rotazioni: await _db.select(_db.rotations).get(),
+        azioni: await _db.select(_db.scoutActions).get(),
+        campionati: await _db.select(_db.campionati).get(),
+        gare: await _db.select(_db.gare).get(),
+      );
+
+  /// Il contenuto del file di backup, pronto da condividere.
+  ///
+  /// [app] è la versione dell'applicazione (`package_info_plus`, letta dalla
+  /// UI): la passa il chiamante invece di leggerla qui, così il repository
+  /// resta senza dipendenze da plugin e testabile su un DB in memoria.
+  Future<String> esportaTutto({String app = ''}) async {
+    final righe = await leggiTutto();
+    return codificaBackup(costruisciBackup(
+      righe,
+      app: app,
+      schemaDb: _db.schemaVersion,
+    ));
+  }
+
+  /// Quante partite e quante azioni contiene il backup: serve alla conferma
+  /// mostrata all'utente ("esportate 12 partite"), che è anche l'unico segnale
+  /// che il file non è vuoto.
+  Future<({int partite, int azioni})> conteggi() async => (
+        partite: (await _db.select(_db.volleyMatches).get()).length,
+        azioni: (await _db.select(_db.scoutActions).get()).length,
+      );
+}
+
+final backupRepositoryProvider = Provider<BackupRepository>((ref) {
+  return BackupRepository(ref.watch(appDatabaseProvider));
 });

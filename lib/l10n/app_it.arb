@@ -722,6 +722,24 @@
   "settingsCsvFormatoEuropeo": "Europeo (; e virgola)",
   "settingsCsvFormatoInternazionale": "Internazionale (, e punto)",
 
+  "settingsSectionBackup": "Backup",
+  "backupEsportaTitolo": "Esporta backup",
+  "backupEsportaSottotitolo": "Squadre, giocatrici, partite e tutte le azioni di scout in un unico file. Tienilo da parte: se perdi il telefono, quel file è la tua stagione.",
+  "backupPrivacy": "Il file resta sul tuo dispositivo: scegli tu a chi mandarlo, non viene inviato a noi.",
+  "backupInCorso": "Preparazione del backup…",
+  "backupPronto": "{partite, plural, =0{Backup pronto (nessuna partita ancora)} =1{Backup pronto: 1 partita, {azioni} azioni} other{Backup pronto: {partite} partite, {azioni} azioni}}",
+  "@backupPronto": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "azioni": { "type": "int" }
+    }
+  },
+  "backupVuoto": "Non c'è ancora niente da salvare: crea una squadra o una partita.",
+  "backupErrore": "Backup non riuscito: {errore}",
+  "@backupErrore": {
+    "placeholders": { "errore": { "type": "String" } }
+  },
+
   "csvColSet": "Set",
   "csvColOrdine": "Ordine",
   "csvColRally": "Rally",

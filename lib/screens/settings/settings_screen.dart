@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../data/backup_share.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../../models/enums.dart';
+import '../../providers/database_provider.dart';
 import '../../providers/lingua_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -26,6 +29,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // Lista semplice: comoda anche in portrait.
   @override
   List<DeviceOrientation> get orientamentiConsentiti => kOrientamentoTutti;
+
+  /// Export in corso: mostra la rotella al posto dell'icona e blocca il tap.
+  bool _backupInCorso = false;
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +167,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
+          Text(l.settingsSectionBackup,
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.sm),
+          _buildBackupCard(context, l),
+          const SizedBox(height: AppSpacing.lg),
           _buildLinguaCard(context, ref, l),
           // Toggle "Simula premium": in debug sempre, in release solo con
           // --dart-define=PREMIUM_OVERRIDE=true (APK "per tester"). Nella
@@ -200,6 +211,95 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ],
       ),
     );
+  }
+
+  /// Backup: un unico file JSON con tutto (vedi docs/backup-format.md). Non è
+  /// gated premium — è portabilità dei dati dell'utente, e il limite free "una
+  /// sola partita" rende comunque poco interessante il file per chi non paga.
+  ///
+  /// La riga sulla privacy è visibile SEMPRE, non nascosta in un dialog: il
+  /// file contiene cognomi di minorenni e l'utente deve sapere prima di toccare
+  /// il bottone che non parte nulla verso di noi.
+  Widget _buildBackupCard(BuildContext context, AppLocalizations l) {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            leading: _backupInCorso
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_alt),
+            title: Text(l.backupEsportaTitolo),
+            subtitle: Text(l.backupEsportaSottotitolo),
+            // Disabilitata mentre l'export è in corso: su una stagione intera
+            // la lettura non è istantanea e due share sheet sovrapposti sono
+            // solo un modo di confondere.
+            onTap: _backupInCorso ? null : _esportaBackup,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    l.backupPrivacy,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _esportaBackup() async {
+    final l = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _backupInCorso = true);
+    try {
+      final repo = ref.read(backupRepositoryProvider);
+      final conteggi = await repo.conteggi();
+      if (conteggi.partite == 0) {
+        // Niente share sheet su un file vuoto: sarebbe un giro a vuoto con un
+        // file che non serve a nessuno.
+        messenger.showSnackBar(SnackBar(content: Text(l.backupVuoto)));
+        return;
+      }
+      // La versione dell'app la legge la UI e la passa al repository, che così
+      // non dipende da package_info_plus (vedi BackupRepository).
+      final info = await PackageInfo.fromPlatform();
+      final json = await repo.esportaTutto(
+        app: '${info.version}+${info.buildNumber}',
+      );
+      await condividiBackup(json);
+      messenger.showSnackBar(SnackBar(
+        content: Text(l.backupPronto(conteggi.partite, conteggi.azioni)),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l.backupErrore('$e'))));
+    } finally {
+      if (mounted) setState(() => _backupInCorso = false);
+    }
   }
 
   // Selezione lingua: Sistema / Italiano / English. `null` = segue il
