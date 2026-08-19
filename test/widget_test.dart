@@ -18,7 +18,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('Volley Stratego'), findsOneWidget);
+    expect(find.text('Volley Scout Stratego'), findsOneWidget);
     expect(find.text('Setup squadre'), findsOneWidget);
   });
 }

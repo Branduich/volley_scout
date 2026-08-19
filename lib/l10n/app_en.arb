@@ -630,8 +630,8 @@
 
   "settingsSectionBackup": "Backup",
   "backupEsportaTitolo": "Export backup",
-  "backupEsportaSottotitolo": "Teams, players, matches and every scouted action in a single file. Keep it somewhere safe: if you lose your phone, that file is your season.",
-  "backupPrivacy": "The file stays on your device: you choose who to send it to, it is never sent to us.",
+  "backupEsportaSottotitolo": "Teams, athletes, matches and every scouted action in a single file. Keep it somewhere safe: if you lose your phone, that file is your current season and you can restore it whenever you need to.",
+  "backupPrivacy": "The backup file stays on your device: you choose where to keep it, it is never sent to us.",
   "backupInCorso": "Preparing the backup…",
   "backupPronto": "{partite, plural, =0{Backup ready (no matches yet)} =1{Backup ready: 1 match, {azioni} actions} other{Backup ready: {partite} matches, {azioni} actions}}",
   "@backupPronto": {
@@ -641,6 +641,44 @@
     }
   },
   "backupVuoto": "There is nothing to save yet: create a team or a match first.",
+  "backupRipristinaTitolo": "Restore from backup",
+  "backupRipristinaSottotitolo": "Restores the data from a backup file into the app. Careful: it replaces all current data.",
+  "backupRipristinaConferma": "Replace current data?",
+  "backupRipristinaConfrontoFile": "The file holds {partite, plural, =0{no matches} =1{1 match} other{{partite} matches}}{ultima}.",
+  "@backupRipristinaConfrontoFile": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "ultima": { "type": "String" }
+    }
+  },
+  "backupRipristinaConfrontoApp": "This device {partite, plural, =0{has no matches}=1{has 1 match} other{has {partite} matches}}{ultima}.",
+  "@backupRipristinaConfrontoApp": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "ultima": { "type": "String" }
+    }
+  },
+  "backupRipristinaUltima": ", the latest from {data}",
+  "@backupRipristinaUltima": {
+    "placeholders": { "data": { "type": "String" } }
+  },
+  "backupRipristinaAvviso": "Restoring deletes the current data. A copy is saved first, and you can put it back with “Undo restore”.",
+  "backupRipristinaAvvisoVecchio": "Careful: this file is OLDER than what you have in the app. The more recent matches will be deleted.",
+  "backupRipristinaAzione": "Replace",
+  "backupRipristinato": "Restored {partite, plural, =1{1 match} other{{partite} matches}}, {azioni} actions.",
+  "@backupRipristinato": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "azioni": { "type": "int" }
+    }
+  },
+  "backupAnnullaTitolo": "Undo restore",
+  "backupAnnullaSottotitolo": "Puts the data back as it was before the last restore ({data}).",
+  "@backupAnnullaSottotitolo": {
+    "placeholders": { "data": { "type": "String" } }
+  },
+  "backupAnnullaConferma": "Put the data back as it was before the last restore? The imported data will be deleted.",
+  "backupAnnullato": "Data restored to the previous state.",
   "backupErrore": "Backup failed: {errore}",
   "@backupErrore": {
     "placeholders": { "errore": { "type": "String" } }

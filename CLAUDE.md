@@ -238,6 +238,11 @@ lib/
 │   │                               PURO: nessun import drift/riverpod/l10n,
 │   │                               destinato a packages/volley_stats al passo 5
 │   │                               del piano. Formato in docs/backup-format.md)
+│   ├── backup_snapshot.dart      (SnapshotRipristino — copia di sicurezza
+│   │                               scattata PRIMA di un ripristino distruttivo,
+│   │                               file singolo nella cartella privata dell'app:
+│   │                               è ciò che rende annullabile "sostituisci
+│   │                               tutto" — un avviso non protegge nessuno)
 │   ├── backup_share.dart         (condividiBackup() + nomeFileBackup() — share
 │   │                               sheet del .json, stessa combinazione
 │   │                               XFile.fromData+fileNameOverrides+subject del

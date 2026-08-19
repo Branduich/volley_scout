@@ -724,8 +724,8 @@
 
   "settingsSectionBackup": "Backup",
   "backupEsportaTitolo": "Esporta backup",
-  "backupEsportaSottotitolo": "Squadre, giocatrici, partite e tutte le azioni di scout in un unico file. Tienilo da parte: se perdi il telefono, quel file è la tua stagione.",
-  "backupPrivacy": "Il file resta sul tuo dispositivo: scegli tu a chi mandarlo, non viene inviato a noi.",
+  "backupEsportaSottotitolo": "Squadre, atleti, partite e tutte le azioni di scout in un unico file. Tienilo da parte: se perdi il telefono, quel file è la tua stagione attuale e potrai ripristinarla per ogni evenienza.",
+  "backupPrivacy": "Il file di backup rimane sul tuo dispositivo: scegli tu dove conservarlo, non viene inviato a noi.",
   "backupInCorso": "Preparazione del backup…",
   "backupPronto": "{partite, plural, =0{Backup pronto (nessuna partita ancora)} =1{Backup pronto: 1 partita, {azioni} azioni} other{Backup pronto: {partite} partite, {azioni} azioni}}",
   "@backupPronto": {
@@ -735,6 +735,44 @@
     }
   },
   "backupVuoto": "Non c'è ancora niente da salvare: crea una squadra o una partita.",
+  "backupRipristinaTitolo": "Ripristina da backup",
+  "backupRipristinaSottotitolo": "Ripristina nell'app i dati di un file di backup. Attenzione, sostituisce tutti i dati attuali.",
+  "backupRipristinaConferma": "Sostituire i dati attuali?",
+  "backupRipristinaConfrontoFile": "Il file contiene {partite, plural, =0{nessuna partita} =1{1 partita} other{{partite} partite}}{ultima}.",
+  "@backupRipristinaConfrontoFile": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "ultima": { "type": "String" }
+    }
+  },
+  "backupRipristinaConfrontoApp": "Sul dispositivo {partite, plural, =0{non ci sono partite} =1{c'è 1 partita} other{ci sono {partite} partite}}{ultima}.",
+  "@backupRipristinaConfrontoApp": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "ultima": { "type": "String" }
+    }
+  },
+  "backupRipristinaUltima": ", l'ultima del {data}",
+  "@backupRipristinaUltima": {
+    "placeholders": { "data": { "type": "String" } }
+  },
+  "backupRipristinaAvviso": "Ripristinando, i dati attuali vengono cancellati. Prima di procedere ne viene salvata una copia, che puoi rimettere con «Annulla il ripristino».",
+  "backupRipristinaAvvisoVecchio": "Attenzione: il file è più VECCHIO di quello che hai nell'app. Le partite più recenti verranno cancellate.",
+  "backupRipristinaAzione": "Sostituisci",
+  "backupRipristinato": "Ripristinate {partite, plural, =1{1 partita} other{{partite} partite}}, {azioni} azioni.",
+  "@backupRipristinato": {
+    "placeholders": {
+      "partite": { "type": "num", "format": "compact" },
+      "azioni": { "type": "int" }
+    }
+  },
+  "backupAnnullaTitolo": "Annulla il ripristino",
+  "backupAnnullaSottotitolo": "Rimette i dati com'erano prima dell'ultimo ripristino ({data}).",
+  "@backupAnnullaSottotitolo": {
+    "placeholders": { "data": { "type": "String" } }
+  },
+  "backupAnnullaConferma": "Rimettere i dati com'erano prima dell'ultimo ripristino? I dati importati verranno cancellati.",
+  "backupAnnullato": "Dati ripristinati allo stato precedente.",
   "backupErrore": "Backup non riuscito: {errore}",
   "@backupErrore": {
     "placeholders": { "errore": { "type": "String" } }

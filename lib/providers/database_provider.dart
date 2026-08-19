@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/backup_json.dart';
+import '../data/backup_model.dart';
 import '../data/database.dart';
 import '../logic/attack_positions.dart';
 import '../logic/ricalcola_stato.dart';
@@ -1109,6 +1110,254 @@ class BackupRepository {
         partite: (await _db.select(_db.volleyMatches).get()).length,
         azioni: (await _db.select(_db.scoutActions).get()).length,
       );
+
+  /// Riepilogo dello stato attuale per il dialog di conferma del ripristino:
+  /// quante partite e qual è la più recente. Con questi due numeri l'utente può
+  /// CONFRONTARE il file con ciò che ha, invece di rispondere a un generico
+  /// "sei sicuro?" — vedi `_confermaRipristino` in SettingsScreen.
+  Future<RiepilogoDati> riepilogoCorrente() async {
+    final partite = await _db.select(_db.volleyMatches).get();
+    return RiepilogoDati(
+      partite: partite.length,
+      ultimaPartita: _ultimaData(partite.map((p) => p.dataOra)),
+    );
+  }
+
+  /// **Sostituisce l'intero contenuto del database** con quello del backup.
+  ///
+  /// Tutto in una transazione: un file che si rivelasse incoerente a metà
+  /// strada non deve lasciare un database mutilato — o si ripristina tutto, o
+  /// resta com'era.
+  ///
+  /// Gli `id` autoincrement NON si conservano (sono numeri di un altro
+  /// dispositivo): si inserisce e si traduce ogni riferimento tramite gli uid.
+  /// Gli **uid invece sì**: sono l'identità stabile della riga, e conservarli è
+  /// ciò che rende il ripristino ripetibile e, un domani, unibile (passo 4b).
+  Future<({int partite, int azioni})> ripristinaSostituendo(
+      BackupCompleto backup) async {
+    var azioniInserite = 0;
+
+    await _db.transaction(() async {
+      // Ordine figli → genitori. Le FK sono in cascata, ma cancellare a mano
+      // nell'ordine giusto non dipende da come sono configurate.
+      await _db.delete(_db.gare).go();
+      await _db.delete(_db.campionati).go();
+      await _db.delete(_db.scoutActions).go();
+      await _db.delete(_db.rotations).go();
+      await _db.delete(_db.matchSets).go();
+      await _db.delete(_db.volleyMatches).go();
+      await _db.delete(_db.players).go();
+      await _db.delete(_db.teams).go();
+      await _db.delete(_db.categorie).go();
+
+      for (final c in backup.categorie) {
+        await _db.into(_db.categorie).insert(
+              CategorieCompanion.insert(nome: c.nome, ordine: c.ordine),
+            );
+      }
+
+      final idSquadra = <String, int>{};
+      for (final s in backup.squadre) {
+        idSquadra[s.uid] = await _db.into(_db.teams).insert(
+              TeamsCompanion.insert(
+                uid: Value(s.uid),
+                nome: s.nome,
+                categoria: s.categoria,
+                coloreDivisa: s.coloreDivisa,
+              ),
+            );
+      }
+
+      final idGiocatore = <String, int>{};
+      for (final g in backup.giocatori) {
+        final teamId = idSquadra[g.squadraUid];
+        // Un giocatore senza la sua squadra non è rappresentabile (la FK è
+        // obbligatoria): si salta invece di far fallire tutto il ripristino.
+        if (teamId == null) continue;
+        idGiocatore[g.uid] = await _db.into(_db.players).insert(
+              PlayersCompanion.insert(
+                uid: Value(g.uid),
+                teamId: teamId,
+                nome: g.nome,
+                cognome: g.cognome,
+                numero: g.numero,
+                ruolo: g.ruolo,
+                scadenzaCertificato: Value(g.scadenzaCertificato),
+              ),
+            );
+      }
+
+      final idPartita = <String, int>{};
+      for (final p in backup.partite) {
+        final matchId = await _db.into(_db.volleyMatches).insert(
+              VolleyMatchesCompanion.insert(
+                uid: Value(p.uid),
+                nome: p.nome,
+                dataOra: p.dataOra,
+                inCasa: p.inCasa,
+                palestra: Value(p.palestra),
+                avversario: Value(p.avversario),
+                teamId: Value(
+                    p.squadraUid == null ? null : idSquadra[p.squadraUid]),
+                lat: Value(p.lat),
+                lon: Value(p.lon),
+                stato: p.stato,
+                setCorrente: p.setCorrente,
+              ),
+            );
+        idPartita[p.uid] = matchId;
+
+        // Ancora dei tempi: `t` è in secondi dalla prima azione della partita
+        // (vedi docs/backup-format.md). Se manca, si ripiega sulla data di
+        // calendario — è il caso dei file esportati prima dell'ancora.
+        final ancora = p.inizioAzioni ?? p.dataOra;
+
+        for (final s in p.sets) {
+          final setId = await _db.into(_db.matchSets).insert(
+                MatchSetsCompanion.insert(
+                  matchId: matchId,
+                  numero: s.numero,
+                  aperto: Value(s.aperto),
+                  squadraServizioIniziale: s.squadraServizioIniziale,
+                  liberoId: Value(
+                      s.liberoUid == null ? null : idGiocatore[s.liberoUid]),
+                  libero2Id: Value(
+                      s.libero2Uid == null ? null : idGiocatore[s.libero2Uid]),
+                  ruoloCambiLibero: Value(s.ruoloCambiLibero),
+                  correzionePuntiNostri: Value(s.correzionePuntiNostri),
+                  correzionePuntiAvversari: Value(s.correzionePuntiAvversari),
+                  palleggiatoreAvversarioSlot:
+                      Value(s.palleggiatoreAvversarioSlot),
+                  sistemaGioco: Value(s.sistemaGioco),
+                ),
+              );
+
+          for (final r in s.rotazioni) {
+            final giocatoreId = idGiocatore[r.giocatoreUid];
+            if (giocatoreId == null) continue;
+            await _db.into(_db.rotations).insert(
+                  RotationsCompanion.insert(
+                    setId: setId,
+                    squadra: r.squadra,
+                    posizione: r.posizione,
+                    giocatoreId: giocatoreId,
+                  ),
+                );
+          }
+
+          for (final a in s.azioni) {
+            await _db.into(_db.scoutActions).insert(
+                  ScoutActionsCompanion.insert(
+                    setId: setId,
+                    rallyId: a.rallyId,
+                    ordine: a.ordine,
+                    timestamp: ancora
+                        .add(Duration(seconds: a.secondiDaInizioPartita)),
+                    squadra: a.squadra,
+                    tipo: a.tipo,
+                    esitoPunto: a.esitoPunto,
+                    tipoEsecuzione: Value(a.tipoEsecuzione),
+                    giocatoreId: Value(a.giocatoreUid == null
+                        ? null
+                        : idGiocatore[a.giocatoreUid]),
+                    fondamentale: Value(a.fondamentale),
+                    voto: Value(a.voto),
+                    traiettoriaX1: Value(a.traiettoriaX1),
+                    traiettoriaY1: Value(a.traiettoriaY1),
+                    traiettoriaX2: Value(a.traiettoriaX2),
+                    traiettoriaY2: Value(a.traiettoriaY2),
+                    traiettoriaMuroX: Value(a.traiettoriaMuroX),
+                    traiettoriaMuroY: Value(a.traiettoriaMuroY),
+                    puntiCasaAlMomento: Value(a.puntiCasaAlMomento),
+                    puntiOspitiAlMomento: Value(a.puntiOspitiAlMomento),
+                    giocatoreUscenteId: Value(a.giocatoreUscenteUid == null
+                        ? null
+                        : idGiocatore[a.giocatoreUscenteUid]),
+                    nuovoPalleggiatoreId: Value(
+                        a.nuovoPalleggiatoreUid == null
+                            ? null
+                            : idGiocatore[a.nuovoPalleggiatoreUid]),
+                    nuovoRuoloCambiLibero: Value(a.nuovoRuoloCambiLibero),
+                    gruppoCambio: Value(a.gruppoCambio),
+                    ruoloAvversario: Value(a.ruoloAvversario),
+                  ),
+                );
+            azioniInserite++;
+          }
+        }
+      }
+
+      for (final c in backup.campionati) {
+        final campionatoId = await _db.into(_db.campionati).insert(
+              CampionatiCompanion.insert(
+                nome: c.nome,
+                stagione: Value(c.stagione),
+                squadraPropria: Value(c.squadraPropria),
+                teamId: Value(
+                    c.squadraUid == null ? null : idSquadra[c.squadraUid]),
+                dataImport: c.dataImport,
+              ),
+            );
+        for (final g in c.gare) {
+          await _db.into(_db.gare).insert(
+                GareCompanion.insert(
+                  campionatoId: campionatoId,
+                  garaNumero: Value(g.garaNumero),
+                  giornata: Value(g.giornata),
+                  dataOra: g.dataOra,
+                  squadraCasa: g.squadraCasa,
+                  squadraOspite: g.squadraOspite,
+                  risultato: Value(g.risultato),
+                  parziali: Value(g.parziali),
+                  statoDescrizione: Value(g.statoDescrizione),
+                  impianto: Value(g.impianto),
+                  indirizzoImpianto: Value(g.indirizzoImpianto),
+                  // Il collegamento gara → partita si ricostruisce per uid.
+                  matchId: Value(g.partitaUid == null
+                      ? null
+                      : idPartita[g.partitaUid]),
+                ),
+              );
+        }
+      }
+    });
+
+    return (partite: backup.partite.length, azioni: azioniInserite);
+  }
+}
+
+/// Due numeri per confrontare a colpo d'occhio un file di backup con ciò che
+/// c'è nell'app. `ultimaPartita` è `null` quando non ci sono partite.
+class RiepilogoDati {
+  const RiepilogoDati({required this.partite, this.ultimaPartita});
+  final int partite;
+  final DateTime? ultimaPartita;
+
+  bool get vuoto => partite == 0;
+
+  /// Riepilogo di un file appena letto, senza toccare il database.
+  factory RiepilogoDati.daBackup(BackupCompleto backup) => RiepilogoDati(
+        partite: backup.partite.length,
+        ultimaPartita: _ultimaData(backup.partite.map((p) => p.dataOra)),
+      );
+
+  /// Il file è **più vecchio** di quello che c'è nell'app: è il caso in cui un
+  /// ripristino distruttivo è quasi sempre un errore, e la UI lo tratta a
+  /// parte invece di annegarlo in un avviso generico.
+  bool piuVecchioDi(RiepilogoDati altro) {
+    final mio = ultimaPartita;
+    final suo = altro.ultimaPartita;
+    if (mio == null || suo == null) return false;
+    return mio.isBefore(suo);
+  }
+}
+
+DateTime? _ultimaData(Iterable<DateTime> date) {
+  DateTime? massima;
+  for (final d in date) {
+    if (massima == null || d.isAfter(massima)) massima = d;
+  }
+  return massima;
 }
 
 final backupRepositoryProvider = Provider<BackupRepository>((ref) {

@@ -109,8 +109,9 @@ class _AboutScreenState extends State<AboutScreen> {
                   width: 64,
                   height: 64,
                 ),
-                // Nome del prodotto: non si traduce.
-                title: const Text('Volley Stratego'),
+                // Nome del prodotto: non si traduce. È quello dello store, che
+                // NON coincide con l'etichetta sotto l'icona (più corta).
+                title: const Text('Volley Scout Stratego'),
                 subtitle: Text(
                   _versione.isEmpty
                       ? l.aboutVersioneCaricamento

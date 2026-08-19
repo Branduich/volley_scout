@@ -277,7 +277,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Volley Stratego'),
+        // Nome commerciale (quello dello store). NON è il nome del launcher,
+        // che resta corto perché Android lo tronca sotto l'icona.
+        title: const Text('Volley Scout Stratego'),
         actions: const [DebugPaintToggle()],
       ),
       body: OrientationBuilder(

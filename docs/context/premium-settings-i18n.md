@@ -50,8 +50,29 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   `BackupRepository.conteggi()`). La riga sulla privacy ("il file resta sul tuo
   dispositivo") è **sempre visibile**, non in un dialog: il file contiene
   cognomi di minorenni e va detto prima del tocco, non dopo. Formato in
-  `docs/backup-format.md`, piano in `docs/dati-stagionali.md`. Il **ripristino**
-  arriva al passo 4 e si aggiungerà in questa stessa sezione.
+  `docs/backup-format.md`, piano in `docs/dati-stagionali.md`.
+- **"Ripristina da backup"** (stessa sezione, passo 4a): `openFile` (.json) →
+  `leggiBackupDaByte` → `BackupRepository.ripristinaSostituendo()` — **sostituisce
+  tutto**, in transazione, traducendo gli uid nei nuovi id autoincrement (gli uid
+  invece si conservano). Tre protezioni, perché un dialog rosso non protegge
+  nessuno: (1) la conferma **CONFRONTA** file e dispositivo ("il file contiene 8
+  partite, l'ultima del 12/10; sul dispositivo ne hai 11, l'ultima del 2/11")
+  invece di chiedere "sei sicuro?"; (2) se il file è **più vecchio** di ciò che
+  c'è in app (`RiepilogoDati.piuVecchioDi`) l'avviso è dedicato e il bottone
+  distruttivo perde risalto — è il caso in cui il ripristino è quasi sempre uno
+  sbaglio; (3) prima di cancellare si salva lo stato corrente
+  (`SnapshotRipristino`, file singolo nella cartella privata dell'app) e compare
+  la voce **"Annulla il ripristino"**, che lo rimette. Su **database vuoto**
+  (cambio dispositivo, il caso per cui la funzione esiste) NESSUNA conferma: il
+  dialog compare solo quando c'è qualcosa da perdere, così viene letto.
+  **Gate premium sul RIPRISTINO** (l'export resta libero): esportare è
+  portabilità dei propri dati, importare aggirerebbe il limite free — che vale
+  solo sulla CREAZIONE di squadre/partite, quindi da free un file altrui
+  popolerebbe l'app. Badge sulla voce, tocco → `PaywallScreen`.
+  **"Annulla il ripristino" NON è gated**: rimette dati che l'utente aveva già
+  sul proprio dispositivo, e negarlo perché l'abbonamento è scaduto sarebbe
+  tenergli in ostaggio roba sua.
+  Il **merge per uid** (passo 4b) non è implementato: vedi `docs/dati-stagionali.md`.
 - **Pensata per il gating premium futuro** (es. traiettorie solo premium):
   il resto del codice legge solo `impostazioniProvider`, il gating potrà
   limitarsi a nascondere/bloccare il toggle in `SettingsScreen`.
