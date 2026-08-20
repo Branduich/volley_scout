@@ -39,6 +39,9 @@ workspace:
 dependencies:
   flutter:
     sdk: flutter
+  # Package condiviso del monorepo (vedi workspace sopra): logica pura
+  # riusabile dalla dashboard web.
+  volley_stats: ^0.1.0
   flutter_localizations:
     sdk: flutter
   intl: any
