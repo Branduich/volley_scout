@@ -32,6 +32,11 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+# Anche i build dei package del workspace: `/build/` sopra è ancorato alla
+# radice e NON copre `packages/*/build/`, che nasce lanciando i test dentro un
+# package. Senza questa riga finiva in commit un .dill da 47 MB.
+packages/*/build/
+packages/*/coverage/
 
 # Symbolication related
 app.*.symbols
