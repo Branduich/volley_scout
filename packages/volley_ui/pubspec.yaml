@@ -1,0 +1,23 @@
+name: volley_ui
+description: >-
+  I widget della dashboard di Volley Scout Stratego, condivisi fra il guscio
+  web e la futura pagina dentro l'app. Ricevono DATI GIÀ PRONTI e callback: chi
+  glieli passa è il guscio (drift nell'app, file JSON sul web). Niente drift,
+  niente riverpod qui dentro.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.2
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  volley_stats: ^0.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

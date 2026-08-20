@@ -13,3 +13,4 @@ export 'tiro_scout.dart';
 export 'heatmap.dart';
 export 'traiettoria.dart';
 export 'stat_fondamentali.dart';
+export 'riepilogo_stagione.dart';

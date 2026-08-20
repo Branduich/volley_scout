@@ -1,5 +1,5 @@
-name: volley_scout
-description: "A new Flutter project."
+name: volley_web
+description: "Dashboard stagionale web di Volley Scout Stratego"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,21 +16,15 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+11
+version: 1.0.0+1
 
 environment:
   sdk: ^3.12.2
 
-# Monorepo (pub workspace) — vedi docs/dati-stagionali.md, passo 5.
-# La root è l'app mobile; i package sotto `packages/` sono i pezzi condivisi
-# con la futura dashboard web. Un solo `flutter pub get` per tutti, un solo
-# pubspec.lock: app e dashboard non possono risolvere versioni diverse della
-# stessa dipendenza, che è il modo classico in cui due metà dello stesso
-# progetto divergono senza accorgersene.
-workspace:
-  - packages/volley_stats
-  - packages/volley_ui
-  - packages/volley_web
+# Membro del pub workspace dichiarato nella root (vedi docs/dati-stagionali.md,
+# passo 6): un solo `flutter pub get`, versioni condivise con l'app mobile —
+# così dashboard e app non possono divergere su una dipendenza comune.
+resolution: workspace
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -41,32 +35,17 @@ workspace:
 dependencies:
   flutter:
     sdk: flutter
-  # Package condiviso del monorepo (vedi workspace sopra): logica pura
-  # riusabile dalla dashboard web.
+  # La logica pura condivisa con l'app mobile: formule, DTO del backup,
+  # geometria delle traiettorie. Zero drift, quindi gira sul web così com'è.
   volley_stats: ^0.1.0
-  flutter_localizations:
-    sdk: flutter
-  intl: any
+  # I widget della dashboard: stanno in un package a parte perché li userà
+  # anche la pagina dentro l'app (passo 9b), non solo il web.
+  volley_ui: ^0.1.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  flutter_riverpod: ^3.3.2
-  drift: ^2.34.0
-  sqlite3_flutter_libs: ^0.6.0+eol
-  path_provider: ^2.1.5
-  path: ^1.9.1
-  pdf: ^3.13.0
-  printing: ^5.15.0
-  shared_preferences: ^2.5.5
-  csv: ^6.0.0
-  share_plus: ^13.0.0
-  package_info_plus: ^10.0.0
-  url_launcher: ^6.3.1
-  purchases_flutter: ^10.0.0
-  file_selector: ^1.1.0
-  archive: ^4.0.9
-  xml: ^7.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -77,26 +56,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  drift_dev: ^2.34.0
-  build_runner: ^2.15.0
-  flutter_launcher_icons: ^0.14.4
-  # Solo per test/data/migrazione_uid_test.dart: apre un DB sqlite in memoria
-  # "a mano" per degradarlo a schema v18 e verificare la migrazione. Arriva
-  # comunque con drift, ma un import diretto va dichiarato.
-  sqlite3: ^3.5.0
-
-# Icona app — generata con `dart run flutter_launcher_icons`. image_path è la
-# versione appiattita su sfondo bianco (icona legacy/iOS, niente trasparenza);
-# adaptive_icon_foreground è l'originale trasparente, composto sopra
-# adaptive_icon_background (bianco) per le icone adattive Android 8+.
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/icon/icon.png"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
-  min_sdk_android: 21
-  remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -109,19 +68,16 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Genera AppLocalizations dai file .arb in lib/l10n (vedi l10n.yaml).
-  generate: true
-
   assets:
-    - assets/images/
-    - assets/demo/
-    # Logo app (già usato per l'icona launcher): caricato a runtime anche
-    # nell'header del report PDF (match_pdf_screen.dart).
-    - assets/icon/
-    # Icone disegnate a mano usate DENTRO l'interfaccia (ImageIcon): sagome
-    # monocrome su fondo trasparente, la tinta la mette il widget. Cartella
-    # separata da `assets/icon/`, che è tutt'altro: lì c'è il logo dell'app.
-    - assets/ui_icons/
+    # Backup di esempio (la partita demo esportata col formato vero): è quello
+    # che la vetrina mostrerà a chi arriva senza l'app. Rigenerabile dall'app
+    # con Impostazioni → Esporta backup.
+    - assets/backup_demo.json
+
+  # To add assets to your application, add an assets section, like this:
+  # assets:
+  #   - images/a_dot_burr.jpeg
+  #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -129,14 +85,22 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  fonts:
-    - family: Barlow
-      fonts:
-        - asset: assets/fonts/Barlow/Barlow-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Barlow/Barlow-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Barlow/Barlow-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Barlow/Barlow-Bold.ttf
-          weight: 700
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
