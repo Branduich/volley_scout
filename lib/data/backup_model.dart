@@ -151,8 +151,11 @@ class BackupCompleto {
 
   factory BackupCompleto.fromJson(Map<String, Object?> json) {
     if (json['formato'] != kFormatoBackup) {
+      // Il NOME nel messaggio segue quello commerciale; il marcatore
+      // `kFormatoBackup` sopra invece NON si tocca mai — è l'identificatore del
+      // formato, e cambiarlo renderebbe illeggibili tutti i backup già usciti.
       throw const BackupFormatException(
-          'Questo file non è un backup di Volley Stratego.');
+          'Questo file non è un backup di Volley Scout Stratego.');
     }
     final versione = json['formatoVersione'];
     if (versione is! int) {

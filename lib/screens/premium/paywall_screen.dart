@@ -132,7 +132,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final l = AppLocalizations.of(context);
     final pacchetti = _offering?.availablePackages ?? const <Package>[];
     return Scaffold(
-      appBar: AppBar(title: const Text('Volley Stratego Premium')),
+      appBar: AppBar(title: const Text('Volley Scout Stratego Premium')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),

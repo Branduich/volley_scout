@@ -12,10 +12,26 @@ di pallavolo**: si registrano le azioni di gioco (battuta, ricezione, attacco,
 ecc.) con un voto e, per alcuni fondamentali, una traiettoria, per poi produrre
 statistiche esportabili in PDF.
 
-**Nome visualizzato dell'app: "Volley Stratego"** (label Android, titolo
-`MaterialApp`/`HomeScreen`, `CFBundleDisplayName` iOS) — il nome del progetto/
-repo/package Dart resta `volley_scout` (codename interno, non cambia: niente
-rinomina del package, che richiederebbe toccare ogni `import
+**Nome commerciale: "Volley Scout Stratego"** (dal 2026-08-19, cambiato sullo
+store per farsi trovare meglio nella ricerca). Compare in: titolo `MaterialApp`,
+AppBar di `HomeScreen`, riga di `AboutScreen`, AppBar del paywall + chiave
+`reportStatisticaPremiumSblocca`, `tutorialFineTesto`, messaggio d'errore in
+`backup_model.dart`, e la scritta grande dentro `assets/images/main_image.png`.
+
+**L'etichetta del launcher resta "Volley Stratego"**, più corta
+(`android:label` nel manifest, `CFBundleDisplayName` iOS): Android tronca la
+scritta sotto l'icona dopo una decina di caratteri, e a farsi trovare nella
+ricerca è il **titolo dello store**, che è cosa diversa e non deve coincidere.
+Verificato misurando col font reale che i titoli in-app NON vengono troncati
+nemmeno su telefono stretto in verticale (AppBar Home 189px su ~331 disponibili,
+paywall 272px su ~339).
+
+**`kFormatoBackup = 'volley_stratego_backup'` NON si tocca**, benché contenga il
+vecchio nome: è l'identificatore del formato di backup, e cambiarlo renderebbe
+illeggibili tutti i file già esportati (vedi docs/backup-format.md).
+
+Il nome del progetto/repo/package Dart resta `volley_scout` (codename interno,
+non cambia: niente rinomina del package, che richiederebbe toccare ogni `import
 'package:volley_scout/...'`).
 
 **Icona app**: generata con `flutter_launcher_icons` (config in `pubspec.yaml`)

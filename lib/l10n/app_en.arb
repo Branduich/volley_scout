@@ -589,7 +589,7 @@
   "reportDettaglioPositive": "Positive: {n} · Total: {totale}",
   "reportDettaglioErrori": "Errors: {n} · Total: {totale}",
   "reportStatisticaPremium": "Premium statistic",
-  "reportStatisticaPremiumSblocca": "Tap to unlock it with Volley Stratego Premium.",
+  "reportStatisticaPremiumSblocca": "Tap to unlock it with Volley Scout Stratego Premium.",
 
   "pdfTitolo": "PDF report",
   "pdfErroreGenerazione": "PDF GENERATION ERROR",

@@ -76,7 +76,7 @@ class VolleyScoutApp extends ConsumerWidget {
     // inglese); altrimenti la lingua forzata da Impostazioni.
     final locale = ref.watch(linguaProvider);
     return MaterialApp(
-      title: 'Volley Stratego',
+      title: 'Volley Scout Stratego',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       locale: locale,
