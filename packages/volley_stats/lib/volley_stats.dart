@@ -11,3 +11,4 @@ export 'defense_positions.dart';
 export 'role_labels.dart';
 export 'tiro_scout.dart';
 export 'heatmap.dart';
+export 'traiettoria.dart';

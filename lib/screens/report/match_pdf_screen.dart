@@ -8,7 +8,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'package:volley_stats/traiettoria.dart';
+
 import '../../data/database.dart';
+import '../../logic/heatmap.dart' show tiroDaRiga;
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
 import '../../models/enums.dart';
@@ -32,27 +35,6 @@ typedef _FormazionePdf = ({
   Ruolo? ruoloCambiLibero,
   SistemaGioco? sistemaGioco,
 });
-
-// Traiettoria pronta per il painter vettoriale del PDF (coordinate
-// normalizzate 0-1 già specchiate sx→dx): colore per esito, tocco a muro
-// opzionale (due segmenti con snodo) e pallonetto (arco) — equivalente
-// PDF di TrajData in court_trajectories_view.dart.
-class _TrajPdf {
-  final double x1, y1, x2, y2;
-  final PdfColor colore;
-  final double? muroX, muroY;
-  final bool isPallonetto;
-  const _TrajPdf({
-    required this.x1,
-    required this.y1,
-    required this.x2,
-    required this.y2,
-    required this.colore,
-    this.muroX,
-    this.muroY,
-    this.isPallonetto = false,
-  });
-}
 
 // Contatori di un giocatore per la mega tabella statistiche (pagina 2,
 // layout dal foglio "VOLLEY STATS PDF"): una mappa voto→conteggio per
@@ -1202,6 +1184,18 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
   static const _kPdfErrore = PdfColors.red;
   static const _kPdfInCampo = PdfColors.black;
 
+  // La normalizzazione delle traiettorie (specchiatura sx→dx, muro,
+  // pallonetto) vive in `packages/volley_stats` come
+  // `Traiettoria`/`normalizzaTiro`: qui resta solo la palette, perché il PDF
+  // usa PdfColor mentre a video si usa Color. Prima la stessa normalizzazione
+  // era riscritta qui in una classe `_TrajPdf` gemella di TrajData — due copie
+  // che potevano divergere in silenzio.
+  static PdfColor _coloreTraiettoriaPdf(Voto? voto) => switch (voto) {
+        Voto.perfetto => _kPdfAce,
+        Voto.errore => _kPdfErrore,
+        _ => _kPdfInCampo,
+      };
+
   void _aggiungiPagineBattute(
     pw.Document doc,
     PdfPageFormat format,
@@ -1465,39 +1459,10 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
     // come a video (mirror attorno al centro se partono da destra) —
     // tocco a muro specchiato insieme al resto, pallonetto dal
     // tipoEsecuzione (solo attacco).
-    final trajs = <_TrajPdf>[];
-    for (final a in azioni) {
-      var x1 = a.traiettoriaX1;
-      var y1 = a.traiettoriaY1;
-      var x2 = a.traiettoriaX2;
-      var y2 = a.traiettoriaY2;
-      if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
-      var muroX = a.traiettoriaMuroX;
-      var muroY = a.traiettoriaMuroY;
-      if (x1 > 0.5) {
-        x1 = 1.0 - x1;
-        y1 = 1.0 - y1;
-        x2 = 1.0 - x2;
-        y2 = 1.0 - y2;
-        if (muroX != null && muroY != null) {
-          muroX = 1.0 - muroX;
-          muroY = 1.0 - muroY;
-        }
-      }
-      final colore = a.voto == Voto.perfetto
-          ? _kPdfAce
-          : (a.voto == Voto.errore ? _kPdfErrore : _kPdfInCampo);
-      trajs.add(_TrajPdf(
-        x1: x1,
-        y1: y1,
-        x2: x2,
-        y2: y2,
-        colore: colore,
-        muroX: muroX,
-        muroY: muroY,
-        isPallonetto: a.tipoEsecuzione == TipoAttacco.pallonetto.name,
-      ));
-    }
+    final trajs = [
+      for (final a in azioni)
+        ?normalizzaTiro(tiroDaRiga(a)),
+    ];
 
     pw.Widget legenda(String label, int count, PdfColor colore) =>
         pw.Container(
@@ -1542,7 +1507,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
   // bordo, rete al centro (più marcata), linee dei 3m a 1/3 e 2/3.
   // Il padding attorno al campo lascia spazio alle traiettorie che partono
   // fuori (il battitore sta dietro la linea di fondo, x normalizzata < 0).
-  pw.Widget _campoTraiettoriePdf(List<_TrajPdf> trajs, double larghezza) {
+  pw.Widget _campoTraiettoriePdf(List<Traiettoria> trajs, double larghezza) {
     const pad = 14.0;
     final courtW = larghezza - 2 * pad;
     final courtH = courtW / 2;
@@ -1574,7 +1539,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         for (final t in trajs) {
           final x1 = px(t.x1), y1 = py(t.y1), x2 = px(t.x2), y2 = py(t.y2);
           canvas
-            ..setStrokeColor(t.colore)
+            ..setStrokeColor(_coloreTraiettoriaPdf(t.voto))
             ..setLineWidth(1.0);
 
           // Direzione della punta: dallo snodo del muro, dalla tangente
@@ -1589,7 +1554,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
               ..lineTo(mx, my)
               ..lineTo(x2, y2)
               ..strokePath()
-              ..setFillColor(t.colore)
+              ..setFillColor(_coloreTraiettoriaPdf(t.voto))
               ..drawEllipse(mx, my, 1.8, 1.8)
               ..fillPath();
             dirX = x2 - mx;
@@ -1634,7 +1599,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
             ..strokePath();
           // Pallino sul punto di partenza.
           canvas
-            ..setFillColor(t.colore)
+            ..setFillColor(_coloreTraiettoriaPdf(t.voto))
             ..drawEllipse(x1, y1, 1.5, 1.5)
             ..fillPath();
         }

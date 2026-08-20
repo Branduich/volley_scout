@@ -2,7 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:volley_stats/traiettoria.dart';
+
 import '../data/database.dart';
+import '../logic/heatmap.dart' show tiroDaRiga;
 import '../models/enums.dart';
 import '../theme/court_style.dart';
 
@@ -39,41 +42,28 @@ class TrajData {
       {this.muroX, this.muroY, this.isPallonetto = false});
 }
 
+/// Colore di una traiettoria dal suo voto: verde brillante per le vincenti
+/// (#), rosso per gli errori (=), bianco per il resto (in campo).
+///
+/// Sta qui e non nel package perché è **presentazione**: il PDF usa `PdfColor`
+/// e la dashboard web avrà la sua palette, mentre la geometria è la stessa per
+/// tutti (vedi `normalizzaTiro`).
+Color coloreTraiettoria(Voto? voto) => switch (voto) {
+      Voto.perfetto => CourtStyle.trajectoryAce,
+      Voto.errore => Colors.red,
+      _ => Colors.white,
+    };
+
 /// Converte una [ScoutAction] con traiettoria in [TrajData]. Presuppone che
 /// le quattro coordinate `traiettoria*` siano non-null (filtrare prima con
-/// il controllo su X1/Y1/X2/Y2). Normalizza: partenza sempre da sinistra
-/// (x1 < 0.5). Verde brillante per le azioni vincenti (#), rosso per gli
-/// errori (=), bianco per il resto (in campo).
+/// il controllo su X1/Y1/X2/Y2).
+///
+/// La normalizzazione (specchiatura sx→dx, muro, pallonetto) vive in
+/// `packages/volley_stats`: qui resta solo la scelta del colore.
 TrajData buildTrajData(ScoutAction a) {
-  var x1 = a.traiettoriaX1!;
-  var y1 = a.traiettoriaY1!;
-  var x2 = a.traiettoriaX2!;
-  var y2 = a.traiettoriaY2!;
-  final shouldMirror = x1 > 0.5;
-  if (shouldMirror) {
-    x1 = 1.0 - x1;
-    y1 = 1.0 - y1;
-    x2 = 1.0 - x2;
-    y2 = 1.0 - y2;
-  }
-  // Il tocco a muro va specchiato come il resto della traiettoria.
-  double? muroX = a.traiettoriaMuroX;
-  double? muroY = a.traiettoriaMuroY;
-  if (shouldMirror && muroX != null && muroY != null) {
-    muroX = 1.0 - muroX;
-    muroY = 1.0 - muroY;
-  }
-  final Color color;
-  if (a.voto == Voto.perfetto) {
-    color = CourtStyle.trajectoryAce;
-  } else if (a.voto == Voto.errore) {
-    color = Colors.red;
-  } else {
-    color = Colors.white;
-  }
-  final isPallonetto = a.tipoEsecuzione == TipoAttacco.pallonetto.name;
-  return TrajData(x1, y1, x2, y2, color,
-      muroX: muroX, muroY: muroY, isPallonetto: isPallonetto);
+  final t = normalizzaTiro(tiroDaRiga(a))!;
+  return TrajData(t.x1, t.y1, t.x2, t.y2, coloreTraiettoria(t.voto),
+      muroX: t.muroX, muroY: t.muroY, isPallonetto: t.isPallonetto);
 }
 
 /// Campo doppio (`double_court_bg.png`) con sopra un insieme di traiettorie

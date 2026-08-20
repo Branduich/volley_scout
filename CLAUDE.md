@@ -210,9 +210,28 @@ packages/volley_stats/          (Dart/Flutter puro, zero drift)
 │   ├── backup_model.dart       (DTO del backup + JSON — vedi docs/backup-format.md)
 │   ├── ricalcola_stato.dart    (punteggio/rotazione derivati dagli eventi)
 │   ├── attack_positions.dart   (tabelle posizioni tattiche di attacco)
-│   └── defense_positions.dart  (tabelle posizioni di ricezione)
+│   ├── defense_positions.dart  (tabelle posizioni di ricezione)
+│   ├── role_labels.dart        (etichette P/O/S1/S2/C1/C2 — prende
+│   │                            Map<String, Ruolo>, non Map<String, Player>)
+│   ├── tiro_scout.dart         (TiroScout: l'azione ridotta ai campi che la
+│   │                            GEOMETRIA legge. Tipo neutro al posto di
+│   │                            ScoutAction; NON si riusa AzioneBackup, che è
+│   │                            il DTO del file e porta uid/riferimenti inutili
+│   │                            qui — costruirne uno parziale sarebbe un dato
+│   │                            finto in giro per il codice)
+│   ├── traiettoria.dart        (normalizzaTiro(): specchiatura sx→dx, muro,
+│   │                            pallonetto. Porta il VOTO, non il colore: a
+│   │                            video è Color, nel PDF PdfColor, sul web sarà
+│   │                            un'altra palette — ed è proprio il motivo per
+│   │                            cui la stessa normalizzazione era duplicata in
+│   │                            `_TrajPdf`, ora eliminata)
+│   └── heatmap.dart            (punti d'arrivo avversari, su TiroScout)
 └── test/
-    └── ricalcola_stato_test.dart (38 test — girano SENZA l'app intorno)
+    ├── ricalcola_stato_test.dart (38 test — girano SENZA l'app intorno)
+    ├── role_labels_test.dart + role_labels_62_test.dart
+    ├── heatmap_test.dart
+    └── traiettoria_test.dart     (NUOVI: la normalizzazione non era testabile
+                                   finché viveva dentro un file di widget)
 
 lib/
 ├── main.dart                     (app + HomeScreen con menu; usa AppTheme.light)
