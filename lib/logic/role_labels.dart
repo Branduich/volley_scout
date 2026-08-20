@@ -1,189 +1,31 @@
+/// Adapter verso `packages/volley_stats/lib/role_labels.dart` (passo 5.3 del
+/// piano in docs/dati-stagionali.md).
+///
+/// Nel package la funzione prende una mappa **slot → Ruolo**, perché è tutto
+/// ciò che legge davvero e perché `Player` è una riga drift, che sul web non
+/// esiste. Qui restano wrapper con la **firma di prima**, così i call-site
+/// (`scout_screen`, `formation_config_screen`, `database_provider`, i report)
+/// non cambiano di una riga: si sposta il file, non i suoi quaranta usi.
+library;
+
+import 'package:volley_stats/role_labels.dart' as stats;
+
 import '../data/database.dart';
 import '../models/enums.dart';
 
-/// Ordine antiorario degli slot sul campo (stesso di `_kSlotOrder` in
-/// scout_screen.dart), usato per la distanza dal palleggiatore.
-const List<String> kSlotOrder = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
+export 'package:volley_stats/role_labels.dart'
+    show kSlotOrder, etichetteAvversarie;
 
-/// Etichette di ruolo (P/O/S1/S2/C1/C2) per ogni slot, basate sul ruolo
-/// REALE del giocatore assegnato (non su un pattern fisso): il
-/// palleggiatore designato è sempre "P", l'opposto è sempre "O". Tra i due
-/// schiacciatori, quello più vicino al palleggiatore (in senso antiorario)
-/// è "S1", l'altro (diametralmente opposto, a 3 posizioni) è "S2" — stessa
-/// logica per i centrali ("C1"/"C2").
-///
-/// **Universale (Ruolo.undefined) = completamento**: può giocare al posto
-/// di qualsiasi ruolo tranne il libero, quindi NON ha un'etichetta fissa —
-/// riempie le etichette MANCANTI nella composizione canonica
-/// {O, S1, S2, C1, C2}. Per le coppie si preferisce l'universale che sta a
-/// 3 posizioni (opposto nel ring) dal compagno di coppia esistente; per la
-/// 'O' quello opposto al palleggiatore. Dopo una sostituzione, l'etichetta
-/// mancante è esattamente quella di chi è uscito: l'universale ne eredita
-/// il ruolo tattico. Universali in eccesso restano senza etichetta
-/// (fallback su posizione a griglia in ScoutScreen, mai un crash).
-///
-/// Estratta da scout_screen.dart in un file di logica pura (nessuna
-/// dipendenza da UI) per poterla testare — vedi
-/// test/logic/role_labels_test.dart.
-Map<String, String> roleLabelsFor(
-    String palleggiatoreSlot, Map<String, Player> assignments) {
-  final startIndex = kSlotOrder.indexOf(palleggiatoreSlot);
-  int distanceFromP(String slot) =>
-      (kSlotOrder.indexOf(slot) - startIndex + kSlotOrder.length) %
-      kSlotOrder.length;
-  String ringOpposite(String slot) =>
-      kSlotOrder[(kSlotOrder.indexOf(slot) + 3) % kSlotOrder.length];
-
-  final schiacciatori = <String>[];
-  final centrali = <String>[];
-  final universali = <String>[];
-  // Palleggiatori NON designati (doppio cambio: un secondo palleggiatore in
-  // campo al posto di un altro ruolo) — raccolti a parte e assegnati DOPO
-  // il ciclo, così non rubano la 'O' all'opposto vero se compaiono prima
-  // di lui nell'ordine degli slot.
-  final palleggiatoriExtra = <String>[];
-  String? opposto;
-
-  for (final slot in kSlotOrder) {
-    if (slot == palleggiatoreSlot) continue;
-    switch (assignments[slot]?.ruolo) {
-      case Ruolo.opposto:
-        opposto = slot;
-      case Ruolo.schiacciatore:
-        schiacciatori.add(slot);
-      case Ruolo.centrale:
-        centrali.add(slot);
-      case Ruolo.undefined:
-        universali.add(slot);
-      case Ruolo.palleggiatore:
-        palleggiatoriExtra.add(slot);
-      default:
-        break;
-    }
-  }
-  // Euristica per il palleggiatore extra: gioca da opposto se la 'O' è
-  // libera (il caso reale del doppio cambio: P entra per O), altrimenti
-  // conta come schiacciatore — degradazione accettabile, mai senza label.
-  for (final slot in palleggiatoriExtra) {
-    if (opposto == null) {
-      opposto = slot;
-    } else {
-      schiacciatori.add(slot);
-    }
-  }
-  schiacciatori.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-  centrali.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-  universali.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-
-  // Completamento: gli universali riempiono le etichette mancanti.
-  // `vicinoA` = lo slot il cui opposto nel ring è il candidato preferito
-  // (il compagno di coppia sta sempre a 3 posizioni di distanza).
-  String? prendiUniversale({String? vicinoA}) {
-    if (universali.isEmpty) return null;
-    if (vicinoA != null) {
-      final preferito = ringOpposite(vicinoA);
-      if (universali.remove(preferito)) return preferito;
-    }
-    return universali.removeAt(0);
-  }
-
-  // L'opposto è canonicamente a 3 posizioni dal palleggiatore.
-  opposto ??= prendiUniversale(vicinoA: palleggiatoreSlot);
-  if (schiacciatori.length == 1) {
-    final u = prendiUniversale(vicinoA: schiacciatori[0]);
-    if (u != null) schiacciatori.add(u);
-  } else if (schiacciatori.isEmpty) {
-    for (var i = 0; i < 2; i++) {
-      final u = prendiUniversale();
-      if (u != null) schiacciatori.add(u);
-    }
-    schiacciatori
-        .sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-  }
-  if (centrali.length == 1) {
-    final u = prendiUniversale(vicinoA: centrali[0]);
-    if (u != null) centrali.add(u);
-  } else if (centrali.isEmpty) {
-    for (var i = 0; i < 2; i++) {
-      final u = prendiUniversale();
-      if (u != null) centrali.add(u);
-    }
-    centrali.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
-  }
-
-  final labels = <String, String>{palleggiatoreSlot: 'P'};
-  if (opposto != null) labels[opposto] = 'O';
-  if (schiacciatori.isNotEmpty) labels[schiacciatori[0]] = 'S1';
-  if (schiacciatori.length > 1) labels[schiacciatori[1]] = 'S2';
-  if (centrali.isNotEmpty) labels[centrali[0]] = 'C1';
-  if (centrali.length > 1) labels[centrali[1]] = 'C2';
-  return labels;
-}
-
-/// Etichette di ruolo per il **6-2** (doppio palleggiatore, 2P+2S+2C, nessun
-/// opposto dedicato). I due palleggiatori hanno identità FISSE **P1** e **P2**
-/// (non 'P'/'O'): `P1` è il palleggiatore di **riferimento** (quello su cui è
-/// ancorata la rotazione, `riferimentoSlot` = il suo slot attuale), `P2` è
-/// l'altro (diagonale, 3 posizioni). Struttura identica al 5-1 — anello
-/// `P1, S1, C1, P2, S2, C2` (P2 occupa la posizione che nel 5-1 è dell'opposto)
-/// — così le tabelle di posizione 6-2 mantengono la stessa forma (chiave =
-/// slot di P1). Schiacciatori → S1/S2 e centrali → C1/C2 per distanza
-/// antioraria da `riferimentoSlot`, stessa convenzione del 5-1.
-///
-/// `assignments` sono i **6 giocatori di rotazione** (entrambi i centrali
-/// presenti; la sostituzione col libero è un fatto di rendering, come nel
-/// 5-1). Verificata contro le tabelle CSV dell'utente (rotazioni P1, P3).
-/// Pura e testabile — vedi test/logic/role_labels_62_test.dart.
-Map<String, String> roleLabelsFor62(
-    String riferimentoSlot, Map<String, Player> assignments) {
-  final startIndex = kSlotOrder.indexOf(riferimentoSlot);
-  // Il secondo palleggiatore è SEMPRE il diagonale del riferimento (3 slot):
-  // i due palleggiatori del 6-2 sono opposti nel ring e ruotano insieme.
-  // Determinato per POSIZIONE, non per ruolo → "chi occupa quella posizione fa
-  // il palleggiatore" anche se ha un Ruolo diverso (es. un cambio
-  // alzatore→opposto confermato come alzatore: la posizione vince sul ruolo).
-  final p2Slot = kSlotOrder[(startIndex + 3) % kSlotOrder.length];
-
-  final schiacciatori = <String>[];
-  final centrali = <String>[];
-  for (final slot in kSlotOrder) {
-    if (slot == riferimentoSlot || slot == p2Slot) continue; // i due P
-    switch (assignments[slot]?.ruolo) {
-      case Ruolo.schiacciatore:
-        schiacciatori.add(slot);
-      case Ruolo.centrale:
-        centrali.add(slot);
-      default:
-        break; // opposto/undefined/libero: non previsti negli altri 4 slot
-    }
-  }
-
-  int distanceFromP1(String slot) =>
-      (kSlotOrder.indexOf(slot) - startIndex + kSlotOrder.length) %
-      kSlotOrder.length;
-  schiacciatori.sort((a, b) => distanceFromP1(a).compareTo(distanceFromP1(b)));
-  centrali.sort((a, b) => distanceFromP1(a).compareTo(distanceFromP1(b)));
-
-  final labels = <String, String>{riferimentoSlot: 'P1', p2Slot: 'P2'};
-  if (schiacciatori.isNotEmpty) labels[schiacciatori[0]] = 'S1';
-  if (schiacciatori.length > 1) labels[schiacciatori[1]] = 'S2';
-  if (centrali.isNotEmpty) labels[centrali[0]] = 'C1';
-  if (centrali.length > 1) labels[centrali[1]] = 'C2';
-  return labels;
-}
-
-/// Ordine canonico dei ruoli in un 5-1, partendo dal palleggiatore e girando
-/// nel verso della rotazione (offset 0 = P, poi S1, C1, O, S2, C2): l'opposto
-/// è diagonale al palleggiatore (3 posizioni), le coppie S1/S2 e C1/C2 sono
-/// opposte tra loro. Disposizione standard "schiacciatore-centrale-opposto".
-const List<String> _kRuoliCanonici51 = ['P', 'S1', 'C1', 'O', 'S2', 'C2'];
-
-/// Etichette di ruolo placeholder per la squadra AVVERSARIA, derivate dal solo
-/// slot (1-6) del loro palleggiatore in un 5-1 canonico (`_kRuoliCanonici51`).
-/// Non avendo il loro roster si assume la disposizione standard: da qui i 6
-/// token placeholder che ruotano sulla metà campo opposta. Ritorna
-/// zona (1-6) -> etichetta. Pura e testabile (vedi role_labels_test.dart).
-Map<int, String> etichetteAvversarie(int palleggiatoreSlot) => {
-      for (var zona = 1; zona <= 6; zona++)
-        zona: _kRuoliCanonici51[(zona - palleggiatoreSlot + 6) % 6],
+Map<String, Ruolo> _ruoliPerSlot(Map<String, Player> assignments) => {
+      for (final e in assignments.entries) e.key: e.value.ruolo,
     };
+
+/// Vedi `stats.roleLabelsFor`: qui cambia solo il tipo in ingresso.
+Map<String, String> roleLabelsFor(
+        String palleggiatoreSlot, Map<String, Player> assignments) =>
+    stats.roleLabelsFor(palleggiatoreSlot, _ruoliPerSlot(assignments));
+
+/// Vedi `stats.roleLabelsFor62`: qui cambia solo il tipo in ingresso.
+Map<String, String> roleLabelsFor62(
+        String riferimentoSlot, Map<String, Player> assignments) =>
+    stats.roleLabelsFor62(riferimentoSlot, _ruoliPerSlot(assignments));
