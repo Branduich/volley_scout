@@ -133,5 +133,7 @@ l'avversario fa cadere di più.
 ### Limiti / backlog
 Nessuna statistica per singolo giocatore avversario (nessun roster); nessun
 libero avversario, nessun numero di maglia; nessun modulo diverso dal 5-1
-canonico; unit test di `zonaTatticaPerAzioneAvversario` non ancora scritto (come
-l'originale `zonaTatticaPerAzione`).
+canonico; unit test di `zonaTatticaPerAzioneAvversario` non ancora scritto —
+l'originale `zonaTatticaPerAzione` invece **ora è coperta** da
+`test/providers/zona_tattica_test.dart` (dal 2026-08-20), e quel test è il
+modello da copiare per il gemello avversario.

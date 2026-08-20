@@ -323,10 +323,22 @@ dashboard non può trovare buchi.
   ([match_pdf_screen.dart:1470-1499](../lib/screens/report/match_pdf_screen.dart#L1470-L1499)).
 - 5.4 `stat_fondamentali.dart`: promuovi le formule dal PDF e fai puntare lì
   anche `match_report_screen.dart:570-591` (tre copie → una).
-- 5.5 `zonaTatticaPerAzione` diventa sincrona nel package, il repository delega.
+- 5.5 `zonaTatticaPerAzione` sincrona nel package — **RIMANDATO** (2026-08-20),
+  insieme a `_calcolaStatGiocatori`. Motivo: il passo 6 non ne ha bisogno (la
+  riga KPI si costruisce con `stat_fondamentali` e i DTO, già nel package),
+  mentre l'estrazione richiede un tipo neutro molto più ricco di `TiroScout`
+  (azioni con id/ordine/esito e i tre riferimenti del cambio giocatore, più la
+  formazione per set) su cento righe che rigiocano cambi e rotazioni. Lavoro
+  delicato il cui valore arriva al passo 12: si fa quando la dashboard chiederà
+  la distribuzione alzate. **In compenso quella funzione ora è TESTATA**
+  (`test/providers/zona_tattica_test.dart`, buco segnalato da mesi in
+  docs/context/scout-avversario.md): la rete di sicurezza per spostarla c'è già.
 *Verifica dopo ogni sotto-passo*: `flutter analyze` pulito, `flutter test` verde,
-e **report a video + PDF della demo con numeri identici**. Se un numero cambia,
-sai quale spostamento l'ha rotto.
+e **numeri identici a prima**. Per gli spostamenti di formule non si guarda un
+PDF a memoria: si scrive un test usa-e-getta che rimette le vecchie formule
+verbatim e le confronta con le nuove su tutte le combinazioni (fatto al 5.4:
+35.658 confronti, zero differenze), poi si cancella — tenerlo congelerebbe
+proprio le copie che si stanno eliminando.
 
 **6. Dashboard, primo pixel.** `packages/volley_ui` (i widget) + `packages/volley_web`
 con `flutter create --platforms=web` (guscio); carica un backup come asset e

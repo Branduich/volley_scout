@@ -570,8 +570,15 @@ test/
 │                                   (inlineStr, rich text, colonne oltre la Z)
 │                                   + smistamento di leggiFoglioCalcolo)
 ├── providers/
-│   └── campionato_repository_test.dart (importa()/creaPartitaDaGara() su DB
-│                                   drift in memoria — AppDatabase.perTest)
+│   ├── campionato_repository_test.dart (importa()/creaPartitaDaGara() su DB
+│   │                               drift in memoria — AppDatabase.perTest)
+│   └── zona_tattica_test.dart     (rete su zonaTatticaPerAzione, che non aveva
+│                                   test: 63 attacchi della demo con la loro
+│                                   zona TATTICA, distribuzione per zona e
+│                                   rotazione, e una firma per-azione
+│                                   `set.ordine=zona/rotazione` indipendente
+│                                   dagli id autoincrement. Un errore lì non fa
+│                                   crashare niente: sposta le statistiche)
 └── logic/
     ├── ricalcola_stato_test.dart  (27 test su ricalcolaStato(), `flutter test`)
     ├── role_labels_test.dart      (8 test su roleLabelsFor() — regressione +
