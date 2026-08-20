@@ -1,0 +1,25 @@
+name: volley_stats
+description: >-
+  Logica pura di Volley Scout Stratego, condivisa fra l'app mobile e la
+  dashboard stagionale web. Regola secca: qui dentro NON entrano drift,
+  flutter_riverpod, AppLocalizations né BuildContext — se compila con il solo
+  `flutter`, gira anche sul web (vedi docs/dati-stagionali.md).
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.2
+
+# Membro del pub workspace dichiarato nel pubspec della root: un solo
+# `flutter pub get`, un solo pubspec.lock, e versioni delle dipendenze
+# condivise per costruzione — app e dashboard non possono divergere.
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

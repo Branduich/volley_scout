@@ -21,6 +21,15 @@ version: 1.0.0+11
 environment:
   sdk: ^3.12.2
 
+# Monorepo (pub workspace) — vedi docs/dati-stagionali.md, passo 5.
+# La root è l'app mobile; i package sotto `packages/` sono i pezzi condivisi
+# con la futura dashboard web. Un solo `flutter pub get` per tutti, un solo
+# pubspec.lock: app e dashboard non possono risolvere versioni diverse della
+# stessa dipendenza, che è il modo classico in cui due metà dello stesso
+# progetto divergono senza accorgersene.
+workspace:
+  - packages/volley_stats
+
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
