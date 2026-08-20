@@ -225,7 +225,13 @@ packages/volley_stats/          (Dart/Flutter puro, zero drift)
 │   │                            un'altra palette — ed è proprio il motivo per
 │   │                            cui la stessa normalizzazione era duplicata in
 │   │                            `_TrajPdf`, ora eliminata)
-│   └── heatmap.dart            (punti d'arrivo avversari, su TiroScout)
+│   ├── heatmap.dart            (punti d'arrivo avversari, su TiroScout)
+│   └── stat_fondamentali.dart  (efficienza/positività/percentuale — erano in
+│                                TRE copie tenute allineate da un commento.
+│                                Tornano `double?`: null = nessuna azione, che
+│                                NON è zero per cento. La formattazione resta
+│                                fuori: interi nelle celle del PDF, card a
+│                                video, altro sul web)
 └── test/
     ├── ricalcola_stato_test.dart (38 test — girano SENZA l'app intorno)
     ├── role_labels_test.dart + role_labels_62_test.dart

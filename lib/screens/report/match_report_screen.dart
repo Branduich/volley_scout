@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:volley_stats/stat_fondamentali.dart' as stat;
+
 import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../providers/database_provider.dart';
@@ -1695,9 +1697,13 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
     String titolo,
     ({int punti, int errori, int totale}) d,
   ) {
-    final double? efficienza = d.totale == 0
-        ? null
-        : (d.punti - d.errori) * 100 / d.totale;
+    // Formula condivisa col PDF (packages/volley_stats/stat_fondamentali.dart):
+    // `null` = nessuna azione, e la card mostra '—' invece di uno zero finto.
+    final double? efficienza = stat.efficienza(
+      punti: d.punti,
+      errori: d.errori,
+      totale: d.totale,
+    );
     final Color color;
     if (efficienza == null) {
       color = AppColors.neutral;
@@ -1755,7 +1761,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
     required Color color,
     required String dettaglio,
   }) {
-    final double? percentuale = totale == 0 ? null : numeratore * 100 / totale;
+    // Stessa funzione del PDF: null = nessun dato, non zero per cento.
+    final double? percentuale = stat.percentuale(numeratore, totale);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

@@ -12,3 +12,4 @@ export 'role_labels.dart';
 export 'tiro_scout.dart';
 export 'heatmap.dart';
 export 'traiettoria.dart';
+export 'stat_fondamentali.dart';

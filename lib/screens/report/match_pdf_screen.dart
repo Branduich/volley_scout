@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'package:volley_stats/stat_fondamentali.dart';
 import 'package:volley_stats/traiettoria.dart';
 
 import '../../data/database.dart';
@@ -826,20 +827,17 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       ..sort((a, b) => ordine(a.ruoloAvv!).compareTo(ordine(b.ruoloAvv!)));
   }
 
-  int _tot(Map<Voto, int> c) => c.values.fold(0, (a, b) => a + b);
-  int _nVoto(Map<Voto, int> c, Voto v) => c[v] ?? 0;
+  int _tot(Map<Voto, int> c) => totaleVoti(c);
+  int _nVoto(Map<Voto, int> c, Voto v) => conteggioVoto(c, v);
 
-  // Percentuale arrotondata all'intero (anche negativa, per l'efficienza),
-  // '—' senza azioni (mai divisione per zero) — interi per leggibilità
-  // nelle celle strette della mega tabella.
-  String _pctSu(int numeratore, int totale) =>
-      totale == 0 ? '—' : '${(numeratore * 100 / totale).round()}';
+  // Le FORMULE stanno in `packages/volley_stats/lib/stat_fondamentali.dart`,
+  // in comune con le card del report a video: qui resta solo come si scrivono
+  // in una cella stretta della mega tabella — intero arrotondato, '—' quando
+  // non ci sono azioni (che è diverso da "zero per cento").
+  String _fmtPct(double? pct) => pct == null ? '—' : '${pct.round()}';
 
-  // Stesse formule delle card Efficienza/Positività del report a video.
-  String _eff(Map<Voto, int> c) => _pctSu(
-      _nVoto(c, Voto.perfetto) - _nVoto(c, Voto.errore), _tot(c));
-  String _pos(Map<Voto, int> c) => _pctSu(
-      _nVoto(c, Voto.perfetto) + _nVoto(c, Voto.positivo), _tot(c));
+  String _eff(Map<Voto, int> c) => _fmtPct(efficienzaDaVoti(c));
+  String _pos(Map<Voto, int> c) => _fmtPct(positivitaDaVoti(c));
 
 
   // Valori di una riga della mega tabella, nello stesso ordine delle 34
