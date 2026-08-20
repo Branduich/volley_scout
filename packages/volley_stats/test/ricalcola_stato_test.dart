@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:volley_scout/logic/ricalcola_stato.dart';
-import 'package:volley_scout/models/enums.dart';
+import 'package:volley_stats/ricalcola_stato.dart';
+import 'package:volley_stats/enums.dart';
 
 void main() {
   const rotazioneIniziale = {1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60};

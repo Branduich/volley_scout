@@ -5,3 +5,6 @@ library;
 
 export 'enums.dart';
 export 'backup_model.dart';
+export 'ricalcola_stato.dart';
+export 'attack_positions.dart';
+export 'defense_positions.dart';

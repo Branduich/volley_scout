@@ -182,12 +182,46 @@ fallisce anche dopo `flutter clean`/stop dei daemon.
 
 ## Struttura cartelle
 
+**Monorepo (pub workspace)** dal 2026-08-19 — passo 5 di `docs/dati-stagionali.md`.
+La root è l'app; `packages/volley_stats` è la logica **pura** condivisa con la
+futura dashboard web. Regola secca: nel package NON entrano drift,
+flutter_riverpod, AppLocalizations né BuildContext — **se compila con il solo
+`flutter`, gira sul web** (verificabile con `flutter analyze` dentro il package).
+
+**I file spostati lasciano al loro posto una ri-esportazione di una riga**
+(`export 'package:volley_stats/…';`): è ciò che rende economico il refactoring —
+si sposta il file, non i suoi quaranta call-site. Già così per `enums.dart`
+(~45 import), `backup_model.dart`, `ricalcola_stato.dart`,
+`attack_positions.dart`, `defense_positions.dart`.
+
+**Test: servono ENTRAMBE le cartelle**, perché `flutter test` da solo non vede i
+test del package. Il comando completo è:
+
 ```
+flutter test test packages/volley_stats/test
+```
+
+```
+packages/volley_stats/          (Dart/Flutter puro, zero drift)
+├── lib/
+│   ├── volley_stats.dart       (barrel, per la dashboard: esporta tutto)
+│   ├── enums.dart              (Ruolo, Categoria, Voto, SistemaGioco, Squadra,
+│   │                            EsitoPunto… — nessun import, Dart puro)
+│   ├── backup_model.dart       (DTO del backup + JSON — vedi docs/backup-format.md)
+│   ├── ricalcola_stato.dart    (punteggio/rotazione derivati dagli eventi)
+│   ├── attack_positions.dart   (tabelle posizioni tattiche di attacco)
+│   └── defense_positions.dart  (tabelle posizioni di ricezione)
+└── test/
+    └── ricalcola_stato_test.dart (38 test — girano SENZA l'app intorno)
+
 lib/
 ├── main.dart                     (app + HomeScreen con menu; usa AppTheme.light)
 ├── models/
-│   └── enums.dart                (Ruolo, Categoria, Voto, SistemaGioco, Squadra,
-│                                   EsitoPunto + jerseyPalette)
+│   ├── enums.dart                (RI-ESPORTAZIONE di packages/volley_stats —
+│   │                              gli enum stanno lì, vedi sopra)
+│   └── jersey_colors.dart        (jerseyPalette + contrastingTextColor: qui e
+│                                   NON in enums.dart, che è Dart puro senza
+│                                   Color e deve restare tale per il web)
 ├── logic/
 │   ├── attack_positions.dart     (tabelle posizioni TATTICHE di attacco per
 │   │                               rotazione/ruolo/fase + attackMapFor() +
