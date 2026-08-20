@@ -1,52 +1,45 @@
+/// Adapter verso `packages/volley_stats/lib/heatmap.dart` (passo 5.3 del piano
+/// in docs/dati-stagionali.md).
+///
+/// Nel package le funzioni lavorano su [TiroScout], il tipo neutro ridotto ai
+/// campi che la geometria legge: `ScoutAction` è una riga drift e sul web non
+/// esiste. Qui restano le firme di prima, che accettano le righe drift e le
+/// convertono — così i call-site dei report non cambiano.
+library;
+
 import 'dart:ui' show Offset;
+
+import 'package:volley_stats/heatmap.dart' as stats;
+import 'package:volley_stats/tiro_scout.dart';
 
 import '../data/database.dart';
 import '../models/enums.dart';
 
-/// Punti d'arrivo (nel NOSTRO campo) delle azioni AVVERSARIE del fondamentale
-/// dato — battuta o attacco — per la heatmap. Coordinate normalizzate 0-1 nello
-/// spazio del **campo doppio** (1200×600), con l'arrivo sempre nella metà
-/// **destra** (= nostro campo) — direttamente disegnabili da
-/// `CourtTrajectoriesView`/`MultiTrajectoryPainter` (`_toScreen`), come le
-/// traiettorie.
-///
-/// Filtra: `squadra == avversari`, `tipo == scout`, quel `fondamentale`, con
-/// traiettoria completa (X1/X2/Y2 non-null). Normalizzazione identica a
-/// `buildTrajData`: si specchia se `x1 > 0.5` (partenza sempre a sinistra →
-/// arrivo a destra), poi si prende il punto d'arrivo `(x2, y2)`.
-///
-/// I punti NON sono clampati: una battuta/attacco andata fuori produce un
-/// arrivo oltre i bordi (coerente col resto dello scout). L'eventuale filtro
-/// "solo palle in campo" si decide a monte o nel painter. Funzione pura —
-/// vedi test/logic/heatmap_test.dart.
+export 'package:volley_stats/tiro_scout.dart';
+
+/// Riga drift → tipo neutro. Unico punto di conversione: se un domani la
+/// geometria avesse bisogno di un campo in più, si aggiunge qui e in
+/// [TiroScout], non in ogni chiamante.
+TiroScout tiroDaRiga(ScoutAction a) => TiroScout(
+      squadra: a.squadra,
+      tipo: a.tipo,
+      fondamentale: a.fondamentale,
+      voto: a.voto,
+      tipoEsecuzione: a.tipoEsecuzione,
+      x1: a.traiettoriaX1,
+      y1: a.traiettoriaY1,
+      x2: a.traiettoriaX2,
+      y2: a.traiettoriaY2,
+      muroX: a.traiettoriaMuroX,
+      muroY: a.traiettoriaMuroY,
+    );
+
+/// Vedi `stats.puntiArrivoAvversari`.
 List<Offset> puntiArrivoAvversari(
         Iterable<ScoutAction> azioni, Fondamentale fondamentale) =>
-    _arrivi(azioni, fondamentale, soloPerfetti: false);
+    stats.puntiArrivoAvversari(azioni.map(tiroDaRiga), fondamentale);
 
-/// Come [puntiArrivoAvversari] ma solo le azioni con `voto == perfetto`: gli
-/// **ace** (per la battuta) o i **kill** (per l'attacco) avversari — evidenziati
-/// con un marker dedicato nella heatmap (oltre a contribuire ai blob).
+/// Vedi `stats.puntiArrivoAvversariPerfetti`.
 List<Offset> puntiArrivoAvversariPerfetti(
         Iterable<ScoutAction> azioni, Fondamentale fondamentale) =>
-    _arrivi(azioni, fondamentale, soloPerfetti: true);
-
-List<Offset> _arrivi(Iterable<ScoutAction> azioni, Fondamentale fondamentale,
-    {required bool soloPerfetti}) {
-  final punti = <Offset>[];
-  for (final a in azioni) {
-    if (a.squadra != Squadra.avversari) continue;
-    if (a.tipo != TipoAzione.scout) continue;
-    if (a.fondamentale != fondamentale) continue;
-    if (soloPerfetti && a.voto != Voto.perfetto) continue;
-    final x1 = a.traiettoriaX1;
-    final x2 = a.traiettoriaX2;
-    final y2 = a.traiettoriaY2;
-    if (x1 == null || x2 == null || y2 == null) continue;
-    // Specchia come buildTrajData se la partenza è a destra, così l'arrivo è
-    // sempre nella nostra metà (destra, x >= 0.5).
-    final ex = x1 > 0.5 ? 1.0 - x2 : x2;
-    final ey = x1 > 0.5 ? 1.0 - y2 : y2;
-    punti.add(Offset(ex, ey));
-  }
-  return punti;
-}
+    stats.puntiArrivoAvversariPerfetti(azioni.map(tiroDaRiga), fondamentale);

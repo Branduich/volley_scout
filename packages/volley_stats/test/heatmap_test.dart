@@ -1,13 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:volley_scout/data/database.dart';
-import 'package:volley_scout/logic/heatmap.dart';
-import 'package:volley_scout/models/enums.dart';
+import 'package:volley_stats/enums.dart';
+import 'package:volley_stats/heatmap.dart';
+import 'package:volley_stats/tiro_scout.dart';
 
 // Test della funzione pura puntiArrivoAvversari (Blocco 1 heatmap): filtri +
 // normalizzazione dell'arrivo sul campo singolo.
 
-int _ord = 0;
-ScoutAction _azione({
+TiroScout _azione({
   Squadra squadra = Squadra.avversari,
   TipoAzione tipo = TipoAzione.scout,
   Fondamentale? fondamentale = Fondamentale.battuta,
@@ -17,32 +16,15 @@ ScoutAction _azione({
   double? x2,
   double? y2,
 }) =>
-    ScoutAction(
-      id: _ord,
-      setId: 1,
-      rallyId: _ord,
-      ordine: _ord++,
-      timestamp: DateTime(2026, 7, 28),
+    TiroScout(
       squadra: squadra,
       tipo: tipo,
-      giocatoreId: null,
       fondamentale: fondamentale,
       voto: voto,
-      tipoEsecuzione: 'nonSpecificato',
-      esitoPunto: EsitoPunto.nessuno,
-      traiettoriaX1: x1,
-      traiettoriaY1: y1,
-      traiettoriaX2: x2,
-      traiettoriaY2: y2,
-      traiettoriaMuroX: null,
-      traiettoriaMuroY: null,
-      puntiCasaAlMomento: null,
-      puntiOspitiAlMomento: null,
-      giocatoreUscenteId: null,
-      nuovoPalleggiatoreId: null,
-      nuovoRuoloCambiLibero: null,
-      gruppoCambio: null,
-      ruoloAvversario: 'S1',
+      x1: x1,
+      y1: y1,
+      x2: x2,
+      y2: y2,
     );
 
 void main() {
