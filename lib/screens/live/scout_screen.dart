@@ -59,6 +59,11 @@ const double _kCourtTopMargin = 16.0;
 // duplicato qui come le altre costanti condivise fra le due schermate.
 const double _kToleranzaReteInLine = 24.0;
 
+// Per quanto il dito deve restare nella fascia perché scatti il tocco a muro:
+// un attacco che scavalca la rete di slancio non deve lasciare uno snodo, solo
+// una sosta deliberata. Stesso valore di TrajectoryScreen.
+const Duration _kSoffermamentoReteInLine = Duration(milliseconds: 400);
+
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
 // il cerchio del libero — in pallavolo il libero indossa sempre una maglia
 // di colore diverso dai compagni. Stessa logica di lineup_screen.dart.
@@ -634,15 +639,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // come `repaint` al painter, ridisegna solo la freccia senza toccare
   // l'albero dei widget.
   // `muro` = punto di tocco a muro (solo attacco): quando c'è, la freccia si
-  // disegna a due segmenti con uno snodo lì. `inSospeso` = il dito si è
-  // staccato sulla rete e si aspetta il secondo tratto (vedi
-  // _onPointerUpCampo); sta QUI dentro e non in un campo a parte perché così
-  // arriva al painter senza un `setState`.
+  // disegna a due segmenti con uno snodo lì. `inZonaRete` = il dito è dentro
+  // la fascia della rete e il soffermamento sta scorrendo: accende la riga
+  // gialla. Stanno QUI dentro e non in campi a parte perché così arrivano al
+  // painter senza un `setState`.
   final ValueNotifier<
-          ({Offset inizio, Offset fine, Offset? muro, bool inSospeso})?>
+          ({Offset inizio, Offset fine, Offset? muro, bool inZonaRete})?>
       _frecciaInLine = ValueNotifier(null);
 
-  bool get _muroInSospeso => _frecciaInLine.value?.inSospeso ?? false;
+  // Timer del soffermamento sulla rete e flag "dito dentro la fascia" — vedi
+  // _onPointerMoveCampo.
+  Timer? _timerMuroInLine;
+  bool _inZonaReteInLine = false;
 
   // La stessa freccia normalizzata 0..1 sul riquadro campo, calcolata al
   // rilascio (dove la geometria del campo è nota) e usata al momento di
@@ -652,6 +660,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       _traiettoriaNormalizzata;
 
   void _azzeraTraiettoriaInLine() {
+    _timerMuroInLine?.cancel();
+    _inZonaReteInLine = false;
     _frecciaInLine.value = null;
     _traiettoriaNormalizzata = null;
   }
@@ -706,27 +716,54 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       (_votoInCorso?.fondamentale ?? _avversarioInCorso?.fondamentale) !=
       Fondamentale.battuta;
 
-  void _onPointerMoveCampo(PointerMoveEvent event, double courtWidth) {
+  void _onPointerMoveCampo(
+      PointerMoveEvent event, double courtLeft, double courtWidth) {
     final giu = _pointerGiu;
     if (giu == null || _gestoSullaCard) return;
     if (!_traiettoriaInLineAttiva) return;
     final pos = event.localPosition;
     final precedente = _frecciaInLine.value;
     final inCorso = _traiettoriaNormalizzata == null &&
-        precedente != null &&
-        !_muroInSospeso; // trascinamento già riconosciuto
+        precedente != null; // trascinamento già riconosciuto
     if (!inCorso && (pos - giu).distance < _sogliaTrascinamento(courtWidth)) {
       return; // ancora un tocco, non un trascinamento
     }
-    // Secondo tratto del tocco a muro: parte dallo snodo sulla rete, non da
-    // dove è ripartito il dito (vedi _onPointerUpCampo).
-    final muro = _muroInSospeso ? precedente?.fine : precedente?.muro;
+
+    // TOCCO A MURO, per soffermamento (vedi _kSoffermamentoReteInLine).
+    // Non basta attraversare la rete: bisogna restare nella fascia per un
+    // attimo, altrimenti ogni attacco che la scavalca lascerebbe uno snodo.
+    // Il dwell NON può basarsi sui soli eventi di movimento (col dito fermo
+    // non ne arrivano): serve un Timer avviato all'ingresso nella fascia e
+    // annullato se se ne esce prima che scada.
+    final xRete = courtLeft + courtWidth / 2;
+    final muroGiaPreso = precedente?.muro;
+    if (_muroConsentitoInLine && muroGiaPreso == null) {
+      final dentroFascia = (pos.dx - xRete).abs() <= _kToleranzaReteInLine;
+      if (dentroFascia && !_inZonaReteInLine) {
+        _inZonaReteInLine = true;
+        _timerMuroInLine = Timer(_kSoffermamentoReteInLine, () {
+          final f = _frecciaInLine.value;
+          if (!mounted || f == null || f.muro != null) return;
+          // Lo snodo si aggancia alla rete, come fa TrajectoryScreen.
+          _frecciaInLine.value = (
+            inizio: f.inizio,
+            fine: f.fine,
+            muro: Offset(xRete, f.fine.dy),
+            inZonaRete: false,
+          );
+        });
+      } else if (!dentroFascia && _inZonaReteInLine) {
+        _inZonaReteInLine = false;
+        _timerMuroInLine?.cancel();
+      }
+    }
+
     // Niente setState: il disegno passa dal notifier (vedi _frecciaInLine).
     _frecciaInLine.value = (
-      inizio: muro != null ? precedente!.inizio : giu,
+      inizio: muroGiaPreso != null ? precedente!.inizio : giu,
       fine: pos,
-      muro: muro,
-      inSospeso: false,
+      muro: muroGiaPreso,
+      inZonaRete: _inZonaReteInLine && muroGiaPreso == null,
     );
     // Il tratto vecchio è superato: la normalizzata si ricalcola al rilascio.
     _traiettoriaNormalizzata = null;
@@ -740,6 +777,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   ) {
     _pointerGiu = null;
     _gestoSullaCard = false;
+    // Il soffermamento vale solo col dito giù: se il tocco a muro non è
+    // scattato prima del rilascio, non deve scattare dopo.
+    _timerMuroInLine?.cancel();
+    _inZonaReteInLine = false;
     final freccia = _frecciaInLine.value;
     if (freccia == null || _traiettoriaNormalizzata != null) {
       return; // nessun trascinamento in questo gesto
@@ -754,26 +795,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       return;
     }
 
-    // TOCCO A MURO, "stacco e ripresa del dito": se il dito si stacca sulla
-    // rete (e non stiamo disegnando una battuta) quel punto diventa lo snodo,
-    // e il trascinamento successivo porta la palla a destinazione. Nessun
-    // timer e nessuna sosta col dito fermo — il vecchio dwell da 400ms di
-    // TrajectoryScreen non è stato portato qui apposta.
-    final xRete = courtLeft + courtWidth / 2;
-    if (freccia.muro == null &&
-        _muroConsentitoInLine &&
-        (freccia.fine.dx - xRete).abs() <= _kToleranzaReteInLine) {
-      // Lo snodo si aggancia alla rete, come fa TrajectoryScreen.
-      _frecciaInLine.value = (
-        inizio: freccia.inizio,
-        fine: Offset(xRete, freccia.fine.dy),
-        muro: null,
-        inSospeso: true,
-      );
-      // La normalizzata si valorizza lo stesso: se voti adesso, senza
-      // completare, l'azione registra una traiettoria che finisce sulla rete —
-      // che è comunque un dato vero (attacco murato o messo in rete).
-    }
+    // ALTERNATIVA PROVATA E MESSA DA PARTE — "stacco e ripresa del dito":
+    // rilasciare dentro la fascia della rete fissava lo snodo e il
+    // trascinamento successivo portava la palla a destinazione, senza timer
+    // né sosta col dito fermo. Provata sul device il 2026-08-21 e scartata a
+    // favore del soffermamento (vedi _onPointerMoveCampo), che convince di
+    // più. Tenuta qui a promemoria perché la porta resta aperta;
+    // l'implementazione completa (record con `inSospeso`, ripresa del tratto
+    // nel gestore di movimento) sta nel commit 03fb19d, non serve riscriverla
+    // da zero se si decide di tornarci.
+    //
+    //   if (freccia.muro == null &&
+    //       _muroConsentitoInLine &&
+    //       (freccia.fine.dx - xRete).abs() <= _kToleranzaReteInLine) {
+    //     ... snodo agganciato alla rete, attesa del secondo tratto ...
+    //   }
 
     final f = _frecciaInLine.value!;
     _traiettoriaNormalizzata = (
@@ -1625,6 +1661,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void dispose() {
     _timerLampeggio?.cancel();
     _timerLampeggioTick?.cancel();
+    _timerMuroInLine?.cancel();
     _frecciaInLine.dispose();
     super.dispose();
   }
@@ -2661,12 +2698,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 // partono fuori dal campo (il battitore ha X negativa).
                 return Listener(
                   onPointerDown: _onPointerDownCampo,
-                  onPointerMove: (e) => _onPointerMoveCampo(e, courtWidth),
+                  onPointerMove: (e) =>
+                      _onPointerMoveCampo(e, courtLeft, courtWidth),
                   onPointerUp: (_) => _onPointerUpCampo(
                       courtLeft, courtTop, courtWidth, courtHeight),
                   onPointerCancel: (_) {
                     _pointerGiu = null;
                     _gestoSullaCard = false;
+                    _timerMuroInLine?.cancel();
+                    _inZonaReteInLine = false;
                   },
                   child: Stack(
                   children: [
@@ -3976,6 +4016,83 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   static const double _kLarghezzaPulsantiera =
       _kLarghezzaFondamentale + _kGapPulsantiera + _kLarghezzaVoto;
 
+  // ===== PROVA USA-E-GETTA (2026-08-21) =====================================
+  // Griglia 4 colonne x 5 righe alla larghezza che la card aveva PRIMA di
+  // stringerla per il cambio campo (236dp totali): serve solo a vedere quanto
+  // verrebbero grandi i bottoni. Per toglierla: questa costante a false e via
+  // il metodo _buildProvaGriglia4x5.
+  static const bool _kProvaGriglia4x5 = false;
+
+  // Larghezza di una cella: è LA MANOPOLA della prova, cambia solo questo
+  // numero e ricarica. La card viene 4 x cella + 3 gap da 8 + 12 di padding,
+  // e l'ingombro dal bordo destro è quello + 4.
+  //   50 -> card 236  (quanto era prima di stringerla per il cambio campo)
+  //   62 -> card 284  (etichette su una riga, ma sfonda il limite del
+  //                    battitore col cambio campo, che sta a ~196)
+  // Altezza riga invariata, 64.
+  static const double _kProvaLarghezzaCella = 62;
+
+  Widget _buildProvaGriglia4x5() {
+    // Contenuto plausibile solo per giudicare la leggibilità alla misura:
+    // fondamentali, voti, tipi di battuta, tipi di attacco.
+    const colonne = <List<String>>[
+      ['Difesa', 'Attacco', 'Muro', 'Alzata', ''],
+      ['#', '+', '/', '-', '='],
+      ['Dal basso', 'Float', 'Salto', 'Salto float', ''],
+      ['Forte', 'Piazzata', 'Pallonetto', '', ''],
+    ];
+    const colori = <Color>[
+      AppColors.brandPrimary,
+      AppColors.neutral,
+      AppColors.brandPrimary,
+      AppColors.brandPrimary,
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var c = 0; c < colonne.length; c++) ...[
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var r = 0; r < 5; r++) ...[
+                Container(
+                  width: _kProvaLarghezzaCella,
+                  height: _kAltezzaRigaPulsantiera,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: colonne[c][r].isEmpty
+                        ? Colors.white10
+                        : (c == 1
+                            ? CourtStyle.votoColor(Voto.values[r])
+                            : colori[c]),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    colonne[c][r],
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: c == 1 ? 28 : 12,
+                    ),
+                  ),
+                ),
+                if (r < 4) const SizedBox(height: _kGapPulsantiera),
+              ],
+            ],
+          ),
+          if (c < colonne.length - 1)
+            const SizedBox(width: _kGapPulsantiera),
+        ],
+      ],
+    );
+  }
+  // ===== FINE PROVA USA-E-GETTA ============================================
+
   // PULSANTIERA UNICA: fondamentali a sinistra, voti a destra, sempre
   // entrambi a schermo. Si tocca una voce per colonna, in QUALSIASI ORDINE, e
   // alla coppia completa l'azione parte da sé (vedi _provaRegistrare). Toccare
@@ -3999,6 +4116,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     required TutorialTarget? Function(Fondamentale) targetFond,
     required TutorialTarget? Function(Voto) targetVoto,
   }) {
+    if (_kProvaGriglia4x5) return _buildProvaGriglia4x5(); // PROVA, da togliere
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5301,7 +5419,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 /// due strade non divergono mentre le si confronta.
 class _FrecciaLivePainter extends CustomPainter {
   final ValueNotifier<
-      ({Offset inizio, Offset fine, Offset? muro, bool inSospeso})?> freccia;
+      ({Offset inizio, Offset fine, Offset? muro, bool inZonaRete})?> freccia;
 
   /// Geometria del riquadro campo, per la riga sulla rete: `xRete` è la sua
   /// ascissa, `cimaCampo`/`altezzaCampo` la sua estensione verticale.
@@ -5320,9 +5438,11 @@ class _FrecciaLivePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final f = freccia.value;
     if (f == null) return;
-    // Riga sulla rete: "il tratto è appeso qui, il prossimo trascinamento
-    // riparte da questo punto". Stesso segnale visivo di TrajectoryScreen.
-    if (f.inSospeso) {
+    // Riga sulla rete: "sei nella fascia, resta fermo un attimo e lo snodo si
+    // fissa qui". Stesso segnale visivo di TrajectoryScreen; sparisce appena
+    // il tocco a muro scatta (da lì in poi parla lo snodo della freccia) o se
+    // si esce dalla fascia prima che il soffermamento maturi.
+    if (f.inZonaRete) {
       canvas.drawLine(
         Offset(xRete, cimaCampo),
         Offset(xRete, cimaCampo + altezzaCampo),

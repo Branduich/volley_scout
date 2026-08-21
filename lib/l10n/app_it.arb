@@ -13,7 +13,7 @@
   "settingsTrajectoriesSubtitle": "Dopo il voto di battuta e attacco chiede di disegnare la traiettoria. Disattivandola lo scout è più veloce, ma i report delle traiettorie restano vuoti.",
   "settingsTrajectoriesSubtitlePremium": "Funzione premium: le traiettorie sono disattivate.",
   "settingsInlineServeTrajectoryTitle": "Traiettorie sul campo (in prova)",
-  "settingsInlineServeTrajectorySubtitle": "Le traiettorie di battuta e attacco si disegnano sul campo dello scout, prima del voto, invece di aprire la schermata dedicata dopo. Tocchi il giocatore, trascini, poi voti: il voto chiude l'azione, quindi trascina prima. Per il tocco a muro stacca il dito sulla rete e riprendi a trascinare fino a dove cade la palla. In questa modalità il tipo di battuta e di attacco non si possono ancora indicare.",
+  "settingsInlineServeTrajectorySubtitle": "Le traiettorie di battuta e attacco si disegnano sul campo dello scout, prima del voto, invece di aprire la schermata dedicata dopo. Tocchi il giocatore, trascini, poi voti: il voto chiude l'azione, quindi trascina prima. Per il tocco a muro soffermati un attimo sulla rete mentre trascini: lo snodo si fissa lì e la freccia prosegue fino a dove cade la palla. In questa modalità il tipo di battuta e di attacco non si possono ancora indicare.",
   "settingsOpponentScoutTitle": "Scout avversari",
   "settingsOpponentScoutSubtitle": "Registra attacchi, battute e muro della squadra avversaria con segnaposto per ruolo che ruotano. La posizione del palleggiatore avversario si imposta a inizio set.",
   "settingsSectionDev": "Sviluppo",

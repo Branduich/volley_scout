@@ -594,18 +594,23 @@
       Conseguenza voluta: col voto già scelto la coppia si completa al
       rilascio del dito e l'azione parte — è sempre la regola "si registra
       quando ci sono entrambe", con una metà che arriva da un trascinamento.
-    - **Tocco a muro: stacco e ripresa del dito** (solo attacco). Il dito si
-      stacca sulla rete (fascia `_kToleranzaReteInLine`) → quel punto si
-      aggancia alla rete e diventa lo snodo, la riga gialla resta accesa; il
-      trascinamento successivo riparte da lì e chiude dove cade la palla.
-      **Niente `Timer` e niente sosta col dito fermo**: il dwell da 400ms di
-      `TrajectoryScreen` non è stato portato qui apposta. Se voti col tratto
-      appeso, registra una traiettoria che finisce sulla rete — dato vero, non
-      un buco. Non si attiva in battuta (attraversare la rete su un servizio è
-      normale, e una battuta in rete resterebbe appesa per sbaglio); in fase
-      libera si consente sempre, perché lì l'offensiva può solo essere un
-      attacco. **Gesto ancora da giudicare** (2026-08-21): è indipendente dal
-      resto dell'in-line e si toglie senza toccare nient'altro.
+    - **Tocco a muro: SOFFERMAMENTO sulla rete** (solo attacco), lo stesso
+      meccanismo di `TrajectoryScreen`. Trascinando, se il dito resta nella
+      fascia `_kToleranzaReteInLine` per `_kSoffermamentoReteInLine` (400ms) lo
+      snodo si aggancia alla rete e la freccia prosegue a due segmenti. Il
+      dwell NON può basarsi sui soli eventi di movimento (col dito fermo non ne
+      arrivano): serve un `Timer` avviato all'ingresso nella fascia e annullato
+      se se ne esce prima — o al rilascio, perché un soffermamento non concluso
+      col dito giù non deve scattare dopo. La riga gialla sulla rete dice
+      "resta fermo un attimo e lo snodo si fissa qui". Non si attiva in battuta
+      (attraversare la rete su un servizio è normale); in fase libera si
+      consente sempre, perché lì l'offensiva può solo essere un attacco.
+      **Scelto dopo averli provati entrambi** (2026-08-21): lo "stacco e
+      ripresa del dito" (rilascio nella fascia = snodo, secondo trascinamento =
+      arrivo) è stato implementato, provato sul device e **messo da parte** —
+      il soffermamento convince di più. La porta resta aperta: l'alternativa è
+      per intero nel commit `03fb19d`, e in `_onPointerUpCampo` c'è un
+      promemoria che la richiama.
     - **`Listener` ANTENATO** dello Stack del corpo: riceve ogni evento a
       prescindere da chi lo assorbe e **non partecipa all'arena dei gesti**,
       quindi non sottrae un solo tocco a bottoni e token. Un `GestureDetector`
