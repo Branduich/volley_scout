@@ -11,6 +11,7 @@ library;
 
 import 'backup_model.dart';
 import 'enums.dart';
+import 'filtro.dart';
 import 'ricalcola_stato.dart';
 import 'stat_fondamentali.dart';
 
@@ -53,18 +54,16 @@ class RiepilogoStagione {
   int get partitePerse => partite - partiteVinte;
 }
 
-/// Calcola la riga KPI sulle partite del backup.
+/// Calcola la riga KPI sulle partite del backup che passano il [filtro].
 ///
-/// [squadraUid] filtra le partite di una squadra; con `null` le prende tutte
-/// (un allenatore con due squadre vedrà i selettori, ma il primo pixel no).
+/// La selezione (periodo, campo, set, squadra) è tutta in `partiteFiltrate`:
+/// qui non si guarda una data né un flag casa/trasferta, così cambiare la
+/// definizione di "andata" non richiede di toccare gli aggregati.
 RiepilogoStagione riepilogoStagione(
   BackupCompleto backup, {
-  String? squadraUid,
+  Filtro filtro = const Filtro(),
 }) {
-  final partite = [
-    for (final p in backup.partite)
-      if (squadraUid == null || p.squadraUid == squadraUid) p,
-  ];
+  final partite = partiteFiltrate(backup, filtro);
 
   var partiteVinte = 0, setVinti = 0, setPersi = 0;
   var punti = 0, errori = 0, azioni = 0;
@@ -72,10 +71,13 @@ RiepilogoStagione riepilogoStagione(
   final battuta = <Voto, int>{};
   final ricezione = <Voto, int>{};
 
-  for (final partita in partite) {
+  for (final selezione in partite) {
     var vintiQui = 0, persiQui = 0;
 
-    for (final set in partita.sets) {
+    // I set qui sono GIÀ filtrati: con il filtro su un set solo,
+    // "partita vinta" vuol dire aver vinto quel set — ed è la lettura giusta,
+    // perché l'utente sta guardando esattamente quello.
+    for (final set in selezione.sets) {
       // Il punteggio si RIGIOCA dagli eventi con la stessa funzione dell'app
       // (principio "stato derivato"), invece di fidarsi di un totale salvato.
       final stato = ricalcolaStato(

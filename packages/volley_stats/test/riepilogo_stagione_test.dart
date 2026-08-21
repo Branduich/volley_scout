@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:volley_stats/backup_model.dart';
+import 'package:volley_stats/filtro.dart';
 import 'package:volley_stats/riepilogo_stagione.dart';
 
 /// Aggregati di squadra letti da un file di backup **vero** (la partita demo
@@ -71,7 +72,7 @@ void main() {
   });
 
   test('filtrando per una squadra che non esiste non resta nulla', () {
-    final r = riepilogoStagione(backup, squadraUid: 'inesistente');
+    final r = riepilogoStagione(backup, filtro: const Filtro(squadraUid: 'inesistente'));
 
     expect(r.partite, 0);
     expect(r.azioni, 0);

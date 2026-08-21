@@ -3,13 +3,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:volley_stats/volley_stats.dart';
+import 'package:volley_ui/barra_filtri.dart';
 import 'package:volley_ui/kpi_riga.dart';
 import 'package:volley_ui/tabellone_stagionale.dart';
 
-/// Dashboard stagionale (passi 6 e 7 del piano in docs/dati-stagionali.md).
+/// Dashboard stagionale (passi 6, 7 e 7b del piano in docs/dati-stagionali.md).
 ///
 /// Carica un backup di esempio come asset e mostra la riga KPI di squadra più
-/// il tabellone per giocatrice, ordinabile. Mancano ancora i filtri (7b), il
+/// il tabellone per giocatrice ordinabile e la barra filtri. Mancano ancora il
 /// caricamento del file dell'utente (8) e i grafici (9).
 void main() => runApp(const DashboardApp());
 
@@ -74,7 +75,7 @@ class _CaricaBackupDemoState extends State<CaricaBackupDemo> {
 
 /// La vista di squadra. **Non sa da dove arrivano i dati**: è ciò che le
 /// permetterà di finire dentro l'app senza modifiche.
-class PaginaSquadra extends StatelessWidget {
+class PaginaSquadra extends StatefulWidget {
   const PaginaSquadra({
     super.key,
     required this.backup,
@@ -88,8 +89,19 @@ class PaginaSquadra extends StatelessWidget {
   final bool dimostrativo;
 
   @override
+  State<PaginaSquadra> createState() => _PaginaSquadraState();
+}
+
+class _PaginaSquadraState extends State<PaginaSquadra> {
+  /// Lo stato dei filtri è dell'interfaccia; il *significato* dei filtri sta in
+  /// `volley_stats`. Qui si tiene solo qual è quello scelto.
+  Filtro _filtro = const Filtro();
+
+  @override
   Widget build(BuildContext context) {
-    final riepilogo = riepilogoStagione(backup);
+    final backup = widget.backup;
+    final dimostrativo = widget.dimostrativo;
+    final riepilogo = riepilogoStagione(backup, filtro: _filtro);
     final squadra = backup.squadre.isEmpty ? '—' : backup.squadre.first.nome;
     final tema = Theme.of(context);
 
@@ -107,18 +119,38 @@ class PaginaSquadra extends StatelessWidget {
               style: tema.textTheme.bodyMedium
                   ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 24),
-            KpiRiga(kpi: kpiDaRiepilogo(riepilogo)),
-            const SizedBox(height: 32),
-            Text('Giocatrici', style: tema.textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(
-              'Tocca l\'intestazione di una colonna per ordinare.',
-              style: tema.textTheme.bodySmall
-                  ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 20),
+            BarraFiltri(
+              filtro: _filtro,
+              squadre: backup.squadre,
+              onCambia: (f) => setState(() => _filtro = f),
             ),
-            const SizedBox(height: 12),
-            TabelloneStagionale(stats: statGiocatori(backup)),
+            const SizedBox(height: 24),
+            if (riepilogo.partite == 0)
+              // Un filtro che non lascia passare niente deve dirlo: altrimenti
+              // sembra che i dati siano spariti.
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Text(
+                  'Nessuna partita nel periodo selezionato.',
+                  style: tema.textTheme.titleMedium,
+                ),
+              )
+            else ...[
+              KpiRiga(kpi: kpiDaRiepilogo(riepilogo)),
+              const SizedBox(height: 32),
+              Text('Giocatrici', style: tema.textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                'Tocca l\'intestazione di una colonna per ordinare.',
+                style: tema.textTheme.bodySmall
+                    ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              TabelloneStagionale(
+                stats: statGiocatori(backup, filtro: _filtro),
+              ),
+            ],
           ],
         ),
       ),

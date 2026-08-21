@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:volley_stats/backup_model.dart';
+import 'package:volley_stats/filtro.dart';
 import 'package:volley_stats/enums.dart';
 import 'package:volley_stats/riepilogo_stagione.dart';
 import 'package:volley_stats/stat_fondamentali.dart';
@@ -73,6 +74,6 @@ void main() {
   });
 
   test('filtrando una squadra inesistente non resta nessuna riga', () {
-    expect(statGiocatori(backup, squadraUid: 'inesistente'), isEmpty);
+    expect(statGiocatori(backup, filtro: const Filtro(squadraUid: 'inesistente')), isEmpty);
   });
 }

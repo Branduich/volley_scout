@@ -8,6 +8,7 @@ library;
 
 import 'backup_model.dart';
 import 'enums.dart';
+import 'filtro.dart';
 import 'stat_fondamentali.dart';
 
 /// I contatori di una giocatrice: una mappa voto→conteggio per gruppo di
@@ -85,24 +86,21 @@ bool attaccoMurato(AzioneBackup a) {
   return (x1 < 0.5) == (x2 < 0.5);
 }
 
-/// I contatori di tutte le giocatrici sulle partite del backup, ordinati per
-/// numero di maglia (chi non ha azioni non compare).
-///
-/// [squadraUid] limita a una squadra; con `null` prende tutte le partite.
+/// I contatori di tutte le giocatrici sulle partite che passano il [filtro],
+/// ordinati per numero di maglia (chi non ha azioni nel periodo non compare).
 List<StatGiocatore> statGiocatori(
   BackupCompleto backup, {
-  String? squadraUid,
+  Filtro filtro = const Filtro(),
 }) {
+  final squadraUid = filtro.squadraUid;
   final perUid = {
     for (final g in backup.giocatori)
       if (squadraUid == null || g.squadraUid == squadraUid)
         g.uid: StatGiocatore(g),
   };
 
-  for (final partita in backup.partite) {
-    if (squadraUid != null && partita.squadraUid != squadraUid) continue;
-
-    for (final set in partita.sets) {
+  for (final selezione in partiteFiltrate(backup, filtro)) {
+    for (final set in selezione.sets) {
       // La classificazione dell'attacco (su ricezione o su difesa) si decide
       // scorrendo lo scambio: si ricorda l'ultima azione difensiva del rally.
       // Nell'app serviva un Set di id perché le righe drift ne hanno uno; qui
