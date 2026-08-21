@@ -370,9 +370,11 @@
   - **Tap su un giocatore tappabile**: `_tapHandlerPerGiocatore(player,
     {slot})` — disabilitato in modalità test o prima dell'inizio del set,
     altrimenti tappabile se `_giocatoreTappabile(slot)`. Tap → apre
-    `_votoInCorso` (record `(giocatore, fondamentale)`, `fondamentale` da
-    `_fondamentaleForzato()` — `null` in fase libera, il pannello mostrerà
-    prima la scelta del fondamentale).
+    `_votoInCorso` (record `(giocatore, fondamentale, voto)`, `fondamentale`
+    da `_fondamentaleForzato()` — `null` in fase libera, dove va scelto nella
+    colonna sinistra della pulsantiera; `voto` sempre `null` all'apertura).
+    Vale anche **a pannello già aperto**: il tap sostituisce la giocatrice
+    (vedi la pulsantiera sotto).
     - **Trabocchetto hit-test fuori dal campo** (`_buildBattitoreTapCatcher`,
       solo quando battiamo noi — in ricezione P1 è una posizione normale in
       campo, già coperta dal proprio token): quando il battitore è in
@@ -398,24 +400,64 @@
       l'eccezione del servizio) — il libero non ha uno slot proprio, quindi
       passa `slot: null` a `_tapHandlerPerGiocatore` (tappabile solo in
       ricezione, mai in battuta: coerente con "il libero non serve mai").
-  - **Pannello voto** (`_buildPannelloVoto`, ritorna una lista — vedi
-    sotto): ancorato al bordo destro dello schermo (`Positioned(right: 16) +
-    Center`), card scura (`_kTopBarBg`) con etichetta giocatore (numero di
-    maglia, grande; sotto il cognome, più piccolo, `maxLines: 1` +
-    ellissi se non ci sta) sempre visibile, poi **due possibili corpi** in
-    base a `_votoInCorso.fondamentale`:
-    - **`null` (fase libera)**: `_buildSceltaFondamentale()` — 4 bottoni
-      rettangolari verticali (150×60, `AppColors.brandPrimary` — ingranditi
-      da 110×40 dopo feedback "troppo piccoli sul device vero"), uno per
-      Alzata/Attacco/Muro/Difesa. Tap → `_sceglieFondamentale(f)`: aggiorna
-      `_votoInCorso` con quel fondamentale (stesso record, ora con
-      `fondamentale` non nullo) — il pannello si ridisegna mostrando il
-      corpo sotto.
-    - **non null**: nome del fondamentale (`Fondamentale.label`) + **solo
-      per battuta** la griglia tipo battuta, **solo per attacco** la riga
-      tipo attacco (vedi sotto) + 5 bottoni quadrati verticali, uno per
-      `Voto` (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
-      `CourtStyle.votoColor()` (vedi sotto).
+  - **Pannello voto = PULSANTIERA UNICA** (`_buildPannelloVoto` +
+    `_buildPulsantiera`, ritorna una lista — vedi sotto): ancorato al bordo
+    destro dello schermo (`Positioned(right: 16)`), card scura (`_kTopBarBg`)
+    con header (numero di maglia 26 bold; sotto il cognome 18, `maxLines: 1` +
+    ellissi) e sotto **due colonne sempre entrambe a schermo**: fondamentali a
+    sinistra, voti a destra. Righe della stessa altezza, così i 4 fondamentali
+    si allineano ai primi 4 voti e il `=` resta da solo in fondo.
+    - **Si tocca una voce per colonna, in QUALSIASI ORDINE**, e alla coppia
+      completa l'azione parte da sé (`_sceglieFondamentale`/`_scegliVoto` →
+      `_provaRegistrare` → `_registraVoto`). Ri-toccare la stessa colonna
+      **corregge** la scelta senza scrivere niente: nulla finisce a DB finché
+      la coppia non è completa.
+    - **Rifatta il 2026-08-21** (era: prima i 4 fondamentali, POI al loro
+      posto i 5 voti). I tocchi restano 3, il guadagno è altrove — i bottoni
+      non si spostano né cambiano contenuto fra un tocco e l'altro, quindi
+      l'occhio non deve ri-agganciare il pannello e si forma memoria
+      muscolare; e sbagliare fondamentale non costa più "chiudi e ricomincia
+      dal giocatore". Verificato più veloce sul dispositivo reale.
+    - **Ordine libero tenuto di proposito** anche se all'utente viene naturale
+      fondamentale→voto: spegnere i voti fino alla scelta del fondamentale
+      rimetterebbe dentro il difetto appena tolto (5 bottoni che cambiano
+      aspetto richiamano l'occhio via dal campo), e chi usa sempre lo stesso
+      ordine non nota differenza. Imporlo dopo è una guardia di una riga in
+      `_scegliVoto`; il contrario costa di nuovo tutta la discussione.
+    - **Misure** (costanti in cima allo State): righe `_kAltezzaRigaPulsantiera`
+      64, gap `_kGapPulsantiera` 12, colonne `_kLarghezzaFondamentale` e
+      `_kLarghezzaVoto` entrambe 100 — larghezza card ~236dp. I fondamentali
+      erano 120 con testo 18, stretti a 100/16 perché la card copre il campo e
+      ogni dp risparmiato è campo visibile. L'header va vincolato a
+      `_kLarghezzaPulsantiera`: il `FittedBox` passa vincoli **illimitati**,
+      quindi un cognome lungo allargherebbe tutta la card invece di troncarsi.
+    - **Colonna fondamentali**: 4 voci in ordine **fisso**
+      Difesa/Attacco/Muro/Alzata (ordine chiesto dall'utente). Non vanno
+      riordinate né sostituite a seconda della fase: sono coordinate su cui si
+      forma l'abitudine. Battuta e ricezione **non stanno qui** — quando la
+      fase le impone, la colonna è spenta e il fondamentale compare come chip
+      evidenziato nell'header (`_buildChipFondamentaleForzato`). Il "forzato"
+      si deriva da "il fondamentale selezionato non è fra i 4 della colonna",
+      non da `_fondamentaleForzato()`, così i due non possono divergere.
+    - **Colonna voti**: 5 bottoni, ordine dell'enum (`#`/`+`/`/`/`-`/`=`),
+      colore da `CourtStyle.votoColor()` (vedi sotto).
+    - **Feedback di selezione** (`_buildBottonePulsantiera`): bordo bianco 3px
+      sul bottone scelto; le altre voci **della stessa colonna** scendono a
+      opacità 0.55, ma **solo se in quella colonna una scelta c'è già** —
+      attenuando sempre, il pannello si aprirebbe con l'aria di essere tutto
+      disattivato. Bottone spento: 0.4, e resta comunque al suo posto.
+    - **Pulsantiera RISTRETTA** (scorciatoia kill, dopo un `#` di attacco
+      dell'altra squadra): solo Muro/Difesa attivi e rossi, un tocco registra
+      subito il `=` (`onErroreDifensivo`, resta a **1 tocco**: è il caso più
+      frequente della partita); la colonna voti è spenta col `=` evidenziato
+      come anteprima di quello che verrà scritto.
+    - **`_registrazioneInCorso`**: guardia contro il doppio tocco rapido
+      sull'ultimo bottone della coppia — `_registraVoto` è async (attende
+      `TrajectoryScreen` e la scrittura) e senza guardia un secondo tocco
+      arrivato nel frattempo registrerebbe due azioni identiche.
+    - **`_buildPulsantiera` è condivisa** fra pannello nostro e avversario:
+      cambiano solo i callback e le funzioni `targetFond`/`targetVoto` delle
+      àncore tutorial.
     - **Tipo battuta** (IMPLEMENTATO, opzionale — "Dal basso"/"Float"/
       "Salto"/"Salto float"): scelto su **`TrajectoryScreen`**, non più nel
       pannello voto qui — riga orizzontale di 4 chip subito sotto al campo
@@ -460,17 +502,36 @@
       nella stessa schermata, dato che entrambe le righe sono migrate
       insieme): chip generica (92×52, stesso stile selezionato/non
       selezionato) parametrizzata su label/selezionato/onTap.
-    - **Annulla = tap fuori dal pannello**, non un bottone dedicato.
-      `_buildPannelloVoto` ritorna **due** widget nello Stack esterno: uno
-      sfondo `Positioned.fill` con `GestureDetector(behavior: opaque)` che
-      chiude il pannello (`_votoInCorso = null`), più il pannello stesso
-      avvolto in un secondo `GestureDetector` (`onTap: () {}`, anch'esso
-      `opaque`) che **assorbe** il tap — necessario perché lo Stack
-      interrompe la ricerca del bersaglio al primo figlio che reclama il
-      tocco (vedi `defaultHitTestChildren`): senza questo assorbimento, un
-      tap su un punto del pannello senza un proprio `onTap` (es. lo sfondo
-      della card, il testo del nome) cadrebbe comunque sullo sfondo
-      sottostante e chiuderebbe il pannello per errore.
+    - **Annulla = tap fuori dal pannello**, non un bottone dedicato. Il
+      pannello stesso è avvolto in un `GestureDetector(onTap: () {})`
+      `opaque` che **assorbe** il tap — necessario perché lo Stack interrompe
+      la ricerca del bersaglio al primo figlio che reclama il tocco (vedi
+      `defaultHitTestChildren`): senza, un tap su un punto della card senza un
+      proprio `onTap` (lo sfondo, il testo del nome) cadrebbe sullo scrim e
+      chiuderebbe il pannello per errore.
+    - **Cambio giocatore a pannello aperto, e i due trabocchetti di hit-test**
+      (risolti il 2026-08-21; da rileggere prima di toccare l'ordine dei figli
+      dello `Stack` di `ScoutScreen`). Toccare un'altra giocatrice
+      **sostituisce** quella in corso invece di chiudere, e il pannello
+      riparte da coppia vuota — fondamentale e voto già scelti NON si
+      trascinano dietro, altrimenti il cambio registrerebbe da solo.
+      1. **Lo scrim va in FONDO allo Stack**, cioè come PRIMO figlio
+         (`_buildScrimPannelli`, inserito in `build` prima del campo). Lo
+         Stack cerca il bersaglio dall'ultimo figlio verso il primo: con lo
+         scrim in cima — dov'era — il tocco su un token moriva lì e servivano
+         due tocchi per cambiare giocatrice.
+      2. **`Image` INTERCETTA i tocchi.** Spostato lo scrim sotto, il tocco
+         dentro al campo si fermava sull'immagine di sfondo e non chiudeva
+         più: bisognava uscire dal campo. Serve quindi un chiuditore
+         sull'immagine stessa, primo figlio dello Stack **interno** (sotto ai
+         token): fra i due gesti vince quello del token, colpito per primo.
+      Un token NON tappabile viene disegnato senza `GestureDetector`, quindi
+      il tocco lo attraversa e chiude — nessun tocco che "non fa niente".
+      Conseguenza da tenere a mente: tutto ciò che è interattivo e sta sopra
+      allo scrim riceverebbe il tocco invece di lasciarlo chiudere — per
+      questo mini-map e bottoni di correzione rotazione sono avvolti in
+      `IgnorePointer` mentre un pannello è aperto (correggere la rotazione per
+      sbaglio scriverebbe un evento vero).
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
     `perfetto` verde (`AppColors.success`) — **stesso colore dei bottoni
@@ -494,7 +555,9 @@
     (ace, schiacciata vincente, muro punto) — ricezione/alzata/difesa non
     vincono mai punti da sole, preparano solo la giocata successiva (tutti
     gli altri casi → `nessuno`, palla in gioco).
-  - **`_registraVoto(voto)`**: chiama
+  - **`_registraVoto()`** (senza parametri: legge fondamentale e voto da
+    `_votoInCorso`, ed esce se una delle due metà manca — la chiama solo
+    `_provaRegistrare`, a coppia completa): chiama
     `ScoutActionRepository.registraAzioneScout()` (stesso calcolo di
     `ordine` di `registraAzioneRapida`, ma `rallyId` non coincide più
     sempre con `ordine`: se l'ultima azione del set ha `esitoPunto ==

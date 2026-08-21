@@ -78,11 +78,12 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         titolo: l.tutorialAttaccoAvvTitolo,
         testo: l.tutorialAttaccoAvvTesto,
         bersaglio: TutorialTarget.tokenAvversarioAttacco,
-        // NON su `pannelloAvversario`: quello è ancora a schermo per un
-        // istante dal passo precedente e il tutorial salterebbe avanti da
-        // solo. I bottoni del fondamentale, invece, compaiono solo a
-        // pannello appena aperto — cioè esattamente dopo questo tocco.
-        avanzaSuComparsaDi: TutorialTarget.fondAvvAttacco,
+        // NON su comparsa di un pezzo del pannello: la pulsantiera è unica,
+        // fondamentali e voti esistono già all'apertura — e il pannello del
+        // passo precedente può essere ancora a schermo per un istante, quindi
+        // qualunque suo target farebbe saltare avanti da solo. Si avanza sul
+        // tocco del token, che è esattamente l'azione richiesta.
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(
@@ -90,7 +91,7 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         testo: l.tutorialSceltaFondTesto,
         bersaglio: TutorialTarget.fondAvvAttacco,
         lato: LatoCard.sinistra,
-        avanzaSuComparsaDi: TutorialTarget.votoAvvMezzoPunto,
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(
@@ -111,7 +112,7 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         titolo: l.tutorialToccaANoiTitolo,
         testo: l.tutorialToccaANoiTesto,
         bersaglio: TutorialTarget.tokenLibero,
-        avanzaSuComparsaDi: TutorialTarget.fondNostroDifesa,
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(
@@ -119,7 +120,7 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         testo: l.tutorialDifesaTesto,
         bersaglio: TutorialTarget.fondNostroDifesa,
         lato: LatoCard.sinistra,
-        avanzaSuComparsaDi: TutorialTarget.votoNostroPerfetto,
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(
@@ -137,7 +138,7 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         titolo: l.tutorialNostroAttaccoTitolo,
         testo: l.tutorialNostroAttaccoTesto,
         bersaglio: TutorialTarget.tokenNostroAttaccante,
-        avanzaSuComparsaDi: TutorialTarget.fondNostroAttacco,
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(
@@ -145,7 +146,7 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         testo: l.tutorialAttaccoTesto,
         bersaglio: TutorialTarget.fondNostroAttacco,
         lato: LatoCard.sinistra,
-        avanzaSuComparsaDi: TutorialTarget.votoNostroPerfetto,
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(
@@ -161,13 +162,13 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
       ),
 
       // Chiusura dello scambio (Modello A): dopo il nostro `#` i token
-      // avversari offrono un pannello RISTRETTO a Muro/Difesa in rosso, che
+      // avversari offrono una pulsantiera RISTRETTA a Muro/Difesa in rosso, che
       // registra il `=` in un colpo solo — e con esso il punto.
       PassoTutorial(
         titolo: l.tutorialDifensoreTitolo,
         testo: l.tutorialDifensoreTesto,
         bersaglio: TutorialTarget.tokenAvversarioDifesa,
-        avanzaSuComparsaDi: TutorialTarget.fondAvvDifesa,
+        avanzaSuTap: true,
       ),
 
       PassoTutorial(

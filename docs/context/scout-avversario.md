@@ -67,15 +67,20 @@ Nei builder token `disabilitato` = `_nostriInAttesa`/`_avversariInAttesa`.
 Dopo un'offensiva `#` la squadra che ha attaccato è bloccata (tap ignorato) +
 attenuata; agisce solo chi difende:
 - ace (battuta `#`): tap sul ricevitore → ricezione `=` DIRETTA, senza pannello;
-- kill (attacco `#`): tap sul difensore → pannello RISTRETTO
-  (`_buildBottoneFondamentale` condiviso), solo Muro/Difesa in rosso → `=`
-  diretto, Alzata/Attacco grigi disabilitati.
+- kill (attacco `#`): tap sul difensore → pulsantiera RISTRETTA
+  (`_buildPulsantiera(ristretto: true)`, condivisa), solo Muro/Difesa in rosso →
+  `=` diretto in UN tocco, Alzata/Attacco spenti; la colonna voti è spenta col
+  `=` evidenziato come anteprima. Resta a un tocco di proposito: è il caso più
+  frequente della partita.
 `_erroreDifensivoForzato`, `_difesaErroreForzata*`.
 
 ### Pannello e traiettorie avversari
-Tap su un token avversario → `_buildPannelloAvversario` (header col RUOLO, poi
-voto). In fase libera offre Attacco/Muro/Difesa; in ricezione forza Ricezione.
-`_registraVotoAvversario` apre `TrajectoryScreen` per battuta/attacco (stesso
+Tap su un token avversario → `_buildPannelloAvversario`: header col RUOLO e la
+stessa **pulsantiera unica** del pannello nostro (`_buildPulsantiera`,
+fondamentali | voti, coppia in qualsiasi ordine — vedi scout-live.md). In
+ricezione il fondamentale è forzato: colonna sinistra spenta e chip nell'header.
+`_registraVotoAvversario` (senza parametri, come il nostro: legge la coppia da
+`_avversarioInCorso`) apre `TrajectoryScreen` per battuta/attacco (stesso
 gate traiettorie+premium del nostro `_registraVoto`): `TrajectoryScreen.giocatore`
 è nullable, si passa `etichettaAvversario` per il banner. Il tipo battuta/attacco
 NON resta "armato" per l'avversario.

@@ -383,10 +383,10 @@
   "tutorialBenvenutoTesto": "This is the scouting page for a practice match: nothing you record here will be saved.\n\nJust follow along — at each step only the highlighted button can be pressed, and I'll show you how to rate every skill.",
 
   "tutorialTreTocchiTitolo": "Three taps",
-  "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating.\n\nWe're serving: tap the player about to serve, outside the court.",
+  "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating. Skill and rating sit on the same keypad, in two columns, and you press them in either order.\n\nWe're serving: tap the player about to serve, outside the court.",
 
   "tutorialVotoTitolo": "The rating",
-  "tutorialVotoTesto": "On a serve the skill is already decided, so only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
+  "tutorialVotoTesto": "On a serve the skill is already decided by the phase of play: the left column is off and only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
   "tutorialVotoTraiettoria": "After the rating you can mark where the ball went: drag your finger from the server to the landing point, and the action is recorded when you let go. Below the court you can also set the type of serve. If you'd rather skip it, go back with the arrow at the top: the action is recorded anyway, just without a trajectory.",
 
   "tutorialAvversariTitolo": "The opposing team",
@@ -399,7 +399,7 @@
   "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Tap them.",
 
   "tutorialSceltaFondTitolo": "Choosing the skill",
-  "tutorialSceltaFondTesto": "Serve and pass were forced by the phase of play. Now the rally is open and it's up to you to say what happened: press Attack.",
+  "tutorialSceltaFondTesto": "Serve and pass were forced by the phase of play. Now the rally is open: the left column lights up and it's up to you to say what happened.\n\nPress Attack. You can start from the rating instead if you prefer: the order doesn't matter, the action is recorded once you have picked both.",
 
   "tutorialAttaccoNonRisolutivoTitolo": "An attack that doesn't finish",
   "tutorialAttaccoNonRisolutivoTesto": "The attack doesn't win the point: the ball stays alive and comes back to our side. It was an easy ball to dig: give it a /.",
@@ -409,7 +409,7 @@
   "tutorialToccaANoiTesto": "Our libero, in position 5, came up with a great dig. Tap them.",
 
   "tutorialDifesaTitolo": "Dig",
-  "tutorialDifesaTesto": "The ball came off an attack, so the skill to choose is the dig.",
+  "tutorialDifesaTesto": "The ball came off an attack, so in the left column the skill to choose is the dig.",
 
   "tutorialDifesaPerfettaTitolo": "A perfect dig",
   "tutorialDifesaPerfettaTesto": "The ball came back to the setter clean: they can run whatever they want. Give it a #.",
@@ -428,7 +428,7 @@
   "tutorialDifensoreTesto": "The ball landed in their position 5, where the defense couldn't reach it. Tap that player.",
 
   "tutorialPuntoTitolo": "The point",
-  "tutorialPuntoTesto": "The panel has narrowed down to block and dig, in red: they are the only possible answers to a ball on the floor, and pressing one records the error (=) straight away.\n\nPress Dig: now the score moves.",
+  "tutorialPuntoTesto": "The skill column has narrowed down to block and dig, in red: they are the only possible answers to a ball on the floor. Pressing one records the error (=) straight away, without going through the rating — which is why it is already highlighted on the right.\n\nPress Dig: now the score moves.",
 
   "tutorialRegistroTitolo": "The action log",
   "tutorialRegistroTesto": "The score is now 1 to 0, as you can see at the top of the screen.\n\nWhen the action log is on, as it is here, you can go back over everything you have recorded.",

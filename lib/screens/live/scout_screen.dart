@@ -14,6 +14,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../theme/court_style.dart';
 import '../../tutorial/tutorial_controller.dart';
 import '../../tutorial/tutorial_overlay.dart';
@@ -584,22 +585,32 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return _refPositionFor(slot);
   }
 
-  // Giocatore + fondamentale per cui è aperto il pannello di voto — null =
-  // pannello chiuso. `fondamentale` è null quando il giocatore è stato
-  // toccato in fase "libera" (dopo battuta/ricezione già giudicate): in quel
-  // caso il pannello mostra prima la scelta tra Alzata/Attacco/Muro/Difesa
-  // (vedi _sceglieFondamentale), altrimenti è già forzato da
-  // _fondamentaleForzato (battuta/ricezione). Tap sul giocatore (vedi
-  // _tapHandlerPerGiocatore) lo apre; la selezione di un voto (_registraVoto)
-  // lo richiude.
-  ({Player giocatore, Fondamentale? fondamentale})? _votoInCorso;
+  // Giocatore + coppia (fondamentale, voto) in corso di composizione nel
+  // pannello — null = pannello chiuso. Il pannello è una PULSANTIERA UNICA:
+  // le due colonne (fondamentali e voti) sono sempre entrambe a schermo e si
+  // riempiono in QUALSIASI ORDINE; l'azione si registra quando la coppia è
+  // completa (vedi _provaRegistrare). `fondamentale` arriva già valorizzato
+  // quando la fase lo impone (battuta/ricezione, vedi _fondamentaleForzato):
+  // in quel caso la colonna dei fondamentali è spenta e basta il voto.
+  // Tap sul giocatore (vedi _tapHandlerPerGiocatore) apre; la registrazione
+  // (_registraVoto) richiude.
+  ({Player giocatore, Fondamentale? fondamentale, Voto? voto})? _votoInCorso;
 
   // Azione AVVERSARIA in corso: ruolo placeholder toccato (P/O/S1/S2/C1/C2) +
-  // fondamentale scelto (null finché non si sceglie Attacco/Battuta/Muro nel
-  // pannello). Flusso parallelo e ISOLATO da _votoInCorso (legato a un nostro
-  // Player): l'avversario non ha roster, solo il ruolo. Vedi
+  // la stessa coppia (fondamentale, voto) del pannello nostro. Flusso
+  // parallelo e ISOLATO da _votoInCorso (legato a un nostro Player):
+  // l'avversario non ha roster, solo il ruolo. Vedi
   // _tapHandlerAvversario/_buildPannelloAvversario/_registraVotoAvversario.
-  ({String ruolo, Fondamentale? fondamentale})? _avversarioInCorso;
+  ({String ruolo, Fondamentale? fondamentale, Voto? voto})? _avversarioInCorso;
+
+  bool get _pannelloAperto =>
+      _votoInCorso != null || _avversarioInCorso != null;
+
+  // Guardia contro il doppio tocco rapido sull'ultimo bottone della coppia:
+  // _registraVoto è async (attende TrajectoryScreen e la scrittura a DB) e
+  // senza questa un secondo tocco arrivato nel frattempo registrerebbe due
+  // azioni identiche. Abbassata solo a registrazione conclusa.
+  bool _registrazioneInCorso = false;
 
   // Azioni (solo `scout`) dello scambio CORRENTE ancora aperto, o [] se nessuno
   // scambio è aperto (l'ultima azione di scambio ha chiuso il punto, o non ce
@@ -847,18 +858,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     //   pannello;
     // - kill (attacco `#`): la risposta può essere muro O difesa → apri il
     //   pannello ristretto (Muro/Difesa in rosso → `=`, vedi
-    //   _buildSceltaFondamentale con _difesaErroreForzataNostra).
+    //   _buildPulsantiera con _difesaErroreForzataNostra).
     final erroreForzato = _erroreDifensivoForzato(Squadra.nostra);
     if (erroreForzato == Fondamentale.ricezione) {
       return () => _registraErroreDifensivoRapido(player, erroreForzato!);
     }
     if (erroreForzato == Fondamentale.difesa) {
-      return () =>
-          setState(() => _votoInCorso = (giocatore: player, fondamentale: null));
+      return () => setState(() => _votoInCorso =
+          (giocatore: player, fondamentale: null, voto: null));
     }
     final forzato = _fondamentaleForzato();
     return () => setState(() {
-      _votoInCorso = (giocatore: player, fondamentale: forzato);
+      _votoInCorso = (giocatore: player, fondamentale: forzato, voto: null);
       // Il tipo di battuta selezionato resta "armato" da una battuta
       // all'altra dello stesso giocatore (spesso batte sempre nello stesso
       // modo); cambia battitore → si azzera, non si assume che batta uguale.
@@ -870,15 +881,42 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     });
   }
 
-  // Sceglie il fondamentale (Alzata/Attacco/Muro/Difesa) per il giocatore già
-  // selezionato in fase "libera" (_votoInCorso.fondamentale == null) — tap su
-  // uno dei 4 bottoni del pannello, vedi _buildSceltaFondamentale.
+  // Le due metà della coppia del pannello nostro: colonna sinistra
+  // (Difesa/Attacco/Muro/Alzata, solo in fase libera) e colonna destra (i 5
+  // voti). Si riempiono in qualsiasi ordine; a coppia completa
+  // _provaRegistrare fa partire la scrittura. Ri-toccare la stessa colonna
+  // CORREGGE la scelta senza scrivere nulla — è il motivo per cui la
+  // registrazione è rimandata al momento in cui entrambe sono valorizzate.
   void _sceglieFondamentale(Fondamentale fondamentale) {
     final inCorso = _votoInCorso;
     if (inCorso == null) return;
     setState(() {
-      _votoInCorso = (giocatore: inCorso.giocatore, fondamentale: fondamentale);
+      _votoInCorso = (
+        giocatore: inCorso.giocatore,
+        fondamentale: fondamentale,
+        voto: inCorso.voto,
+      );
     });
+    _provaRegistrare();
+  }
+
+  void _scegliVoto(Voto voto) {
+    final inCorso = _votoInCorso;
+    if (inCorso == null) return;
+    setState(() {
+      _votoInCorso = (
+        giocatore: inCorso.giocatore,
+        fondamentale: inCorso.fondamentale,
+        voto: voto,
+      );
+    });
+    _provaRegistrare();
+  }
+
+  void _provaRegistrare() {
+    final inCorso = _votoInCorso;
+    if (inCorso?.fondamentale == null || inCorso?.voto == null) return;
+    _registraVoto();
   }
 
   // Tipo di battuta opzionale, scelto su TrajectoryScreen (riga di chip
@@ -914,11 +952,32 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return EsitoPunto.nessuno;
   }
 
-  Future<void> _registraVoto(Voto voto) async {
+  // Registra la coppia (fondamentale, voto) composta nel pannello. Chiamata
+  // solo da _provaRegistrare, cioè quando entrambe le colonne sono state
+  // toccate — in qualsiasi ordine.
+  Future<void> _registraVoto() async {
+    if (_registrazioneInCorso) return;
     final set = _setCorrente;
     final inCorso = _votoInCorso;
     final fondamentale = inCorso?.fondamentale;
-    if (set == null || inCorso == null || fondamentale == null) return;
+    final voto = inCorso?.voto;
+    if (set == null || inCorso == null || fondamentale == null || voto == null) {
+      return;
+    }
+    _registrazioneInCorso = true;
+    try {
+      await _scriviVoto(set, inCorso.giocatore, fondamentale, voto);
+    } finally {
+      _registrazioneInCorso = false;
+    }
+  }
+
+  Future<void> _scriviVoto(
+    MatchSet set,
+    Player giocatore,
+    Fondamentale fondamentale,
+    Voto voto,
+  ) async {
     final esito = _esitoVoto(fondamentale, voto);
 
     // Solo battuta/attacco chiedono la traiettoria — schermata dedicata,
@@ -952,7 +1011,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         context,
         MaterialPageRoute(
           builder: (_) => TrajectoryScreen(
-            giocatore: inCorso.giocatore,
+            giocatore: giocatore,
             fondamentale: fondamentale,
             voto: voto,
             tipoBattutaIniziale: fondamentale == Fondamentale.battuta
@@ -979,7 +1038,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         .registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
-          giocatoreId: inCorso.giocatore.id,
+          giocatoreId: giocatore.id,
           fondamentale: fondamentale,
           voto: voto,
           esitoPunto: esito,
@@ -1059,25 +1118,66 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           _registraErroreDifensivoAvversarioRapido(ruolo, erroreForzato!);
     }
     if (erroreForzato == Fondamentale.difesa) {
-      return () => setState(
-          () => _avversarioInCorso = (ruolo: ruolo, fondamentale: null));
+      return () => setState(() =>
+          _avversarioInCorso = (ruolo: ruolo, fondamentale: null, voto: null));
     }
-    return () => setState(
-        () => _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato));
+    return () => setState(() =>
+        _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato, voto: null));
   }
 
+  // Le due metà della coppia avversaria — speculari a _sceglieFondamentale/
+  // _scegliVoto, stessa regola: si registra solo quando entrambe ci sono.
   void _scegliFondamentaleAvversario(Fondamentale fondamentale) {
     final inCorso = _avversarioInCorso;
     if (inCorso == null) return;
-    setState(() =>
-        _avversarioInCorso = (ruolo: inCorso.ruolo, fondamentale: fondamentale));
+    setState(() => _avversarioInCorso = (
+          ruolo: inCorso.ruolo,
+          fondamentale: fondamentale,
+          voto: inCorso.voto,
+        ));
+    _provaRegistrareAvversario();
   }
 
-  Future<void> _registraVotoAvversario(Voto voto) async {
+  void _scegliVotoAvversario(Voto voto) {
+    final inCorso = _avversarioInCorso;
+    if (inCorso == null) return;
+    setState(() => _avversarioInCorso = (
+          ruolo: inCorso.ruolo,
+          fondamentale: inCorso.fondamentale,
+          voto: voto,
+        ));
+    _provaRegistrareAvversario();
+  }
+
+  void _provaRegistrareAvversario() {
+    final inCorso = _avversarioInCorso;
+    if (inCorso?.fondamentale == null || inCorso?.voto == null) return;
+    _registraVotoAvversario();
+  }
+
+  Future<void> _registraVotoAvversario() async {
+    if (_registrazioneInCorso) return;
     final set = _setCorrente;
     final inCorso = _avversarioInCorso;
     final fondamentale = inCorso?.fondamentale;
-    if (set == null || inCorso == null || fondamentale == null) return;
+    final voto = inCorso?.voto;
+    if (set == null || inCorso == null || fondamentale == null || voto == null) {
+      return;
+    }
+    _registrazioneInCorso = true;
+    try {
+      await _scriviVotoAvversario(set, inCorso.ruolo, fondamentale, voto);
+    } finally {
+      _registrazioneInCorso = false;
+    }
+  }
+
+  Future<void> _scriviVotoAvversario(
+    MatchSet set,
+    String ruolo,
+    Fondamentale fondamentale,
+    Voto voto,
+  ) async {
     final esito = _esitoVotoAvversario(fondamentale, voto);
 
     // Traiettoria per battuta/attacco avversari — stesso flusso del nostro
@@ -1099,7 +1199,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         context,
         MaterialPageRoute(
           builder: (_) => TrajectoryScreen(
-            etichettaAvversario: inCorso.ruolo,
+            etichettaAvversario: ruolo,
             fondamentale: fondamentale,
             voto: voto,
             tipoBattutaIniziale: fondamentale == Fondamentale.battuta
@@ -1121,7 +1221,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
     await ref.read(scoutActionRepositoryProvider).registraAzioneAvversaria(
           setId: set.id,
-          ruoloAvversario: inCorso.ruolo,
+          ruoloAvversario: ruolo,
           fondamentale: fondamentale,
           voto: voto,
           esitoPunto: esito,
@@ -2269,6 +2369,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                     : horizontalMargin;
                 return Stack(
                   children: [
+                    // Primo figlio = ultimo a ricevere il tocco: vedi
+                    // _buildScrimPannelli per il perché sta quaggiù.
+                    ..._buildScrimPannelli(),
                     Positioned(
                       top: _kCourtTopMargin,
                       left: 0,
@@ -2290,9 +2393,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                                   // disegnarlo comunque sopra.
                                   clipBehavior: Clip.none,
                                   children: [
-                                    Image.asset(
-                                      _kCourtImage,
-                                      fit: BoxFit.contain,
+                                    // L'immagine del campo INTERCETTA il
+                                    // tocco, quindi non lo lascia scendere
+                                    // fino allo scrim (vedi
+                                    // _buildScrimPannelli): il chiuditore va
+                                    // messo qui sopra. Sta come primo figlio,
+                                    // cioè sotto ai token: fra i due gesti
+                                    // vince quello del token, che viene
+                                    // colpito per primo — così toccare una
+                                    // giocatrice la sostituisce e toccare il
+                                    // campo vuoto annulla.
+                                    GestureDetector(
+                                      behavior: _pannelloAperto
+                                          ? HitTestBehavior.opaque
+                                          : HitTestBehavior.deferToChild,
+                                      onTap:
+                                          _pannelloAperto ? _chiudiPannelli : null,
+                                      child: Image.asset(
+                                        _kCourtImage,
+                                        fit: BoxFit.contain,
+                                      ),
                                     ),
                                     ..._buildCourtTokens(cw, ch),
                                     ..._buildTokenAvversari(cw, ch),
@@ -2309,7 +2429,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                       left: minimapLeft,
                       width: smallCourtSize,
                       height: smallCourtSize,
-                      child: _anchor(
+                      // Col pannello aperto il tocco deve cadere sullo scrim
+                      // (che chiude), non alternare la mini-map: lo scrim ora
+                      // sta SOTTO, vedi _buildScrimPannelli.
+                      child: IgnorePointer(
+                        ignoring: _pannelloAperto,
+                        child: _anchor(
                         TutorialTarget.minimappa,
                           GestureDetector(
                           // Tap sulla finestra: alterna rotazione nostra/
@@ -2340,6 +2465,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                               ),
                             ),
                           ),
+                        ),
                         ),
                       ),
                     ),
@@ -2378,7 +2504,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
                         left: minimapLeft,
                           width: smallCourtSize,
-                          child: _anchor(
+                          // Col pannello aperto questi bottoni devono lasciar
+                          // passare il tocco allo scrim sottostante: correggere
+                          // la rotazione per sbaglio scriverebbe un evento.
+                          child: IgnorePointer(
+                            ignoring: _pannelloAperto,
+                            child: _anchor(
                             TutorialTarget.bottoniCorrezioneRotazione,
                             Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2412,6 +2543,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                                     ),
                                   ],
                           ),
+                        ),
                         ),
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
@@ -3501,70 +3633,218 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     );
   }
 
-  // Bottoni di scelta del fondamentale (Alzata/Attacco/Muro/Difesa), mostrati
-  // nel pannello voto quando _votoInCorso.fondamentale è ancora null (fase
-  // "libera", dopo che battuta/ricezione sono già state giudicate in questo
-  // scambio) — vedi _sceglieFondamentale.
-  Widget _buildSceltaFondamentale(Player giocatore) {
-    const opzioni = [
-      Fondamentale.alzata,
-      Fondamentale.attacco,
-      Fondamentale.muro,
-      Fondamentale.difesa,
-    ];
-    final ristretto = _difesaErroreForzataNostra;
-    return Column(
+  // Le 4 voci della colonna fondamentali, sempre nello stesso ordine e sempre
+  // negli stessi slot: sono coordinate fisse su cui si forma la memoria
+  // muscolare, non vanno riordinate né sostituite a seconda della fase.
+  // Battuta e ricezione non sono qui: quando la fase le impone il fondamentale
+  // è già deciso e compare come chip nell'header (vedi _buildPulsantiera).
+  static const _kFondamentaliPulsantiera = [
+    Fondamentale.difesa,
+    Fondamentale.attacco,
+    Fondamentale.muro,
+    Fondamentale.alzata,
+  ];
+
+  // Misure della pulsantiera. Le due colonne hanno righe della STESSA altezza
+  // così i fondamentali si allineano ai primi 4 voti e la griglia si legge a
+  // colpo d'occhio (il 5° voto resta da solo in fondo).
+  static const double _kAltezzaRigaPulsantiera = 64;
+  static const double _kGapPulsantiera = 12;
+  // Stessa larghezza dei voti: la card copre il campo, e ogni dp risparmiato
+  // qui è campo che resta visibile. "Attacco" a 16px ci sta comodo; oltre, il
+  // testo si tronca (ellissi) invece di sfondare il bottone.
+  static const double _kLarghezzaFondamentale = 100;
+  static const double _kLarghezzaVoto = 100;
+
+  // L'header del pannello va vincolato a questa larghezza: il FittedBox passa
+  // vincoli ILLIMITATI, quindi un cognome lungo allargherebbe tutta la card
+  // (e, per compensare, la rimpicciolirebbe di scala) invece di troncarsi.
+  static const double _kLarghezzaPulsantiera =
+      _kLarghezzaFondamentale + _kGapPulsantiera + _kLarghezzaVoto;
+
+  // PULSANTIERA UNICA: fondamentali a sinistra, voti a destra, sempre
+  // entrambi a schermo. Si tocca una voce per colonna, in QUALSIASI ORDINE, e
+  // alla coppia completa l'azione parte da sé (vedi _provaRegistrare). Toccare
+  // di nuovo la stessa colonna corregge la scelta senza scrivere nulla.
+  //
+  // Tre configurazioni, tutte con la stessa forma e le stesse coordinate:
+  // - fase LIBERA: entrambe le colonne attive;
+  // - fase FORZATA (battuta/ricezione): colonna fondamentali spenta — il
+  //   fondamentale lo impone la fase — basta il voto;
+  // - RISTRETTA (dopo un `#` avversario, scorciatoia kill): solo Muro/Difesa
+  //   attivi e rossi, un tocco registra subito il `=`; la colonna voti è
+  //   spenta col `=` evidenziato, come anteprima di quello che verrà scritto.
+  Widget _buildPulsantiera({
+    required Fondamentale? selezionato,
+    required Voto? votoSelezionato,
+    required bool colonnaFondBloccata,
+    required bool ristretto,
+    required void Function(Fondamentale) onFondamentale,
+    required void Function(Fondamentale) onErroreDifensivo,
+    required void Function(Voto) onVoto,
+    required TutorialTarget? Function(Fondamentale) targetFond,
+    required TutorialTarget? Function(Voto) targetVoto,
+  }) {
+    return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final f in opzioni) ...[
-          _anchorOpz(
-            targetFondamentaleNostro(f),
-            _buildBottoneFondamentale(
-              fondamentale: f,
-              ristretto: ristretto,
-              onNormale: () => _sceglieFondamentale(f),
-              onErroreDifensivo: () =>
-                  _registraErroreDifensivoRapido(giocatore, f),
-            ),
-          ),
-          if (f != opzioni.last) const SizedBox(height: 10),
-        ],
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final f in _kFondamentaliPulsantiera) ...[
+              _anchorOpz(
+                targetFond(f),
+                _buildBottoneFondamentale(
+                  fondamentale: f,
+                  bloccato: colonnaFondBloccata,
+                  ristretto: ristretto,
+                  selezionato: f == selezionato,
+                  // Si attenuano le voci NON scelte solo quando una scelta in
+                  // questa colonna c'è: finché è vuota devono restare tutte
+                  // piene, altrimenti il pannello si apre con l'aria di
+                  // essere tutto disattivato.
+                  attenuato: selezionato != null && f != selezionato,
+                  onNormale: () => onFondamentale(f),
+                  onErroreDifensivo: () => onErroreDifensivo(f),
+                ),
+              ),
+              if (f != _kFondamentaliPulsantiera.last)
+                const SizedBox(height: _kGapPulsantiera),
+            ],
+          ],
+        ),
+        const SizedBox(width: _kGapPulsantiera),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final voto in Voto.values) ...[
+              _anchorOpz(
+                targetVoto(voto),
+                _buildBottoneVoto(
+                  voto: voto,
+                  // Nel ristretto il `=` è solo un'anteprima: evidenziato ma
+                  // non tappabile, la registrazione parte dal fondamentale.
+                  bloccato: ristretto,
+                  selezionato: ristretto
+                      ? voto == Voto.errore
+                      : voto == votoSelezionato,
+                  attenuato: votoSelezionato != null && voto != votoSelezionato,
+                  onTap: () => onVoto(voto),
+                ),
+              ),
+              if (voto != Voto.values.last)
+                const SizedBox(height: _kGapPulsantiera),
+            ],
+          ],
+        ),
       ],
     );
   }
 
-  // Bottone del pannello scelta-fondamentale, condiviso tra pannello nostro e
-  // avversario. In modalità normale (`ristretto == false`) tutti abilitati
-  // (blu) → `onNormale` sceglie il fondamentale. In modalità "errore difensivo
-  // ristretto" (dopo un `#` di attacco dell'altra squadra) SOLO Muro/Difesa
-  // sono abilitati e rossi → `onErroreDifensivo` registra subito quel
-  // fondamentale con voto `=`; Alzata/Attacco sono grigi e disabilitati.
+  // Bottone della colonna fondamentali, condiviso tra pannello nostro e
+  // avversario. `bloccato` = la fase impone già il fondamentale (spento non
+  // tappabile). `ristretto` = scorciatoia kill: SOLO Muro/Difesa attivi e
+  // rossi → `onErroreDifensivo` registra subito quel fondamentale con voto
+  // `=`, senza passare dalla colonna voti.
   Widget _buildBottoneFondamentale({
     required Fondamentale fondamentale,
+    required bool bloccato,
     required bool ristretto,
+    required bool selezionato,
+    required bool attenuato,
     required VoidCallback onNormale,
     required VoidCallback onErroreDifensivo,
   }) {
     final difensivo = fondamentale == Fondamentale.muro ||
         fondamentale == Fondamentale.difesa;
-    final abilitato = !ristretto || difensivo;
+    final abilitato = !bloccato && (!ristretto || difensivo);
     final rosso = ristretto && difensivo;
-    final colore = !abilitato
-        ? AppColors.neutral
-        : (rosso ? Colors.red : AppColors.brandPrimary);
+    return _buildBottonePulsantiera(
+      larghezza: _kLarghezzaFondamentale,
+      colore: !abilitato
+          ? AppColors.neutral
+          : (rosso ? Colors.red : AppColors.brandPrimary),
+      abilitato: abilitato,
+      selezionato: selezionato,
+      attenuato: attenuato,
+      onTap: ristretto ? onErroreDifensivo : onNormale,
+      child: Text(
+        fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottoneVoto({
+    required Voto voto,
+    required bool bloccato,
+    required bool selezionato,
+    required bool attenuato,
+    required VoidCallback onTap,
+  }) {
+    return _buildBottonePulsantiera(
+      larghezza: _kLarghezzaVoto,
+      colore: bloccato && !selezionato
+          ? AppColors.neutral
+          : CourtStyle.votoColor(voto),
+      abilitato: !bloccato,
+      selezionato: selezionato,
+      attenuato: attenuato,
+      onTap: onTap,
+      child: Text(
+        voto.simbolo,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 28,
+        ),
+      ),
+    );
+  }
+
+  // Forma comune ai bottoni delle due colonne: la selezione si legge da un
+  // bordo bianco spesso, e le voci NON scelte della stessa colonna si
+  // attenuano — così a colpo d'occhio si vede cosa manca per chiudere la
+  // coppia. Un bottone spento resta al suo posto (non sparisce mai): è la
+  // stabilità delle coordinate il motivo per cui la pulsantiera è unica.
+  Widget _buildBottonePulsantiera({
+    required double larghezza,
+    required Color colore,
+    required bool abilitato,
+    required bool selezionato,
+    required bool attenuato,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    // La selezione vince sul blocco: nella pulsantiera ristretta il `=` è
+    // spento ma va comunque letto bene, è l'anteprima di cosa verrà scritto.
+    final opacita = selezionato
+        ? 1.0
+        : !abilitato
+            ? 0.4
+            : (attenuato ? 0.55 : 1.0);
     return Opacity(
-      opacity: abilitato ? 1.0 : 0.4,
+      opacity: opacita,
       child: GestureDetector(
-        onTap: !abilitato
-            ? null
-            : (ristretto ? onErroreDifensivo : onNormale),
+        onTap: abilitato ? onTap : null,
         child: Container(
-          width: 150,
-          height: 60,
+          width: larghezza,
+          height: _kAltezzaRigaPulsantiera,
           alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: colore,
             borderRadius: BorderRadius.circular(10),
+            border: selezionato
+                ? Border.all(color: Colors.white, width: 3)
+                : null,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(120),
@@ -3573,14 +3853,66 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               ),
             ],
           ),
-          child: Text(
-            fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
-            ),
-          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  // Sfondo che chiude il pannello aperto toccando fuori dalla card.
+  //
+  // Va messo come PRIMO figlio dello Stack, cioè in FONDO a tutto: lo Stack
+  // cerca il bersaglio del tocco dall'ultimo figlio verso il primo e si ferma
+  // al primo che lo reclama. Con lo scrim in cima (dov'era) il tocco su un
+  // token non arrivava mai al token: il pannello si chiudeva e basta, e per
+  // passare a un'altra giocatrice servivano due tocchi. In fondo, invece, i
+  // token lo intercettano prima — così un tocco su un'altra giocatrice
+  // SOSTITUISCE quella in corso (vedi _tapHandlerPerGiocatore, che riparte da
+  // una coppia vuota: fondamentale e voto già scelti NON si trascinano dietro,
+  // altrimenti il cambio registrerebbe da solo) — mentre un tocco sul campo
+  // vuoto o sullo sfondo cade quaggiù e chiude, come prima. L'immagine del
+  // campo non intercetta i tocchi, quindi non fa da schermo.
+  //
+  // Conseguenza da tenere a mente: tutto ciò che è interattivo e sta sopra
+  // (mini-map, bottoni di correzione rotazione) adesso riceverebbe il tocco
+  // invece di chiudere — per questo in build sono avvolti in `IgnorePointer`
+  // mentre un pannello è aperto.
+  List<Widget> _buildScrimPannelli() {
+    if (!_pannelloAperto) return const [];
+    return [
+      Positioned.fill(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _chiudiPannelli,
+        ),
+      ),
+    ];
+  }
+
+  void _chiudiPannelli() => setState(() {
+        _votoInCorso = null;
+        _avversarioInCorso = null;
+      });
+
+  // Chip del fondamentale imposto dalla fase (battuta/ricezione), nell'header
+  // del pannello: quelle due voci non stanno nella colonna — che ha 4 slot
+  // fissi — ma vanno comunque mostrate, altrimenti non si saprebbe cosa si sta
+  // votando.
+  Widget _buildChipFondamentaleForzato(Fondamentale fondamentale) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.brandPrimary,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Text(
+        fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
         ),
       ),
     );
@@ -3599,18 +3931,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final inCorso = _votoInCorso;
     if (inCorso == null) return const [];
     final player = inCorso.giocatore;
+    // Battuta e ricezione non hanno uno slot nella colonna: se il pannello si
+    // è aperto su uno dei due, è la fase ad averlo imposto → chip nell'header
+    // e colonna bloccata. Derivato da cosa c'è nella colonna, non da
+    // _fondamentaleForzato(), così i due non possono divergere.
+    final fondForzato = inCorso.fondamentale != null &&
+            !_kFondamentaliPulsantiera.contains(inCorso.fondamentale)
+        ? inCorso.fondamentale
+        : null;
 
     return [
-      // Tap fuori dal pannello = annulla. Lo Stack ferma la ricerca del
-      // tocco al primo figlio che lo "reclama" (vedi GestureDetector del
-      // pannello sotto, che lo assorbe con un onTap no-op): quindi un tap
-      // sul pannello non arriva mai qui, solo un tap altrove sullo schermo.
-      Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _votoInCorso = null),
-        ),
-      ),
       Positioned(
         right: 16,
         // Margini verticali minimi: su smartphone la scala del pannello è
@@ -3645,7 +3975,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
-                        width: 100,
+                        width: _kLarghezzaPulsantiera,
                         child: Column(
                           children: [
                             Text(
@@ -3653,70 +3983,44 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 22,
+                                fontSize: 26,
                               ),
                             ),
+                            // Il cognome ha ora tutta la larghezza della
+                            // pulsantiera (212dp contro i 100 di prima):
+                            // serve a confermare a colpo d'occhio di aver
+                            // toccato la giocatrice giusta, quindi va letto
+                            // senza fermarsi. Resta su una riga: se non ci
+                            // sta si tronca, non manda a capo la card.
                             Text(
                               player.cognome,
                               style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
                               ),
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            if (fondForzato != null)
+                              _buildChipFondamentaleForzato(fondForzato),
                           ],
                         ),
                       ),
-                      if (inCorso.fondamentale == null) ...[
-                        const SizedBox(height: 4),
-                        _buildSceltaFondamentale(player),
-                      ] else ...[
-                        Text(
-                          fondamentaleLabel(
-                              inCorso.fondamentale!, AppLocalizations.of(context)),
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        for (final voto in Voto.values) ...[
-                          _anchorOpz(
-                            targetVotoNostro(voto),
-                            GestureDetector(
-                              onTap: () => _registraVoto(voto),
-                              child: Container(
-                                width: 100,
-                                height: 64,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: CourtStyle.votoColor(voto),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withAlpha(120),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  voto.simbolo,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 28,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (voto != Voto.values.last)
-                            const SizedBox(height: 12),
-                        ],
-                      ],
+                      const SizedBox(height: _kGapPulsantiera),
+                      _buildPulsantiera(
+                        selezionato: inCorso.fondamentale,
+                        votoSelezionato: inCorso.voto,
+                        colonnaFondBloccata: fondForzato != null,
+                        ristretto: _difesaErroreForzataNostra,
+                        onFondamentale: _sceglieFondamentale,
+                        onErroreDifensivo: (f) =>
+                            _registraErroreDifensivoRapido(player, f),
+                        onVoto: _scegliVoto,
+                        targetFond: targetFondamentaleNostro,
+                        targetVoto: targetVotoNostro,
+                      ),
                     ],
                   ),
                 ),
@@ -3729,22 +4033,21 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   }
 
   // Pannello per un'azione AVVERSARIA: si apre toccando un token avversario
-  // (vedi _tapHandlerAvversario). Stessa struttura/stile di _buildPannelloVoto
-  // (scrim + card a destra), ma header col RUOLO placeholder (niente giocatore)
-  // e — non essendoci una fase forzata — chiede SEMPRE prima il fondamentale
-  // tra Attacco/Battuta/Muro, poi il voto (esito invertito, vedi
+  // (vedi _tapHandlerAvversario). Stessa struttura/stile/pulsantiera di
+  // _buildPannelloVoto (scrim + card a destra), ma header col RUOLO
+  // placeholder invece del giocatore, e esito invertito (vedi
   // _registraVotoAvversario). Ritorna [] se chiuso.
   List<Widget> _buildPannelloAvversario() {
     final inCorso = _avversarioInCorso;
     if (inCorso == null) return const [];
+    // Come nel pannello nostro: battuta/ricezione non hanno uno slot nella
+    // colonna, quindi se sono selezionate le ha imposte la fase.
+    final fondForzato = inCorso.fondamentale != null &&
+            !_kFondamentaliPulsantiera.contains(inCorso.fondamentale)
+        ? inCorso.fondamentale
+        : null;
 
     return [
-      Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _avversarioInCorso = null),
-        ),
-      ),
       Positioned(
         right: 16,
         top: 4,
@@ -3772,7 +4075,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
-                        width: 100,
+                        width: _kLarghezzaPulsantiera,
                         child: Column(
                           children: [
                             Text(
@@ -3790,86 +4093,28 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 22,
+                                fontSize: 26,
                               ),
                             ),
+                            if (fondForzato != null)
+                              _buildChipFondamentaleForzato(fondForzato),
                           ],
                         ),
                       ),
-                      if (inCorso.fondamentale == null) ...[
-                        const SizedBox(height: 8),
-                        // In fase libera l'avversario può aver alzato,
-                        // attaccato, murato o difeso — le stesse quattro voci del
-                        // nostro pannello (battuta e ricezione passano dai flussi
-                        // forzati di zona 1 / fase ricezione, non da qui). Dopo un
-                        // NOSTRO `#` di attacco il pannello è ristretto a Muro/
-                        // Difesa in rosso (→ `=` diretto, vedi
-                        // _difesaErroreForzataAvversaria).
-                        for (final f in const [
-                          Fondamentale.alzata,
-                          Fondamentale.attacco,
-                          Fondamentale.muro,
-                          Fondamentale.difesa,
-                        ]) ...[
-                          _anchorOpz(
-                            targetFondamentaleAvversario(f),
-                            _buildBottoneFondamentale(
-                              fondamentale: f,
-                              ristretto: _difesaErroreForzataAvversaria,
-                              onNormale: () => _scegliFondamentaleAvversario(f),
-                              onErroreDifensivo: () =>
-                                  _registraErroreDifensivoAvversarioRapido(
-                                      inCorso.ruolo, f),
-                            ),
-                          ),
-                          if (f != Fondamentale.difesa)
-                            const SizedBox(height: 10),
-                        ],
-                      ] else ...[
-                        Text(
-                          fondamentaleLabel(
-                              inCorso.fondamentale!, AppLocalizations.of(context)),
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        for (final voto in Voto.values) ...[
-                          _anchorOpz(
-                            targetVotoAvversario(voto),
-                            GestureDetector(
-                              onTap: () => _registraVotoAvversario(voto),
-                              child: Container(
-                                width: 100,
-                                height: 64,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: CourtStyle.votoColor(voto),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withAlpha(120),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  voto.simbolo,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 28,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (voto != Voto.values.last)
-                            const SizedBox(height: 12),
-                        ],
-                      ],
+                      const SizedBox(height: _kGapPulsantiera),
+                      _buildPulsantiera(
+                        selezionato: inCorso.fondamentale,
+                        votoSelezionato: inCorso.voto,
+                        colonnaFondBloccata: fondForzato != null,
+                        ristretto: _difesaErroreForzataAvversaria,
+                        onFondamentale: _scegliFondamentaleAvversario,
+                        onErroreDifensivo: (f) =>
+                            _registraErroreDifensivoAvversarioRapido(
+                                inCorso.ruolo, f),
+                        onVoto: _scegliVotoAvversario,
+                        targetFond: targetFondamentaleAvversario,
+                        targetVoto: targetVotoAvversario,
+                      ),
                     ],
                   ),
                 ),
