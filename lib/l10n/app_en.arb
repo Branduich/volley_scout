@@ -12,6 +12,8 @@
   "settingsTrajectoriesTitle": "Trajectories while scouting",
   "settingsTrajectoriesSubtitle": "After rating a serve or attack you'll be asked to draw its trajectory. Turning this off makes scouting faster, but the trajectory reports stay empty.",
   "settingsTrajectoriesSubtitlePremium": "Premium feature: trajectories are disabled.",
+  "settingsInlineServeTrajectoryTitle": "Trajectories on the court (trial)",
+  "settingsInlineServeTrajectorySubtitle": "Draw serve and attack trajectories on the scouting court, before the rating, instead of opening the dedicated screen afterwards. Tap the player, drag, then rate: the rating closes the action, so drag first. For a block touch, lift your finger on the net and drag again to where the ball lands. In this mode serve and attack types cannot be recorded yet.",
   "settingsOpponentScoutTitle": "Opponent scouting",
   "settingsOpponentScoutSubtitle": "Track the opponent's attacks, serves and blocks with rotating role placeholders. You set the opponent setter's position at the start of each set.",
   "settingsSectionDev": "Development",

@@ -21,6 +21,7 @@ import '../../tutorial/tutorial_overlay.dart';
 import '../../tutorial/tutorial_target.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
+import '../../widgets/freccia_traiettoria_painter.dart';
 import '../../widgets/premium_badge.dart';
 import '../premium/paywall_screen.dart';
 import '../report/match_report_screen.dart';
@@ -52,6 +53,11 @@ const Duration _kPeriodoLampeggioPunteggio = Duration(milliseconds: 350);
 // `Positioned(top: ...)` nel campo vero, altrimenti libero/battitore fuori
 // campo si disallineano dal campo disegnato.
 const double _kCourtTopMargin = 16.0;
+
+// Quanto vicino alla rete (px) il dito deve staccarsi perché quel punto valga
+// come tocco a muro nel disegno in-line. Stesso valore di TrajectoryScreen,
+// duplicato qui come le altre costanti condivise fra le due schermate.
+const double _kToleranzaReteInLine = 24.0;
 
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
 // il cerchio del libero — in pallavolo il libero indossa sempre una maglia
@@ -606,6 +612,226 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   bool get _pannelloAperto =>
       _votoInCorso != null || _avversarioInCorso != null;
 
+  // --- Traiettoria disegnata SUL CAMPO LIVE (sperimentale, solo battuta) ---
+  //
+  // Attiva solo con Impostazioni.traiettoriaBattutaInLine acceso: si tocca il
+  // battitore, si trascina sul campo, poi si vota (il voto chiude l'azione,
+  // vedi _registraVoto). Con l'interruttore spento resta tutto com'era e la
+  // traiettoria si prende su TrajectoryScreen dopo il voto — le due strade
+  // convivono apposta, per poterle confrontare sullo stesso build.
+  //
+  // Punto in cui è iniziato il gesto in corso (null = nessun dito giù) e se
+  // quel gesto è partito SULLA CARD del pannello, dove non si deve disegnare.
+  Offset? _pointerGiu;
+  bool _gestoSullaCard = false;
+
+  // Freccia da disegnare, in coordinate ASSOLUTE dello Stack del corpo: resta
+  // a schermo anche dopo il rilascio, così si vede che è stata presa.
+  //
+  // È un ValueNotifier e non un campo con setState perché il dito genera un
+  // evento di movimento a ogni frame: un setState qui ricostruirebbe TUTTO
+  // ScoutScreen (campo, token, log, pannello) 60 volte al secondo. Passato
+  // come `repaint` al painter, ridisegna solo la freccia senza toccare
+  // l'albero dei widget.
+  // `muro` = punto di tocco a muro (solo attacco): quando c'è, la freccia si
+  // disegna a due segmenti con uno snodo lì. `inSospeso` = il dito si è
+  // staccato sulla rete e si aspetta il secondo tratto (vedi
+  // _onPointerUpCampo); sta QUI dentro e non in un campo a parte perché così
+  // arriva al painter senza un `setState`.
+  final ValueNotifier<
+          ({Offset inizio, Offset fine, Offset? muro, bool inSospeso})?>
+      _frecciaInLine = ValueNotifier(null);
+
+  bool get _muroInSospeso => _frecciaInLine.value?.inSospeso ?? false;
+
+  // La stessa freccia normalizzata 0..1 sul riquadro campo, calcolata al
+  // rilascio (dove la geometria del campo è nota) e usata al momento di
+  // registrare. Volutamente NON clampata: il battitore sta fuori dal campo e
+  // le sue X sono negative, come _kBattutaP1Position.
+  ({double x1, double y1, double x2, double y2, double? muroX, double? muroY})?
+      _traiettoriaNormalizzata;
+
+  void _azzeraTraiettoriaInLine() {
+    _frecciaInLine.value = null;
+    _traiettoriaNormalizzata = null;
+  }
+
+  // PUNTO APERTO — col disegno in-line acceso il TIPO di esecuzione non è
+  // indicabile: i chip (battuta e attacco) vivono su TrajectoryScreen, che qui
+  // non si apre più, quindi `tipoEsecuzione` resta `nonSpecificato`. Provata
+  // la pressione prolungata sul battitore (2026-08-21) e scartata: il gesto
+  // non convince. Da riprendere con un'idea diversa prima di dare per buono
+  // l'in-line.
+  //
+  // Si disegna se: interruttore acceso, un pannello è aperto, e vale lo stesso
+  // gate di TrajectoryScreen (traiettorie attive + premium — vedi
+  // _registraVoto). Fuori dalla modalità test, che non scrive azioni vere.
+  // Durante il TUTORIAL mai: in questa fase di prova il tutorial passa sempre
+  // dalla schermata dedicata, così i suoi passi restano validi qualunque cosa
+  // dica l'interruttore.
+  //
+  // NON si guarda il fondamentale: in fase libera non è ancora stato scelto
+  // quando il dito comincia a trascinare, e pretenderlo prima costringerebbe a
+  // premere "Attacco" per poter disegnare. Si cattura e basta; poi è chi
+  // registra a usare il tratto solo se il fondamentale lo prevede (vedi
+  // `richiedeTraiettoria` in _scriviVoto), altrimenti lo butta.
+  bool get _traiettoriaInLineAttiva {
+    if (widget.tutorial || _testModeEnabled) return false;
+    if (!_pannelloAperto) return false;
+    final impostazioni = ref.read(impostazioniProvider);
+    if (!impostazioni.traiettoriaBattutaInLine) return false;
+    if (!impostazioni.traiettorieAbilitate) return false;
+    return ref.read(statoPremiumProvider).attivo;
+  }
+
+  // Soglia oltre la quale il gesto è un trascinamento e non un tocco: la
+  // stessa di TrajectoryScreen, proporzionale al campo con un minimo assoluto
+  // (su tablet il campo è molto più grande e gli stessi px direbbero meno).
+  static double _sogliaTrascinamento(double courtWidth) =>
+      math.max(24.0, courtWidth * 0.04);
+
+  // NB: `_gestoSullaCard` non va azzerato qui. Lo alza il Listener sulla card,
+  // che essendo più PROFONDO riceve l'evento PRIMA di questo antenato
+  // (HitTestResult.path si costruisce scendendo e dispatchEvent lo percorre in
+  // quell'ordine): azzerarlo adesso cancellerebbe quello che è appena stato
+  // scritto. Si azzera al rilascio.
+  void _onPointerDownCampo(PointerDownEvent event) =>
+      _pointerGiu = event.localPosition;
+
+  // Il tocco a muro vale per l'attacco, non per la battuta (attraversare la
+  // rete su un servizio è normale). In fase LIBERA il fondamentale non è
+  // ancora stato scelto: lì un'azione offensiva può solo essere un attacco —
+  // la battuta passa sempre dalla fase servizio — quindi si consente.
+  bool get _muroConsentitoInLine =>
+      (_votoInCorso?.fondamentale ?? _avversarioInCorso?.fondamentale) !=
+      Fondamentale.battuta;
+
+  void _onPointerMoveCampo(PointerMoveEvent event, double courtWidth) {
+    final giu = _pointerGiu;
+    if (giu == null || _gestoSullaCard) return;
+    if (!_traiettoriaInLineAttiva) return;
+    final pos = event.localPosition;
+    final precedente = _frecciaInLine.value;
+    final inCorso = _traiettoriaNormalizzata == null &&
+        precedente != null &&
+        !_muroInSospeso; // trascinamento già riconosciuto
+    if (!inCorso && (pos - giu).distance < _sogliaTrascinamento(courtWidth)) {
+      return; // ancora un tocco, non un trascinamento
+    }
+    // Secondo tratto del tocco a muro: parte dallo snodo sulla rete, non da
+    // dove è ripartito il dito (vedi _onPointerUpCampo).
+    final muro = _muroInSospeso ? precedente?.fine : precedente?.muro;
+    // Niente setState: il disegno passa dal notifier (vedi _frecciaInLine).
+    _frecciaInLine.value = (
+      inizio: muro != null ? precedente!.inizio : giu,
+      fine: pos,
+      muro: muro,
+      inSospeso: false,
+    );
+    // Il tratto vecchio è superato: la normalizzata si ricalcola al rilascio.
+    _traiettoriaNormalizzata = null;
+  }
+
+  void _onPointerUpCampo(
+    double courtLeft,
+    double courtTop,
+    double courtWidth,
+    double courtHeight,
+  ) {
+    _pointerGiu = null;
+    _gestoSullaCard = false;
+    final freccia = _frecciaInLine.value;
+    if (freccia == null || _traiettoriaNormalizzata != null) {
+      return; // nessun trascinamento in questo gesto
+    }
+    // Tratto troppo corto (il dito è tornato quasi al punto di partenza):
+    // quasi sempre involontario, e una freccia lunga zero non dice nulla e
+    // andrebbe poi annullata a mano. Si scarta, come fa TrajectoryScreen.
+    final origine = freccia.muro ?? freccia.inizio;
+    if ((freccia.fine - origine).distance <
+        _sogliaTrascinamento(courtWidth)) {
+      _azzeraTraiettoriaInLine();
+      return;
+    }
+
+    // TOCCO A MURO, "stacco e ripresa del dito": se il dito si stacca sulla
+    // rete (e non stiamo disegnando una battuta) quel punto diventa lo snodo,
+    // e il trascinamento successivo porta la palla a destinazione. Nessun
+    // timer e nessuna sosta col dito fermo — il vecchio dwell da 400ms di
+    // TrajectoryScreen non è stato portato qui apposta.
+    final xRete = courtLeft + courtWidth / 2;
+    if (freccia.muro == null &&
+        _muroConsentitoInLine &&
+        (freccia.fine.dx - xRete).abs() <= _kToleranzaReteInLine) {
+      // Lo snodo si aggancia alla rete, come fa TrajectoryScreen.
+      _frecciaInLine.value = (
+        inizio: freccia.inizio,
+        fine: Offset(xRete, freccia.fine.dy),
+        muro: null,
+        inSospeso: true,
+      );
+      // La normalizzata si valorizza lo stesso: se voti adesso, senza
+      // completare, l'azione registra una traiettoria che finisce sulla rete —
+      // che è comunque un dato vero (attacco murato o messo in rete).
+    }
+
+    final f = _frecciaInLine.value!;
+    _traiettoriaNormalizzata = (
+      x1: (f.inizio.dx - courtLeft) / courtWidth,
+      y1: (f.inizio.dy - courtTop) / courtHeight,
+      x2: (f.fine.dx - courtLeft) / courtWidth,
+      y2: (f.fine.dy - courtTop) / courtHeight,
+      muroX: f.muro == null ? null : (f.muro!.dx - courtLeft) / courtWidth,
+      muroY: f.muro == null ? null : (f.muro!.dy - courtTop) / courtHeight,
+    );
+
+    // DOPO aver fissato la traiettoria, mai prima: la preselezione può far
+    // partire la registrazione (vedi sotto), che deve trovarla già pronta.
+    // Vale ANCHE col tratto appeso alla rete: un trascinamento che finisce lì
+    // è già di per sé un attacco — quello sbagliato a rete — e deve poter
+    // essere chiuso con un `=` senza altri passaggi. Se invece era l'inizio di
+    // un tocco a muro, il secondo tratto arriva e prosegue: il fondamentale
+    // era comunque attacco.
+    _preselezionaAttaccoDaTraiettoria();
+  }
+
+  // In fase LIBERA un tratto disegnato può solo essere un attacco: la battuta
+  // passa sempre dalla fase servizio, dove il fondamentale è già imposto, e
+  // alzata/muro/difesa non hanno traiettoria. Chiederlo sarebbe un tocco
+  // sprecato, quindi si preseleziona da sé.
+  //
+  // Sovrascrive anche una scelta già fatta nella colonna: se hai disegnato un
+  // tratto quell'azione È un attacco, e il tocco precedente era lo sbaglio.
+  // NON tocca invece il fondamentale imposto dalla FASE (battuta, ricezione):
+  // lì il tratto o è già della battuta giusta, o va buttato — trasformare una
+  // ricezione in attacco corromperebbe l'azione. La distinzione è la stessa
+  // che regge il chip nell'header: sta fra i quattro della colonna oppure no.
+  //
+  // Conseguenza voluta: se il voto era già stato scelto, la coppia si completa
+  // qui e l'azione parte al rilascio del dito. È la stessa regola di sempre
+  // ("si registra quando ci sono entrambe"), applicata a una metà che invece
+  // di un bottone arriva da un trascinamento.
+  // Mai nella pulsantiera RISTRETTA (dopo un `#` avversario): lì le uniche
+  // risposte possibili sono muro e difesa, e preselezionare un attacco
+  // disabilitato lascerebbe il pannello in uno stato incoerente.
+  void _preselezionaAttaccoDaTraiettoria() {
+    if (_votoInCorso != null &&
+        _sceltoNellaColonna(_votoInCorso!.fondamentale) &&
+        !_difesaErroreForzataNostra) {
+      _sceglieFondamentale(Fondamentale.attacco);
+    } else if (_avversarioInCorso != null &&
+        _sceltoNellaColonna(_avversarioInCorso!.fondamentale) &&
+        !_difesaErroreForzataAvversaria) {
+      _scegliFondamentaleAvversario(Fondamentale.attacco);
+    }
+  }
+
+  // `null` (ancora da scegliere) o una delle quattro voci della colonna: in
+  // entrambi i casi la scelta è dell'utente e si può sovrascrivere. Battuta e
+  // ricezione invece le impone la fase e non si toccano.
+  bool _sceltoNellaColonna(Fondamentale? fondamentale) =>
+      fondamentale == null || _kFondamentaliPulsantiera.contains(fondamentale);
+
   // Guardia contro il doppio tocco rapido sull'ultimo bottone della coppia:
   // _registraVoto è async (attende TrajectoryScreen e la scrittura a DB) e
   // senza questa un secondo tocco arrivato nel frattempo registrerebbe due
@@ -839,7 +1065,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           esitoPunto: _esitoVoto(fondamentale, Voto.errore),
         );
     if (!mounted) return;
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // Tap-target per il voto di un giocatore: fuori dalla modalità test, col
@@ -864,12 +1093,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       return () => _registraErroreDifensivoRapido(player, erroreForzato!);
     }
     if (erroreForzato == Fondamentale.difesa) {
-      return () => setState(() => _votoInCorso =
-          (giocatore: player, fondamentale: null, voto: null));
+      return () => setState(() {
+            _votoInCorso =
+                (giocatore: player, fondamentale: null, voto: null);
+            _azzeraTraiettoriaInLine();
+          });
     }
     final forzato = _fondamentaleForzato();
     return () => setState(() {
       _votoInCorso = (giocatore: player, fondamentale: forzato, voto: null);
+      // Azione nuova (o cambio di giocatrice a pannello aperto): la freccia
+      // eventualmente disegnata era di quella prima e non va ereditata.
+      _azzeraTraiettoriaInLine();
       // Il tipo di battuta selezionato resta "armato" da una battuta
       // all'altra dello stesso giocatore (spesso batte sempre nello stesso
       // modo); cambia battitore → si azzera, non si assume che batta uguale.
@@ -1002,8 +1237,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // e col toggle spento resterebbe una funzione di cui non si sospetta
     // l'esistenza. Il premium non serve forzarlo: durante il tutorial
     // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
+    // SPERIMENTALE (interruttore in Impostazioni): la traiettoria è già stata
+    // disegnata sul campo PRIMA del voto, quindi qui non si apre nessuna
+    // schermata — si prende quello che c'è, o niente se non è stato disegnato.
+    // `richiedeTraiettoria` serve perché il tratto si cattura anche in fase
+    // libera, quando il fondamentale non è ancora stato scelto: se poi si
+    // rivela un'alzata o una difesa, il disegno si butta.
+    final inLine = _traiettoriaInLineAttiva && fondamentale.richiedeTraiettoria
+        ? _traiettoriaNormalizzata
+        : null;
+
     Traiettoria? traiettoria;
-    if (fondamentale.richiedeTraiettoria &&
+    if (!_traiettoriaInLineAttiva &&
+        fondamentale.richiedeTraiettoria &&
         (widget.tutorial ||
             ref.read(impostazioniProvider).traiettorieAbilitate) &&
         ref.read(statoPremiumProvider).attivo) {
@@ -1043,16 +1289,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
-          traiettoriaX1: traiettoria?.x1,
-          traiettoriaY1: traiettoria?.y1,
-          traiettoriaX2: traiettoria?.x2,
-          traiettoriaY2: traiettoria?.y2,
-          traiettoriaMuroX: traiettoria?.muroX,
-          traiettoriaMuroY: traiettoria?.muroY,
+          traiettoriaX1: inLine?.x1 ?? traiettoria?.x1,
+          traiettoriaY1: inLine?.y1 ?? traiettoria?.y1,
+          traiettoriaX2: inLine?.x2 ?? traiettoria?.x2,
+          traiettoriaY2: inLine?.y2 ?? traiettoria?.y2,
+          traiettoriaMuroX: inLine?.muroX ?? traiettoria?.muroX,
+          traiettoriaMuroY: inLine?.muroY ?? traiettoria?.muroY,
         );
     if (!mounted) return;
     setState(() {
       _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
       // _fondamentaleGiudicatoRallyCorrente è ora derivato dallo stream: si
       // aggiorna da solo appena l'azione entra nel replay.
       // I tipi selezionati NON si azzerano qui: restano "armati" se lo
@@ -1118,11 +1365,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           _registraErroreDifensivoAvversarioRapido(ruolo, erroreForzato!);
     }
     if (erroreForzato == Fondamentale.difesa) {
-      return () => setState(() =>
-          _avversarioInCorso = (ruolo: ruolo, fondamentale: null, voto: null));
+      return () => setState(() {
+            _avversarioInCorso =
+                (ruolo: ruolo, fondamentale: null, voto: null);
+            _azzeraTraiettoriaInLine();
+          });
     }
-    return () => setState(() =>
-        _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato, voto: null));
+    return () => setState(() {
+          _avversarioInCorso =
+              (ruolo: ruolo, fondamentale: forzato, voto: null);
+          // Come nel pannello nostro: la freccia di un'azione precedente non
+          // va ereditata dalla nuova.
+          _azzeraTraiettoriaInLine();
+        });
   }
 
   // Le due metà della coppia avversaria — speculari a _sceglieFondamentale/
@@ -1190,8 +1445,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // e col toggle spento resterebbe una funzione di cui non si sospetta
     // l'esistenza. Il premium non serve forzarlo: durante il tutorial
     // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
+    // Sperimentale, come nel nostro _scriviVoto: battuta e attacco avversari
+    // si disegnano sul campo live prima del voto (vedi
+    // _traiettoriaInLineAttiva).
+    final inLine = _traiettoriaInLineAttiva && fondamentale.richiedeTraiettoria
+        ? _traiettoriaNormalizzata
+        : null;
+
     Traiettoria? traiettoria;
-    if (fondamentale.richiedeTraiettoria &&
+    if (!_traiettoriaInLineAttiva &&
+        fondamentale.richiedeTraiettoria &&
         (widget.tutorial ||
             ref.read(impostazioniProvider).traiettorieAbilitate) &&
         ref.read(statoPremiumProvider).attivo) {
@@ -1226,17 +1489,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
-          traiettoriaX1: traiettoria?.x1,
-          traiettoriaY1: traiettoria?.y1,
-          traiettoriaX2: traiettoria?.x2,
-          traiettoriaY2: traiettoria?.y2,
-          traiettoriaMuroX: traiettoria?.muroX,
-          traiettoriaMuroY: traiettoria?.muroY,
+          traiettoriaX1: inLine?.x1 ?? traiettoria?.x1,
+          traiettoriaY1: inLine?.y1 ?? traiettoria?.y1,
+          traiettoriaX2: inLine?.x2 ?? traiettoria?.x2,
+          traiettoriaY2: inLine?.y2 ?? traiettoria?.y2,
+          traiettoriaMuroX: inLine?.muroX ?? traiettoria?.muroX,
+          traiettoriaMuroY: inLine?.muroY ?? traiettoria?.muroY,
         );
     if (!mounted) return;
     // La fase (_fondamentaleGiudicatoRallyCorrente/_attesaBattutaAvversaria) è
     // derivata dallo stream: si aggiorna da sola con la nuova azione.
-    setState(() => _avversarioInCorso = null);
+    setState(() {
+      _avversarioInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // Mappa di ricezione attiva per la rotazione corrente, solo se: stiamo
@@ -1359,6 +1625,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void dispose() {
     _timerLampeggio?.cancel();
     _timerLampeggioTick?.cancel();
+    _frecciaInLine.dispose();
     super.dispose();
   }
 
@@ -1810,6 +2077,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       // se ancora aperto, non avrebbe più senso (l'esito è già stato
       // deciso per un'altra via).
       _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
     });
   }
 
@@ -1864,7 +2132,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     if (!mounted) return;
     // Come l'undo singolo: punteggio/servizio/rotazione si ricalcolano da soli
     // dallo stream, qui basta chiudere un eventuale pannello voto aperto.
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // Dialog di conferma prima dell'undo vero e proprio (irreversibile: una
@@ -1933,7 +2204,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final repo = ref.read(scoutActionRepositoryProvider);
     await repo.annullaUltimaAzione(set.id);
     if (!mounted) return;
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // --- Sostituzione (cambio giocatore) ---
@@ -2087,7 +2361,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // _fondamentaleGiudicatoRallyCorrente NON si tocca: il cambio non
     // chiude lo scambio (si può sostituire tra un punto e l'altro senza
     // alterare la fase di gioco).
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -2367,11 +2644,36 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 final minimapLeft = _isRightSide
                     ? constraints.maxWidth - smallCourtSize - horizontalMargin
                     : horizontalMargin;
-                return Stack(
+                // Geometria del riquadro campo in coordinate di QUESTO Stack:
+                // la stessa formula di centratura usata da _buildLiberoSwapTokens
+                // e dai tap-catcher, qui serve a normalizzare la traiettoria
+                // disegnata a mano libera.
+                final courtHeight = courtWidth / 2;
+                final courtLeft = (constraints.maxWidth - courtWidth) / 2;
+                const courtTop = _kCourtTopMargin;
+                // `Listener` ANTENATO dello Stack: riceve ogni evento che
+                // colpisce qualunque cosa lì dentro, a prescindere da chi lo
+                // assorbe, e — non partecipando all'arena dei gesti — non
+                // sottrae un solo tocco ai bottoni e ai token. È lo stesso
+                // motivo per cui _anchor usa un Listener per il tutorial.
+                // Serve perché un GestureDetector con onPan* qui sopra
+                // ruberebbe i tap, e sotto non riceverebbe i trascinamenti che
+                // partono fuori dal campo (il battitore ha X negativa).
+                return Listener(
+                  onPointerDown: _onPointerDownCampo,
+                  onPointerMove: (e) => _onPointerMoveCampo(e, courtWidth),
+                  onPointerUp: (_) => _onPointerUpCampo(
+                      courtLeft, courtTop, courtWidth, courtHeight),
+                  onPointerCancel: (_) {
+                    _pointerGiu = null;
+                    _gestoSullaCard = false;
+                  },
+                  child: Stack(
                   children: [
                     // Primo figlio = ultimo a ricevere il tocco: vedi
-                    // _buildScrimPannelli per il perché sta quaggiù.
-                    ..._buildScrimPannelli(),
+                    // _buildScrimPannelli per il perché sta quaggiù, e perché
+                    // c'è sempre invece di comparire e sparire.
+                    _buildScrimPannelli(),
                     Positioned(
                       top: _kCourtTopMargin,
                       left: 0,
@@ -2552,9 +2854,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         constraints, courtWidth),
                     ..._buildSelezionePAvversario(constraints, courtWidth),
                     ..._buildActionLog(),
+                    // Freccia della traiettoria in-line: sopra al campo e ai
+                    // token, sotto ai pannelli. IgnorePointer perché è puro
+                    // disegno e non deve mai intercettare un tocco.
+                    _buildFrecciaInLine(
+                        courtLeft, courtTop, courtWidth, courtHeight),
                     ..._buildPannelloVoto(),
                     ..._buildPannelloAvversario(),
                   ],
+                ),
                 );
               },
             ),
@@ -3649,12 +3957,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // così i fondamentali si allineano ai primi 4 voti e la griglia si legge a
   // colpo d'occhio (il 5° voto resta da solo in fondo).
   static const double _kAltezzaRigaPulsantiera = 64;
-  static const double _kGapPulsantiera = 12;
-  // Stessa larghezza dei voti: la card copre il campo, e ogni dp risparmiato
-  // qui è campo che resta visibile. "Attacco" a 16px ci sta comodo; oltre, il
-  // testo si tronca (ellissi) invece di sfondare il bottone.
-  static const double _kLarghezzaFondamentale = 100;
-  static const double _kLarghezzaVoto = 100;
+  static const double _kGapPulsantiera = 8;
+  // Colonne strette per un motivo preciso: col CAMBIO CAMPO il battitore esce
+  // dal campo sul lato destro (X oltre la linea di fondo, vedi
+  // _kBattutaP1Position specchiata) e finisce proprio dove sta la card — e da
+  // lì ci si deve partire col dito per disegnare la traiettoria. Misurato su
+  // un tablet da ~1274dp: il token arriva a 0,84×larghezza schermo, quindi
+  // l'ingombro della card dal bordo destro non può superare ~196dp. Con i
+  // margini ridotti al minimo (vedi sotto) restano 85dp a colonna.
+  // "Attacco" a 16px sta in 85−12 di padding; oltre si tronca con l'ellissi
+  // invece di sfondare il bottone.
+  static const double _kLarghezzaFondamentale = 85;
+  static const double _kLarghezzaVoto = 85;
 
   // L'header del pannello va vincolato a questa larghezza: il FittedBox passa
   // vincoli ILLIMITATI, quindi un cognome lungo allargherebbe tutta la card
@@ -3877,22 +4191,64 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // (mini-map, bottoni di correzione rotazione) adesso riceverebbe il tocco
   // invece di chiudere — per questo in build sono avvolti in `IgnorePointer`
   // mentre un pannello è aperto.
-  List<Widget> _buildScrimPannelli() {
-    if (!_pannelloAperto) return const [];
-    return [
-      Positioned.fill(
+  // SEMPRE in albero, spento con IgnorePointer quando non serve, e con una
+  // key esplicita. Non è pignoleria: comparendo e sparendo da QUESTA
+  // posizione faceva slittare di uno tutti i figli dello Stack, e Flutter
+  // accoppiava l'elemento dello scrim col widget del campo — stesso tipo
+  // (`Positioned`) e stessa key (nessuna), quindi `canUpdate` vero. Risultato:
+  // l'intero sottoalbero del campo ricostruito da zero a ogni apertura o
+  // chiusura del pannello, con gli `AnimatedPositioned` dei token rimontati e
+  // quindi **senza animazione** di rotazione. Con una lunghezza costante e una
+  // key il problema non si pone.
+  Widget _buildScrimPannelli() {
+    return Positioned.fill(
+      key: const ValueKey('scrim-pannelli'),
+      child: IgnorePointer(
+        ignoring: !_pannelloAperto,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _chiudiPannelli,
         ),
       ),
-    ];
+    );
   }
 
   void _chiudiPannelli() => setState(() {
         _votoInCorso = null;
         _avversarioInCorso = null;
+        _azzeraTraiettoriaInLine();
       });
+
+  // Freccia della traiettoria disegnata sul campo live. Resta visibile anche
+  // dopo il rilascio, fino a che l'azione non viene registrata o il pannello
+  // chiuso: è l'unica conferma che il tratto è stato preso.
+  //
+  // Sempre in albero, anche quando non c'è niente da disegnare: il painter si
+  // ridisegna da solo osservando `_frecciaInLine`, e montarlo/smontarlo
+  // vorrebbe dire tornare a un setState per ogni frame del trascinamento.
+  // Key esplicita per lo stesso motivo dello scrim: i builder che la
+  // precedono nello Stack hanno lunghezza variabile (il log azioni compare e
+  // sparisce), e senza key un `Positioned` può essere accoppiato con quello
+  // sbagliato quando gli indici slittano.
+  Widget _buildFrecciaInLine(
+    double courtLeft,
+    double courtTop,
+    double courtWidth,
+    double courtHeight,
+  ) =>
+      Positioned.fill(
+        key: const ValueKey('freccia-in-line'),
+        child: IgnorePointer(
+          child: CustomPaint(
+            painter: _FrecciaLivePainter(
+              _frecciaInLine,
+              xRete: courtLeft + courtWidth / 2,
+              cimaCampo: courtTop,
+              altezzaCampo: courtHeight,
+            ),
+          ),
+        ),
+      );
 
   // Chip del fondamentale imposto dalla fase (battuta/ricezione), nell'header
   // del pannello: quelle due voci non stanno nella colonna — che ha 4 slot
@@ -3942,7 +4298,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
     return [
       Positioned(
-        right: 16,
+        // 4 e non 16: ogni dp fra la card e il bordo dello schermo è un dp in
+        // meno di campo coperto, e col cambio campo lì sotto c'è il battitore.
+        right: 4,
         // Margini verticali minimi: su smartphone la scala del pannello è
         // vincolata dall'altezza disponibile (vedi FittedBox sotto), ogni
         // px recuperato qui ingrandisce la bottoniera dei voti.
@@ -3956,15 +4314,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           // GestureDetector sta DENTRO la scala). Su tablet scala = 1.
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: GestureDetector(
+            // Un trascinamento partito sulla card non deve disegnare una
+            // traiettoria. Questo Listener è più PROFONDO di quello che
+            // avvolge lo Stack, quindi riceve l'evento prima e fa in tempo ad
+            // alzare il flag (vedi _onPointerDownCampo).
+            child: Listener(
+              onPointerDown: (_) => _gestoSullaCard = true,
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
               child: _anchor(
                 TutorialTarget.pannelloVoto,
                 Container(
+                  // Padding stretto: orizzontale perché la card non deve
+                  // invadere il campo (vedi _kLarghezzaFondamentale),
+                  // verticale perché su telefono è l'altezza a decidere di
+                  // quanto il FittedBox rimpicciolisce tutto — meno padding
+                  // qui vuol dire bottoni più grandi, non più piccoli.
                   padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 12,
+                    vertical: 8,
+                    horizontal: 6,
                   ),
                   decoration: BoxDecoration(
                     color: _kTopBarBg,
@@ -4026,6 +4395,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 ),
               ),
             ),
+            ),
           ),
         ),
       ),
@@ -4049,22 +4419,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
     return [
       Positioned(
-        right: 16,
+        right: 4, // vedi il gemello in _buildPannelloVoto
         top: 4,
         bottom: 4,
         child: Align(
           alignment: Alignment.topCenter,
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: GestureDetector(
+            // Come nel pannello nostro: un trascinamento partito sulla card
+            // non deve disegnare una traiettoria (vedi _onPointerDownCampo).
+            child: Listener(
+              onPointerDown: (_) => _gestoSullaCard = true,
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {},
               child: _anchor(
                 TutorialTarget.pannelloAvversario,
                 Container(
+                  // Padding stretto: orizzontale perché la card non deve
+                  // invadere il campo (vedi _kLarghezzaFondamentale),
+                  // verticale perché su telefono è l'altezza a decidere di
+                  // quanto il FittedBox rimpicciolisce tutto — meno padding
+                  // qui vuol dire bottoni più grandi, non più piccoli.
                   padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 12,
+                    vertical: 8,
+                    horizontal: 6,
                   ),
                   decoration: BoxDecoration(
                     color: _kTopBarBg,
@@ -4120,11 +4499,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 ),
               ),
             ),
+            ),
           ),
         ),
       ),
     ];
   }
+
 
   Widget _buildRotationButton(
     IconData icon,
@@ -4908,4 +5289,57 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       ),
     );
   }
+}
+
+/// Disegna la freccia della traiettoria in-line leggendola da un
+/// `ValueNotifier`, passato anche come `repaint`: così il tratto segue il dito
+/// ridisegnando SOLO questo layer, senza un `setState` — e quindi senza
+/// ricostruire campo, token, log e pannello — a ogni frame del trascinamento.
+///
+/// Il disegno vero è quello condiviso con `TrajectoryScreen`
+/// (`FrecciaTraiettoriaPainter`), qui solo delegato: una copia sola, così le
+/// due strade non divergono mentre le si confronta.
+class _FrecciaLivePainter extends CustomPainter {
+  final ValueNotifier<
+      ({Offset inizio, Offset fine, Offset? muro, bool inSospeso})?> freccia;
+
+  /// Geometria del riquadro campo, per la riga sulla rete: `xRete` è la sua
+  /// ascissa, `cimaCampo`/`altezzaCampo` la sua estensione verticale.
+  final double xRete;
+  final double cimaCampo;
+  final double altezzaCampo;
+
+  _FrecciaLivePainter(
+    this.freccia, {
+    required this.xRete,
+    required this.cimaCampo,
+    required this.altezzaCampo,
+  }) : super(repaint: freccia);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final f = freccia.value;
+    if (f == null) return;
+    // Riga sulla rete: "il tratto è appeso qui, il prossimo trascinamento
+    // riparte da questo punto". Stesso segnale visivo di TrajectoryScreen.
+    if (f.inSospeso) {
+      canvas.drawLine(
+        Offset(xRete, cimaCampo),
+        Offset(xRete, cimaCampo + altezzaCampo),
+        Paint()
+          ..color = AppColors.brandAccent
+          ..strokeWidth = 10,
+      );
+    }
+    FrecciaTraiettoriaPainter(f.inizio, f.fine, f.muro).paint(canvas, size);
+  }
+
+  // Il ridisegno del TRATTO lo governa `repaint`; qui restano solo i valori
+  // che cambiano a ogni build (geometria del campo, stato del muro).
+  @override
+  bool shouldRepaint(covariant _FrecciaLivePainter oldDelegate) =>
+      oldDelegate.freccia != freccia ||
+      oldDelegate.xRete != xRete ||
+      oldDelegate.cimaCampo != cimaCampo ||
+      oldDelegate.altezzaCampo != altezzaCampo;
 }

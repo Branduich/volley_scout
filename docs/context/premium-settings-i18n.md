@@ -20,6 +20,15 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   `TrajectoryScreen`, quindi col toggle spento `tipoEsecuzione` resta
   `nonSpecificato` — eventuale rientro dei chip nel pannello voto da
   valutare in futuro (annotato anche nel codice).
+- **`traiettoriaBattutaInLine`** (bool, default **`false`**, chiave
+  `scout.traiettoriaBattutaInLine`) — SPERIMENTALE, in prova: la traiettoria
+  della BATTUTA si disegna sul campo dello scout live prima del voto, invece di
+  aprire `TrajectoryScreen` dopo. Convive con la strada classica apposta, per
+  confrontarle sullo stesso build anche a set in corso; l'attacco passa
+  comunque dalla schermata dedicata. Subordinato a `traiettorieAbilitate` e al
+  premium (senza, il toggle è disabilitato). **Da togliere in un senso o
+  nell'altro quando ci sarà un verdetto** — vedi "Traiettoria della battuta sul
+  campo live" in scout-live.md.
 - **`scoutAvversariAbilitato`** (bool, default `true`, chiave
   `scout.scoutAvversariAbilitato`): abilita lo Scout avversario (vedi sezione
   dedicata). Se `true`, all'avvio di un nuovo set `ScoutScreen` chiede di

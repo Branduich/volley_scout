@@ -425,12 +425,22 @@
       ordine non nota differenza. Imporlo dopo è una guardia di una riga in
       `_scegliVoto`; il contrario costa di nuovo tutta la discussione.
     - **Misure** (costanti in cima allo State): righe `_kAltezzaRigaPulsantiera`
-      64, gap `_kGapPulsantiera` 12, colonne `_kLarghezzaFondamentale` e
-      `_kLarghezzaVoto` entrambe 100 — larghezza card ~236dp. I fondamentali
-      erano 120 con testo 18, stretti a 100/16 perché la card copre il campo e
-      ogni dp risparmiato è campo visibile. L'header va vincolato a
-      `_kLarghezzaPulsantiera`: il `FittedBox` passa vincoli **illimitati**,
-      quindi un cognome lungo allargherebbe tutta la card invece di troncarsi.
+      64, gap `_kGapPulsantiera` 8, colonne `_kLarghezzaFondamentale` e
+      `_kLarghezzaVoto` entrambe 85; `Positioned(right: 4)` e padding card
+      8/6 — **ingombro totale dal bordo destro 194dp**.
+      **Non allargare queste misure senza rifare il conto**: col cambio campo
+      il battitore esce dal campo a DESTRA (`_kBattutaP1Position` specchiata) e
+      finisce proprio dove sta la card — e da lì ci si deve partire col dito
+      per la traiettoria in-line. Misurato su tablet da ~1274dp: il token
+      arriva a 0,84×larghezza schermo, quindi la card non può superare ~196dp.
+      Storia: fondamentali 150×60 → 120 → 100 (uguali ai voti) → 85, e i
+      margini portati al minimo prima di toccare i bottoni.
+      Il taglio del padding VERTICALE va nella direzione opposta a quella che
+      si teme: su telefono è l'altezza a decidere quanto il `FittedBox`
+      rimpicciolisce tutto, quindi meno padding = bottoni più grandi.
+      L'header va vincolato a `_kLarghezzaPulsantiera`: il `FittedBox` passa
+      vincoli **illimitati**, quindi un cognome lungo allargherebbe tutta la
+      card invece di troncarsi.
     - **Colonna fondamentali**: 4 voci in ordine **fisso**
       Difesa/Attacco/Muro/Alzata (ordine chiesto dall'utente). Non vanno
       riordinate né sostituite a seconda della fase: sono coordinate su cui si
@@ -532,6 +542,98 @@
       questo mini-map e bottoni di correzione rotazione sono avvolti in
       `IgnorePointer` mentre un pannello è aperto (correggere la rotazione per
       sbaglio scriverebbe un evento vero).
+      3. **Terzo trabocchetto, figlio del primo: i `Positioned` senza key sono
+         tutti indistinguibili.** Lo scrim è un `Positioned.fill`, il campo un
+         `Positioned`: stesso tipo, entrambi senza key, quindi `canUpdate` è
+         vero. Finché lo scrim compariva e spariva da QUELLA posizione (primo
+         figlio), chiudere il pannello faceva slittare tutti gli indici e
+         Flutter accoppiava l'elemento dello scrim col widget del campo,
+         **ricostruendo da zero l'intero sottoalbero del campo** — con gli
+         `AnimatedPositioned` dei token rimontati e quindi senza animazione di
+         rotazione. Sintomo: "una cosa che dovrebbe animarsi salta", mai un
+         errore. Rimedio adottato: lo scrim è **sempre** in albero (spento con
+         `IgnorePointer`) e ha una `key` esplicita; stessa key sull'overlay
+         della freccia, che sta dopo il log azioni — anch'esso a lunghezza
+         variabile. **Regola per il futuro**: in questo Stack convivono
+         parecchi builder che restituiscono 0 o N widget; ai figli strutturali
+         va data una key, costa nulla e toglie di mezzo un'intera classe di
+         bug illeggibili.
+
+  - **Traiettorie SUL CAMPO LIVE** (sperimentale, in prova — interruttore
+    `Impostazioni.traiettoriaBattutaInLine`, **default OFF**; il nome della
+    chiave dice ancora "battuta" per non rompere le preferenze già salvate,
+    ma vale per **battuta E attacco**).
+    Ordine: tocchi il giocatore → trascini sul campo → voti. Nasce da una
+    prova in partita vera: in battuta il voto si può dare solo dopo aver visto
+    l'esito, quindi si è già in ritardo — e la schermata dedicata, aperta
+    dopo, ti porta via dal campo proprio mentre lo scambio continua.
+    Le due strade convivono APPOSTA, per confrontarle sullo stesso build anche
+    a set in corso: `TrajectoryScreen` resta intatta e **non va cancellata**
+    finché non c'è un verdetto. O tutto nuovo o tutto vecchio: mezzo e mezzo
+    non direbbe niente.
+    - **Il voto chiude l'azione**: se voti prima di trascinare la traiettoria
+      è persa, come il "salta" di oggi. Nessuna regola nuova.
+    - **Il tratto si cattura PRIMA di sapere che fondamentale è.** In fase
+      libera il fondamentale si sceglie nel pannello, quindi al momento del
+      trascinamento non esiste ancora: pretenderlo prima costringerebbe a
+      premere "Attacco" per poter disegnare, cioè l'opposto dell'ordine
+      naturale. Si cattura e basta; è `_scriviVoto` a usare il tratto solo se
+      `fondamentale.richiedeTraiettoria`, altrimenti lo butta.
+    - **Preselezione di Attacco** (`_preselezionaAttaccoDaTraiettoria`): al
+      rilascio del tratto il fondamentale si accende da sé su Attacco — in
+      fase libera un tratto può solo essere quello (la battuta passa sempre
+      dalla fase servizio, alzata/muro/difesa non hanno traiettoria).
+      **Sovrascrive** anche una scelta già fatta nella colonna: se hai
+      disegnato, quell'azione È un attacco e il tocco precedente era lo
+      sbaglio. NON tocca il fondamentale imposto dalla FASE (battuta,
+      ricezione) — trasformare una ricezione in attacco corromperebbe
+      l'azione; la distinzione è la stessa del chip nell'header
+      (`_sceltoNellaColonna`). Mai nella pulsantiera ristretta, dove Attacco è
+      disabilitato. Vale anche col tratto **appeso alla rete**, così l'attacco
+      sbagliato a rete si chiude con un `=` e basta.
+      Conseguenza voluta: col voto già scelto la coppia si completa al
+      rilascio del dito e l'azione parte — è sempre la regola "si registra
+      quando ci sono entrambe", con una metà che arriva da un trascinamento.
+    - **Tocco a muro: stacco e ripresa del dito** (solo attacco). Il dito si
+      stacca sulla rete (fascia `_kToleranzaReteInLine`) → quel punto si
+      aggancia alla rete e diventa lo snodo, la riga gialla resta accesa; il
+      trascinamento successivo riparte da lì e chiude dove cade la palla.
+      **Niente `Timer` e niente sosta col dito fermo**: il dwell da 400ms di
+      `TrajectoryScreen` non è stato portato qui apposta. Se voti col tratto
+      appeso, registra una traiettoria che finisce sulla rete — dato vero, non
+      un buco. Non si attiva in battuta (attraversare la rete su un servizio è
+      normale, e una battuta in rete resterebbe appesa per sbaglio); in fase
+      libera si consente sempre, perché lì l'offensiva può solo essere un
+      attacco. **Gesto ancora da giudicare** (2026-08-21): è indipendente dal
+      resto dell'in-line e si toglie senza toccare nient'altro.
+    - **`Listener` ANTENATO** dello Stack del corpo: riceve ogni evento a
+      prescindere da chi lo assorbe e **non partecipa all'arena dei gesti**,
+      quindi non sottrae un solo tocco a bottoni e token. Un `GestureDetector`
+      con `onPan*` sopra ruberebbe i tap, sotto non riceverebbe i
+      trascinamenti che partono FUORI dal campo (il battitore ha X negativa).
+      Stesso motivo per cui `_anchor` usa un `Listener` per il tutorial.
+      Un trascinamento partito sulla card non disegna: la card ha un
+      `Listener` proprio che alza un flag, e — essendo più profondo — riceve
+      l'evento prima dell'antenato (`HitTestResult.path` si costruisce
+      scendendo). Per lo stesso motivo quel flag NON va azzerato nel gestore
+      dell'antenato, ma al rilascio.
+    - **`_frecciaInLine` è un `ValueNotifier` passato come `repaint` al
+      painter**, non un campo con `setState`: il dito genera un evento per
+      frame, e un `setState` ricostruirebbe tutto `ScoutScreen` 60 volte al
+      secondo.
+    - Il painter è condiviso con `TrajectoryScreen`
+      (`widgets/freccia_traiettoria_painter.dart`, estratto da lì): una copia
+      sola, così le due strade non divergono mentre le si confronta.
+    - **PUNTO APERTO**: col disegno in-line né il tipo di battuta né quello di
+      attacco sono indicabili (i chip vivono su `TrajectoryScreen`), quindi
+      `tipoEsecuzione` resta `nonSpecificato`. Sul pallonetto si sente più che
+      sulla battuta: il painter disegna l'arco solo se sa che è un pallonetto,
+      quindi in-line gli attacchi si vedono tutti come linee dritte. La
+      pressione prolungata sul battitore è stata provata e **scartata**
+      (2026-08-21): il gesto non convince. Il vincolo per qualunque
+      alternativa è che non competa né col trascinamento né col tocco singolo;
+      restano da provare doppio tocco sul token, riga di chip nella card
+      (costa altezza, che su telefono decide la scala) e scorrimento laterale.
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
     `perfetto` verde (`AppColors.success`) — **stesso colore dei bottoni
