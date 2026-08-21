@@ -194,11 +194,11 @@ si sposta il file, non i suoi quaranta call-site. Già così per `enums.dart`
 (~45 import), `backup_model.dart`, `ricalcola_stato.dart`,
 `attack_positions.dart`, `defense_positions.dart`.
 
-**Test: servono ENTRAMBE le cartelle**, perché `flutter test` da solo non vede i
-test del package. Il comando completo è:
+**Test: servono TUTTE le cartelle**, perché `flutter test` da solo non vede i
+test dei package. Il comando completo è:
 
 ```
-flutter test test packages/volley_stats/test
+flutter test test packages/volley_stats/test packages/volley_ui/test packages/volley_web/test
 ```
 
 ```

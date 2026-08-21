@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:volley_stats/volley_stats.dart';
 import 'package:volley_ui/kpi_riga.dart';
+import 'package:volley_ui/tabellone_stagionale.dart';
 
-/// Dashboard stagionale — **primo pixel** (passo 6 del piano in
-/// docs/dati-stagionali.md).
+/// Dashboard stagionale (passi 6 e 7 del piano in docs/dati-stagionali.md).
 ///
-/// Per ora carica un backup di esempio come asset e mostra solo la riga KPI di
-/// squadra: niente filtri, niente grafici, niente trascinamento del file. Serve
-/// a dimostrare che la catena regge — logica condivisa col mobile, widget
-/// condivisi, il tutto compilato per il browser.
+/// Carica un backup di esempio come asset e mostra la riga KPI di squadra più
+/// il tabellone per giocatrice, ordinabile. Mancano ancora i filtri (7b), il
+/// caricamento del file dell'utente (8) e i grafici (9).
 void main() => runApp(const DashboardApp());
 
 class DashboardApp extends StatelessWidget {
@@ -110,6 +109,16 @@ class PaginaSquadra extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             KpiRiga(kpi: kpiDaRiepilogo(riepilogo)),
+            const SizedBox(height: 32),
+            Text('Giocatrici', style: tema.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Tocca l\'intestazione di una colonna per ordinare.',
+              style: tema.textTheme.bodySmall
+                  ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            TabelloneStagionale(stats: statGiocatori(backup)),
           ],
         ),
       ),

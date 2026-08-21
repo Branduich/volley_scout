@@ -14,3 +14,4 @@ export 'heatmap.dart';
 export 'traiettoria.dart';
 export 'stat_fondamentali.dart';
 export 'riepilogo_stagione.dart';
+export 'stat_giocatori.dart';
