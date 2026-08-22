@@ -126,6 +126,12 @@ enum MotivoErrore {
   // Il `.name` resta la chiave salvata nella colonna polimorfica tipoEsecuzione.
   generico,
   battuta,
+  // Aggiunto il 2026-08-22 per chi scouta una squadra sola: senza i token
+  // avversari l'attacco sbagliato dell'altra squadra non ha dove essere
+  // registrato, e finirebbe fra i generici indistinto. Sta subito sotto
+  // `battuta` perché è l'altra metà della stessa domanda ("con che colpo
+  // hanno sbagliato").
+  attacco,
   falloDiPosizione,
   invasione;
 }

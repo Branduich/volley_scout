@@ -38,6 +38,7 @@ String tipoAttaccoLabel(TipoAttacco t, AppLocalizations l) => switch (t) {
 String motivoErroreLabel(MotivoErrore m, AppLocalizations l) => switch (m) {
       MotivoErrore.generico => l.motivoErroreGenerico,
       MotivoErrore.battuta => l.motivoErroreBattuta,
+      MotivoErrore.attacco => l.motivoErroreAttacco,
       MotivoErrore.falloDiPosizione => l.motivoErroreFalloDiPosizione,
       MotivoErrore.invasione => l.motivoErroreInvasione,
     };
