@@ -388,7 +388,7 @@
   "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating. Skill and rating sit on the same keypad, in two columns, and you press them in either order.\n\nWe're serving: tap the player about to serve, outside the court.",
 
   "tutorialVotoTitolo": "The rating",
-  "tutorialVotoTesto": "On a serve the skill is already decided by the phase of play: the left column is off and only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
+  "tutorialVotoTesto": "On a serve the skill is already decided by the phase of play: the left column shows serve types instead — you can ignore them, only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
   "tutorialVotoTraiettoria": "After the rating you can mark where the ball went: drag your finger from the server to the landing point, and the action is recorded when you let go. Below the court you can also set the type of serve. If you'd rather skip it, go back with the arrow at the top: the action is recorded anyway, just without a trajectory.",
 
   "tutorialAvversariTitolo": "The opposing team",

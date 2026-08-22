@@ -397,7 +397,7 @@
   "tutorialTreTocchiTesto": "Il modo completo di registrare è a tre tocchi: giocatore, fondamentale, voto. Fondamentale e voto stanno sulla stessa pulsantiera, in due colonne, e si premono in qualsiasi ordine.\n\nSiamo al servizio: tocca il giocatore che batte, fuori dal campo.",
 
   "tutorialVotoTitolo": "Il voto",
-  "tutorialVotoTesto": "In battuta il fondamentale è già deciso dalla fase di gioco: la colonna di sinistra è spenta e resta solo il voto. Per la battuta significano:\n\n#  battuta punto (ace)\n+  battuta buona: all'avversario resta solo un attacco scontato\n/  battuta normale: il ricevitore ha qualche problema ad appoggiare bene all'alzatore\n−  battuta facile, ricevuta positivamente\n=  battuta sbagliata (a rete o fuori campo): punto avversario\n\nDai un + a questa battuta.",
+  "tutorialVotoTesto": "In battuta il fondamentale è già deciso dalla fase di gioco: al posto dei fondamentali, a sinistra, trovi i tipi di servizio — puoi ignorarli, resta solo il voto. Per la battuta significano:\n\n#  battuta punto (ace)\n+  battuta buona: all'avversario resta solo un attacco scontato\n/  battuta normale: il ricevitore ha qualche problema ad appoggiare bene all'alzatore\n−  battuta facile, ricevuta positivamente\n=  battuta sbagliata (a rete o fuori campo): punto avversario\n\nDai un + a questa battuta.",
   "tutorialVotoTraiettoria": "Dopo il voto puoi segnare dove è andata la palla: trascina il dito dal battitore fino al punto di arrivo, al rilascio l'azione viene registrata. Sotto al campo puoi anche indicare il tipo di battuta. Se non ti interessa, torna indietro con la freccia in alto: l'azione viene registrata lo stesso, solo senza traiettoria.",
 
   "tutorialAvversariTitolo": "La squadra avversaria",

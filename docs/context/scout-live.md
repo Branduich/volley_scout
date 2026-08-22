@@ -442,13 +442,24 @@
       vincoli **illimitati**, quindi un cognome lungo allargherebbe tutta la
       card invece di troncarsi.
     - **Colonna fondamentali**: 4 voci in ordine **fisso**
-      Difesa/Attacco/Muro/Alzata (ordine chiesto dall'utente). Non vanno
+      Attacco/Muro/Difesa/Alzata (ordine chiesto dall'utente il 2026-08-22,
+      dopo averlo usato: prima era Difesa/Attacco/Muro/Alzata). Non vanno
       riordinate né sostituite a seconda della fase: sono coordinate su cui si
       forma l'abitudine. Battuta e ricezione **non stanno qui** — quando la
-      fase le impone, la colonna è spenta e il fondamentale compare come chip
-      evidenziato nell'header (`_buildChipFondamentaleForzato`). Il "forzato"
-      si deriva da "il fondamentale selezionato non è fra i 4 della colonna",
-      non da `_fondamentaleForzato()`, così i due non possono divergere.
+      fase le impone, il fondamentale compare come chip evidenziato
+      nell'header (`_buildChipFondamentaleForzato`). Il "forzato" si deriva da
+      "il fondamentale selezionato non è fra i 4 della colonna", non da
+      `_fondamentaleForzato()`, così i due non possono divergere.
+      In **ricezione** la colonna resta al suo posto ma spenta; in **battuta**
+      dal 2026-08-22 diventa i **tipi di servizio** (`_colonnaTipiBattuta`) —
+      quattro bottoni spenti non dicono niente, ed è lo stesso spazio in cui in
+      battuta manca proprio quel dato. Sono 5 come i voti, quindi le colonne
+      restano allineate e la card non cambia larghezza. Blu come i
+      fondamentali: l'ambra provata prima rendeva le etichette illeggibili, e
+      la fase la dice già il chip nell'header.
+      La colonna di sinistra arriva a `_buildPulsantiera` **già costruita**
+      (`vociSinistra`), da `_colonnaFondamentali` o `_colonnaTipiBattuta`: così
+      le àncore del tutorial restano dove sono e l'impaginazione è una sola.
     - **Colonna voti**: 5 bottoni, ordine dell'enum (`#`/`+`/`/`/`-`/`=`),
       colore da `CourtStyle.votoColor()` (vedi sotto).
     - **Feedback di selezione** (`_buildBottonePulsantiera`): bordo bianco 3px
@@ -671,16 +682,29 @@
     - Il painter è condiviso con `TrajectoryScreen`
       (`widgets/freccia_traiettoria_painter.dart`, estratto da lì): una copia
       sola, così le due strade non divergono mentre le si confronta.
-    - **PUNTO APERTO**: col disegno in-line né il tipo di battuta né quello di
-      attacco sono indicabili (i chip vivono su `TrajectoryScreen`), quindi
-      `tipoEsecuzione` resta `nonSpecificato`. Sul pallonetto si sente più che
-      sulla battuta: il painter disegna l'arco solo se sa che è un pallonetto,
-      quindi in-line gli attacchi si vedono tutti come linee dritte. La
-      pressione prolungata sul battitore è stata provata e **scartata**
-      (2026-08-21): il gesto non convince. Il vincolo per qualunque
-      alternativa è che non competa né col trascinamento né col tocco singolo;
-      restano da provare doppio tocco sul token, riga di chip nella card
-      (costa altezza, che su telefono decide la scala) e scorrimento laterale.
+    - **Tipo di BATTUTA: risolto** (2026-08-22) dalla colonna dei tipi in fase
+      servizio, vedi sopra. Vale per entrambe le squadre e resta **armato**
+      finché serve lo stesso battitore: per noi la chiave è `player.id`
+      (`_giocatoreTipoBattutaArmato`), per loro il **RUOLO in zona 1**
+      (`_ruoloTipoBattutaArmato`), che si ricava dalla loro rotazione con
+      `etichetteAvversarie` — il battitore avversario lo sappiamo eccome. Il
+      ruolo è una posizione, non una persona, ed è la granularità GIUSTA: la
+      squadra avversaria è fittizia e serve a capire cosa arriva alla nostra
+      (vedi l'apertura di scout-avversario.md), non a seguire le loro
+      giocatrici. Un loro cambio dietro a quel ruolo non corrompe niente,
+      perché non abbiamo mai preteso di tracciare una persona.
+      Colonna e chip di `TrajectoryScreen` scrivono lo STESSO campo, quindi non
+      possono divergere. Il tipo non registra mai: a chiudere l'azione è sempre
+      e solo il voto, quindi il percorso veloce resta di un tocco.
+    - **PUNTO APERTO — tipo di ATTACCO**: resta non indicabile col disegno
+      in-line (i chip vivono su `TrajectoryScreen`), quindi `tipoEsecuzione`
+      resta `nonSpecificato`. Si sente sul pallonetto: il painter disegna
+      l'arco solo se sa che è un pallonetto, quindi in-line gli attacchi si
+      vedono tutti come linee dritte. In attacco la colonna di sinistra serve
+      ai fondamentali, quindi il trucco della battuta non si applica. La
+      pressione prolungata sul token è stata provata e **scartata**
+      (2026-08-21). Vincolo per qualunque alternativa: non deve competere né
+      col trascinamento né col tocco singolo.
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
     `perfetto` verde (`AppColors.success`) — **stesso colore dei bottoni

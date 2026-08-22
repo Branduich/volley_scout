@@ -65,9 +65,9 @@ colonne: i fondamentali a sinistra, i voti a destra.
         7
       Rossi
   ┌────────┬────────┐
-  │ Difesa │   #    │   #  perfetto
-  │ Attacco│   +    │   +  positivo
-  │ Muro   │   /    │   /  mezzo punto
+  │ Attacco│   #    │   #  perfetto
+  │ Muro   │   +    │   +  positivo
+  │ Difesa │   /    │   /  mezzo punto
   │ Alzata │   −    │   −  negativo
   │        │   =    │   =  errore
   └────────┴────────┘
@@ -84,8 +84,15 @@ si attenuano solo dopo la prima scelta.
 ### Quando il fondamentale è già deciso
 
 In **battuta** e in **ricezione** non c'è niente da scegliere: lo impone la fase
-di gioco. La colonna di sinistra resta spenta e il fondamentale compare come
-etichetta sotto il nome. Basta il voto: **un tocco**.
+di gioco, e il fondamentale compare come etichetta sotto il nome. Basta il voto:
+**un tocco**.
+
+In **battuta** quella colonna non resta vuota: al posto dei fondamentali trovi i
+**tipi di servizio** — Generico, Dal basso, Float, Salto, Salto float.
+Puoi ignorarli, perché si parte da *Generico* e il voto registra lo stesso; ma se
+ne tocchi uno **resta impostato finché serve lo stesso battitore**, e si azzera
+quando il turno di servizio passa a un'altra. Vale anche per gli avversari.
+Il tipo da solo non registra mai: a chiudere l'azione è sempre il voto.
 
 ### Cambiare giocatrice al volo
 
@@ -132,9 +139,10 @@ freccia prosegue fino a dove cade davvero la palla.
 ### Con le traiettorie sul campo disattivate
 
 Dopo il voto si apre una schermata dedicata col campo vuoto, dove si traccia la
-traiettoria con un trascinamento. Lì ci sono anche i **tipi di battuta e di
-attacco** (float, salto, pallonetto…), che sul campo dal vivo non sono ancora
-indicabili. Il tasto indietro salta la traiettoria senza perdere l'azione.
+traiettoria con un trascinamento. Lì c'è anche il **tipo di attacco** (forte,
+piazzata, pallonetto), che sul campo dal vivo non è ancora indicabile — il tipo
+di battuta invece sì, dalla colonna qui sopra. Il tasto indietro salta la
+traiettoria senza perdere l'azione.
 
 ---
 
@@ -232,6 +240,7 @@ resta attenuata e non si tocca.
 | valutare battuta o ricezione | tocca la giocatrice, poi il voto |
 | registrare un attacco col percorso | trascina dall'attaccante a terra, poi il voto |
 | registrare una battuta col percorso | trascina dalla linea di fondo, poi il voto |
+| indicare il tipo di servizio | in battuta, toccalo nella colonna di sinistra |
 | cambiare giocatrice | toccane un'altra, anche dell'altra squadra |
 | chiudere senza registrare | tocca il campo |
 | correggere | ↶ per l'ultima azione, ↺ per tutto lo scambio |

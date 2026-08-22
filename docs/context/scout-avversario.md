@@ -1,4 +1,17 @@
-## Scout avversario (scout a due squadre — IMPLEMENTATO, live + report)
+## Scout avversario (IMPLEMENTATO, live + report)
+
+**A cosa serve — leggere prima di estenderlo.** La squadra avversaria è
+**fittizia**: non stiamo facendo lo scout di due squadre, stiamo facendo quello
+della NOSTRA in modo più completo. I loro token esistono per registrare **da
+dove arrivano le palle** — tipi di battuta e di attacco, traiettorie, punti di
+caduta — cioè il contesto che dà senso alla nostra ricezione e alla nostra
+difesa. Non per valutare le loro giocatrici.
+
+Conseguenza pratica, non un limite da togliere: il RUOLO (P/O/S1/S2/C1/C2) è la
+granularità giusta, e un loro cambio dietro a quel ruolo non corrompe niente,
+perché non abbiamo mai preteso di seguire una persona. **Aggiungere una rosa
+avversaria non sarebbe un miglioramento**: sposterebbe l'app su un problema
+diverso e costringerebbe l'utente a inserire dati che a bordo campo non ha.
 
 Scout LEGGERO della squadra avversaria in parallelo al nostro, senza roster né
 numeri di maglia: 6 token placeholder grigi PER RUOLO (P/O/S1/S2/C1/C2) che
@@ -140,7 +153,8 @@ l'avversario fa cadere di più.
 - **Export PDF heatmap: NON ancora fatto** (come il PDF avversario).
 
 ### Limiti / backlog
-Nessuna statistica per singolo giocatore avversario (nessun roster); nessun
-libero avversario, nessun numero di maglia; nessun modulo diverso dal 5-1
+Nessuna statistica per singolo giocatore avversario: **è una scelta, non un
+buco** — vedi "A cosa serve" in apertura. Nessun libero avversario, nessun
+numero di maglia; nessun modulo diverso dal 5-1
 canonico; unit test di `zonaTatticaPerAzioneAvversario` non ancora scritto (come
 l'originale `zonaTatticaPerAzione`).
