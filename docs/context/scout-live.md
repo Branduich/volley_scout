@@ -367,6 +367,30 @@
   - **`_fondamentaleForzato()`** (`Fondamentale?`): `null` se siamo in fase
     libera (va scelto nel pannello), altrimenti `Fondamentale.battuta` o
     `Fondamentale.ricezione` in base a chi è al servizio.
+  - **Preselezione della difesa in seconda linea** (`_preselezioneSecondaLinea`,
+    2026-08-22): in fase libera, aprendo il pannello su uno dei tre di
+    seconda linea (`_kSlotSecondaLinea` = P1/P6/P5, più il libero che ha
+    `slot` null) il fondamentale parte già su **Difesa** — due tocchi invece
+    di tre sul caso più frequente della partita. Vale anche per gli
+    **avversari** (`_preselezioneSecondaLineaAvversaria`, parametro `zona` di
+    `_tapHandlerAvversario`): lì i token sono identificati dal RUOLO, quindi
+    la seconda linea si legge dalla **zona** che quel ruolo occupa nella loro
+    rotazione (`zonaPerRuolo` in `_buildTokenAvversari`) — zone 1/6/5, le
+    stesse nostre. Nessun caso "libero" da loro: 5-1 canonico senza libero.
+    - È una **preselezione, non una scelta**: si corregge con un tocco sulla
+      colonna e da sola non registra niente, perché a chiudere l'azione è
+      sempre e solo il voto. È il motivo per cui questa strada è stata
+      preferita alla pulsantiera **a matrice**, dove un tocco sbagliato
+      scriverebbe l'azione (vedi il piano della matrice, ancora aperto).
+    - Non interferisce col disegno: `Difesa` sta fra i quattro della colonna,
+      quindi `_preselezionaAttaccoDaTraiettoria` la sovrascrive regolarmente —
+      un attacco di seconda linea (pipe) disegnato resta un attacco.
+    - **Punto da giudicare in campo**: fra i tre c'è anche il palleggiatore
+      quando la rotazione lo porta dietro (3 su 6 nel 5-1), e quello alza più
+      di quanto difenda. Tenuto a difesa perché è quello che è stato chiesto;
+      per escluderlo basta una condizione nelle due
+      `_preselezioneSecondaLinea*` (per gli avversari il palleggiatore è
+      sempre il ruolo `'P'`, quindi lì è ancora più diretto).
   - **Tap su un giocatore tappabile**: `_tapHandlerPerGiocatore(player,
     {slot})` — disabilitato in modalità test o prima dell'inizio del set,
     altrimenti tappabile se `_giocatoreTappabile(slot)`. Tap → apre
@@ -450,8 +474,18 @@
       nell'header (`_buildChipFondamentaleForzato`). Il "forzato" si deriva da
       "il fondamentale selezionato non è fra i 4 della colonna", non da
       `_fondamentaleForzato()`, così i due non possono divergere.
-      In **ricezione** la colonna resta al suo posto ma spenta; in **battuta**
-      dal 2026-08-22 diventa i **tipi di servizio** (`_colonnaTipiBattuta`) —
+      In **ricezione** la colonna **non c'è**: dal 2026-08-22 `vociSinistra`
+      arriva vuota e `_buildPulsantiera` passa alla forma a **colonna
+      singola** — quattro bottoni spenti sono solo campo coperto, e lì non
+      c'è nemmeno un tipo di esecuzione da offrire in cambio. I voti si
+      prendono tutta la larghezza della card (`_kLarghezzaPulsantiera` come
+      `larghezza` di `_buildBottoneVoto`): **allargati, non centrati** alla
+      misura solita. La card resta larga uguale — la vincola l'header — quindi
+      il **bordo destro di ogni bottone non si sposta** e il dito li ritrova
+      dov'erano, con un bersaglio più grande; centrarli a 85 li porterebbe
+      verso il campo, cioè l'unica cosa che la memoria muscolare non perdona.
+      In **battuta**
+      dal 2026-08-22 la colonna diventa i **tipi di servizio** (`_colonnaTipiBattuta`) —
       quattro bottoni spenti non dicono niente, ed è lo stesso spazio in cui in
       battuta manca proprio quel dato. Sono 5 come i voti, quindi le colonne
       restano allineate e la card non cambia larghezza. Blu come i
@@ -696,15 +730,35 @@
       Colonna e chip di `TrajectoryScreen` scrivono lo STESSO campo, quindi non
       possono divergere. Il tipo non registra mai: a chiudere l'azione è sempre
       e solo il voto, quindi il percorso veloce resta di un tocco.
-    - **PUNTO APERTO — tipo di ATTACCO**: resta non indicabile col disegno
-      in-line (i chip vivono su `TrajectoryScreen`), quindi `tipoEsecuzione`
-      resta `nonSpecificato`. Si sente sul pallonetto: il painter disegna
-      l'arco solo se sa che è un pallonetto, quindi in-line gli attacchi si
-      vedono tutti come linee dritte. In attacco la colonna di sinistra serve
-      ai fondamentali, quindi il trucco della battuta non si applica. La
-      pressione prolungata sul token è stata provata e **scartata**
-      (2026-08-21). Vincolo per qualunque alternativa: non deve competere né
-      col trascinamento né col tocco singolo.
+    - **Tipo di ATTACCO: risolto** (2026-08-22) dalla stessa colonna, con la
+      stessa idea della battuta — quando il fondamentale è già deciso, quello
+      spazio passa al tipo. Qui a deciderlo non è la fase ma il **disegno**:
+      al rilascio del tratto `_preselezionaAttaccoDaTraiettoria` accende
+      Attacco, e da quel momento la colonna diventa `_colonnaTipiAttacco`
+      (4 voci come i fondamentali che sostituisce, stesso blu, "Generico"
+      preselezionato: la card non cambia larghezza e il percorso veloce resta
+      il solo voto). `_tipoAttaccoInLine` **non resta mai armato** — varia
+      colpo su colpo — e si azzera dentro `_azzeraTraiettoriaInLine()`, da cui
+      passano già apertura pannello, cambio giocatrice, registrazione e undo.
+      Vale identico per l'avversario. Se `TrajectoryScreen` si è aperta (strada
+      classica) l'ultima parola resta sua: `traiettoria?.tipoAttacco ??
+      _tipoAttaccoInLine`.
+      - **Il chip nell'header ora copre due casi**: fondamentale imposto dalla
+        FASE (battuta/ricezione) *oppure* deciso dal DISEGNO. Senza,
+        sostituita la colonna non resterebbe scritto da nessuna parte che
+        quella è una schiacciata — `fondChip` in entrambi i pannelli.
+      - **Costo accettato**: sostituita la colonna il fondamentale non è più
+        correggibile (per dire "era una difesa" bisogna chiudere il pannello e
+        ritoccare la giocatrice). È il punto da giudicare sul device.
+      - **La freccia live resta dritta anche sul pallonetto**: si disegna
+        durante il trascinamento, quando il tipo non è ancora stato scelto.
+        L'arco torna nei report, che leggono `tipoEsecuzione` da DB.
+      - Se il voto era già stato scelto prima del rilascio, la coppia si
+        completa lì e l'azione parte: la colonna dei tipi non si vede proprio.
+        Voluto — è la regola "si registra quando ci sono entrambe".
+      - La pressione prolungata sul token era stata provata e **scartata**
+        (2026-08-21). Vincolo per qualunque alternativa futura: non deve
+        competere né col trascinamento né col tocco singolo.
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
     `perfetto` verde (`AppColors.success`) — **stesso colore dei bottoni

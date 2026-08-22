@@ -675,19 +675,31 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   Object? get _identitaSelezionata =>
       _votoInCorso?.giocatore.id ?? _avversarioInCorso?.ruolo;
 
+  // Tipo di attacco scelto nella colonna della pulsantiera quando la
+  // traiettoria è stata disegnata sul campo (vedi _colonnaTipiAttacco).
+  // A differenza del tipo di battuta NON resta mai "armato": varia colpo su
+  // colpo, quindi si azzera insieme alla traiettoria — cioè a ogni apertura
+  // di pannello, cambio di giocatrice, registrazione e undo, che passano
+  // tutti da _azzeraTraiettoriaInLine. Uno solo per entrambi i pannelli:
+  // nostro e avversario non convivono mai, come per _traiettoriaNormalizzata.
+  TipoAttacco _tipoAttaccoInLine = TipoAttacco.nonSpecificato;
+
   void _azzeraTraiettoriaInLine() {
     _timerMuroInLine?.cancel();
     _inZonaReteInLine = false;
     _frecciaInLine.value = null;
     _traiettoriaNormalizzata = null;
+    _tipoAttaccoInLine = TipoAttacco.nonSpecificato;
   }
 
-  // PUNTO APERTO — col disegno in-line acceso il TIPO di esecuzione non è
-  // indicabile: i chip (battuta e attacco) vivono su TrajectoryScreen, che qui
-  // non si apre più, quindi `tipoEsecuzione` resta `nonSpecificato`. Provata
-  // la pressione prolungata sul battitore (2026-08-21) e scartata: il gesto
-  // non convince. Da riprendere con un'idea diversa prima di dare per buono
-  // l'in-line.
+  // Il TIPO di esecuzione col disegno in-line è RISOLTO (2026-08-22), da
+  // entrambe le parti, e sempre dalla colonna di sinistra della pulsantiera:
+  // i tipi di servizio in fase battuta (_colonnaTipiBattuta) e i tipi di
+  // attacco dopo un tratto disegnato (_colonnaTipiAttacco). I chip di
+  // TrajectoryScreen restano per la strada classica, dove quella schermata si
+  // apre ancora. Provata prima la pressione prolungata sul battitore
+  // (2026-08-21) e scartata: il gesto non convince, e comunque un gesto non
+  // deve mai competere col trascinamento o col tocco singolo.
   //
   // Si disegna se: interruttore acceso, un pannello è aperto, e vale lo stesso
   // gate di TrajectoryScreen (traiettorie attive + premium — vedi
@@ -1138,6 +1150,45 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     }
   }
 
+  // Le tre posizioni di SECONDA LINEA (zone 1, 6, 5), le stesse in cui gioca
+  // il libero. Due forme della stessa cosa: i nostri token sono indicizzati
+  // per SLOT ('P1'..'P6'), quelli avversari per ZONA (1..6), che non hanno un
+  // roster da cui ricavare uno slot (vedi _buildTokenAvversari).
+  static const _kSlotSecondaLinea = {'P1', 'P6', 'P5'};
+  static const _kZoneSecondaLinea = {1, 6, 5};
+
+  // In fase LIBERA il fondamentale non lo impone nessuno e va scelto nella
+  // colonna: è il tocco in più che pesa di più, perché è il caso più frequente
+  // della partita. Chi sta in seconda linea però quasi sempre DIFENDE, quindi
+  // aprendo il pannello la difesa è già selezionata.
+  //
+  // È una PRESELEZIONE, non una scelta: resta correggibile con un tocco sulla
+  // colonna e da sola non registra niente — a chiudere l'azione è sempre e
+  // solo il voto. Per questo il tocco risparmiato non si paga con un errore
+  // possibile, che è invece il difetto della pulsantiera a matrice.
+  //
+  // Il libero non ha uno slot proprio (`slot` null) ed è per definizione di
+  // seconda linea.
+  //
+  // NB: fra i tre c'è anche il PALLEGGIATORE quando la rotazione lo porta
+  // dietro (3 rotazioni su 6 nel 5-1), e quello alza più spesso di quanto
+  // difenda. Tenuto comunque a difesa perché è quello che è stato chiesto: se
+  // in campo dà fastidio, basta escludere lo slot del palleggiatore qui.
+  Fondamentale? _preselezioneSecondaLinea(String? slot) =>
+      slot == null || _kSlotSecondaLinea.contains(slot)
+          ? Fondamentale.difesa
+          : null;
+
+  // Gemella avversaria: stessa regola, ma i loro token sono identificati dal
+  // RUOLO e la seconda linea si legge dalla ZONA che quel ruolo occupa nella
+  // loro rotazione (`etichetteAvversarie`). Nessun caso "null = libero": gli
+  // avversari sono un 5-1 canonico senza libero, quindi zona ignota → nessuna
+  // preselezione. Vale anche qui il discorso sul loro palleggiatore dietro.
+  Fondamentale? _preselezioneSecondaLineaAvversaria(int? zona) =>
+      zona != null && _kZoneSecondaLinea.contains(zona)
+          ? Fondamentale.difesa
+          : null;
+
   // Scorciatoia Modello A: se l'ultima azione dello scambio è un'offensiva `#`
   // (ace/kill) dell'ALTRA squadra rispetto a `difensore`, la risposta difensiva
   // è deterministicamente un ERRORE. Ritorna il fondamentale difensivo dovuto
@@ -1276,8 +1327,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           });
     }
     final forzato = _fondamentaleForzato();
+    // In fase libera (forzato == null) chi gioca dietro parte su Difesa —
+    // preselezione correggibile, vedi _preselezioneSecondaLinea.
+    final iniziale = forzato ?? _preselezioneSecondaLinea(slot);
     return () => setState(() {
-      _votoInCorso = (giocatore: player, fondamentale: forzato, voto: null);
+      _votoInCorso = (giocatore: player, fondamentale: iniziale, voto: null);
       _avversarioInCorso = null; // i due pannelli non convivono mai
       // Azione nuova (o cambio di giocatrice a pannello aperto): la freccia
       // eventualmente disegnata era di quella prima e non va ereditata.
@@ -1473,8 +1527,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
     final tipoEsecuzione = switch (fondamentale) {
       Fondamentale.battuta => _tipoBattutaSelezionato.name,
+      // La schermata traiettoria, se si è aperta, ha l'ultima parola;
+      // altrimenti vale quello scelto nella colonna della pulsantiera dopo il
+      // disegno in-line (vedi _colonnaTipiAttacco).
       Fondamentale.attacco =>
-        (traiettoria?.tipoAttacco ?? TipoAttacco.nonSpecificato).name,
+        (traiettoria?.tipoAttacco ?? _tipoAttaccoInLine).name,
       _ => 'nonSpecificato',
     };
 
@@ -1549,7 +1606,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // fondamentale poi voto). Disabilitato in modalità test, prima dell'inizio
   // del set o durante la selezione della zona iniziale. Il nostro pannello
   // voto aperto NON blocca: il tocco lo sostituisce.
-  VoidCallback? _tapHandlerAvversario(String ruolo, {Fondamentale? forzato}) {
+  // `zona` (1-6) serve solo alla preselezione della difesa in fase libera:
+  // si passa da lì, non dal ruolo, perché è la POSIZIONE a dire chi difende.
+  VoidCallback? _tapHandlerAvversario(String ruolo,
+      {Fondamentale? forzato, int? zona}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
     if (_inSelezionePAvversario) return null;
@@ -1573,9 +1633,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             _azzeraTraiettoriaInLine();
           });
     }
+    // In fase libera (forzato == null) chi gioca dietro parte su Difesa,
+    // come i nostri — vedi _preselezioneSecondaLineaAvversaria.
+    final iniziale = forzato ?? _preselezioneSecondaLineaAvversaria(zona);
     return () => setState(() {
           _avversarioInCorso =
-              (ruolo: ruolo, fondamentale: forzato, voto: null);
+              (ruolo: ruolo, fondamentale: iniziale, voto: null);
           _votoInCorso = null; // i due pannelli non convivono mai
           // Stessa regola del nostro battitore: il tipo resta armato finché
           // serve lo stesso RUOLO, e si azzera quando cambia.
@@ -1690,7 +1753,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       Fondamentale.battuta =>
         (traiettoria?.tipoBattuta ?? _tipoBattutaAvversario).name,
       Fondamentale.attacco =>
-        (traiettoria?.tipoAttacco ?? TipoAttacco.nonSpecificato).name,
+        (traiettoria?.tipoAttacco ?? _tipoAttaccoInLine).name,
       _ => 'nonSpecificato',
     };
 
@@ -4357,6 +4420,38 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     ];
   }
 
+  // Colonna di sinistra dopo un tratto DISEGNATO in fase libera: i tipi di
+  // attacco al posto dei fondamentali, che a quel punto non servono più — il
+  // disegno ha già deciso che è un attacco (vedi
+  // _preselezionaAttaccoDaTraiettoria). Stessa forma della colonna che
+  // sostituisce (4 voci) e stesso blu: la card non cambia larghezza.
+  // È l'unico modo per indicare il tipo di attacco col disegno in-line, dove
+  // TrajectoryScreen — che ospita i chip — non si apre mai.
+  List<Widget> _colonnaTipiAttacco() {
+    return [
+      for (final tipo in TipoAttacco.values)
+        _buildBottonePulsantiera(
+          larghezza: _kLarghezzaFondamentale,
+          colore: AppColors.brandPrimary,
+          abilitato: true,
+          selezionato: tipo == _tipoAttaccoInLine,
+          attenuato: tipo != _tipoAttaccoInLine,
+          onTap: () => setState(() => _tipoAttaccoInLine = tipo),
+          child: Text(
+            tipoAttaccoLabel(tipo, AppLocalizations.of(context)),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+    ];
+  }
+
   Widget _buildPulsantiera({
     required Fondamentale? selezionato,
     required Voto? votoSelezionato,
@@ -4374,6 +4469,40 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     required List<Widget> vociSinistra,
   }) {
     if (_kProvaGriglia4x5) return _buildProvaGriglia4x5(); // PROVA, da togliere
+    // Colonna di sinistra VUOTA = forma a COLONNA SINGOLA: la fase impone il
+    // fondamentale e non c'è nessun tipo di esecuzione da offrire (ricezione),
+    // quindi quattro bottoni spenti sarebbero solo campo coperto.
+    // I voti si prendono tutta la larghezza della card: ALLARGATI, non
+    // centrati alla misura solita. La card resta larga uguale (l'header la
+    // vincola a _kLarghezzaPulsantiera), quindi il bordo destro di ogni
+    // bottone NON si sposta — il dito li ritrova dove li ha imparati e in più
+    // il bersaglio cresce. Centrandoli a 85 si sposterebbero verso il campo,
+    // che è l'unica cosa che la memoria muscolare non perdona.
+    final soloVoti = vociSinistra.isEmpty;
+    final colonnaVoti = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final voto in Voto.values) ...[
+          _anchorOpz(
+            targetVoto(voto),
+            _buildBottoneVoto(
+              voto: voto,
+              larghezza: soloVoti ? _kLarghezzaPulsantiera : _kLarghezzaVoto,
+              // Nel ristretto il `=` è solo un'anteprima: evidenziato ma
+              // non tappabile, la registrazione parte dal fondamentale.
+              bloccato: ristretto,
+              selezionato:
+                  ristretto ? voto == Voto.errore : voto == votoSelezionato,
+              attenuato: votoSelezionato != null && voto != votoSelezionato,
+              onTap: () => onVoto(voto),
+            ),
+          ),
+          if (voto != Voto.values.last)
+            const SizedBox(height: _kGapPulsantiera),
+        ],
+      ],
+    );
+    if (soloVoti) return colonnaVoti;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4389,29 +4518,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           ],
         ),
         const SizedBox(width: _kGapPulsantiera),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final voto in Voto.values) ...[
-              _anchorOpz(
-                targetVoto(voto),
-                _buildBottoneVoto(
-                  voto: voto,
-                  // Nel ristretto il `=` è solo un'anteprima: evidenziato ma
-                  // non tappabile, la registrazione parte dal fondamentale.
-                  bloccato: ristretto,
-                  selezionato: ristretto
-                      ? voto == Voto.errore
-                      : voto == votoSelezionato,
-                  attenuato: votoSelezionato != null && voto != votoSelezionato,
-                  onTap: () => onVoto(voto),
-                ),
-              ),
-              if (voto != Voto.values.last)
-                const SizedBox(height: _kGapPulsantiera),
-            ],
-          ],
-        ),
+        colonnaVoti,
       ],
     );
   }
@@ -4458,13 +4565,16 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
   Widget _buildBottoneVoto({
     required Voto voto,
+    // _kLarghezzaVoto nella forma a due colonne, tutta la card in quella a
+    // colonna singola (vedi _buildPulsantiera).
+    required double larghezza,
     required bool bloccato,
     required bool selezionato,
     required bool attenuato,
     required VoidCallback onTap,
   }) {
     return _buildBottonePulsantiera(
-      larghezza: _kLarghezzaVoto,
+      larghezza: larghezza,
       colore: bloccato && !selezionato
           ? AppColors.neutral
           : CourtStyle.votoColor(voto),
@@ -4656,6 +4766,49 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         ? inCorso.fondamentale
         : null;
 
+    // Tratto DISEGNATO in fase libera: il fondamentale l'ha già deciso il
+    // disegno (vedi _preselezionaAttaccoDaTraiettoria), quindi la colonna dei
+    // fondamentali non serve più e può passare ai tipi di attacco — l'unico
+    // modo di indicarli con l'in-line, dove TrajectoryScreen non si apre.
+    final tipiAttacco = fondForzato == null &&
+        _traiettoriaNormalizzata != null &&
+        inCorso.fondamentale == Fondamentale.attacco;
+
+    // Quale colonna di sinistra: la fase e il disegno decidono, la
+    // pulsantiera si limita a impaginare quello che le arriva (vedi
+    // _buildPulsantiera).
+    final List<Widget> vociSinistra;
+    if (fondForzato == Fondamentale.battuta) {
+      // In battuta la colonna diventa i tipi di servizio: i fondamentali lì
+      // sono spenti e sprecherebbero lo spazio dove manca proprio quel dato.
+      vociSinistra = _colonnaTipiBattuta(
+        selezionato: _tipoBattutaSelezionato,
+        onTipo: (t) => _scegliTipoBattuta(player, t),
+      );
+    } else if (fondForzato != null) {
+      // Ricezione: niente da scegliere a sinistra e nessun tipo da offrire in
+      // cambio — via la colonna, i voti si allargano su tutta la card.
+      vociSinistra = const [];
+    } else if (tipiAttacco) {
+      vociSinistra = _colonnaTipiAttacco();
+    } else {
+      vociSinistra = _colonnaFondamentali(
+        selezionato: inCorso.fondamentale,
+        bloccata: false,
+        ristretto: _difesaErroreForzataNostra,
+        onFondamentale: _sceglieFondamentale,
+        onErroreDifensivo: (f) => _registraErroreDifensivoRapido(player, f),
+        targetFond: targetFondamentaleNostro,
+      );
+    }
+
+    // Il chip nell'header dice qual è il fondamentale quando NON lo si legge
+    // dalla colonna: imposto dalla fase (battuta/ricezione) oppure — da quando
+    // la colonna può diventare i tipi di attacco — deciso dal disegno.
+    // Senza, tolta la colonna non resterebbe scritto da nessuna parte che
+    // quella che stai per registrare è una schiacciata.
+    final fondChip = fondForzato ?? (tipiAttacco ? Fondamentale.attacco : null);
+
     return [
       Positioned(
         // 4 e non 16: ogni dp fra la card e il bordo dello schermo è un dp in
@@ -4732,8 +4885,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (fondForzato != null)
-                              _buildChipFondamentaleForzato(fondForzato),
+                            if (fondChip != null)
+                              _buildChipFondamentaleForzato(fondChip),
                           ],
                         ),
                       ),
@@ -4749,23 +4902,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         onVoto: _scegliVoto,
                         targetFond: targetFondamentaleNostro,
                         targetVoto: targetVotoNostro,
-                        // In battuta la colonna diventa i tipi di servizio:
-                        // i fondamentali lì sono spenti e sprecherebbero lo
-                        // spazio dove manca proprio quel dato.
-                        vociSinistra: fondForzato == Fondamentale.battuta
-                            ? _colonnaTipiBattuta(
-                                selezionato: _tipoBattutaSelezionato,
-                                onTipo: (t) => _scegliTipoBattuta(player, t),
-                              )
-                            : _colonnaFondamentali(
-                                selezionato: inCorso.fondamentale,
-                                bloccata: fondForzato != null,
-                                ristretto: _difesaErroreForzataNostra,
-                                onFondamentale: _sceglieFondamentale,
-                                onErroreDifensivo: (f) =>
-                                    _registraErroreDifensivoRapido(player, f),
-                                targetFond: targetFondamentaleNostro,
-                              ),
+                        vociSinistra: vociSinistra,
                       ),
                     ],
                   ),
@@ -4793,6 +4930,37 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             !_kFondamentaliPulsantiera.contains(inCorso.fondamentale)
         ? inCorso.fondamentale
         : null;
+
+    // Colonna di sinistra e chip: stesse tre forme del pannello nostro —
+    // tipi di servizio in battuta, niente colonna in ricezione, tipi di
+    // attacco dopo un tratto disegnato.
+    final tipiAttacco = fondForzato == null &&
+        _traiettoriaNormalizzata != null &&
+        inCorso.fondamentale == Fondamentale.attacco;
+
+    final List<Widget> vociSinistra;
+    if (fondForzato == Fondamentale.battuta) {
+      vociSinistra = _colonnaTipiBattuta(
+        selezionato: _tipoBattutaAvversario,
+        onTipo: (t) => setState(() => _tipoBattutaAvversario = t),
+      );
+    } else if (fondForzato != null) {
+      vociSinistra = const [];
+    } else if (tipiAttacco) {
+      vociSinistra = _colonnaTipiAttacco();
+    } else {
+      vociSinistra = _colonnaFondamentali(
+        selezionato: inCorso.fondamentale,
+        bloccata: false,
+        ristretto: _difesaErroreForzataAvversaria,
+        onFondamentale: _scegliFondamentaleAvversario,
+        onErroreDifensivo: (f) =>
+            _registraErroreDifensivoAvversarioRapido(inCorso.ruolo, f),
+        targetFond: targetFondamentaleAvversario,
+      );
+    }
+
+    final fondChip = fondForzato ?? (tipiAttacco ? Fondamentale.attacco : null);
 
     return [
       Positioned(
@@ -4852,8 +5020,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                                 fontSize: 26,
                               ),
                             ),
-                            if (fondForzato != null)
-                              _buildChipFondamentaleForzato(fondForzato),
+                            if (fondChip != null)
+                              _buildChipFondamentaleForzato(fondChip),
                           ],
                         ),
                       ),
@@ -4870,22 +5038,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         onVoto: _scegliVotoAvversario,
                         targetFond: targetFondamentaleAvversario,
                         targetVoto: targetVotoAvversario,
-                        vociSinistra: fondForzato == Fondamentale.battuta
-                            ? _colonnaTipiBattuta(
-                                selezionato: _tipoBattutaAvversario,
-                                onTipo: (t) => setState(
-                                    () => _tipoBattutaAvversario = t),
-                              )
-                            : _colonnaFondamentali(
-                                selezionato: inCorso.fondamentale,
-                                bloccata: fondForzato != null,
-                                ristretto: _difesaErroreForzataAvversaria,
-                                onFondamentale: _scegliFondamentaleAvversario,
-                                onErroreDifensivo: (f) =>
-                                    _registraErroreDifensivoAvversarioRapido(
-                                        inCorso.ruolo, f),
-                                targetFond: targetFondamentaleAvversario,
-                              ),
+                        vociSinistra: vociSinistra,
                       ),
                     ],
                   ),
@@ -5601,7 +5754,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             onTap = _tapHandlerAvversario(ruolo,
                 forzato: Fondamentale.ricezione);
           } else if (faseLibera) {
-            onTap = _tapHandlerAvversario(ruolo);
+            onTap = _tapHandlerAvversario(ruolo, zona: zonaPerRuolo[ruolo]!);
           } else {
             onTap = null;
           }

@@ -81,11 +81,28 @@ ri-toccare quella giusta: **non serve annullare**.
 Il bordo bianco indica cosa hai scelto; le voci non scelte della stessa colonna
 si attenuano solo dopo la prima scelta.
 
+**In gioco aperto, chi sta dietro parte già su *Difesa*.** Tocchi una delle tre
+di seconda linea (o il libero) e trovi il fondamentale pronto: se difendeva
+davvero, ti resta solo il voto. Vale anche per i segnaposto avversari. È solo
+una proposta — tocchi un altro fondamentale e la cambi, e finché non voti non è
+stato scritto niente.
+
 ### Quando il fondamentale è già deciso
 
 In **battuta** e in **ricezione** non c'è niente da scegliere: lo impone la fase
 di gioco, e il fondamentale compare come etichetta sotto il nome. Basta il voto:
 **un tocco**.
+
+In **ricezione** la colonna dei fondamentali sparisce del tutto e i voti si
+allargano a tutta la pulsantiera: restano dove sono — il bordo destro non si
+sposta — ma diventano bersagli più grandi.
+
+In **attacco** il fondamentale lo decide il disegno: appena stacchi il dito dalla
+traiettoria, sopra compare l'etichetta *Attacco* e al posto dei fondamentali
+trovi i **tipi di schiacciata** — Generico, Forte, Piazzata, Pallonetto. Come per
+il servizio puoi ignorarli e votare, oppure toccarne uno prima del voto. Da lì in
+poi però il fondamentale non si cambia più: se hai disegnato per sbaglio, chiudi
+toccando il campo e riparti dalla giocatrice.
 
 In **battuta** quella colonna non resta vuota: al posto dei fondamentali trovi i
 **tipi di servizio** — Generico, Dal basso, Float, Salto, Salto float.
@@ -139,10 +156,9 @@ freccia prosegue fino a dove cade davvero la palla.
 ### Con le traiettorie sul campo disattivate
 
 Dopo il voto si apre una schermata dedicata col campo vuoto, dove si traccia la
-traiettoria con un trascinamento. Lì c'è anche il **tipo di attacco** (forte,
-piazzata, pallonetto), che sul campo dal vivo non è ancora indicabile — il tipo
-di battuta invece sì, dalla colonna qui sopra. Il tasto indietro salta la
-traiettoria senza perdere l'azione.
+traiettoria con un trascinamento. Lì il tipo di battuta e di attacco si scelgono
+da una riga di pulsanti sotto al campo, invece che dalla colonna. Il tasto
+indietro salta la traiettoria senza perdere l'azione.
 
 ---
 
@@ -237,10 +253,12 @@ resta attenuata e non si tocca.
 | Vuoi | Fai |
 |---|---|
 | valutare un'azione | tocca la giocatrice, poi il fondamentale e il voto |
+| valutare una difesa di seconda linea | tocca la giocatrice, poi il voto |
 | valutare battuta o ricezione | tocca la giocatrice, poi il voto |
 | registrare un attacco col percorso | trascina dall'attaccante a terra, poi il voto |
 | registrare una battuta col percorso | trascina dalla linea di fondo, poi il voto |
 | indicare il tipo di servizio | in battuta, toccalo nella colonna di sinistra |
+| indicare il tipo di schiacciata | dopo aver disegnato, stessa colonna di sinistra |
 | cambiare giocatrice | toccane un'altra, anche dell'altra squadra |
 | chiudere senza registrare | tocca il campo |
 | correggere | ↶ per l'ultima azione, ↺ per tutto lo scambio |
