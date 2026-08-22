@@ -33,18 +33,6 @@ class Impostazioni {
   /// dalle Impostazioni.
   final bool tutorialVisibile;
 
-  /// SPERIMENTALE (default **OFF**) — traiettoria della BATTUTA disegnata
-  /// direttamente sul campo dello scout live, invece che aprendo
-  /// `TrajectoryScreen` dopo il voto. Ordine nuovo: tocchi il battitore,
-  /// trascini sul campo, poi voti (il voto chiude l'azione).
-  ///
-  /// Esiste per poter confrontare le due strade **sullo stesso build**, anche a
-  /// set in corso: la schermata dedicata non è stata rimossa e resta l'unica
-  /// strada per l'attacco. Se la prova in campo dice che l'in-line non è
-  /// meglio, si spegne questo e non resta niente da annullare. Da togliere in
-  /// un senso o nell'altro quando ci sarà un verdetto.
-  final bool traiettoriaBattutaInLine;
-
   /// Separatore di campo e decimale dell'export CSV (default `europeo`, il
   /// formato storico). Scelta esplicita e NON derivata dalla lingua dell'app:
   /// a decidere è il locale del computer su cui si apre il file — vedi
@@ -55,7 +43,6 @@ class Impostazioni {
     required this.traiettorieAbilitate,
     required this.scoutAvversariAbilitato,
     required this.tutorialVisibile,
-    required this.traiettoriaBattutaInLine,
     required this.formatoCsv,
   });
 
@@ -63,7 +50,6 @@ class Impostazioni {
     bool? traiettorieAbilitate,
     bool? scoutAvversariAbilitato,
     bool? tutorialVisibile,
-    bool? traiettoriaBattutaInLine,
     FormatoCsv? formatoCsv,
   }) {
     return Impostazioni(
@@ -71,8 +57,6 @@ class Impostazioni {
       scoutAvversariAbilitato:
           scoutAvversariAbilitato ?? this.scoutAvversariAbilitato,
       tutorialVisibile: tutorialVisibile ?? this.tutorialVisibile,
-      traiettoriaBattutaInLine:
-          traiettoriaBattutaInLine ?? this.traiettoriaBattutaInLine,
       formatoCsv: formatoCsv ?? this.formatoCsv,
     );
   }
@@ -82,7 +66,10 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
   static const _kTraiettorie = 'scout.traiettorieAbilitate';
   static const _kScoutAvversari = 'scout.scoutAvversariAbilitato';
   static const _kTutorialVisibile = 'scout.tutorialVisibile';
-  static const _kTraiettoriaBattutaInLine = 'scout.traiettoriaBattutaInLine';
+  // NB: la chiave 'scout.traiettoriaBattutaInLine' non si legge più (il
+  // disegno sul campo è l'unico modo dal 2026-08-22) e resta orfana nelle
+  // preferenze di chi l'aveva provata. Innocua: shared_preferences non si
+  // lamenta di una chiave che nessuno legge.
   static const _kFormatoCsv = 'export.formatoCsv';
 
   @override
@@ -93,10 +80,6 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
       traiettorieAbilitate: prefs.getBool(_kTraiettorie) ?? true,
       scoutAvversariAbilitato: prefs.getBool(_kScoutAvversari) ?? true,
       tutorialVisibile: prefs.getBool(_kTutorialVisibile) ?? true,
-      // Default OFF: acceso solo da chi vuole provarlo, così nessun
-      // comportamento cambia da sé — vedi il commento sul campo.
-      traiettoriaBattutaInLine:
-          prefs.getBool(_kTraiettoriaBattutaInLine) ?? false,
       // Valore sconosciuto (chiave scritta da una versione futura) → default,
       // mai un'eccezione da byName().
       formatoCsv: FormatoCsv.values
@@ -119,13 +102,6 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
   Future<void> setTutorialVisibile(bool value) async {
     await ref.read(sharedPreferencesProvider).setBool(_kTutorialVisibile, value);
     state = state.copyWith(tutorialVisibile: value);
-  }
-
-  Future<void> setTraiettoriaBattutaInLine(bool value) async {
-    await ref
-        .read(sharedPreferencesProvider)
-        .setBool(_kTraiettoriaBattutaInLine, value);
-    state = state.copyWith(traiettoriaBattutaInLine: value);
   }
 
   Future<void> setFormatoCsv(FormatoCsv value) async {

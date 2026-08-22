@@ -71,29 +71,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          // SPERIMENTALE, in prova: traiettoria della battuta disegnata sul
-          // campo dello scout live invece che sulla schermata dedicata dopo il
-          // voto. Convive con la strada classica apposta, per poterle
-          // confrontare in partita sullo stesso build — anche a set in corso.
-          // Da togliere, in un senso o nell'altro, quando ci sarà un verdetto.
-          // Subordinato alle traiettorie: senza quelle non c'è niente da
-          // disegnare.
-          Card(
-            child: SwitchListTile(
-              secondary: const Icon(Icons.gesture),
-              title: Text(l.settingsInlineServeTrajectoryTitle),
-              subtitle: Text(l.settingsInlineServeTrajectorySubtitle),
-              value: premiumAttivo &&
-                  impostazioni.traiettorieAbilitate &&
-                  impostazioni.traiettoriaBattutaInLine,
-              onChanged: premiumAttivo && impostazioni.traiettorieAbilitate
-                  ? (v) => ref
-                      .read(impostazioniProvider.notifier)
-                      .setTraiettoriaBattutaInLine(v)
-                  : null,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Card(
             child: SwitchListTile(
               secondary: const Icon(Icons.groups),

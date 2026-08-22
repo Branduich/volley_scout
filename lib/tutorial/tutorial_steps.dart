@@ -43,7 +43,6 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
       PassoTutorial(
         titolo: l.tutorialVotoTitolo,
         testo: l.tutorialVotoTesto,
-        testoTraiettoria: l.tutorialVotoTraiettoria,
         bersaglio: TutorialTarget.votoNostroPositivo,
         // Di lato: sopra o sotto coprirebbe gli altri quattro voti.
         lato: LatoCard.sinistra,
@@ -86,18 +85,15 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         avanzaSuTap: true,
       ),
 
-      PassoTutorial(
-        titolo: l.tutorialSceltaFondTitolo,
-        testo: l.tutorialSceltaFondTesto,
-        bersaglio: TutorialTarget.fondAvvAttacco,
-        lato: LatoCard.sinistra,
-        avanzaSuTap: true,
-      ),
-
+      // NIENTE passo "premi Attacco": il trascinamento l'ha già deciso
+      // (_preselezionaAttaccoDaTraiettoria) e ha per giunta sostituito quella
+      // colonna coi tipi di attacco — il bottone non esiste più, e un passo
+      // che lo aspettava lasciava il tutorial bloccato. La spiegazione della
+      // colonna di sinistra è passata al passo della DIFESA, che è il primo
+      // punto in cui il fondamentale si sceglie davvero a mano.
       PassoTutorial(
         titolo: l.tutorialAttaccoNonRisolutivoTitolo,
         testo: l.tutorialAttaccoNonRisolutivoTesto,
-        testoTraiettoria: l.tutorialAttaccoNonRisolutivoTraiettoria,
         bersaglio: TutorialTarget.votoAvvMezzoPunto,
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>
@@ -141,18 +137,11 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         avanzaSuTap: true,
       ),
 
-      PassoTutorial(
-        titolo: l.tutorialAttaccoTitolo,
-        testo: l.tutorialAttaccoTesto,
-        bersaglio: TutorialTarget.fondNostroAttacco,
-        lato: LatoCard.sinistra,
-        avanzaSuTap: true,
-      ),
-
+      // Come per l'attacco avversario: il disegno ha già scelto il
+      // fondamentale, quindi si va dritti al voto.
       PassoTutorial(
         titolo: l.tutorialSchiacciataTitolo,
         testo: l.tutorialSchiacciataTesto,
-        testoTraiettoria: l.tutorialSchiacciataTraiettoria,
         bersaglio: TutorialTarget.votoNostroPerfetto,
         lato: LatoCard.sinistra,
         avanzaSuLog: (log, _) => log.any((a) =>

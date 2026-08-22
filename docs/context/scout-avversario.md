@@ -97,10 +97,10 @@ pannello aperto** (e viceversa): sostituisce invece di essere ignorato, e chi
 apre azzera l'altro — vedi "Cambio giocatore a pannello aperto" in scout-live.md.
 
 `_registraVotoAvversario` (senza parametri, come il nostro: legge la coppia da
-`_avversarioInCorso`) apre `TrajectoryScreen` per battuta/attacco (stesso
-gate traiettorie+premium del nostro `_registraVoto`): `TrajectoryScreen.giocatore`
-è nullable, si passa `etichettaAvversario` per il banner. Il tipo battuta/attacco
-NON resta "armato" per l'avversario.
+`_avversarioInCorso`) usa il tratto disegnato sul campo prima del voto, come noi
+— dal token avversario verso la nostra metà. Il tipo di **battuta** resta
+"armato" finché serve lo stesso RUOLO (`_ruoloTipoBattutaArmato`); quello di
+**attacco** non si arma mai, né per loro né per noi.
 
 ### Report avversario (MatchReportScreen, a video)
 Blocco in coda (gate `_scoutDueSquadre`), dopo un separatore col nome squadra,

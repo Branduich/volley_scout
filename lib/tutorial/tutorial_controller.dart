@@ -39,12 +39,6 @@ class PassoTutorial {
   final String testo;
   final String? titolo;
 
-  /// Nota da mostrare su `TrajectoryScreen`, se questo passo ci passa (voto di
-  /// battuta o attacco con le traiettorie attive). Lì l'azione è un
-  /// trascinamento sul campo, non un pulsante: niente buco nel velo, solo un
-  /// riquadro che non intercetta il tocco. `null` = nessuna nota.
-  final String? testoTraiettoria;
-
   /// Elemento da evidenziare col buco nello scrim. `null` = card centrale e
   /// scrim pieno (nulla è premibile a parte i bottoni della card).
   final TutorialTarget? bersaglio;
@@ -87,7 +81,6 @@ class PassoTutorial {
   const PassoTutorial({
     required this.testo,
     this.titolo,
-    this.testoTraiettoria,
     this.bersaglio,
     this.bersaglioSecondario,
     this.lato = LatoCard.automatico,

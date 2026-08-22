@@ -30,7 +30,6 @@ import '../report/trajectory_report_screen.dart';
 import 'end_set_screen.dart';
 import 'sostituzione_screen.dart';
 import 'tactical_board_screen.dart';
-import 'trajectory_screen.dart';
 import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF143E59);
@@ -726,12 +725,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
   // Le condizioni che NON dipendono dal pannello: servono anche un istante
   // prima che si apra, quando il trascinamento parte dal giocatore stesso.
+  //
+  // Il TUTORIAL passa di qui come una partita vera (dal 2026-08-22): il disegno
+  // sul campo è l'unico modo di prendere una traiettoria, quindi insegnarne un
+  // altro non avrebbe senso. Durante il tutorial il premio è già attivo e le
+  // traiettorie si forzano accese, come per la vecchia schermata dedicata.
+  // Resta fuori solo la modalità test, che non scrive azioni vere.
   bool get _traiettorieInLineConsentite {
-    if (widget.tutorial || _testModeEnabled) return false;
-    final impostazioni = ref.read(impostazioniProvider);
-    if (!impostazioni.traiettoriaBattutaInLine) return false;
-    if (!impostazioni.traiettorieAbilitate) return false;
-    return ref.read(statoPremiumProvider).attivo;
+    if (_testModeEnabled) return false;
+    if (!widget.tutorial && !ref.read(impostazioniProvider).traiettorieAbilitate) {
+      return false;
+    }
+    return widget.tutorial || ref.read(statoPremiumProvider).attivo;
   }
 
   // In battuta il servizio si batte da QUALSIASI punto della linea di fondo,
@@ -1476,70 +1481,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   ) async {
     final esito = _esitoVoto(fondamentale, voto);
 
-    // Solo battuta/attacco chiedono la traiettoria — schermata dedicata,
-    // niente bottoni "salta"/"conferma": il back la salta (registra
-    // comunque un risultato, solo senza coordinate — vedi TrajectoryScreen),
-    // il rilascio del drag la conferma subito. Per la battuta,
-    // TrajectoryScreen mostra anche la scelta del tipo (sotto al campo,
-    // spostata qui dal pannello voto): si passa il valore "armato" attuale
-    // come iniziale e si rilegge quello (eventualmente cambiato) dal
-    // risultato, per restare "armato" anche tra una traiettoria e l'altra.
-    // Con le traiettorie disattivate nelle Impostazioni si salta la
-    // schermata: azione registrata subito con coordinate null (stesso
-    // percorso del "salta"). Nota: anche la scelta del tipo battuta/attacco
-    // vive su TrajectoryScreen, quindi resta 'nonSpecificato' — accettato
-    // per ora (flusso ultra-veloce), eventuale rientro dei chip nel
-    // pannello voto da valutare in futuro.
-    // GATE PREMIUM: per un utente free le traiettorie sono spente a
-    // prescindere dal toggle (come se fosse disabilitato) — dopo il voto si
-    // procede subito, nessun paywall in mezzo alla presa dati (il paywall
-    // compare solo dalle voci di menu/report, azioni deliberate).
-    // Nel tutorial la traiettoria si apre sempre: è uno dei passi da mostrare,
-    // e col toggle spento resterebbe una funzione di cui non si sospetta
-    // l'esistenza. Il premium non serve forzarlo: durante il tutorial
-    // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
-    // SPERIMENTALE (interruttore in Impostazioni): la traiettoria è già stata
-    // disegnata sul campo PRIMA del voto, quindi qui non si apre nessuna
-    // schermata — si prende quello che c'è, o niente se non è stato disegnato.
+    // La traiettoria è già stata disegnata sul campo PRIMA del voto: qui non si
+    // apre nessuna schermata, si prende quello che c'è (o niente, se non è
+    // stato disegnato — è il vecchio "salta", senza un bottone per dirlo).
     // `richiedeTraiettoria` serve perché il tratto si cattura anche in fase
     // libera, quando il fondamentale non è ancora stato scelto: se poi si
     // rivela un'alzata o una difesa, il disegno si butta.
+    // GATE PREMIUM E IMPOSTAZIONI: stanno dentro _traiettorieInLineConsentite,
+    // che decide anche se il tratto si poteva disegnare. Per un utente free non
+    // si disegna e basta — nessun paywall in mezzo alla presa dati (quello
+    // compare solo da menu e report, che sono azioni deliberate).
     final inLine = _traiettoriaInLineAttiva && fondamentale.richiedeTraiettoria
         ? _traiettoriaNormalizzata
         : null;
 
-    Traiettoria? traiettoria;
-    if (!_traiettoriaInLineAttiva &&
-        fondamentale.richiedeTraiettoria &&
-        (widget.tutorial ||
-            ref.read(impostazioniProvider).traiettorieAbilitate) &&
-        ref.read(statoPremiumProvider).attivo) {
-      traiettoria = await Navigator.push<Traiettoria>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TrajectoryScreen(
-            giocatore: giocatore,
-            fondamentale: fondamentale,
-            voto: voto,
-            tipoBattutaIniziale: fondamentale == Fondamentale.battuta
-                ? _tipoBattutaSelezionato
-                : null,
-          ),
-        ),
-      );
-      if (!mounted) return;
-      if (fondamentale == Fondamentale.battuta && traiettoria != null) {
-        _tipoBattutaSelezionato = traiettoria.tipoBattuta;
-      }
-    }
-
+    // I tipi di esecuzione vengono dalla colonna della pulsantiera: quelli di
+    // servizio in fase battuta, quelli di attacco dopo un tratto disegnato
+    // (vedi _colonnaTipiBattuta / _colonnaTipiAttacco).
     final tipoEsecuzione = switch (fondamentale) {
       Fondamentale.battuta => _tipoBattutaSelezionato.name,
-      // La schermata traiettoria, se si è aperta, ha l'ultima parola;
-      // altrimenti vale quello scelto nella colonna della pulsantiera dopo il
-      // disegno in-line (vedi _colonnaTipiAttacco).
-      Fondamentale.attacco =>
-        (traiettoria?.tipoAttacco ?? _tipoAttaccoInLine).name,
+      Fondamentale.attacco => _tipoAttaccoInLine.name,
       _ => 'nonSpecificato',
     };
 
@@ -1553,12 +1514,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
-          traiettoriaX1: inLine?.x1 ?? traiettoria?.x1,
-          traiettoriaY1: inLine?.y1 ?? traiettoria?.y1,
-          traiettoriaX2: inLine?.x2 ?? traiettoria?.x2,
-          traiettoriaY2: inLine?.y2 ?? traiettoria?.y2,
-          traiettoriaMuroX: inLine?.muroX ?? traiettoria?.muroX,
-          traiettoriaMuroY: inLine?.muroY ?? traiettoria?.muroY,
+          traiettoriaX1: inLine?.x1,
+          traiettoriaY1: inLine?.y1,
+          traiettoriaX2: inLine?.x2,
+          traiettoriaY2: inLine?.y2,
+          traiettoriaMuroX: inLine?.muroX,
+          traiettoriaMuroY: inLine?.muroY,
         );
     if (!mounted) return;
     setState(() {
@@ -1717,51 +1678,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final esito = _esitoVotoAvversario(fondamentale, voto);
 
     // Traiettoria per battuta/attacco avversari — stesso flusso del nostro
-    // _registraVoto (gate traiettorie + premium). TrajectoryScreen disegna
-    // sulla stessa immagine campo doppio: il drag parte dal token avversario
-    // (loro metà) verso la nostra. `giocatore` è null, si passa l'etichetta
-    // di ruolo per il banner. Il tipo battuta/attacco NON resta "armato" per
-    // l'avversario (nessun roster): parte sempre da nonSpecificato.
-    // Nel tutorial la traiettoria si apre sempre: è uno dei passi da mostrare,
-    // e col toggle spento resterebbe una funzione di cui non si sospetta
-    // l'esistenza. Il premium non serve forzarlo: durante il tutorial
-    // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
-    // Sperimentale, come nel nostro _scriviVoto: battuta e attacco avversari
-    // si disegnano sul campo live prima del voto (vedi
-    // _traiettoriaInLineAttiva).
+    // _scriviVoto: il tratto si disegna sul campo prima del voto, dal token
+    // avversario (loro metà) verso la nostra.
     final inLine = _traiettoriaInLineAttiva && fondamentale.richiedeTraiettoria
         ? _traiettoriaNormalizzata
         : null;
 
-    Traiettoria? traiettoria;
-    if (!_traiettoriaInLineAttiva &&
-        fondamentale.richiedeTraiettoria &&
-        (widget.tutorial ||
-            ref.read(impostazioniProvider).traiettorieAbilitate) &&
-        ref.read(statoPremiumProvider).attivo) {
-      traiettoria = await Navigator.push<Traiettoria>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TrajectoryScreen(
-            etichettaAvversario: ruolo,
-            fondamentale: fondamentale,
-            voto: voto,
-            tipoBattutaIniziale: fondamentale == Fondamentale.battuta
-                ? _tipoBattutaAvversario
-                : null,
-          ),
-        ),
-      );
-      if (!mounted) return;
-    }
-
+    // Dalla colonna della pulsantiera, come per noi. Il tipo di battuta resta
+    // "armato" finché serve lo stesso RUOLO (vedi _ruoloTipoBattutaArmato);
+    // quello di attacco non si arma mai, né per noi né per loro.
     final tipoEsecuzione = switch (fondamentale) {
-      // La schermata traiettoria, se si è aperta, ha l'ultima parola; altrimenti
-      // vale quello scelto nella colonna della pulsantiera.
-      Fondamentale.battuta =>
-        (traiettoria?.tipoBattuta ?? _tipoBattutaAvversario).name,
-      Fondamentale.attacco =>
-        (traiettoria?.tipoAttacco ?? _tipoAttaccoInLine).name,
+      Fondamentale.battuta => _tipoBattutaAvversario.name,
+      Fondamentale.attacco => _tipoAttaccoInLine.name,
       _ => 'nonSpecificato',
     };
 
@@ -1772,12 +1700,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
-          traiettoriaX1: inLine?.x1 ?? traiettoria?.x1,
-          traiettoriaY1: inLine?.y1 ?? traiettoria?.y1,
-          traiettoriaX2: inLine?.x2 ?? traiettoria?.x2,
-          traiettoriaY2: inLine?.y2 ?? traiettoria?.y2,
-          traiettoriaMuroX: inLine?.muroX ?? traiettoria?.muroX,
-          traiettoriaMuroY: inLine?.muroY ?? traiettoria?.muroY,
+          traiettoriaX1: inLine?.x1,
+          traiettoriaY1: inLine?.y1,
+          traiettoriaX2: inLine?.x2,
+          traiettoriaY2: inLine?.y2,
+          traiettoriaMuroX: inLine?.muroX,
+          traiettoriaMuroY: inLine?.muroY,
         );
     if (!mounted) return;
     // La fase (_fondamentaleGiudicatoRallyCorrente/_attesaBattutaAvversaria) è

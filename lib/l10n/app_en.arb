@@ -12,8 +12,6 @@
   "settingsTrajectoriesTitle": "Trajectories while scouting",
   "settingsTrajectoriesSubtitle": "After rating a serve or attack you'll be asked to draw its trajectory. Turning this off makes scouting faster, but the trajectory reports stay empty.",
   "settingsTrajectoriesSubtitlePremium": "Premium feature: trajectories are disabled.",
-  "settingsInlineServeTrajectoryTitle": "Trajectories on the court (trial)",
-  "settingsInlineServeTrajectorySubtitle": "Draw serve and attack trajectories on the scouting court, before the rating, instead of opening the dedicated screen afterwards. Tap the player, drag, then rate: the rating closes the action, so drag first. For a block touch, pause briefly on the net while dragging: the deflection point locks there and the arrow carries on to where the ball lands. In this mode serve and attack types cannot be recorded yet.",
   "settingsOpponentScoutTitle": "Opponent scouting",
   "settingsOpponentScoutSubtitle": "Track the opponent's attacks, serves and blocks with rotating role placeholders. You set the opponent setter's position at the start of each set.",
   "settingsSectionDev": "Development",
@@ -386,11 +384,10 @@
   "tutorialBenvenutoTesto": "This is the scouting page for a practice match: nothing you record here will be saved.\n\nJust follow along — at each step only the highlighted button can be pressed, and I'll show you how to rate every skill.",
 
   "tutorialTreTocchiTitolo": "Three taps",
-  "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating. Skill and rating sit on the same keypad, in two columns, and you press them in either order.\n\nWe're serving: tap the player about to serve, outside the court.",
+  "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating. Skill and rating sit on the same keypad, in two columns, and you press them in either order.\n\nWe're serving: tap the player about to serve, outside the court.\n\nOr, to mark where the ball goes as well, drag your finger from them to the landing point: the keypad opens by itself and the trajectory is already captured.",
 
   "tutorialVotoTitolo": "The rating",
   "tutorialVotoTesto": "On a serve the skill is already decided by the phase of play: the left column shows serve types instead — you can ignore them, only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
-  "tutorialVotoTraiettoria": "After the rating you can mark where the ball went: drag your finger from the server to the landing point, and the action is recorded when you let go. Below the court you can also set the type of serve. If you'd rather skip it, go back with the arrow at the top: the action is recorded anyway, just without a trajectory.",
 
   "tutorialAvversariTitolo": "The opposing team",
   "tutorialAvversariTesto": "Here the scout also tracks an opposing team. It is a fictional one: it only exists to help you record their ratings and trajectories.\n\nTheir middle blocker passed the ball: tap them.",
@@ -399,33 +396,27 @@
   "tutorialVotoRicezioneTesto": "The ratings mean the same thing, read from the passer's side: # a perfect pass, leaving the setter every option, down to = a missed pass, which is a point for us.\n\nHere the serve gave them trouble: give it a −.",
 
   "tutorialAttaccoAvvTitolo": "The opponent's attack",
-  "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Tap them.",
+  "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Drag from them to where the ball lands in our court: it works for the opponents too, and that's how you learn where their shots come from.",
 
-  "tutorialSceltaFondTitolo": "Choosing the skill",
-  "tutorialSceltaFondTesto": "Serve and pass were forced by the phase of play. Now the rally is open: the left column lights up and it's up to you to say what happened.\n\nPress Attack. You can start from the rating instead if you prefer: the order doesn't matter, the action is recorded once you have picked both.",
 
   "tutorialAttaccoNonRisolutivoTitolo": "An attack that doesn't finish",
-  "tutorialAttaccoNonRisolutivoTesto": "The attack doesn't win the point: the ball stays alive and comes back to our side. It was an easy ball to dig: give it a /.",
-  "tutorialAttaccoNonRisolutivoTraiettoria": "You can mark the trajectory of an attack too: drag from where it started to where the ball landed. Below the court you can set the type of attack.\nIf you pause on the net while dragging, a block touch is recorded: the trajectory bends at that point.",
+  "tutorialAttaccoNonRisolutivoTesto": "The drag decided the skill: you can see the Attack label above, and instead of the skills the column now shows the attack types, which you can ignore.\n\nThe attack doesn't win the point: the ball stays alive and comes back to our side. It was an easy ball to dig: give it a /.",
 
   "tutorialToccaANoiTitolo": "Our turn",
   "tutorialToccaANoiTesto": "Our libero, in position 5, came up with a great dig. Tap them.",
 
   "tutorialDifesaTitolo": "Dig",
-  "tutorialDifesaTesto": "The ball came off an attack, so in the left column the skill to choose is the dig.",
+  "tutorialDifesaTesto": "Serves and passes were forced by the phase of play, and on attacks the drag decided the skill. Here it's up to you: in open play the left column is live.\n\nThe ball came off an attack, so it's a dig: press Dig. Back-row players have it selected already. You can start from the rating if you prefer: the order doesn't matter, the action is recorded once you've chosen both.",
 
   "tutorialDifesaPerfettaTitolo": "A perfect dig",
   "tutorialDifesaPerfettaTesto": "The ball came back to the setter clean: they can run whatever they want. Give it a #.",
 
   "tutorialNostroAttaccoTitolo": "Our attack",
-  "tutorialNostroAttaccoTesto": "The set goes to our outside hitter in position 4, who puts it away. Tap them.",
+  "tutorialNostroAttaccoTesto": "The set goes to our outside hitter in position 4, who puts it away. Drag from them to the spot where the ball hits the floor: the skill switches to Attack by itself, because drawing means attacking. Pause a moment on the net and a block touch is recorded, bending the trajectory there.",
 
-  "tutorialAttaccoTitolo": "Attack",
-  "tutorialAttaccoTesto": "This time the skill is the attack.",
 
   "tutorialSchiacciataTitolo": "Kill",
   "tutorialSchiacciataTesto": "The ball hit the floor: give it a #.\n\nThe score won't move just yet. With opponent scouting on, the point comes from the error of whoever had to dig it, which you'll record in a moment: that way the rally is counted only once.",
-  "tutorialSchiacciataTraiettoria": "Mark where the attack landed: drag from where it started to where the ball hit the floor.\nIf you pause on the net, a block touch is recorded and the trajectory bends at that point.",
 
   "tutorialDifensoreTitolo": "The defender didn't get there",
   "tutorialDifensoreTesto": "The ball landed in their position 5, where the defense couldn't reach it. Tap that player.",

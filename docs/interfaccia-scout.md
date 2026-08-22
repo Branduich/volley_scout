@@ -4,9 +4,9 @@ Come si registra una partita con Volley Stratego. Documento rivolto a **chi usa
 l'app**: nessun dettaglio di codice, solo cosa si vede e cosa si tocca. Per il
 funzionamento interno vedi `docs/context/scout-live.md`.
 
-> Il documento descrive l'app **con le traiettorie sul campo attive**
-> (Impostazioni → *Traiettorie sul campo*). Dove il comportamento cambia con
-> quell'interruttore spento, è scritto.
+> Le traiettorie si disegnano **sul campo, prima del voto**. Era una prova
+> dietro un interruttore; da agosto 2026 è l'unico modo, e la vecchia
+> schermata dedicata non c'è più.
 
 ---
 
@@ -153,12 +153,12 @@ Su un attacco deviato dal muro: mentre trascini, **fermati un attimo sulla
 rete**. Una riga gialla si accende a dirti che ci sei; lo snodo si fissa lì e la
 freccia prosegue fino a dove cade davvero la palla.
 
-### Con le traiettorie sul campo disattivate
+### Se non ti interessa la traiettoria
 
-Dopo il voto si apre una schermata dedicata col campo vuoto, dove si traccia la
-traiettoria con un trascinamento. Lì il tipo di battuta e di attacco si scelgono
-da una riga di pulsanti sotto al campo, invece che dalla colonna. Il tasto
-indietro salta la traiettoria senza perdere l'azione.
+Non disegnare e basta: vota, e l'azione si registra lo stesso, solo senza
+percorso. Se vuoi toglierle del tutto — anche per non disegnarle per sbaglio —
+c'è l'interruttore *Traiettorie durante lo scout* nelle Impostazioni; i report
+delle traiettorie però restano vuoti.
 
 ---
 
@@ -243,7 +243,6 @@ resta attenuata e non si tocca.
 | Impostazione | Effetto |
 |---|---|
 | **Traiettorie durante lo scout** | senza, il voto registra subito e i report delle traiettorie restano vuoti |
-| **Traiettorie sul campo** *(in prova)* | si disegna sul campo prima del voto, invece che nella schermata dedicata dopo |
 | **Scout avversari** | segnaposto avversari e regola del punto qui sopra |
 
 ---

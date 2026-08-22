@@ -508,55 +508,22 @@
       come anteprima di quello che verrà scritto.
     - **`_registrazioneInCorso`**: guardia contro il doppio tocco rapido
       sull'ultimo bottone della coppia — `_registraVoto` è async (attende
-      `TrajectoryScreen` e la scrittura) e senza guardia un secondo tocco
+      la scrittura a DB) e senza guardia un secondo tocco
       arrivato nel frattempo registrerebbe due azioni identiche.
     - **`_buildPulsantiera` è condivisa** fra pannello nostro e avversario:
       cambiano solo i callback e le funzioni `targetFond`/`targetVoto` delle
       àncore tutorial.
-    - **Tipo battuta** (IMPLEMENTATO, opzionale — "Dal basso"/"Float"/
-      "Salto"/"Salto float"): scelto su **`TrajectoryScreen`**, non più nel
-      pannello voto qui — riga orizzontale di 4 chip subito sotto al campo
-      (spostata via per sgombrare il pannello voto, già pieno; vedi
-      "Traiettoria battuta/attacco" più sotto per i dettagli della
-      schermata e del meccanismo di passaggio/ritorno del valore "armato").
-      Tap su un chip → lo seleziona (sfondo/bordo `AppColors.brandAccent`);
-      tap di nuovo sullo stesso chip → lo deseleziona (torna a
-      `nonSpecificato`). **Non blocca il flusso veloce**: ignorarlo e
-      saltare/disegnare la traiettoria registra comunque l'azione, con
-      `tipoEsecuzione = 'nonSpecificato'` come sempre.
-      - **Resta "armato" tra una battuta e l'altra dello STESSO giocatore**
-        (spesso batte sempre nello stesso modo) — cambia battitore e si
-        azzera (non si assume che batta uguale). `_giocatoreTipoBattutaArmato`
-        e `_tipoBattutaSelezionato` restano in `ScoutScreen` (unica istanza
-        persistente tra una `TrajectoryScreen` e la successiva): la prima
-        traccia il `player.id` per cui il valore è valido (resettato a
-        `nonSpecificato` in `_tapHandlerPerGiocatore` quando cambia
-        battitore), la seconda viene passata come `tipoBattutaIniziale` alla
-        navigazione e riletta dal campo `tipoBattuta` del risultato al
-        ritorno — `_registraVoto` non la resetta mai esplicitamente (resta
-        quella che è finché non cambia battitore).
-      - `_registraVoto` passa `tipoEsecuzione: _tipoBattutaSelezionato.name`
-        a `registraAzioneScout()` solo se `fondamentale == battuta`,
-        `_tipoAttaccoSelezionato.name` se `== attacco`, altrimenti
-        `'nonSpecificato'` (ricezione/alzata/muro/difesa non hanno un proprio
-        tipo di esecuzione — vedi Modello dati).
-    - **Tipo attacco** (IMPLEMENTATO, opzionale — "Forte"/"Piazzata"/
-      "Pallonetto" in un'unica riga): scelto anche questo su
-      **`TrajectoryScreen`** (non più nel pannello voto), riga orizzontale
-      di 3 chip sotto al campo — stessa posizione della riga tipo battuta
-      (mai entrambe insieme, sono mutuamente esclusive sullo stesso
-      `widget.fondamentale`). **Non resta mai "armato"** tra un attacco e
-      l'altro (a differenza della battuta, di solito eseguita sempre nello
-      stesso modo dallo stesso giocatore): a differenza del tipo battuta,
-      qui `TrajectoryScreen` non riceve né passa indietro un valore
-      "iniziale" — parte sempre da `nonSpecificato` a ogni apertura della
-      schermata, varia troppo spesso colpo su colpo per assumere che resti
-      lo stesso anche per lo stesso giocatore.
-    - **`_buildTipoChip`** (in `TrajectoryScreen`, duplicata da
-      `ScoutScreen` con lo stesso stile — non più condivisa tra due righe
-      nella stessa schermata, dato che entrambe le righe sono migrate
-      insieme): chip generica (92×52, stesso stile selezionato/non
-      selezionato) parametrizzata su label/selezionato/onTap.
+    - **Tipi di esecuzione**: vivono tutti nella **colonna di sinistra della
+      pulsantiera** (vedi sopra) — quelli di servizio in fase battuta, quelli
+      di attacco dopo un tratto disegnato. Non c'è più nessuna riga di chip:
+      la schermata che li ospitava è stata cancellata il 2026-08-22 insieme
+      alla vecchia strada delle traiettorie.
+      - Il tipo di **battuta** resta "armato" finché serve lo stesso
+        battitore (`_giocatoreTipoBattutaArmato` per noi,
+        `_ruoloTipoBattutaArmato` per gli avversari); quello di **attacco**
+        non si arma mai — varia colpo su colpo.
+      - Nessuno dei due registra da sé: a chiudere l'azione è sempre e solo
+        il voto, quindi ignorarli lascia il percorso veloce di un tocco.
     - **Annulla = tap fuori dal pannello**, non un bottone dedicato. Il
       pannello stesso è avvolto in un `GestureDetector(onTap: () {})`
       `opaque` che **assorbe** il tap — necessario perché lo Stack interrompe
@@ -616,18 +583,17 @@
          va data una key, costa nulla e toglie di mezzo un'intera classe di
          bug illeggibili.
 
-  - **Traiettorie SUL CAMPO LIVE** (sperimentale, in prova — interruttore
-    `Impostazioni.traiettoriaBattutaInLine`, **default OFF**; il nome della
-    chiave dice ancora "battuta" per non rompere le preferenze già salvate,
-    ma vale per **battuta E attacco**).
+  - **Traiettorie SUL CAMPO LIVE — l'unico modo** (dal 2026-08-22; niente più
+    interruttore, e la vecchia `TrajectoryScreen` è stata **cancellata**).
     Ordine: tocchi il giocatore → trascini sul campo → voti. Nasce da una
     prova in partita vera: in battuta il voto si può dare solo dopo aver visto
     l'esito, quindi si è già in ritardo — e la schermata dedicata, aperta
-    dopo, ti porta via dal campo proprio mentre lo scambio continua.
-    Le due strade convivono APPOSTA, per confrontarle sullo stesso build anche
-    a set in corso: `TrajectoryScreen` resta intatta e **non va cancellata**
-    finché non c'è un verdetto. O tutto nuovo o tutto vecchio: mezzo e mezzo
-    non direbbe niente.
+    dopo, ti portava via dal campo proprio mentre lo scambio continuava.
+    Provate entrambe sullo stesso build dietro un interruttore (build 1.0.0+12
+    e +13), verdetto in campo a favore del disegno sul campo: l'interruttore
+    `scout.traiettoriaBattutaInLine`, la schermata, i suoi chip e la nota del
+    tutorial che ci viveva sopra sono spariti insieme. La vecchia strada resta
+    nella storia di git, se un domani servisse rileggerla.
     - **Il voto chiude l'azione**: se voti prima di trascinare la traiettoria
       è persa, come il "salta" di oggi. Nessuna regola nuova.
     - **Il tratto si cattura PRIMA di sapere che fondamentale è.** In fase
@@ -651,8 +617,7 @@
       Conseguenza voluta: col voto già scelto la coppia si completa al
       rilascio del dito e l'azione parte — è sempre la regola "si registra
       quando ci sono entrambe", con una metà che arriva da un trascinamento.
-    - **Tocco a muro: SOFFERMAMENTO sulla rete** (solo attacco), lo stesso
-      meccanismo di `TrajectoryScreen`. Trascinando, se il dito resta nella
+    - **Tocco a muro: SOFFERMAMENTO sulla rete** (solo attacco). Trascinando, se il dito resta nella
       fascia `_kToleranzaReteInLine` per `_kSoffermamentoReteInLine` (400ms) lo
       snodo si aggancia alla rete e la freccia prosegue a due segmenti. Il
       dwell NON può basarsi sui soli eventi di movimento (col dito fermo non ne
@@ -713,9 +678,9 @@
       painter**, non un campo con `setState`: il dito genera un evento per
       frame, e un `setState` ricostruirebbe tutto `ScoutScreen` 60 volte al
       secondo.
-    - Il painter è condiviso con `TrajectoryScreen`
-      (`widgets/freccia_traiettoria_painter.dart`, estratto da lì): una copia
-      sola, così le due strade non divergono mentre le si confronta.
+    - Il painter sta in `widgets/freccia_traiettoria_painter.dart`, estratto
+      dalla vecchia schermata dedicata quando le due strade convivevano e
+      rimasto lì dopo la sua cancellazione.
     - **Tipo di BATTUTA: risolto** (2026-08-22) dalla colonna dei tipi in fase
       servizio, vedi sopra. Vale per entrambe le squadre e resta **armato**
       finché serve lo stesso battitore: per noi la chiave è `player.id`
@@ -727,8 +692,7 @@
       (vedi l'apertura di scout-avversario.md), non a seguire le loro
       giocatrici. Un loro cambio dietro a quel ruolo non corrompe niente,
       perché non abbiamo mai preteso di tracciare una persona.
-      Colonna e chip di `TrajectoryScreen` scrivono lo STESSO campo, quindi non
-      possono divergere. Il tipo non registra mai: a chiudere l'azione è sempre
+      Il tipo non registra mai: a chiudere l'azione è sempre
       e solo il voto, quindi il percorso veloce resta di un tocco.
     - **Tipo di ATTACCO: risolto** (2026-08-22) dalla stessa colonna, con la
       stessa idea della battuta — quando il fondamentale è già deciso, quello
@@ -740,9 +704,7 @@
       il solo voto). `_tipoAttaccoInLine` **non resta mai armato** — varia
       colpo su colpo — e si azzera dentro `_azzeraTraiettoriaInLine()`, da cui
       passano già apertura pannello, cambio giocatrice, registrazione e undo.
-      Vale identico per l'avversario. Se `TrajectoryScreen` si è aperta (strada
-      classica) l'ultima parola resta sua: `traiettoria?.tipoAttacco ??
-      _tipoAttaccoInLine`.
+      Vale identico per l'avversario.
       - **Il chip nell'header ora copre due casi**: fondamentale imposto dalla
         FASE (battuta/ricezione) *oppure* deciso dal DISEGNO. Senza,
         sostituita la colonna non resterebbe scritto da nessuna parte che
@@ -1269,134 +1231,14 @@
   funzione duplicata in `lineup_screen.dart`), bordo e testo bianchi (stesso
   stile degli altri token, non più bordo/testo neri). Etichetta: numero di
   maglia se `_showJerseyNumbers`, altrimenti "L1"/"L2".
-- **Traiettoria battuta/attacco** (IMPLEMENTATA): `TrajectoryScreen`
-  (`lib/screens/live/trajectory_screen.dart`) — solo per
-  `Fondamentale.richiedeTraiettoria` (battuta/attacco), qualunque voto
-  (anche `errore`: ha senso vedere dove è finita una battuta in rete/fuori).
-  Aperta da `ScoutScreen._registraVoto` **dopo** la scelta del voto e
-  **prima** di registrare l'azione — `Navigator.push<Traiettoria>` (typedef
-  `({double? x1, y1, x2, y2, muroX, muroY, required TipoBattuta
-  tipoBattuta})`, coordinate normalizzate 0.0-1.0 rispetto al campo intero,
-  stesso spazio di riferimento 1200×600 usato altrove). Il record tornato
-  da `Navigator.pop` **non è mai `null`** (a differenza di prima): porta
-  sempre almeno `tipoBattuta` (vedi sotto), con le coordinate a `null`
-  quando si è saltata la traiettoria.
-  **Nessun bottone "Salta"/"Conferma"**: niente `AppBar` nativa — stessa
-  barra superiore custom di `ScoutScreen` (`Container` 60dp,
-  `Color(0xFF0D2738)`, titolo "Imposta traiettoria" bianco bold 16px
-  ancorato vicino al bordo inferiore della barra), con solo un bottone
-  back a sinistra (niente menu/undo/punteggio, non pertinenti qui) — tap
-  sul back senza aver disegnato nulla (`_onBack`) = pop con coordinate
-  `null` ma `tipoBattuta` valorizzato (salta la traiettoria, non il tipo
-  battuta); un **drag** (`onPanStart/Update/End`) dal punto di partenza a
-  quello di arrivo conferma subito al rilascio
-  (`Navigator.pop(context, risultato)`), niente tocco aggiuntivo. Sfondo
-  schermo `Color(0xFF143E59)`, stesso di
-  `ScoutScreen` (`_kBg`/`_kTopBarBg` duplicati qui per coerenza visiva,
-  stesso pattern di altre costanti duplicate tra schermate). **Stessa
-  dimensione/posizionamento del campo di `ScoutScreen`** (58% della
-  larghezza disponibile, ancorato in alto con margine fisso 16px — non
-  centrato verticalmente, stesse costanti duplicate qui per coerenza
-  visiva tra le due schermate), `double_court_bg.png` (`BoxFit.contain`).
-  **Banner azione** (`_buildBanner`, tra la barra superiore e il campo,
-  stessa altezza fissa 36 di `ScoutScreen`): stesso testo/stile/colore di
-  `ScoutScreen._descrizioneAzione` per il caso `TipoAzione.scout`
-  ("Numero - Cognome - Fondamentale" + simbolo voto più grande), ma qui
-  sull'azione **in corso** (passata a `TrajectoryScreen` come
-  `giocatore`/`fondamentale`/`voto` — non è ancora un `ScoutAction`
-  salvato a questo punto del flusso, quindi si formatta direttamente dai
-  tre parametri invece che da una riga DB). **Spacer di 60px** tra barra
-  superiore e banner (`SizedBox(height: 60)`, prima del banner): qui non
-  c'è la riga dei bottoni rapidi di `ScoutScreen` (padding verticale 8 +
-  bottoni 44 + 8 = 60px) — senza questo spacer banner e campo
-  risulterebbero più in alto rispetto a `ScoutScreen`, a parità di
-  margine interno del campo (stesso `_kCourtTopMargin`).
-  **Tipo battuta/attacco** (`_mostraTipoBattuta`/`_mostraTipoAttacco`, mai
-  entrambe — dipendono dallo stesso `widget.fondamentale`): riga
-  orizzontale di chip (4 per la battuta, 3 per l'attacco —
-  `_buildRigaTipoBattuta`/`_buildRigaTipoAttacco`, entrambe su
-  `_buildTipoChip`) ancorata subito sotto al campo (`top: courtTop +
-  courtHeight + 24`, dentro lo stesso Stack — c'è spazio perché il campo,
-  largo il 58% dello schermo, è molto più basso dell'area disponibile).
-  Per la battuta, stato locale `_tipoBattuta` inizializzato da
-  `widget.tipoBattutaIniziale` (il valore "armato" corrente letto da
-  `ScoutScreen`) e il valore finale torna nel campo `tipoBattuta` del
-  risultato (sia da `_onPanEnd` sia da `_onBack`) — così la scelta non si
-  perde nemmeno saltando la traiettoria, e resta "armata" per il prossimo
-  battitore uguale. Per l'attacco, stato locale `_tipoAttacco` **senza**
-  un valore iniziale da `ScoutScreen` (parte sempre da `nonSpecificato`,
-  mai "armato" — vedi sopra), ma torna comunque nel campo `tipoAttacco`
-  del risultato per lo stesso motivo (non perderlo se si salta la
-  traiettoria dopo averlo scelto). Entrambi spostati qui da `ScoutScreen`
-  (erano griglie/righe nel pannello voto) per sgombrare quel pannello,
-  già pieno.
-  `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
-  freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
-  punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/
-  `trajectoryWidth`. **Pallonetto**: se `_tipoAttacco == TipoAttacco.pallonetto`,
-  il drag viene disegnato come arco bezier quadratica (stesso offset 40px e
-  stessa logica di tangente del painter del report) — muro prevale sull'arco
-  se presente. **Tocco a muro**: due segmenti dritti con pallino sullo snodo
-  (invariato). Stessa costante `_kArcOffset = 40.0` locale al painter./
-  `trajectoryWidth` (già definiti, prima mai usati in UI). **Drag
-  catturabile anche fuori dal riquadro del campo** (es. il battitore dietro
-  la linea di fondo per la battuta): `GestureDetector` sullo Stack
-  **esterno** (coordinate assolute dell'area sotto banner, non del solo
-  riquadro 1200×600) — stessa tecnica di
-  `ScoutScreen._buildBattitoreTapCatcher`. Le coordinate normalizzate si
-  calcolano sottraendo `courtLeft`/`courtTop` e dividendo per
-  `courtWidth`/`courtHeight` (il riquadro del campo), **non clampate**: un
-  punto fuori dal campo produce valori `<0` o `>1`, coerente con
-  `_kBattutaP1Position` (X negativa) usata altrove per lo stesso scopo.
-  **`behavior: HitTestBehavior.opaque`** sul `GestureDetector` (bug
-  riscontrato: senza, il default `deferToChild` cattura il gesto solo se
-  un figlio occupa quel punto — fuori dal riquadro campo non c'è nessun
-  figlio lì, quindi un drag poteva **continuare** fuori una volta già
-  agganciato, ma non **iniziare** da fuori: l'utente lo ha notato subito
-  provandolo).
-  L'azione si
-  registra **una sola volta** in `ScoutScreen` al ritorno da questa
-  schermata (con le coordinate se fornite, altrimenti `null` su tutte e
-  quattro) — mai un insert-poi-update separato. Conseguenza gratuita:
-  l'**undo** esistente (`annullaUltimaAzione`, elimina la riga con
-  `ordine` massimo) cancella già azione e traiettoria insieme, sono la
-  stessa riga `ScoutAction` — nessun codice in più necessario.
-- **Tocco a muro simulato durante il drag** (solo attacco — schema v10,
-  aggiunge `ScoutActions.traiettoriaMuroX`/`traiettoriaMuroY`, nullable):
-  se il drag si **sofferma** sulla rete (fascia di tolleranza
-  `_kToleranzaRete = 24px` attorno a x normalizzata 0.5, qualunque y —
-  "tutta la linea a metà campo" — per almeno `_kSoffermamentoRete = 300ms`),
-  si fissa quel punto come `_puntoMuro` e la freccia continua da lì fino al
-  rilascio, con uno snodo visibile (due segmenti invece di una linea
-  dritta). **Richiede una sosta deliberata, non un semplice
-  attraversamento** (un attacco normale che passa sopra la rete durante un
-  drag continuo non deve attivarlo) — il dwell-time non può basarsi solo
-  sugli eventi `onPanUpdate` (che non arrivano se il dito resta fermo: zero
-  movimento = zero eventi), quindi si usa un `Timer` avviato quando il dito
-  entra nella fascia di tolleranza (`_inZonaRete` passa a `true`) e
-  annullato se ne esce prima che scada (`_timerMuro?.cancel()`, anche in
-  `_onPanEnd`/`dispose`); se il timer arriva a scadenza, scatta il tocco.
-  **Feedback visivo**: appena `_inZonaRete` diventa `true` (e finché
-  `_puntoMuro` resta `null`), una linea gialla (10px, ingrandita da 3px —
-  troppo sottile per notarla) sovrapposta alla rete, alta come il campo,
-  segnala che il dito è nella fascia —
-  sparisce se si esce dalla fascia in tempo o appena il tocco scatta (da lì
-  in poi lo snodo della freccia parla da sé). **Solo per
-  `Fondamentale.attacco`** (`_muroConsentito`): per la battuta
-  attraversare la rete è normale (ogni servizio legale la attraversa),
-  quindi lì non si attiva nessuna logica di "tocco". Il punto del muro è
-  **salvato** (non solo un aiuto visivo) — `Traiettoria` ora porta anche
-  `muroX`/`muroY` (nullable), passati a `registraAzioneScout()` come
-  `traiettoriaMuroX`/`traiettoriaMuroY`.
-  - **Da provare in futuro (non ancora deciso)**: lo sviluppatore non è
-    sicuro che il dwell-time (sosta col dito fermo) sia comodo da usare.
-    Alternativa proposta da testare: **stacco e ripresa del dito** invece
-    di sosta — si comincia il drag, si stacca il dito vicino alla rete
-    (quello fissa il punto di rottura, niente timer), poi si ricomincia un
-    nuovo drag che continua dal punto di rottura fino al rilascio finale.
-    Richiederebbe ripensare il ciclo di vita del gesto (oggi un solo
-    `onPanStart`/`onPanEnd` per tutta la traiettoria, qui ce ne vorrebbero
-    due collegati dallo stato `_puntoMuro` già esistente).
+- **Traiettoria battuta/attacco**: si disegna sul campo dello scout, prima del
+  voto — vedi "Traiettorie SUL CAMPO LIVE" più sopra, che è l'unica descrizione
+  del meccanismo. La schermata dedicata `TrajectoryScreen` **non esiste più**
+  (cancellata il 2026-08-22 insieme al suo interruttore); con lei sono spariti
+  i chip dei tipi, migrati nella colonna della pulsantiera, e la sua nota del
+  tutorial. Il **tocco a muro** (schema v10, colonne
+  `ScoutActions.traiettoriaMuroX`/`MuroY`) è oggi il soffermamento sulla rete
+  durante il trascinamento in-line, descritto nella stessa sezione.
 - **Refactoring colori (importante)**: il colore squadra è mostrato **sempre
   raw** (`Color(team.coloreDivisa)`), in ogni schermata che lo usa —
   `teams_screen`, `team_selection_screen`, `team_form_screen` (incluso il
