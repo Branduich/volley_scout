@@ -383,6 +383,12 @@ assets/
 ├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 
+docs/interfaccia-scout.md  (l'interfaccia dello scout dal vivo spiegata
+                   all'UTENTE: gesti, pulsantiera, traiettorie, scorciatoie —
+                   niente nomi di metodi. Pensato anche come base per la pagina
+                   web di documentazione. Da tenere allineato quando i gesti
+                   cambiano; il gemello tecnico è docs/context/scout-live.md)
+
 docs/samples/     (fixture reali dell'export calendario FIPAV, usate dai test
 │                  del lettore, del parser gare e della classifica)
 ├── GareNettunia.xls  (.xls binario, export FILTRATO per società: 12 gare,

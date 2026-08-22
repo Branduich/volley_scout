@@ -519,12 +519,24 @@
       `defaultHitTestChildren`): senza, un tap su un punto della card senza un
       proprio `onTap` (lo sfondo, il testo del nome) cadrebbe sullo scrim e
       chiuderebbe il pannello per errore.
-    - **Cambio giocatore a pannello aperto, e i due trabocchetti di hit-test**
+    - **Cambio giocatore a pannello aperto, e i trabocchetti di hit-test**
       (risolti il 2026-08-21; da rileggere prima di toccare l'ordine dei figli
       dello `Stack` di `ScoutScreen`). Toccare un'altra giocatrice
       **sostituisce** quella in corso invece di chiudere, e il pannello
       riparte da coppia vuota — fondamentale e voto già scelti NON si
       trascinano dietro, altrimenti il cambio registrerebbe da solo.
+      Dal 2026-08-22 vale **anche fra squadre diverse**: col pannello nostro
+      aperto si tocca un token avversario e viceversa, senza chiudere prima —
+      le azioni si susseguono veloci e quel passaggio era un tocco sprecato.
+      Le due guardie che lo impedivano (`_avversarioInCorso != null` in
+      `_tapHandlerPerGiocatore` e la speculare) sono state tolte; i due
+      pannelli restano esclusivi come STATO, perché chi apre azzera l'altro.
+      Per lo stesso motivo le scorciatoie ace/kill
+      (`_registraErroreDifensivoRapido` e il gemello) chiudono ENTRAMBI i
+      pannelli con `_chiudiPannelli()`: ora ci si può arrivare con quello
+      dell'altra squadra aperto, che altrimenti resterebbe appeso.
+      I blocchi del Modello A (`_nostriTokenBloccati`/`_tokenAvversariBloccati`
+      dopo un `#`) NON c'entrano e restano: quelli sono regola di gioco.
       1. **Lo scrim va in FONDO allo Stack**, cioè come PRIMO figlio
          (`_buildScrimPannelli`, inserito in `build` prima del campo). Lo
          Stack cerca il bersaglio dall'ultimo figlio verso il primo: con lo
@@ -611,17 +623,47 @@
       il soffermamento convince di più. La porta resta aperta: l'alternativa è
       per intero nel commit `03fb19d`, e in `_onPointerUpCampo` c'è un
       promemoria che la richiama.
-    - **`Listener` ANTENATO** dello Stack del corpo: riceve ogni evento a
+    - **`Listener` ANTENATO** dello Stack del corpo, con
+      **`behavior: HitTestBehavior.translucent`**: riceve ogni evento a
       prescindere da chi lo assorbe e **non partecipa all'arena dei gesti**,
       quindi non sottrae un solo tocco a bottoni e token. Un `GestureDetector`
       con `onPan*` sopra ruberebbe i tap, sotto non riceverebbe i
       trascinamenti che partono FUORI dal campo (il battitore ha X negativa).
       Stesso motivo per cui `_anchor` usa un `Listener` per il tutorial.
+      **`translucent` e non il predefinito `deferToChild`** — QUARTA trappola,
+      costata un giro di prova: col comportamento predefinito il `Listener`
+      entra nel percorso del tocco **solo se un suo discendente viene colpito**,
+      e nella fascia VUOTA fuori dal campo non c'è niente da colpire (lo scrim
+      lì è spento con `IgnorePointer` finché non si apre un pannello). Risultato:
+      il pointer down non arrivava proprio, e il trascinamento dalla linea di
+      fondo non partiva. Sintomo tipico di tutta questa famiglia: nessun errore,
+      il gesto semplicemente non c'è.
       Un trascinamento partito sulla card non disegna: la card ha un
       `Listener` proprio che alza un flag, e — essendo più profondo — riceve
       l'evento prima dell'antenato (`HitTestResult.path` si costruisce
       scendendo). Per lo stesso motivo quel flag NON va azzerato nel gestore
       dell'antenato, ma al rilascio.
+    - **Il trascinamento SELEZIONA la giocatrice** (`_tokenConTrascinamento`):
+      non serve toccarla prima, si parte dal suo token e il pannello si apre da
+      sé. `onTap` da solo non basta — il riconoscitore del tap si arrende appena
+      il dito si muove — quindi si usa **`onTapDown`**, che scatta subito alla
+      pressione, per mettere da parte la callback (che è già "apri il pannello
+      per lui"); la invoca il gestore del movimento quando si supera la soglia.
+      I due non si sovrappongono mai: se trascini, `onTap` non scatta.
+      Il candidato porta con sé un'**identità** (id giocatore per i nostri,
+      etichetta di ruolo per gli avversari — le stesse delle `ValueKey` dei
+      token): serve a distinguere "sto trascinando da un'ALTRA giocatrice"
+      (→ cambia selezione) da "sto ridisegnando il tratto della stessa"
+      (→ non si tocca niente, altrimenti si azzererebbe un voto già scelto).
+    - **In battuta arma tutta la fascia dietro la linea di fondo**, non solo il
+      token: il servizio si batte da qualsiasi punto, e il punto da cui parti
+      viene registrato come partenza del tratto — un dato più vero della
+      posizione fissa di prima. Due fasce, una per squadra (`_aperturaBattitore`
+      e `_aperturaBattitoreAvversario`, stesse condizioni dei rispettivi
+      tap-catcher): la nostra segue il cambio campo, la loro è sempre l'altra.
+      Un tratto di battuta partito dalla fascia **sbagliata** viene ignorato —
+      ma solo quella fascia: partire un po' dentro al campo resta legittimo, il
+      dito non è preciso al pixel e il battitore sta sul bordo della linea.
     - **`_frecciaInLine` è un `ValueNotifier` passato come `repaint` al
       painter**, non un campo con `setState`: il dito genera un evento per
       frame, e un `setState` ricostruirebbe tutto `ScoutScreen` 60 volte al

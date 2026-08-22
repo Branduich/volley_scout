@@ -659,6 +659,22 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   ({double x1, double y1, double x2, double y2, double? muroX, double? muroY})?
       _traiettoriaNormalizzata;
 
+  // Callback "apri il pannello per QUESTO giocatore", messa da parte quando il
+  // dito scende su un token (vedi `onTapDown` nei builder) e invocata dal
+  // gestore del movimento se quel gesto si rivela un trascinamento. Serve a far
+  // partire la traiettoria direttamente dal giocatore, senza il tocco separato
+  // che lo seleziona: `onTap` da solo non basta, perché il riconoscitore del
+  // tap si arrende appena il dito si muove.
+  // `identita` = id del giocatore (nostri) o etichetta di ruolo (avversari):
+  // serve a distinguere "sto trascinando da un ALTRO giocatore" (→ si cambia
+  // selezione) da "sto ridisegnando il tratto dello stesso" (→ non si tocca
+  // niente, altrimenti si azzererebbe un voto già scelto).
+  ({VoidCallback apri, Object identita})? _aperturaDaTrascinamento;
+
+  // Chi è selezionato adesso, nello stesso spazio di `identita`.
+  Object? get _identitaSelezionata =>
+      _votoInCorso?.giocatore.id ?? _avversarioInCorso?.ruolo;
+
   void _azzeraTraiettoriaInLine() {
     _timerMuroInLine?.cancel();
     _inZonaReteInLine = false;
@@ -685,13 +701,83 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // premere "Attacco" per poter disegnare. Si cattura e basta; poi è chi
   // registra a usare il tratto solo se il fondamentale lo prevede (vedi
   // `richiedeTraiettoria` in _scriviVoto), altrimenti lo butta.
-  bool get _traiettoriaInLineAttiva {
+  bool get _traiettoriaInLineAttiva =>
+      _pannelloAperto && _traiettorieInLineConsentite;
+
+  // Le condizioni che NON dipendono dal pannello: servono anche un istante
+  // prima che si apra, quando il trascinamento parte dal giocatore stesso.
+  bool get _traiettorieInLineConsentite {
     if (widget.tutorial || _testModeEnabled) return false;
-    if (!_pannelloAperto) return false;
     final impostazioni = ref.read(impostazioniProvider);
     if (!impostazioni.traiettoriaBattutaInLine) return false;
     if (!impostazioni.traiettorieAbilitate) return false;
     return ref.read(statoPremiumProvider).attivo;
+  }
+
+  // In battuta il servizio si batte da QUALSIASI punto della linea di fondo,
+  // non solo da dove sta disegnato il token: tutta la fascia fuori dal campo,
+  // dal lato nostro, arma il battitore. In quell'istante non c'è altro da
+  // fare, quindi il gesto non è ambiguo — e il punto da cui parti resta il
+  // punto di partenza del tratto, che è un dato vero (da dove ha servito).
+  // Stesse condizioni di _buildBattitoreTapCatcher, tenute in un posto solo.
+  ({VoidCallback apri, Object identita})? get _aperturaBattitore {
+    if (_squadraAlServizio != Squadra.nostra) return null;
+    if (_faseDopo) return null;
+    final player = _currentAssignments['P1'];
+    if (player == null) return null;
+    final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
+    if (onTap == null) return null;
+    return (apri: onTap, identita: player.id);
+  }
+
+  // Speculare per la battuta AVVERSARIA: stesse condizioni del loro
+  // tap-catcher. Anche loro servono da tutta la linea di fondo, e la loro
+  // fascia sta dal lato opposto alla nostra.
+  ({VoidCallback apri, Object identita})? get _aperturaBattitoreAvversario {
+    if (!_attesaBattutaAvversaria) return null;
+    final slot = _statoSetReale?.palleggiatoreAvversarioSlot;
+    if (slot == null) return null;
+    final ruolo = etichetteAvversarie(slot)[1]!; // ruolo in zona 1
+    final onTap = _tapHandlerAvversario(ruolo, forzato: Fondamentale.battuta);
+    if (onTap == null) return null;
+    return (apri: onTap, identita: ruolo);
+  }
+
+  // La fascia: fuori dal riquadro campo in orizzontale e dentro la sua
+  // altezza. `latoDestro` dice quale delle due — la nostra segue il cambio
+  // campo, quella avversaria è sempre l'altra.
+  bool _nellaFascia(
+    Offset p,
+    double courtLeft,
+    double courtWidth, {
+    required bool latoDestro,
+  }) {
+    final courtHeight = courtWidth / 2;
+    if (p.dy < _kCourtTopMargin || p.dy > _kCourtTopMargin + courtHeight) {
+      return false;
+    }
+    return latoDestro ? p.dx > courtLeft + courtWidth : p.dx < courtLeft;
+  }
+
+  // Gesti di un token giocatore: il tocco lo seleziona come sempre, e in più
+  // `onTapDown` mette da parte la stessa callback perché il gestore del
+  // movimento possa invocarla se il gesto si rivela un TRASCINAMENTO — così la
+  // traiettoria si può cominciare direttamente dal giocatore, senza il tocco
+  // separato. `onTapDown` scatta subito alla pressione, prima che si sappia se
+  // sarà tocco o trascinamento; `onTap` invece si arrende appena il dito si
+  // muove, ed è il motivo per cui da solo non basterebbe.
+  // I due non si sovrappongono mai: se trascini, `onTap` non scatta.
+  Widget _tokenConTrascinamento(
+    VoidCallback onTap,
+    Object identita, [
+    Widget? child,
+  ]) {
+    return GestureDetector(
+      onTapDown: (_) =>
+          _aperturaDaTrascinamento = (apri: onTap, identita: identita),
+      onTap: onTap,
+      child: child,
+    );
   }
 
   // Soglia oltre la quale il gesto è un trascinamento e non un tocco: la
@@ -720,8 +806,58 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       PointerMoveEvent event, double courtLeft, double courtWidth) {
     final giu = _pointerGiu;
     if (giu == null || _gestoSullaCard) return;
-    if (!_traiettoriaInLineAttiva) return;
+    if (!_traiettorieInLineConsentite) return;
     final pos = event.localPosition;
+
+    // Il dito è sceso su un giocatore e adesso sta trascinando: si apre il
+    // pannello per lui, così la traiettoria parte dal token senza il tocco
+    // separato che lo seleziona. Vale anche a pannello già aperto — trascinare
+    // da un'ALTRA giocatrice cambia selezione, come farebbe un tocco — ma NON
+    // se è la stessa già selezionata: lì si sta solo ridisegnando il tratto, e
+    // ri-selezionarla azzererebbe un voto eventualmente già scelto.
+    // Va fatto PRIMA della cattura, perché il gate _traiettoriaInLineAttiva
+    // pretende il pannello aperto — e `_votoInCorso` è valorizzato dentro il
+    // setState, quindi subito dopo risulta già aperto.
+    var candidato = _aperturaDaTrascinamento;
+    // Nessun token sotto al dito, ma siamo nella fascia della linea di fondo
+    // mentre si sta per servire: vale come se avessi toccato il battitore. Due
+    // fasce, una per squadra: la nostra segue il cambio campo, la loro è
+    // sempre quella opposta. I due getter sono già esclusivi fra loro (o
+    // serviamo noi o servono loro), ma il lato va controllato lo stesso —
+    // altrimenti un tratto partito dalla fascia sbagliata armerebbe comunque
+    // il battitore, con un punto di partenza che non ha senso.
+    if (candidato == null && !_pannelloAperto) {
+      if (_nellaFascia(giu, courtLeft, courtWidth, latoDestro: _isRightSide)) {
+        candidato = _aperturaBattitore;
+      } else if (_nellaFascia(giu, courtLeft, courtWidth,
+          latoDestro: !_isRightSide)) {
+        candidato = _aperturaBattitoreAvversario;
+      }
+    }
+    // Battuta: il tratto può partire solo da dietro la linea di fondo di CHI
+    // SERVE. Se parte dalla fascia opposta non è una battuta possibile — si
+    // ignora invece di registrare una partenza dall'altra parte del campo.
+    // Si scarta solo la fascia sbagliata, non tutto: partire un po' dentro al
+    // campo resta legittimo, il dito non è preciso al pixel.
+    final battutaInCorso =
+        (_votoInCorso?.fondamentale ?? _avversarioInCorso?.fondamentale) ==
+            Fondamentale.battuta;
+    if (battutaInCorso) {
+      final latoSbagliato =
+          _votoInCorso != null ? !_isRightSide : _isRightSide;
+      if (_nellaFascia(giu, courtLeft, courtWidth,
+          latoDestro: latoSbagliato)) {
+        return;
+      }
+    }
+
+    if (candidato != null && candidato.identita != _identitaSelezionata) {
+      if ((pos - giu).distance < _sogliaTrascinamento(courtWidth)) {
+        return; // ancora un tocco: lo gestirà `onTap` al rilascio
+      }
+      candidato.apri();
+    }
+    if (!_traiettoriaInLineAttiva) return;
     final precedente = _frecciaInLine.value;
     final inCorso = _traiettoriaNormalizzata == null &&
         precedente != null; // trascinamento già riconosciuto
@@ -777,6 +913,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   ) {
     _pointerGiu = null;
     _gestoSullaCard = false;
+    _aperturaDaTrascinamento = null;
     // Il soffermamento vale solo col dito giù: se il tocco a muro non è
     // scattato prima del rilascio, non deve scattare dopo.
     _timerMuroInLine?.cancel();
@@ -1101,10 +1238,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           esitoPunto: _esitoVoto(fondamentale, Voto.errore),
         );
     if (!mounted) return;
-    setState(() {
-      _votoInCorso = null;
-      _azzeraTraiettoriaInLine();
-    });
+    // Entrambi: la scorciatoia si può innescare anche col pannello dell'altra
+    // squadra aperto, da quando toccare un token la cambia al volo.
+    _chiudiPannelli();
   }
 
   // Tap-target per il voto di un giocatore: fuori dalla modalità test, col
@@ -1114,7 +1250,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   VoidCallback? _tapHandlerPerGiocatore(Player player, {String? slot}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
-    if (_avversarioInCorso != null) return null; // pannello avversario aperto
+    // Il pannello avversario aperto NON blocca più: toccare un nostro token ci
+    // passa direttamente sopra. Le azioni si susseguono veloci e chiudere
+    // prima il pannello era un tocco sprecato. I due pannelli restano
+    // mutuamente esclusivi come STATO: chi apre chiude l'altro (sotto).
     // Dopo un NOSTRO `#`: deve difendere l'avversario, i nostri token bloccati.
     if (_nostriTokenBloccati) return null;
     if (!_giocatoreTappabile(slot)) return null;
@@ -1132,12 +1271,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       return () => setState(() {
             _votoInCorso =
                 (giocatore: player, fondamentale: null, voto: null);
+            _avversarioInCorso = null;
             _azzeraTraiettoriaInLine();
           });
     }
     final forzato = _fondamentaleForzato();
     return () => setState(() {
       _votoInCorso = (giocatore: player, fondamentale: forzato, voto: null);
+      _avversarioInCorso = null; // i due pannelli non convivono mai
       // Azione nuova (o cambio di giocatrice a pannello aperto): la freccia
       // eventualmente disegnata era di quella prima e non va ereditata.
       _azzeraTraiettoriaInLine();
@@ -1378,18 +1519,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           esitoPunto: _esitoVotoAvversario(fondamentale, Voto.errore),
         );
     if (!mounted) return;
-    setState(() => _avversarioInCorso = null);
+    _chiudiPannelli(); // vedi il gemello nostro
+
   }
 
   // Tap su un token avversario: apre il pannello avversario (scelta
   // fondamentale poi voto). Disabilitato in modalità test, prima dell'inizio
-  // del set, durante la selezione della zona iniziale, o col nostro pannello
-  // voto già aperto (i due flussi sono mutuamente esclusivi).
+  // del set o durante la selezione della zona iniziale. Il nostro pannello
+  // voto aperto NON blocca: il tocco lo sostituisce.
   VoidCallback? _tapHandlerAvversario(String ruolo, {Fondamentale? forzato}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
     if (_inSelezionePAvversario) return null;
-    if (_votoInCorso != null) return null;
+    // Come sopra: il nostro pannello aperto non blocca il tocco su un token
+    // avversario, lo sostituisce.
     // Dopo un `#` avversario: dobbiamo difendere noi, i loro token bloccati.
     if (_tokenAvversariBloccati) return null;
     // Scorciatoia dopo un NOSTRO `#` (speculare a _tapHandlerPerGiocatore):
@@ -1404,12 +1547,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       return () => setState(() {
             _avversarioInCorso =
                 (ruolo: ruolo, fondamentale: null, voto: null);
+            _votoInCorso = null;
             _azzeraTraiettoriaInLine();
           });
     }
     return () => setState(() {
           _avversarioInCorso =
               (ruolo: ruolo, fondamentale: forzato, voto: null);
+          _votoInCorso = null; // i due pannelli non convivono mai
           // Come nel pannello nostro: la freccia di un'azione precedente non
           // va ereditata dalla nuova.
           _azzeraTraiettoriaInLine();
@@ -2697,6 +2842,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 // ruberebbe i tap, e sotto non riceverebbe i trascinamenti che
                 // partono fuori dal campo (il battitore ha X negativa).
                 return Listener(
+                  // `translucent` e non il default `deferToChild`: senza, questo
+                  // Listener entrerebbe nel percorso del tocco solo se un suo
+                  // discendente viene colpito, e nella fascia VUOTA fuori dal
+                  // campo non c'è niente da colpire (lo scrim lì è spento
+                  // finché non si apre un pannello). Con translucent si
+                  // aggiunge sempre al percorso e i figli restano colpibili
+                  // come prima — e non partecipando all'arena dei gesti non
+                  // sottrae comunque un tocco a nessuno.
+                  behavior: HitTestBehavior.translucent,
                   onPointerDown: _onPointerDownCampo,
                   onPointerMove: (e) =>
                       _onPointerMoveCampo(e, courtLeft, courtWidth),
@@ -2705,6 +2859,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                   onPointerCancel: (_) {
                     _pointerGiu = null;
                     _gestoSullaCard = false;
+                    _aperturaDaTrascinamento = null;
                     _timerMuroInLine?.cancel();
                     _inZonaReteInLine = false;
                   },
@@ -4936,7 +5091,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         // è l'area di tap vera del battitore, ed è già in coordinate schermo.
         child: _anchor(
           TutorialTarget.tokenBattitore,
-          GestureDetector(onTap: onTap),
+          _tokenConTrascinamento(onTap, player.id),
         ),
       ),
     ];
@@ -4976,7 +5131,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         top: cy - radius,
         width: radius * 2,
         height: radius * 2,
-        child: GestureDetector(onTap: onTap),
+        child: _tokenConTrascinamento(onTap, ruolo),
       ),
     ];
   }
@@ -5187,7 +5342,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
             : (onTap == null
                 ? tokenVisual
-                : GestureDetector(onTap: onTap, child: tokenVisual)),
+                : _tokenConTrascinamento(onTap, player.id, tokenVisual)),
       ),
     );
   }
@@ -5270,7 +5425,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
             : (onTap == null
                 ? tokenVisual
-                : GestureDetector(onTap: onTap, child: tokenVisual)),
+                : _tokenConTrascinamento(onTap, player.id, tokenVisual)),
       ),
     );
   }
@@ -5403,7 +5558,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
             : (onTap == null
                 ? tokenVisual
-                : GestureDetector(onTap: onTap, child: tokenVisual)),
+                : _tokenConTrascinamento(onTap, roleLabel, tokenVisual)),
       ),
     );
   }

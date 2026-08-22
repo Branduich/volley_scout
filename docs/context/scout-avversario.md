@@ -79,6 +79,10 @@ Tap su un token avversario → `_buildPannelloAvversario`: header col RUOLO e la
 stessa **pulsantiera unica** del pannello nostro (`_buildPulsantiera`,
 fondamentali | voti, coppia in qualsiasi ordine — vedi scout-live.md). In
 ricezione il fondamentale è forzato: colonna sinistra spenta e chip nell'header.
+Dal 2026-08-22 il tocco su un token avversario funziona **anche col nostro
+pannello aperto** (e viceversa): sostituisce invece di essere ignorato, e chi
+apre azzera l'altro — vedi "Cambio giocatore a pannello aperto" in scout-live.md.
+
 `_registraVotoAvversario` (senza parametri, come il nostro: legge la coppia da
 `_avversarioInCorso`) apre `TrajectoryScreen` per battuta/attacco (stesso
 gate traiettorie+premium del nostro `_registraVoto`): `TrajectoryScreen.giocatore`
