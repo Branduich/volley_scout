@@ -91,12 +91,17 @@ const Map<String, Alignment> _kRotationBadgeAnchor = {
 // riferimento rispetto all'immagine double_court_bg.png (1200×600 — ogni
 // singolo campo è quindi un quadrato 600×600). Da estendere in futuro con le
 // posizioni di ricezione (quando l'avversario è al servizio).
+// Le due file esterne stanno a 90 e 510 (non più 130 e 470): allargate di 40
+// verso le linee laterali il 2026-08-22, insieme alle tabelle tattiche di
+// logic/attack_positions.dart — questi sono i RIPIEGHI usati quando la tabella
+// non copre un ruolo, e devono restare in linea con esse. La fila centrale
+// (300) non si è mossa: la traslazione è simmetrica.
 const Map<String, Offset> _kAttackPositions = {
-  'P1': Offset(200, 470),
-  'P2': Offset(530, 470),
+  'P1': Offset(200, 510),
+  'P2': Offset(530, 510),
   'P3': Offset(530, 300),
-  'P4': Offset(530, 130),
-  'P5': Offset(200, 130),
+  'P4': Offset(530, 90),
+  'P5': Offset(200, 90),
   'P6': Offset(200, 300),
 };
 
@@ -107,12 +112,15 @@ const Map<String, Offset> _kAttackPositions = {
 // avversario a inizio set e, in seguito, dai token placeholder avversari.
 // Passa comunque per _displayPosition() come le nostre, così segue il cambio
 // campo restando sempre sul lato opposto ai nostri token.
+// Riflessione esatta di _kAttackPositions: 1200−x, 600−y. Poiché la
+// traslazione del 2026-08-22 è simmetrica attorno a 300, lo specchio di 90 è
+// 510 e viceversa — le zone avversarie si allargano insieme alle nostre.
 const Map<int, Offset> _kOpponentZonePositions = {
-  1: Offset(1000, 130),
-  2: Offset(670, 130),
+  1: Offset(1000, 90),
+  2: Offset(670, 90),
   3: Offset(670, 300),
-  4: Offset(670, 470),
-  5: Offset(1000, 470),
+  4: Offset(670, 510),
+  5: Offset(1000, 510),
   6: Offset(1000, 300),
 };
 
@@ -139,7 +147,7 @@ enum _FaseScambio { servizio, ricezione, libera }
 // semplicemente più indietro ma ancora dentro. Stessa Y della posizione di
 // attacco. Passa comunque per _displayPosition(), quindi si specchia
 // correttamente anche ripartendo da destra.
-const Offset _kBattutaP1Position = Offset(-70, 470);
+const Offset _kBattutaP1Position = Offset(-70, 510);
 
 // Fattore di scala applicato al raggio "base" (ch/20) di tutti i token
 // giocatore — token su campo (_buildPlayerToken), libero attivo/inattivo
