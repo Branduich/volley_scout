@@ -97,12 +97,12 @@ In **ricezione** la colonna dei fondamentali sparisce del tutto e i voti si
 allargano a tutta la pulsantiera: restano dove sono — il bordo destro non si
 sposta — ma diventano bersagli più grandi.
 
-In **attacco** il fondamentale lo decide il disegno: appena stacchi il dito dalla
-traiettoria, sopra compare l'etichetta *Attacco* e al posto dei fondamentali
-trovi i **tipi di schiacciata** — Generico, Forte, Piazzata, Pallonetto. Come per
-il servizio puoi ignorarli e votare, oppure toccarne uno prima del voto. Da lì in
-poi però il fondamentale non si cambia più: se hai disegnato per sbaglio, chiudi
-toccando il campo e riparti dalla giocatrice.
+In **attacco**, appena il fondamentale è deciso — che tu abbia disegnato la
+traiettoria o premuto *Attacco* — sopra compare l'etichetta *Attacco* e al posto
+dei fondamentali trovi i **tipi di schiacciata**: Generico, Forte, Piazzata,
+Pallonetto. Come per il servizio puoi ignorarli e votare, oppure toccarne uno
+prima del voto. Da lì in poi però il fondamentale non si cambia più: se hai
+sbagliato, chiudi toccando il campo e riparti dalla giocatrice.
 
 In **battuta** quella colonna non resta vuota: al posto dei fondamentali trovi i
 **tipi di servizio** — Generico, Dal basso, Float, Salto, Salto float.
@@ -173,7 +173,7 @@ Quando non serve il dettaglio, o l'azione non ha una protagonista:
 | ⏱ | timeout (due per set, i pallini in alto li contano) |
 
 Su **errore avversario** una pressione prolungata apre i motivi: generico,
-battuta, fallo di posizione, invasione.
+battuta, attacco, fallo di posizione, invasione.
 
 ---
 
@@ -257,7 +257,7 @@ resta attenuata e non si tocca.
 | registrare un attacco col percorso | trascina dall'attaccante a terra, poi il voto |
 | registrare una battuta col percorso | trascina dalla linea di fondo, poi il voto |
 | indicare il tipo di servizio | in battuta, toccalo nella colonna di sinistra |
-| indicare il tipo di schiacciata | dopo aver disegnato, stessa colonna di sinistra |
+| indicare il tipo di schiacciata | scelto l'attacco, stessa colonna di sinistra |
 | cambiare giocatrice | toccane un'altra, anche dell'altra squadra |
 | chiudere senza registrare | tocca il campo |
 | correggere | ↶ per l'ultima azione, ↺ per tutto lo scambio |

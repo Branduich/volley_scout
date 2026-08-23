@@ -709,9 +709,35 @@
         FASE (battuta/ricezione) *oppure* deciso dal DISEGNO. Senza,
         sostituita la colonna non resterebbe scritto da nessuna parte che
         quella è una schiacciata — `fondChip` in entrambi i pannelli.
+      - **Vale anche senza disegno** (2026-08-22): la colonna passa ai tipi
+        appena il fondamentale è `attacco`, che l'abbia deciso il tratto o il
+        tocco su "Attacco". Prima solo il primo caso, e un attacco non
+        disegnato restava `nonSpecificato` per sempre. Le due strade ora si
+        comportano identiche.
       - **Costo accettato**: sostituita la colonna il fondamentale non è più
         correggibile (per dire "era una difesa" bisogna chiudere il pannello e
-        ritoccare la giocatrice). È il punto da giudicare sul device.
+        ritoccare la giocatrice). Da quando basta il TOCCO su "Attacco" a
+        farla sparire, il rischio è più concreto di prima: un tocco sbagliato
+        lì costa la chiusura del pannello. Se in campo dà fastidio, la via
+        d'uscita più economica è rendere tappabile il chip "Attacco"
+        nell'header per tornare ai fondamentali.
+      - **Header ad altezza FISSA** (`_kAltezzaHeaderPulsantiera` 88,
+        `_headerPulsantiera`): i contenuti possibili sono tre e alti diversi —
+        numero+cognome, "Avversario"+sigla, e gli stessi più il chip — e senza
+        una misura imposta la colonna dei bottoni scivolava in giù di ~35dp
+        appena compariva il chip, cioè proprio scegliendo Attacco. Il valore è
+        quello del caso più alto (nostro pannello col chip); gli altri si
+        centrano nello spazio. Il `FittedBox` interno rimpicciolisce un
+        contenuto che eccede invece di spingere giù i bottoni, e la larghezza
+        va rimessa dentro al `FittedBox` (passa vincoli illimitati, quindi
+        senza un cognome lungo tornerebbe ad allargare la card).
+      - **Un'unica etichetta** per tutti i bottoni della colonna
+        (`_etichettaColonna`): fondamentali, tipi di servizio e tipi di attacco
+        si sostituiscono nello stesso posto, quindi devono essere identici per
+        geometria — 14px, due righe consentite, centrati. I fondamentali erano
+        a 16 su una riga: premere "Attacco" faceva cambiare corpo al testo
+        sotto il dito. A 16 "Pallonetto" non ci sta negli 85−8 dp e, essendo
+        una parola sola, non potrebbe nemmeno andare a capo.
       - **La freccia live resta dritta anche sul pallonetto**: si disegna
         durante il trascinamento, quando il tipo non è ancora stato scelto.
         L'arco torna nei report, che leggono `tipoEsecuzione` da DB.

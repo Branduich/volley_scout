@@ -682,21 +682,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   Object? get _identitaSelezionata =>
       _votoInCorso?.giocatore.id ?? _avversarioInCorso?.ruolo;
 
-  // Tipo di attacco scelto nella colonna della pulsantiera quando la
-  // traiettoria è stata disegnata sul campo (vedi _colonnaTipiAttacco).
+  // Tipo di attacco scelto nella colonna della pulsantiera (vedi
+  // _colonnaTipiAttacco), sia che l'attacco l'abbia deciso il disegno sia che
+  // sia stato premuto a mano.
   // A differenza del tipo di battuta NON resta mai "armato": varia colpo su
-  // colpo, quindi si azzera insieme alla traiettoria — cioè a ogni apertura
-  // di pannello, cambio di giocatrice, registrazione e undo, che passano
-  // tutti da _azzeraTraiettoriaInLine. Uno solo per entrambi i pannelli:
-  // nostro e avversario non convivono mai, come per _traiettoriaNormalizzata.
-  TipoAttacco _tipoAttaccoInLine = TipoAttacco.nonSpecificato;
+  // colpo, quindi si azzera a ogni apertura di pannello, cambio di
+  // giocatrice, registrazione e undo — che passano tutti da
+  // _azzeraTraiettoriaInLine, il posto dove si ripulisce l'azione in corso.
+  // Uno solo per entrambi i pannelli: nostro e avversario non convivono mai,
+  // come per _traiettoriaNormalizzata.
+  TipoAttacco _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
 
   void _azzeraTraiettoriaInLine() {
     _timerMuroInLine?.cancel();
     _inZonaReteInLine = false;
     _frecciaInLine.value = null;
     _traiettoriaNormalizzata = null;
-    _tipoAttaccoInLine = TipoAttacco.nonSpecificato;
+    _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
   }
 
   // Il TIPO di esecuzione col disegno in-line è RISOLTO (2026-08-22), da
@@ -1500,7 +1502,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // (vedi _colonnaTipiBattuta / _colonnaTipiAttacco).
     final tipoEsecuzione = switch (fondamentale) {
       Fondamentale.battuta => _tipoBattutaSelezionato.name,
-      Fondamentale.attacco => _tipoAttaccoInLine.name,
+      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
       _ => 'nonSpecificato',
     };
 
@@ -1689,7 +1691,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // quello di attacco non si arma mai, né per noi né per loro.
     final tipoEsecuzione = switch (fondamentale) {
       Fondamentale.battuta => _tipoBattutaAvversario.name,
-      Fondamentale.attacco => _tipoAttaccoInLine.name,
+      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
       _ => 'nonSpecificato',
     };
 
@@ -4290,6 +4292,32 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // - RISTRETTA (dopo un `#` avversario, scorciatoia kill): solo Muro/Difesa
   //   attivi e rossi, un tocco registra subito il `=`; la colonna voti è
   //   spenta col `=` evidenziato, come anteprima di quello che verrà scritto.
+  // Etichetta di un bottone della colonna di SINISTRA — unica per fondamentali,
+  // tipi di servizio e tipi di attacco.
+  //
+  // Le tre varianti si sostituiscono a vicenda nello stesso identico posto,
+  // quindi devono essere indistinguibili per geometria: stessa dimensione,
+  // stesso numero di righe, stesso allineamento. Se cambiasse anche solo il
+  // corpo del testo, premere "Attacco" farebbe "saltare" la colonna sotto il
+  // dito — l'opposto del principio per cui la pulsantiera è unica.
+  //
+  // 14px e non 16 (com'erano i soli fondamentali): dentro gli 85−8 dp del
+  // bottone deve starci anche l'etichetta più lunga — "Pallonetto",
+  // "Salto float", "Placed shot" — e a 16 una parola singola e non spezzabile
+  // finirebbe troncata con l'ellissi. Due righe consentite, centrate: le
+  // etichette con uno spazio vanno a capo invece di rimpicciolirsi.
+  Widget _etichettaColonna(String testo) => Text(
+        testo,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      );
+
   // Colonna di sinistra "normale": i 4 fondamentali.
   List<Widget> _colonnaFondamentali({
     required Fondamentale? selezionato,
@@ -4341,17 +4369,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           selezionato: tipo == selezionato,
           attenuato: tipo != selezionato,
           onTap: () => onTipo(tipo),
-          child: Text(
-            tipoBattutaLabel(tipo, AppLocalizations.of(context)),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
+          child: _etichettaColonna(
+              tipoBattutaLabel(tipo, AppLocalizations.of(context))),
         ),
     ];
   }
@@ -4370,20 +4389,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           larghezza: _kLarghezzaFondamentale,
           colore: AppColors.brandPrimary,
           abilitato: true,
-          selezionato: tipo == _tipoAttaccoInLine,
-          attenuato: tipo != _tipoAttaccoInLine,
-          onTap: () => setState(() => _tipoAttaccoInLine = tipo),
-          child: Text(
-            tipoAttaccoLabel(tipo, AppLocalizations.of(context)),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
+          selezionato: tipo == _tipoAttaccoSelezionato,
+          attenuato: tipo != _tipoAttaccoSelezionato,
+          onTap: () => setState(() => _tipoAttaccoSelezionato = tipo),
+          child: _etichettaColonna(
+              tipoAttaccoLabel(tipo, AppLocalizations.of(context))),
         ),
     ];
   }
@@ -4486,16 +4496,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       selezionato: selezionato,
       attenuato: attenuato,
       onTap: ristretto ? onErroreDifensivo : onNormale,
-      child: Text(
-        fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-        ),
-      ),
+      child: _etichettaColonna(
+          fondamentaleLabel(fondamentale, AppLocalizations.of(context))),
     );
   }
 
@@ -4660,6 +4662,39 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // del pannello: quelle due voci non stanno nella colonna — che ha 4 slot
   // fissi — ma vanno comunque mostrate, altrimenti non si saprebbe cosa si sta
   // votando.
+  // Altezza FISSA dell'header della pulsantiera, e quindi posizione fissa dei
+  // bottoni sotto.
+  //
+  // I contenuti possibili sono tre e alti diversi: numero + cognome (nostro
+  // pannello), "Avversario" + sigla di ruolo, e gli stessi PIÙ il chip del
+  // fondamentale già deciso. Senza un'altezza imposta la colonna scivolava in
+  // giù di ~35dp appena compariva il chip — cioè proprio nel passaggio più
+  // frequente, scegliere Attacco — e il dito perdeva i voti.
+  //
+  // Il valore è quello del caso più alto (nostro pannello COL chip): gli altri
+  // due si centrano nello spazio avanzato. Il `FittedBox` dentro
+  // `_headerPulsantiera` fa il resto: se un contenuto eccede — un font di
+  // sistema ingrandito, una traduzione più alta — si rimpicciolisce invece di
+  // spingere giù i bottoni.
+  static const double _kAltezzaHeaderPulsantiera = 88;
+
+  /// Header a dimensione fissa: dentro ci sta quello che serve, ma la sua
+  /// scatola non cambia mai — vedi [_kAltezzaHeaderPulsantiera].
+  Widget _headerPulsantiera(List<Widget> figli) => SizedBox(
+        width: _kLarghezzaPulsantiera,
+        height: _kAltezzaHeaderPulsantiera,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          // La larghezza va rimessa QUI: il FittedBox passa vincoli
+          // illimitati, e senza questo un cognome lungo non si troncherebbe
+          // più — si allargherebbe, facendo poi rimpicciolire tutto.
+          child: SizedBox(
+            width: _kLarghezzaPulsantiera,
+            child: Column(mainAxisSize: MainAxisSize.min, children: figli),
+          ),
+        ),
+      );
+
   Widget _buildChipFondamentaleForzato(Fondamentale fondamentale) {
     return Container(
       margin: const EdgeInsets.only(top: 6),
@@ -4702,13 +4737,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         ? inCorso.fondamentale
         : null;
 
-    // Tratto DISEGNATO in fase libera: il fondamentale l'ha già deciso il
-    // disegno (vedi _preselezionaAttaccoDaTraiettoria), quindi la colonna dei
-    // fondamentali non serve più e può passare ai tipi di attacco — l'unico
-    // modo di indicarli con l'in-line, dove TrajectoryScreen non si apre.
-    final tipiAttacco = fondForzato == null &&
-        _traiettoriaNormalizzata != null &&
-        inCorso.fondamentale == Fondamentale.attacco;
+    // Fondamentale = attacco: la colonna passa ai tipi di schiacciata. Vale
+    // sia quando l'attacco l'ha deciso il DISEGNO
+    // (_preselezionaAttaccoDaTraiettoria) sia quando l'hai premuto tu nella
+    // colonna — prima solo il primo caso, e un attacco non disegnato restava
+    // senza tipo per sempre. Le due strade ora si comportano identiche, che è
+    // anche più facile da ricordare a bordo campo.
+    final tipiAttacco =
+        fondForzato == null && inCorso.fondamentale == Fondamentale.attacco;
 
     // Quale colonna di sinistra: la fase e il disegno decidono, la
     // pulsantiera si limita a impaginare quello che le arriva (vedi
@@ -4792,40 +4828,34 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: _kLarghezzaPulsantiera,
-                        child: Column(
-                          children: [
-                            Text(
-                              '${player.numero}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 26,
-                              ),
-                            ),
-                            // Il cognome ha ora tutta la larghezza della
-                            // pulsantiera (212dp contro i 100 di prima):
-                            // serve a confermare a colpo d'occhio di aver
-                            // toccato la giocatrice giusta, quindi va letto
-                            // senza fermarsi. Resta su una riga: se non ci
-                            // sta si tronca, non manda a capo la card.
-                            Text(
-                              player.cognome,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (fondChip != null)
-                              _buildChipFondamentaleForzato(fondChip),
-                          ],
+                      _headerPulsantiera([
+                        Text(
+                          '${player.numero}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 26,
+                          ),
                         ),
-                      ),
+                        // Il cognome ha tutta la larghezza della pulsantiera:
+                        // serve a confermare a colpo d'occhio di aver toccato
+                        // la giocatrice giusta, quindi va letto senza
+                        // fermarsi. Resta su una riga: se non ci sta si
+                        // tronca, non manda a capo la card.
+                        Text(
+                          player.cognome,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (fondChip != null)
+                          _buildChipFondamentaleForzato(fondChip),
+                      ]),
                       const SizedBox(height: _kGapPulsantiera),
                       _buildPulsantiera(
                         selezionato: inCorso.fondamentale,
@@ -4869,10 +4899,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
     // Colonna di sinistra e chip: stesse tre forme del pannello nostro —
     // tipi di servizio in battuta, niente colonna in ricezione, tipi di
-    // attacco dopo un tratto disegnato.
-    final tipiAttacco = fondForzato == null &&
-        _traiettoriaNormalizzata != null &&
-        inCorso.fondamentale == Fondamentale.attacco;
+    // attacco quando il fondamentale è attacco (disegnato o scelto a mano).
+    final tipiAttacco =
+        fondForzato == null && inCorso.fondamentale == Fondamentale.attacco;
 
     final List<Widget> vociSinistra;
     if (fondForzato == Fondamentale.battuta) {
@@ -4934,33 +4963,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: _kLarghezzaPulsantiera,
-                        child: Column(
-                          children: [
-                            Text(
-                              AppLocalizations.of(
-                                context,
-                              ).scoutAvversarioEtichetta,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              siglaRuolo(
-                                  inCorso.ruolo, AppLocalizations.of(context)),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 26,
-                              ),
-                            ),
-                            if (fondChip != null)
-                              _buildChipFondamentaleForzato(fondChip),
-                          ],
+                      _headerPulsantiera([
+                        Text(
+                          AppLocalizations.of(context).scoutAvversarioEtichetta,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
+                        Text(
+                          siglaRuolo(
+                              inCorso.ruolo, AppLocalizations.of(context)),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 26,
+                          ),
+                        ),
+                        if (fondChip != null)
+                          _buildChipFondamentaleForzato(fondChip),
+                      ]),
                       const SizedBox(height: _kGapPulsantiera),
                       _buildPulsantiera(
                         selezionato: inCorso.fondamentale,
