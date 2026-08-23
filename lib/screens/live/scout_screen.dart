@@ -693,6 +693,40 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // come per _traiettoriaNormalizzata.
   TipoAttacco _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
 
+  // --- Rete di sicurezza dei passi a campo libero (PassoTutorial.aiutoDopo) --
+  //
+  // Lì non ci sono né velo né card: chi non capisce cosa fare non ha niente
+  // che glielo ripeta. Scaduto il tempo l'app fa da sé il tocco sul battitore
+  // — apre la pulsantiera — e manda avanti il passo.
+  //
+  // Aprire la pulsantiera è la metà indispensabile: il passo successivo ha il
+  // buco su un bottone del voto, e con la pulsantiera chiusa quel bersaglio
+  // non esiste. Un velo senza buco assorbe ogni tocco, quindi limitarsi ad
+  // avanzare trasformerebbe un passo fermo in una schermata morta.
+  Timer? _timerAiutoTutorial;
+  int? _indicePassoAiuto;
+
+  void _aggiornaAiutoTutorial(int indice) {
+    if (_indicePassoAiuto == indice) return; // stesso passo, timer già giusto
+    _indicePassoAiuto = indice;
+    _timerAiutoTutorial?.cancel();
+    final attesa =
+        ref.read(tutorialControllerProvider.notifier).passo?.aiutoDopo;
+    if (attesa == null) return;
+    _timerAiutoTutorial = Timer(attesa, _aiutaTutorial);
+  }
+
+  void _aiutaTutorial() {
+    if (!mounted) return;
+    final controller = ref.read(tutorialControllerProvider.notifier);
+    // Nel frattempo si è mosso: il passo è cambiato, oppure sta già facendo
+    // quello che gli era stato chiesto. In entrambi i casi non si interviene.
+    if (controller.passo?.aiutoDopo == null) return;
+    if (_pannelloAperto || _traiettoriaNormalizzata != null) return;
+    _aperturaBattitore?.apri();
+    controller.avanzaPerAiuto();
+  }
+
   void _azzeraTraiettoriaInLine() {
     _timerMuroInLine?.cancel();
     _inZonaReteInLine = false;
@@ -728,17 +762,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // Le condizioni che NON dipendono dal pannello: servono anche un istante
   // prima che si apra, quando il trascinamento parte dal giocatore stesso.
   //
-  // Il TUTORIAL passa di qui come una partita vera (dal 2026-08-22): il disegno
-  // sul campo è l'unico modo di prendere una traiettoria, quindi insegnarne un
-  // altro non avrebbe senso. Durante il tutorial il premio è già attivo e le
-  // traiettorie si forzano accese, come per la vecchia schermata dedicata.
-  // Resta fuori solo la modalità test, che non scrive azioni vere.
+  // Nel TUTORIAL non decidono impostazioni e premium ma il PASSO corrente
+  // (`PassoTutorial.traiettoriaConsentita`, spenta di default): ogni passo
+  // dev'essere deterministico, quindi il disegno esiste solo dove lo si
+  // insegna. Nei passi in cui è spenta il trascinamento resta possibile e apre
+  // la pulsantiera come farebbe un tocco — semplicemente non lascia la freccia
+  // (vedi _onPointerMoveCampo, dove l'apertura viene prima di questo gate).
+  //
+  // Fuori dal tutorial contano il toggle delle Impostazioni e il premium.
+  // La modalità test è sempre esclusa: non scrive azioni vere.
   bool get _traiettorieInLineConsentite {
     if (_testModeEnabled) return false;
-    if (!widget.tutorial && !ref.read(impostazioniProvider).traiettorieAbilitate) {
-      return false;
+    if (widget.tutorial) {
+      return ref
+              .read(tutorialControllerProvider.notifier)
+              .passo
+              ?.traiettoriaConsentita ??
+          false;
     }
-    return widget.tutorial || ref.read(statoPremiumProvider).attivo;
+    if (!ref.read(impostazioniProvider).traiettorieAbilitate) return false;
+    return ref.read(statoPremiumProvider).attivo;
   }
 
   // In battuta il servizio si batte da QUALSIASI punto della linea di fondo,
@@ -993,6 +1036,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // un tocco a muro, il secondo tratto arriva e prosegue: il fondamentale
     // era comunque attacco.
     _preselezionaAttaccoDaTraiettoria();
+
+    // Il tratto c'è: lo dice al tutorial, che sui passi del trascinamento
+    // avanza di qui e non dal tocco sul token — il dito può partire da
+    // qualunque punto della linea di fondo, e lì l'ancora non scatterebbe.
+    if (widget.tutorial) {
+      ref
+          .read(tutorialControllerProvider.notifier)
+          .segnale(SegnaleTutorial.traiettoriaDisegnata);
+    }
   }
 
   // In fase LIBERA un tratto disegnato può solo essere un attacco: la battuta
@@ -1839,6 +1891,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     _timerLampeggio?.cancel();
     _timerLampeggioTick?.cancel();
     _timerMuroInLine?.cancel();
+    _timerAiutoTutorial?.cancel();
     _frecciaInLine.dispose();
     super.dispose();
   }
@@ -2626,6 +2679,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
   @override
   Widget build(BuildContext context) {
+    // Solo in tutorial: ricostruire a ogni cambio di passo. Serve al promemoria
+    // dei passi a campo libero (vedi _bannerCentrale), che altrimenti
+    // comparirebbe o sparirebbe con un passo di ritardo — la schermata si
+    // ricostruisce sulle azioni, non sui passi. Fuori dal tutorial non si
+    // osserva niente e non cambia nulla.
+    if (widget.tutorial) {
+      _aggiornaAiutoTutorial(ref.watch(tutorialControllerProvider).indice);
+    }
     _labelsCorrezione = _computeLabelsCorrezione();
     _rilevaCambioPunteggio();
     final scaffold = Scaffold(
@@ -3756,6 +3817,29 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       );
 
   Widget _bannerCentrale() {
+    // Passo del tutorial a CAMPO LIBERO: lì non c'è card, e questa fascia è
+    // l'unico spazio orizzontale libero che non toglie altezza al campo. Ha la
+    // precedenza su tutto: in quel momento conta cosa devi fare, non cosa hai
+    // appena fatto. Una riga sola — la fascia è alta quanto un bottone — e il
+    // FittedBox qui sotto la stringe se non ci sta.
+    if (widget.tutorial) {
+      final passo = ref.read(tutorialControllerProvider.notifier).passo;
+      if (passo != null && passo.campoLibero) {
+        return Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              passo.testo,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }
+    }
     // Priorità al promemoria "CONCLUDI …" quando un `#` attende la difesa
     // errata (Modello A) — è il momento in cui lo scout DEVE ancora agire.
     final concludi = _difesaDaConcludere;

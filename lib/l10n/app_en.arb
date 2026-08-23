@@ -380,20 +380,29 @@
 
   "tutorialAvanti": "Next",
   "tutorialInizia": "Start",
+  "tutorialAzioniTitolo": "Actions",
+  "tutorialAzioniTesto": "The complete way to record an action takes three taps: player, skill, rating. Skill and rating sit on the same keypad, in two columns, and you press them in either order.\n\nOn serves and attacks you can also draw the trajectory of the ball.",
   "tutorialBenvenutoTitolo": "Welcome",
-  "tutorialBenvenutoTesto": "This is the scouting page for a practice match: nothing you record here will be saved.\n\nJust follow along — at each step only the highlighted button can be pressed, and I'll show you how to rate every skill.",
+  "tutorialBenvenutoTesto": "This is the scouting page for a practice match: nothing you record here will be saved.\n\nFollow the tutorial's instructions and I'll show you how to rate every skill.",
 
-  "tutorialTreTocchiTitolo": "Three taps",
-  "tutorialTreTocchiTesto": "The complete way to record an action takes three taps: player, skill, rating. Skill and rating sit on the same keypad, in two columns, and you press them in either order.\n\nWe're serving: tap the player about to serve, outside the court.\n\nOr, to mark where the ball goes as well, drag your finger from them to the landing point: the keypad opens by itself and the trajectory is already captured.",
+  "tutorialTreTocchiTitolo": "The serve",
+  "tutorialTreTocchiTesto": "An example of a serve without drawing the trajectory. Tap the player about to serve, outside the court.",
 
   "tutorialVotoTitolo": "The rating",
-  "tutorialVotoTesto": "On a serve the skill is already decided by the phase of play: the left column shows serve types instead — you can ignore them, only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a +.",
+  "tutorialVotoTesto": "On a serve the skill is already decided by the phase of play: the left column shows serve types instead — you can ignore them, only the rating is left. For the serve they mean:\n\n#  ace, the serve scores\n+  good serve: the opponent is left with a predictable attack\n/  ordinary serve: the passer struggles a little to set up the setter\n−  easy serve, passed well\n=  missed serve (into the net or out): point to the opponent\n\nGive this serve a #.",
 
+  "tutorialAncoraBattutaTitolo": "Serving again",
+  "tutorialTrascinaTesto": "Drag your finger...",
+  "tutorialRicezioneAvvTitolo": "The pass",
+  "tutorialRicezioneAvvTesto": "This time the pass happens in position 5. Select the player.",
+  "tutorialVotoBattutaTitolo": "The rating",
+  "tutorialVotoBattutaTesto": "When you lift your finger the keypad appears, with the skill already set to Serve. All that is left is the rating: give it a +.",
+  "tutorialAncoraBattutaTesto": "We're 1-0 thanks to the ace. Now let me show you how to draw the trajectory of the ball as well.\n\nAfter you press \"Next\", drag your finger from the serving player to position 5 in the opponents' court. You'll see the trajectory drawn on the court.",
   "tutorialAvversariTitolo": "The opposing team",
-  "tutorialAvversariTesto": "Here the scout also tracks an opposing team. It is a fictional one: it only exists to help you record their ratings and trajectories.\n\nTheir middle blocker passed the ball: tap them.",
+  "tutorialAvversariTesto": "Here the scout also tracks an opposing team. It is a fictional one: it only exists to help you record ratings and trajectories.\n\nOur ace has to be someone's error. Their middle blocker passed it badly. Tap them and the point is recorded automatically.",
 
-  "tutorialVotoRicezioneTitolo": "Rating the pass",
-  "tutorialVotoRicezioneTesto": "The ratings mean the same thing, read from the passer's side: # a perfect pass, leaving the setter every option, down to = a missed pass, which is a point for us.\n\nHere the serve gave them trouble: give it a −.",
+  "tutorialVotoRicezioneTitolo": "Rating /",
+  "tutorialVotoRicezioneTesto": "On a pass the skill is already decided too. Give it a /.",
 
   "tutorialAttaccoAvvTitolo": "The opponent's attack",
   "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Drag from them to where the ball lands in our court: it works for the opponents too, and that's how you learn where their shots come from.",

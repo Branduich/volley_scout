@@ -389,20 +389,29 @@
 
   "tutorialAvanti": "Avanti",
   "tutorialInizia": "Inizia",
+  "tutorialAzioniTitolo": "Le azioni",
+  "tutorialAzioniTesto": "Il modo completo di registrare un'azione è a tre tocchi: giocatore, fondamentale, voto. Fondamentale e voto stanno sulla stessa pulsantiera, in due colonne, e si premono in qualsiasi ordine.\n\nNei fondamentali di attacco e battuta è possibile tracciare anche la traiettoria della palla.",
   "tutorialBenvenutoTitolo": "Benvenuto",
-  "tutorialBenvenutoTesto": "Questa è la pagina di scout di una partita di prova: niente di quello che registri verrà salvato.\n\nSegui le indicazioni — a ogni passo puoi premere solo il pulsante evidenziato e ti mostrerò come dare un punteggio ad ogni fondamentale.",
+  "tutorialBenvenutoTesto": "Questa è la pagina di scout di una partita di prova: niente di quello che registri verrà salvato.\n\nSegui le indicazioni del tutorial e ti mostrerò come dare un punteggio ad ogni fondamentale.",
 
-  "tutorialTreTocchiTitolo": "Tre tocchi",
-  "tutorialTreTocchiTesto": "Il modo completo di registrare è a tre tocchi: giocatore, fondamentale, voto. Fondamentale e voto stanno sulla stessa pulsantiera, in due colonne, e si premono in qualsiasi ordine.\n\nSiamo al servizio: tocca il giocatore che batte, fuori dal campo.\n\nOppure, per segnare anche dove va la palla, trascina il dito da lui fino al punto di arrivo: la pulsantiera si apre da sola e la traiettoria è già presa.",
+  "tutorialTreTocchiTitolo": "Il servizio",
+  "tutorialTreTocchiTesto": "Un esempio di servizio senza tracciare la traiettoria. Tocca il giocatore che batte, fuori dal campo.",
 
   "tutorialVotoTitolo": "Il voto",
-  "tutorialVotoTesto": "In battuta il fondamentale è già deciso dalla fase di gioco: al posto dei fondamentali, a sinistra, trovi i tipi di servizio — puoi ignorarli, resta solo il voto. Per la battuta significano:\n\n#  battuta punto (ace)\n+  battuta buona: all'avversario resta solo un attacco scontato\n/  battuta normale: il ricevitore ha qualche problema ad appoggiare bene all'alzatore\n−  battuta facile, ricevuta positivamente\n=  battuta sbagliata (a rete o fuori campo): punto avversario\n\nDai un + a questa battuta.",
+  "tutorialVotoTesto": "In battuta il fondamentale è già deciso dalla fase di gioco: al posto dei fondamentali, a sinistra, trovi i tipi di servizio — puoi ignorarli, resta solo il voto. Per la battuta significano:\n\n#  battuta punto (ace)\n+  battuta buona: all'avversario resta solo un attacco scontato\n/  battuta normale: il ricevitore ha qualche problema ad appoggiare bene all'alzatore\n−  battuta facile, ricevuta positivamente\n=  battuta sbagliata (a rete o fuori campo): punto avversario\n\nDai un # a questa battuta.",
 
+  "tutorialAncoraBattutaTitolo": "Ancora in battuta",
+  "tutorialTrascinaTesto": "Trascina il dito...",
+  "tutorialRicezioneAvvTitolo": "Ricezione",
+  "tutorialRicezioneAvvTesto": "Questa volta la ricezione avviene in zona 5. Seleziona il giocatore.",
+  "tutorialVotoBattutaTitolo": "Il voto",
+  "tutorialVotoBattutaTesto": "Al rilascio del dito compare la pulsantiera col fondamentale Battuta selezionato. Rimane da assegnare il voto +.",
+  "tutorialAncoraBattutaTesto": "Siamo 1-0 grazie all'ace. Ora ti mostro come disegnare anche la traiettoria della palla.\n\nDopo che hai premuto il bottone \"Avanti\" trascina il dito dal giocatore in battuta fino a posizione 5 del campo avversario. Vedrai il disegno della traiettoria sul campo.",
   "tutorialAvversariTitolo": "La squadra avversaria",
-  "tutorialAvversariTesto": "In questa situazione lo scout prevede una squadra avversaria che è fittizia e utilizzata solo come supporto alla registrazione dei voti e delle traiettorie.\n\nHa ricevuto il loro centrale: toccalo.",
+  "tutorialAvversariTesto": "In questa situazione lo scout prevede una squadra avversaria che è fittizia e utilizzata solo come supporto alla registrazione dei voti e delle traiettorie.\n\nAl nostro Ace corrisponde per forza un errore. Il loro centrale ha ricevuto male. Toccalo e in automatico registriamo il punto.",
 
-  "tutorialVotoRicezioneTitolo": "Il voto della ricezione",
-  "tutorialVotoRicezioneTesto": "I voti hanno lo stesso significato, letti dalla parte di chi riceve: # ricezione perfetta, che lascia all'alzatore ogni scelta, fino a = ricezione sbagliata, che vale un punto per noi.\n\nQui la battuta li ha messi in difficoltà: dai un −.",
+  "tutorialVotoRicezioneTitolo": "Voto /",
+  "tutorialVotoRicezioneTesto": "Anche in ricezione il fondamentale è deciso. Dai un voto /.",
 
   "tutorialAttaccoAvvTitolo": "L'attacco avversario",
   "tutorialAttaccoAvvTesto": "Ora simuliamo che debba attaccare il loro schiacciatore in zona 2. Trascina da lui fino a dove arriva la palla nel nostro campo: vale anche per gli avversari, ed è così che si capisce da dove arrivano i colpi.",

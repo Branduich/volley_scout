@@ -9,7 +9,12 @@ import 'tutorial_target.dart';
 /// Eventi di `ScoutScreen` che non sono né un tap su un target né un'azione
 /// scritta a DB. Volutamente pochissimi: ogni segnale è una riga in più dentro
 /// `scout_screen.dart`, e l'obiettivo è tenerne il meno possibile.
-enum SegnaleTutorial { drawerAperto, drawerChiuso }
+/// `traiettoriaDisegnata`: il tratto è stato catturato al rilascio del dito.
+/// Serve ai passi che insegnano il trascinamento — agganciarli al tocco sul
+/// token non basta, perché la battuta si può far partire da tutta la linea di
+/// fondo e in quel caso l'ancora del token non scatta mai (vedi
+/// `_aperturaBattitore` in scout_screen).
+enum SegnaleTutorial { drawerAperto, drawerChiuso, traiettoriaDisegnata }
 
 /// Dove mettere la card rispetto all'elemento evidenziato.
 ///
@@ -66,6 +71,39 @@ class PassoTutorial {
   /// può stare, il default di un parametro deve essere const.
   final String? etichettaBottone;
 
+  /// Passo a **campo libero**: l'overlay non disegna né velo né card.
+  ///
+  /// Serve dove l'azione da insegnare è un trascinamento sul campo: la card,
+  /// piazzata accanto al bersaglio, finirebbe proprio sopra alla traiettoria
+  /// che stai tracciando, e il velo lascerebbe in chiaro solo il buco. Qui non
+  /// c'è un bersaglio da isolare — c'è tutto il campo da guardare.
+  ///
+  /// La spiegazione lunga va nella card del passo PRECEDENTE (informativo, con
+  /// "Avanti"); qui [testo] diventa il promemoria di **una riga** mostrato da
+  /// `ScoutScreen` nella fascia centrale fra i due tasti timeout, che è
+  /// l'unico spazio orizzontale libero e non toglie altezza al campo.
+  ///
+  /// L'avanzamento non richiede niente di nuovo: `avanzaSuTap` scatta al
+  /// RILASCIO del dito sul token (l'ancora usa `onPointerUp`), cioè alla fine
+  /// del trascinamento.
+  final bool campoLibero;
+
+  /// Se in questo passo si può disegnare la traiettoria sul campo.
+  ///
+  /// **Spenta di default**, e girata così di proposito: durante il tutorial
+  /// ogni passo deve essere deterministico, quindi il disegno si accende solo
+  /// dove lo si insegna. Bloccare a mano i singoli passi vorrebbe dire
+  /// ricordarsene a ogni card nuova, e prima o poi ne sfuggirebbe una.
+  ///
+  /// Non blocca il TRASCINAMENTO: il pezzo che apre il pannello partendo dal
+  /// token vive prima di questo gate (vedi `_onPointerMoveCampo`), quindi chi
+  /// trascina si ritrova la pulsantiera aperta come se avesse toccato,
+  /// semplicemente senza freccia. Nessun gesto che non fa niente.
+  ///
+  /// Fuori dal tutorial non conta: lì decidono impostazioni e premium
+  /// (`ScoutScreen._traiettorieInLineConsentite`).
+  final bool traiettoriaConsentita;
+
   final bool avanzaSuTap;
   final TutorialTarget? avanzaSuComparsaDi;
   final SegnaleTutorial? avanzaSuSegnale;
@@ -73,6 +111,19 @@ class PassoTutorial {
   /// Riceve il log completo del set e la sua lunghezza all'ingresso nel passo
   /// (per riconoscere un undo: `log.length < lunghezzaIniziale`).
   final bool Function(List<ScoutAction> log, int lunghezzaIniziale)? avanzaSuLog;
+
+  /// Rete di sicurezza per i passi a CAMPO LIBERO: se dopo questo tempo
+  /// l'utente non ha fatto il gesto, l'app lo aiuta da sé — apre la
+  /// pulsantiera come farebbe il tocco e manda avanti il passo.
+  ///
+  /// Serve perché lì non ci sono né velo né card: chi non capisce cosa fare
+  /// resta davanti a uno schermo che non glielo ripete. Aiutare NON può
+  /// limitarsi ad avanzare: il passo successivo ha il buco su un bottone della
+  /// pulsantiera, e se quella non è aperta il bersaglio non esiste — un velo
+  /// senza buco assorbe ogni tocco e il blocco diventa totale.
+  ///
+  /// `null` = nessun aiuto.
+  final Duration? aiutoDopo;
 
   /// Passo condizionale: se torna false il passo viene saltato (es. la
   /// spiegazione delle traiettorie non ha senso se sono disattivate).
@@ -88,6 +139,9 @@ class PassoTutorial {
     this.mail,
     this.avanzaConBottone = false,
     this.etichettaBottone,
+    this.campoLibero = false,
+    this.aiutoDopo,
+    this.traiettoriaConsentita = false,
     this.avanzaSuTap = false,
     this.avanzaSuComparsaDi,
     this.avanzaSuSegnale,
@@ -171,6 +225,11 @@ class TutorialController extends Notifier<StatoTutorial> {
     if (predicato == null) return;
     if (predicato(log, state.logIniziale)) _avanza(lunghezzaLog: log.length);
   }
+
+  /// Avanzamento forzato dalla rete di sicurezza (vedi PassoTutorial.aiutoDopo):
+  /// non passa da nessun predicato, perché il gesto atteso non è avvenuto ed è
+  /// l'app ad averlo surrogato.
+  void avanzaPerAiuto() => _avanza();
 
   void avantiManuale() {
     if (passo?.avanzaConBottone ?? false) _avanza();
