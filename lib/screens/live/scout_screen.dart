@@ -710,6 +710,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     if (_indicePassoAiuto == indice) return; // stesso passo, timer già giusto
     _indicePassoAiuto = indice;
     _timerAiutoTutorial?.cancel();
+    _timerRicezioneAuto?.cancel();
+    _timerLampeggioProposta?.cancel();
     final attesa =
         ref.read(tutorialControllerProvider.notifier).passo?.aiutoDopo;
     if (attesa == null) return;
@@ -725,6 +727,86 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     if (_pannelloAperto || _traiettoriaNormalizzata != null) return;
     _aperturaBattitore?.apri();
     controller.avanzaPerAiuto();
+  }
+
+  // --- Ricezione automatica (Impostazioni.ricezioneAutomatica, in prova) ----
+  //
+  // Nel Modello A il voto della battuta e quello della ricezione sono due metà
+  // dello stesso colpo: detto com'è andata la battuta, la ricezione è in larga
+  // parte già detta. Indicato chi riceve si PROPONE il voto dedotto e lo si
+  // conferma da soli dopo un secondo, salvo che l'utente ne prema un altro.
+  //
+  // La proposta vive FUORI dalla coppia (fondamentale, voto): in ricezione il
+  // fondamentale è già imposto dalla fase, quindi valorizzare il voto
+  // registrerebbe all'istante — è la regola che regge tutta la pulsantiera.
+  Voto? _votoPropostoRicezione;
+  Timer? _timerRicezioneAuto;
+  Timer? _timerLampeggioProposta;
+  bool _propostaAccesa = true;
+
+  /// Il voto di ricezione implicato da quello della battuta. `null` dove non
+  /// c'è una deduzione sensata: `#` ha già la sua scorciatoia diretta (ace →
+  /// ricezione `=`, senza pannello) e `=` chiude il punto senza ricezione.
+  static Voto? _ricezioneDedotta(Voto battuta) => switch (battuta) {
+        Voto.positivo => Voto.negativo,
+        Voto.mezzoPunto => Voto.mezzoPunto,
+        Voto.negativo => Voto.positivo,
+        Voto.perfetto || Voto.errore => null,
+      };
+
+  /// Il voto della battuta di QUESTO scambio, se c'è.
+  Voto? get _votoBattutaRallyCorrente {
+    for (final a in _azioniRallyCorrente) {
+      if (a.fondamentale == Fondamentale.battuta) return a.voto;
+    }
+    return null;
+  }
+
+  /// Avvia la proposta quando si apre un pannello di RICEZIONE. Chiamata dai
+  /// due tap handler, che sono gli unici a sapere che la fase la impone.
+  void _proponiRicezione() {
+    _annullaPropostaRicezione();
+    final impostazioni = ref.read(impostazioniProvider);
+    if (!impostazioni.ricezioneAutomatica) return;
+    if (!impostazioni.scoutAvversariAbilitato) return;
+    if (widget.tutorial || _testModeEnabled) return;
+    final battuta = _votoBattutaRallyCorrente;
+    if (battuta == null) return;
+    final dedotto = _ricezioneDedotta(battuta);
+    if (dedotto == null) return;
+    _votoPropostoRicezione = dedotto;
+    _propostaAccesa = true;
+    _timerLampeggioProposta =
+        Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (!mounted) return;
+      setState(() => _propostaAccesa = !_propostaAccesa);
+    });
+    _timerRicezioneAuto =
+        Timer(const Duration(milliseconds: 2800), _confermaPropostaRicezione);
+  }
+
+  /// Spegne proposta e timer. Da chiamare ovunque l'azione in corso cambi o
+  /// finisca: un timer sfuggito scriverebbe un'azione mentre l'utente sta
+  /// facendo altro, che in partita non si perdona.
+  void _annullaPropostaRicezione() {
+    _timerRicezioneAuto?.cancel();
+    _timerRicezioneAuto = null;
+    _timerLampeggioProposta?.cancel();
+    _timerLampeggioProposta = null;
+    _votoPropostoRicezione = null;
+  }
+
+  void _confermaPropostaRicezione() {
+    final proposto = _votoPropostoRicezione;
+    _annullaPropostaRicezione();
+    if (!mounted || proposto == null) return;
+    // Nel frattempo il pannello può essersi chiuso o aver cambiato giocatrice:
+    // si scrive solo se siamo ancora sulla stessa ricezione.
+    if (_votoInCorso?.fondamentale == Fondamentale.ricezione) {
+      _scegliVoto(proposto);
+    } else if (_avversarioInCorso?.fondamentale == Fondamentale.ricezione) {
+      _scegliVotoAvversario(proposto);
+    }
   }
 
   void _azzeraTraiettoriaInLine() {
@@ -1397,21 +1479,29 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // In fase libera (forzato == null) chi gioca dietro parte su Difesa —
     // preselezione correggibile, vedi _preselezioneSecondaLinea.
     final iniziale = forzato ?? _preselezioneSecondaLinea(slot);
-    return () => setState(() {
-      _votoInCorso = (giocatore: player, fondamentale: iniziale, voto: null);
-      _avversarioInCorso = null; // i due pannelli non convivono mai
-      // Azione nuova (o cambio di giocatrice a pannello aperto): la freccia
-      // eventualmente disegnata era di quella prima e non va ereditata.
-      _azzeraTraiettoriaInLine();
-      // Il tipo di battuta selezionato resta "armato" da una battuta
-      // all'altra dello stesso giocatore (spesso batte sempre nello stesso
-      // modo); cambia battitore → si azzera, non si assume che batta uguale.
-      if (forzato == Fondamentale.battuta &&
-          _giocatoreTipoBattutaArmato != player.id) {
-        _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
-        _giocatoreTipoBattutaArmato = player.id;
+    return () {
+      setState(() {
+        _votoInCorso = (giocatore: player, fondamentale: iniziale, voto: null);
+        _avversarioInCorso = null; // i due pannelli non convivono mai
+        // Azione nuova (o cambio di giocatrice a pannello aperto): la freccia
+        // eventualmente disegnata era di quella prima e non va ereditata.
+        _azzeraTraiettoriaInLine();
+        // Il tipo di battuta selezionato resta "armato" da una battuta
+        // all'altra dello stesso giocatore (spesso batte sempre nello stesso
+        // modo); cambia battitore → si azzera, non si assume che batta uguale.
+        if (forzato == Fondamentale.battuta &&
+            _giocatoreTipoBattutaArmato != player.id) {
+          _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
+          _giocatoreTipoBattutaArmato = player.id;
+        }
+      });
+      // Fuori dal setState: fa partire dei timer, non muta lo stato del frame.
+      if (iniziale == Fondamentale.ricezione) {
+        _proponiRicezione();
+      } else {
+        _annullaPropostaRicezione();
       }
-    });
+    };
   }
 
   // Le due metà della coppia del pannello nostro: colonna sinistra
@@ -1436,6 +1526,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void _scegliVoto(Voto voto) {
     final inCorso = _votoInCorso;
     if (inCorso == null) return;
+    // Un voto scelto a mano batte sempre la proposta automatica.
+    _annullaPropostaRicezione();
     setState(() {
       _votoInCorso = (
         giocatore: inCorso.giocatore,
@@ -1659,21 +1751,27 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // In fase libera (forzato == null) chi gioca dietro parte su Difesa,
     // come i nostri — vedi _preselezioneSecondaLineaAvversaria.
     final iniziale = forzato ?? _preselezioneSecondaLineaAvversaria(zona);
-    return () => setState(() {
-          _avversarioInCorso =
-              (ruolo: ruolo, fondamentale: iniziale, voto: null);
-          _votoInCorso = null; // i due pannelli non convivono mai
-          // Stessa regola del nostro battitore: il tipo resta armato finché
-          // serve lo stesso RUOLO, e si azzera quando cambia.
-          if (forzato == Fondamentale.battuta &&
-              _ruoloTipoBattutaArmato != ruolo) {
-            _tipoBattutaAvversario = TipoBattuta.nonSpecificato;
-            _ruoloTipoBattutaArmato = ruolo;
-          }
-          // Come nel pannello nostro: la freccia di un'azione precedente non
-          // va ereditata dalla nuova.
-          _azzeraTraiettoriaInLine();
-        });
+    return () {
+      setState(() {
+        _avversarioInCorso = (ruolo: ruolo, fondamentale: iniziale, voto: null);
+        _votoInCorso = null; // i due pannelli non convivono mai
+        // Stessa regola del nostro battitore: il tipo resta armato finché
+        // serve lo stesso RUOLO, e si azzera quando cambia.
+        if (forzato == Fondamentale.battuta &&
+            _ruoloTipoBattutaArmato != ruolo) {
+          _tipoBattutaAvversario = TipoBattuta.nonSpecificato;
+          _ruoloTipoBattutaArmato = ruolo;
+        }
+        // Come nel pannello nostro: la freccia di un'azione precedente non
+        // va ereditata dalla nuova.
+        _azzeraTraiettoriaInLine();
+      });
+      if (iniziale == Fondamentale.ricezione) {
+        _proponiRicezione();
+      } else {
+        _annullaPropostaRicezione();
+      }
+    };
   }
 
   // Le due metà della coppia avversaria — speculari a _sceglieFondamentale/
@@ -1692,6 +1790,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void _scegliVotoAvversario(Voto voto) {
     final inCorso = _avversarioInCorso;
     if (inCorso == null) return;
+    _annullaPropostaRicezione();
     setState(() => _avversarioInCorso = (
           ruolo: inCorso.ruolo,
           fondamentale: inCorso.fondamentale,
@@ -1892,6 +1991,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     _timerLampeggioTick?.cancel();
     _timerMuroInLine?.cancel();
     _timerAiutoTutorial?.cancel();
+    _timerRicezioneAuto?.cancel();
+    _timerLampeggioProposta?.cancel();
     _frecciaInLine.dispose();
     super.dispose();
   }
@@ -4521,8 +4622,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               // Nel ristretto il `=` è solo un'anteprima: evidenziato ma
               // non tappabile, la registrazione parte dal fondamentale.
               bloccato: ristretto,
-              selezionato:
-                  ristretto ? voto == Voto.errore : voto == votoSelezionato,
+              // La PROPOSTA della ricezione automatica si mostra come un
+              // selezionato che lampeggia: dice "scrivo questo se non dici
+              // altro". Non è una scelta vera — vive fuori dalla coppia — ma
+              // sotto il dito deve leggersi allo stesso modo, perché è quello
+              // che sta per finire a database.
+              selezionato: ristretto
+                  ? voto == Voto.errore
+                  : voto == votoSelezionato ||
+                      (voto == _votoPropostoRicezione && _propostaAccesa),
               attenuato: votoSelezionato != null && voto != votoSelezionato,
               onTap: () => onVoto(voto),
             ),
@@ -4705,7 +4813,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     );
   }
 
-  void _chiudiPannelli() => setState(() {
+  void _chiudiPannelli() {
+    _annullaPropostaRicezione();
+    _chiudiPannelliInterno();
+  }
+
+  void _chiudiPannelliInterno() => setState(() {
         _votoInCorso = null;
         _avversarioInCorso = null;
         _azzeraTraiettoriaInLine();

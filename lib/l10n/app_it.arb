@@ -12,6 +12,8 @@
   "settingsTrajectoriesTitle": "Traiettorie durante lo scout",
   "settingsTrajectoriesSubtitle": "Dopo il voto di battuta e attacco chiede di disegnare la traiettoria. Disattivandola lo scout è più veloce, ma i report delle traiettorie restano vuoti.",
   "settingsTrajectoriesSubtitlePremium": "Funzione premium: le traiettorie sono disattivate.",
+  "settingsAutoPassTitle": "Ricezione automatica (in prova)",
+  "settingsAutoPassSubtitle": "Indicato chi riceve, propone il voto dedotto dalla battuta e lo conferma dopo un paio di secondi: premine un altro entro quel tempo per cambiarlo. Richiede lo scout avversari.",
   "settingsOpponentScoutTitle": "Scout avversari",
   "settingsOpponentScoutSubtitle": "Registra attacchi, battute e muro della squadra avversaria con segnaposto per ruolo che ruotano. La posizione del palleggiatore avversario si imposta a inizio set.",
   "settingsSectionDev": "Sviluppo",
