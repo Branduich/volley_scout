@@ -415,8 +415,8 @@
   "tutorialVotoRicezioneTitolo": "Voto /",
   "tutorialVotoRicezioneTesto": "Anche in ricezione il fondamentale è deciso. Dai un voto /.",
 
-  "tutorialAttaccoAvvTitolo": "L'attacco avversario",
-  "tutorialAttaccoAvvTesto": "Ora simuliamo che debba attaccare il loro schiacciatore in zona 2. Trascina da lui fino a dove arriva la palla nel nostro campo: vale anche per gli avversari, ed è così che si capisce da dove arrivano i colpi.",
+  "tutorialAttaccoAvvTitolo": "Attacco avversario",
+  "tutorialAttaccoAvvTesto": "Ora simuliamo che debba attaccare il loro schiacciatore in zona 2. Trascina il dito dalla pedina fino a zona 5 del nostro campo. In questo modo si calcola la traiettoria della palla.",
 
 
   "tutorialAttaccoNonRisolutivoTitolo": "Un attacco non risolutivo",
@@ -426,13 +426,13 @@
   "tutorialToccaANoiTesto": "Il nostro libero, in zona 5, ha difeso benissimo. Toccalo.",
 
   "tutorialDifesaTitolo": "Difesa",
-  "tutorialDifesaTesto": "Battuta e ricezione erano obbligate dalla fase di gioco, e negli attacchi il fondamentale l'ha deciso il trascinamento. Qui invece scegli tu: in gioco aperto la colonna di sinistra è accesa.\n\nLa palla arrivava da un attacco, quindi è una difesa: premi Difesa. Chi gioca in seconda linea la trova già selezionata. Se preferisci puoi partire dal voto: l'ordine non conta, l'azione si registra quando hai scelto tutte e due.",
+  "tutorialDifesaTesto": "Battuta e ricezione erano obbligate dalla fase di gioco, e negli attacchi il fondamentale l'ha deciso il trascinamento. Qui invece scegli tu: in gioco aperto la colonna di sinistra mostra i fondamentali.\n\nLa palla arrivava da un attacco, chi gioca in seconda linea trova la difesa già preselezionata. Conferma Difesa.",
 
   "tutorialDifesaPerfettaTitolo": "Una difesa perfetta",
   "tutorialDifesaPerfettaTesto": "La palla è tornata all'alzatore pulita: può costruire il gioco come vuole. Dai un #.",
 
   "tutorialNostroAttaccoTitolo": "Il nostro attacco",
-  "tutorialNostroAttaccoTesto": "Alzata al nostro schiacciatore in zona 4, che schiaccia a terra. Trascina da lui fino al punto in cui la palla tocca terra: il fondamentale si accende da sé su Attacco, perché disegnare vuol dire attaccare. Se ti soffermi un attimo sulla rete viene registrato un tocco a muro e la traiettoria si spezza lì.",
+  "tutorialNostroAttaccoTesto": "Alzata al nostro schiacciatore in zona 4, che schiaccia a terra. Trascina dalla pedina numero 7 fino a dove la palla tocca terra, in zona 6: il fondamentale si accende da sé su Attacco, perché disegnare vuol dire attaccare.\n\nSe ti soffermi un attimo sulla rete viene registrato un tocco a muro e la traiettoria si spezza in due.",
 
 
   "tutorialSchiacciataTitolo": "Schiacciata vincente",
@@ -445,7 +445,7 @@
   "tutorialPuntoTesto": "La colonna dei fondamentali si è ristretta a muro e difesa, in rosso: sono le sole risposte possibili a una schiacciata a terra. Premendone una registri direttamente l'errore (=), senza passare dal voto — per questo a destra è già evidenziato.\n\nPremi Difesa: adesso il punteggio si muove.",
 
   "tutorialRegistroTitolo": "Il registro",
-  "tutorialRegistroTesto": "Il punteggio adesso è 1 a 0, come si vede nella parte alta dello schermo.\n\nSe la finestra di registro dei voti è attiva, come in questo caso, è possibile consultare tutte le azioni registrate.",
+  "tutorialRegistroTesto": "Il punteggio adesso è 2 a 0, come si vede nella parte alta dello schermo.\n\nSe la finestra di registro dei voti è attiva, come in questo caso, è possibile consultare tutte le azioni registrate.",
 
   "tutorialRotazioneTitolo": "La rotazione",
   "tutorialRotazioneTesto": "Ora siamo in battuta in P6. La mini mappa a sinistra indica la rotazione e dà anche la possibilità, in caso di errore, di cambiarla di una posizione in avanti e una all'indietro tramite i due bottoni.",

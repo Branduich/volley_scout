@@ -721,12 +721,47 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void _aiutaTutorial() {
     if (!mounted) return;
     final controller = ref.read(tutorialControllerProvider.notifier);
+    final passo = controller.passo;
     // Nel frattempo si è mosso: il passo è cambiato, oppure sta già facendo
     // quello che gli era stato chiesto. In entrambi i casi non si interviene.
-    if (controller.passo?.aiutoDopo == null) return;
+    if (passo?.aiutoDopo == null) return;
     if (_pannelloAperto || _traiettoriaNormalizzata != null) return;
-    _aperturaBattitore?.apri();
+    _aperturaPerAiuto(passo!.bersaglio)?.call();
     controller.avanzaPerAiuto();
+  }
+
+  /// Come si apre la pulsantiera al posto dell'utente, in base a chi il passo
+  /// gli aveva chiesto di toccare. Il bersaglio di un passo a campo libero non
+  /// serve a bucare il velo — lì non ce n'è — ma solo a rispondere a questa
+  /// domanda.
+  VoidCallback? _aperturaPerAiuto(TutorialTarget? bersaglio) {
+    switch (bersaglio) {
+      case TutorialTarget.tokenBattitore:
+        return _aperturaBattitore?.apri;
+      case TutorialTarget.tokenAvversarioAttacco:
+      case TutorialTarget.tokenAvversarioRicezione:
+      case TutorialTarget.tokenAvversarioDifesa:
+        final ruolo = kRuoliAvversariTutorial[bersaglio];
+        // Senza `zona` non scatta la preselezione della difesa, che qui
+        // sarebbe comunque sbagliata: il passo insegna un attacco.
+        return ruolo == null ? null : _tapHandlerAvversario(ruolo);
+      case TutorialTarget.tokenNostroAttaccante:
+        // I nostri target si agganciano al RUOLO e non allo slot, così
+        // seguono il giocatore anche dopo una rotazione: qui si fa il giro
+        // inverso, dal ruolo allo slot che lo occupa adesso.
+        final ruolo = kRuoliNostriTutorial[bersaglio];
+        final assegnazioni = _currentAssignments;
+        final etichette = _roleLabels(_currentSlot, assegnazioni);
+        for (final e in etichette.entries) {
+          if (e.value != ruolo) continue;
+          final player = assegnazioni[e.key];
+          if (player == null) return null;
+          return _tapHandlerPerGiocatore(player, slot: e.key);
+        }
+        return null;
+      default:
+        return null;
+    }
   }
 
   // --- Ricezione automatica (Impostazioni.ricezioneAutomatica, in prova) ----

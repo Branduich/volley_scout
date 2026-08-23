@@ -89,6 +89,10 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
       PassoTutorial(
         titolo: l.tutorialAncoraBattutaTitolo,
         testo: l.tutorialAncoraBattutaTesto,
+        // Buco sul giocatore di cui parla la card: si vede di chi si tratta
+        // mentre leggi, e sparisce premendo "Avanti" (il passo dopo è a campo
+        // libero, senza velo).
+        bersaglio: TutorialTarget.tokenBattitore,
         avanzaConBottone: true,
       ),
 
@@ -105,6 +109,9 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         testo: l.tutorialTrascinaTesto,
         campoLibero: true,
         traiettoriaConsentita: true,
+        // Come sopra: il bersaglio serve solo a dire all'aiuto automatico
+        // quale pulsantiera aprire, non a bucare un velo che qui non c'è.
+        bersaglio: TutorialTarget.tokenBattitore,
         avanzaSuSegnale: SegnaleTutorial.traiettoriaDisegnata,
         // Chi non trascina non resta davanti a uno schermo muto: dopo qualche
         // secondo l'app apre la pulsantiera al posto suo e si prosegue senza
@@ -155,19 +162,24 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
 
       // Ricezione fatta: da qui lo scambio è in fase LIBERA, nessun
       // fondamentale è più imposto e va scelto a mano nel pannello.
+      // Come per la battuta disegnata: la spiegazione sta in una card con
+      // "Avanti", perché nel passo dopo il campo dev'essere sgombro.
       PassoTutorial(
         titolo: l.tutorialAttaccoAvvTitolo,
         testo: l.tutorialAttaccoAvvTesto,
         bersaglio: TutorialTarget.tokenAvversarioAttacco,
-        // Qui il trascinamento si insegna, quindi il disegno è acceso (vedi
-        // PassoTutorial.traiettoriaConsentita: spento in tutti gli altri).
+        avanzaConBottone: true,
+      ),
+
+      PassoTutorial(
+        testo: l.tutorialTrascinaTesto,
+        campoLibero: true,
         traiettoriaConsentita: true,
-        // NON su comparsa di un pezzo del pannello: la pulsantiera è unica,
-        // fondamentali e voti esistono già all'apertura — e il pannello del
-        // passo precedente può essere ancora a schermo per un istante, quindi
-        // qualunque suo target farebbe saltare avanti da solo. Si avanza sul
-        // tocco del token, che è esattamente l'azione richiesta.
-        avanzaSuTap: true,
+        // Serve solo all'aiuto automatico, per sapere quale pulsantiera
+        // aprire se il trascinamento non arriva: qui non c'è velo da bucare.
+        bersaglio: TutorialTarget.tokenAvversarioAttacco,
+        avanzaSuSegnale: SegnaleTutorial.traiettoriaDisegnata,
+        aiutoDopo: const Duration(seconds: 8),
       ),
 
       // NIENTE passo "premi Attacco": il trascinamento l'ha già deciso
@@ -215,12 +227,22 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
             a.voto == Voto.perfetto),
       ),
 
+      // Terzo trascinamento, stessa forma dei primi due: card che spiega,
+      // poi campo libero.
       PassoTutorial(
         titolo: l.tutorialNostroAttaccoTitolo,
         testo: l.tutorialNostroAttaccoTesto,
         bersaglio: TutorialTarget.tokenNostroAttaccante,
+        avanzaConBottone: true,
+      ),
+
+      PassoTutorial(
+        testo: l.tutorialTrascinaTesto,
+        campoLibero: true,
         traiettoriaConsentita: true,
-        avanzaSuTap: true,
+        bersaglio: TutorialTarget.tokenNostroAttaccante,
+        avanzaSuSegnale: SegnaleTutorial.traiettoriaDisegnata,
+        aiutoDopo: const Duration(seconds: 8),
       ),
 
       // Come per l'attacco avversario: il disegno ha già scelto il
@@ -316,6 +338,11 @@ List<PassoTutorial> passiTutorial(AppLocalizations l) => [
         // voce, e un tocco su "Fine" o "Indietro" porterebbe l'utente fuori
         // dal tutorial mentre sta solo leggendo. Il menu resta comunque
         // leggibile sotto al velo, che è al 45%.
+        //
+        // Card a DESTRA: il drawer occupa la sinistra e una card centrata lo
+        // coprirebbe a metà — proprio le voci che l'elenco sta descrivendo.
+        // Senza buco il lato non contava; ora sì (vedi _cardPasso).
+        lato: LatoCard.destra,
         avanzaConBottone: true,
       ),
 

@@ -156,11 +156,25 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
 
     final altezzaPiena = schermo.height - bordo * 2;
     if (buco == null) {
-      return Center(
-        child: _card(
-            passo,
-            larghezzaIn(schermo.width - bordo * 2, fasciaOrizzontale: true),
-            altezzaPiena),
+      // Senza buco la card sta al centro, ma il passo può chiedere un lato:
+      // serve quando sotto al velo c'è qualcosa da leggere che la card
+      // coprirebbe — il drawer aperto, che occupa la sinistra.
+      final allineamento = switch (passo.lato) {
+        LatoCard.sinistra => Alignment.centerLeft,
+        LatoCard.destra => Alignment.centerRight,
+        LatoCard.sopra => Alignment.topCenter,
+        LatoCard.sotto => Alignment.bottomCenter,
+        LatoCard.automatico => Alignment.center,
+      };
+      return Padding(
+        padding: const EdgeInsets.all(bordo),
+        child: Align(
+          alignment: allineamento,
+          child: _card(
+              passo,
+              larghezzaIn(schermo.width - bordo * 2, fasciaOrizzontale: true),
+              altezzaPiena),
+        ),
       );
     }
 

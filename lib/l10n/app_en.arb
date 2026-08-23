@@ -406,8 +406,8 @@
   "tutorialVotoRicezioneTitolo": "Rating /",
   "tutorialVotoRicezioneTesto": "On a pass the skill is already decided too. Give it a /.",
 
-  "tutorialAttaccoAvvTitolo": "The opponent's attack",
-  "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Drag from them to where the ball lands in our court: it works for the opponents too, and that's how you learn where their shots come from.",
+  "tutorialAttaccoAvvTitolo": "Opponent attack",
+  "tutorialAttaccoAvvTesto": "Now let's say their outside hitter in position 2 goes up to attack. Drag your finger from the token to position 5 in our court. That is how the trajectory of the ball is recorded.",
 
 
   "tutorialAttaccoNonRisolutivoTitolo": "An attack that doesn't finish",
@@ -416,14 +416,14 @@
   "tutorialToccaANoiTitolo": "Our turn",
   "tutorialToccaANoiTesto": "Our libero, in position 5, came up with a great dig. Tap them.",
 
-  "tutorialDifesaTitolo": "Dig",
-  "tutorialDifesaTesto": "Serves and passes were forced by the phase of play, and on attacks the drag decided the skill. Here it's up to you: in open play the left column is live.\n\nThe ball came off an attack, so it's a dig: press Dig. Back-row players have it selected already. You can start from the rating if you prefer: the order doesn't matter, the action is recorded once you've chosen both.",
+  "tutorialDifesaTitolo": "The dig",
+  "tutorialDifesaTesto": "Serves and passes were forced by the phase of play, and on attacks the drag decided the skill. Here it is up to you: in open play the left column shows the skills.\n\nThe ball came off an attack, and back-row players find Dig already selected. Confirm Dig.",
 
   "tutorialDifesaPerfettaTitolo": "A perfect dig",
   "tutorialDifesaPerfettaTesto": "The ball came back to the setter clean: they can run whatever they want. Give it a #.",
 
   "tutorialNostroAttaccoTitolo": "Our attack",
-  "tutorialNostroAttaccoTesto": "The set goes to our outside hitter in position 4, who puts it away. Drag from them to the spot where the ball hits the floor: the skill switches to Attack by itself, because drawing means attacking. Pause a moment on the net and a block touch is recorded, bending the trajectory there.",
+  "tutorialNostroAttaccoTesto": "The set goes to our outside hitter in position 4, who puts it away. Drag from the token numbered 7 to where the ball hits the floor, in position 6: the skill switches to Attack by itself, because drawing means attacking.\n\nPause a moment on the net and a block touch is recorded, splitting the trajectory in two.",
 
 
   "tutorialSchiacciataTitolo": "Kill",
@@ -436,7 +436,7 @@
   "tutorialPuntoTesto": "The skill column has narrowed down to block and dig, in red: they are the only possible answers to a ball on the floor. Pressing one records the error (=) straight away, without going through the rating — which is why it is already highlighted on the right.\n\nPress Dig: now the score moves.",
 
   "tutorialRegistroTitolo": "The action log",
-  "tutorialRegistroTesto": "The score is now 1 to 0, as you can see at the top of the screen.\n\nWhen the action log is on, as it is here, you can go back over everything you have recorded.",
+  "tutorialRegistroTesto": "The score is now 2 to 0, as you can see at the top of the screen.\n\nWhen the action log is on, as it is here, you can go back over everything you have recorded.",
 
   "tutorialRotazioneTitolo": "The rotation",
   "tutorialRotazioneTesto": "We are now serving in P6. The mini map on the left shows the rotation, and the two buttons let you move it one position forward or backward if it ever goes out of sync.",
