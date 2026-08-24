@@ -110,6 +110,11 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     final passo = controller.passo;
     if (!stato.attivo || passo == null) return const SizedBox.shrink();
 
+    // Campo libero: né velo né card — coprirebbero entrambi la traiettoria da
+    // tracciare. L'istruzione la mostra ScoutScreen nella fascia centrale
+    // della riga dei bottoni rapidi (vedi PassoTutorial.campoLibero).
+    if (passo.campoLibero) return const SizedBox.shrink();
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -133,16 +138,43 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
     final buco = _rectBersaglio;
 
     // Larghezza preferita, senza mai eccedere la fascia in cui va messa.
-    double larghezzaIn(double fascia) => math.min(
-          (schermo.width * 0.42).clamp(280.0, 460.0),
+    //
+    // Due misure, non una: quando la card sta in una fascia ORIZZONTALE (sopra
+    // o sotto al buco, o al centro senza buco) la larghezza disponibile è
+    // tutto lo schermo, e restare al 42% la faceva stretta e alta — su
+    // telefono il testo non ci stava e veniva tagliato in fondo. Larga, lo
+    // stesso testo occupa meno righe e la fascia lo contiene.
+    // Di LATO invece la fascia è davvero stretta, e il `min` qui sotto la
+    // riduce comunque: lì la misura piccola resta quella giusta.
+    double larghezzaIn(double fascia, {bool fasciaOrizzontale = false}) =>
+        math.min(
+          fasciaOrizzontale
+              ? (schermo.width * 0.62).clamp(300.0, 620.0)
+              : (schermo.width * 0.42).clamp(280.0, 460.0),
           math.max(200.0, fascia),
         );
 
     final altezzaPiena = schermo.height - bordo * 2;
     if (buco == null) {
-      return Center(
-        child:
-            _card(passo, larghezzaIn(schermo.width - bordo * 2), altezzaPiena),
+      // Senza buco la card sta al centro, ma il passo può chiedere un lato:
+      // serve quando sotto al velo c'è qualcosa da leggere che la card
+      // coprirebbe — il drawer aperto, che occupa la sinistra.
+      final allineamento = switch (passo.lato) {
+        LatoCard.sinistra => Alignment.centerLeft,
+        LatoCard.destra => Alignment.centerRight,
+        LatoCard.sopra => Alignment.topCenter,
+        LatoCard.sotto => Alignment.bottomCenter,
+        LatoCard.automatico => Alignment.center,
+      };
+      return Padding(
+        padding: const EdgeInsets.all(bordo),
+        child: Align(
+          alignment: allineamento,
+          child: _card(
+              passo,
+              larghezzaIn(schermo.width - bordo * 2, fasciaOrizzontale: true),
+              altezzaPiena),
+        ),
       );
     }
 
@@ -188,7 +220,9 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay>
       top: inBasso ? buco.bottom + gap : null,
       bottom: inBasso ? null : schermo.height - buco.top + gap,
       child: Align(
-        child: _card(passo, larghezzaIn(schermo.width - bordo * 2),
+        child: _card(
+            passo,
+            larghezzaIn(schermo.width - bordo * 2, fasciaOrizzontale: true),
             inBasso ? sotto : sopra),
       ),
     );

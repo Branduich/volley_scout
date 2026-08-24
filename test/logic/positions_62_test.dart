@@ -41,11 +41,11 @@ void main() {
   group('Tabelle 6-2 — spot-check coordinate (dai CSV)', () {
     test('P1 - Battuta', () {
       expect(kAttackBattuta62['P1'], {
-        'P1': const Offset(-60, 470),
-        'S1': const Offset(530, 470),
+        'P1': const Offset(-60, 510),
+        'S1': const Offset(530, 510),
         'C1': const Offset(530, 300),
-        'P2': const Offset(530, 130),
-        'S2': const Offset(200, 130),
+        'P2': const Offset(530, 90),
+        'S2': const Offset(200, 90),
         'Libero': const Offset(200, 300),
       });
     });
@@ -61,10 +61,10 @@ void main() {
       });
     });
 
-    test('P1 - Dopo_Battuta: Libero in P5 (200,130), S2 in P6 (200,300)', () {
+    test('P1 - Dopo_Battuta: Libero in P5 (200,90), S2 in P6 (200,300)', () {
       // Corretto dopo refuso CSV: Libero e S2 erano scambiati (ora coincide
       // col 5-1 per questa rotazione).
-      expect(kAttackDopoBattuta62['P1']!['Libero'], const Offset(200, 130));
+      expect(kAttackDopoBattuta62['P1']!['Libero'], const Offset(200, 90));
       expect(kAttackDopoBattuta62['P1']!['S2'], const Offset(200, 300));
     });
   });

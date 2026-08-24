@@ -42,6 +42,10 @@ const _densitaTablet = 2.0;
 
 typedef CostruisciSchermata = Future<Widget> Function(AppDatabase db);
 
+/// Interazione da compiere a schermata montata, per verificare anche i layout
+/// che compaiono solo dopo un tocco (la pulsantiera del pannello voto).
+typedef DopoIlMontaggio = Future<void> Function(WidgetTester tester);
+
 /// Monta [schermata] a [dimensioni] e pretende che nessuna eccezione di
 /// layout venga segnalata.
 Future<void> verificaLayout(
@@ -49,6 +53,7 @@ Future<void> verificaLayout(
   required Size dimensioni,
   required double densita,
   required CostruisciSchermata schermata,
+  DopoIlMontaggio? dopoIlMontaggio,
 }) async {
   tester.view.physicalSize = dimensioni;
   tester.view.devicePixelRatio = densita;
@@ -82,29 +87,45 @@ Future<void> verificaLayout(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 600));
 
+  // L'eccezione va raccolta PRIMA di interagire: se il montaggio ha già
+  // sbagliato il layout, il tocco successivo fallirebbe con un errore
+  // diverso e più difficile da leggere.
   expect(tester.takeException(), isNull);
+
+  if (dopoIlMontaggio != null) {
+    await dopoIlMontaggio(tester);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(tester.takeException(), isNull);
+  }
 }
 
 /// Le tre dimensioni di riferimento, per non ripeterle in ogni gruppo.
-void perOgniDimensione(String nome, CostruisciSchermata schermata) {
+void perOgniDimensione(
+  String nome,
+  CostruisciSchermata schermata, {
+  DopoIlMontaggio? dopoIlMontaggio,
+}) {
   group(nome, () {
     testWidgets('telefono in verticale', (tester) async {
       await verificaLayout(tester,
           dimensioni: _telefonoVerticale,
           densita: _densitaTelefono,
-          schermata: schermata);
+          schermata: schermata,
+          dopoIlMontaggio: dopoIlMontaggio);
     });
     testWidgets('telefono in orizzontale', (tester) async {
       await verificaLayout(tester,
           dimensioni: _telefonoOrizzontale,
           densita: _densitaTelefono,
-          schermata: schermata);
+          schermata: schermata,
+          dopoIlMontaggio: dopoIlMontaggio);
     });
     testWidgets('tablet in orizzontale', (tester) async {
       await verificaLayout(tester,
           dimensioni: _tabletOrizzontale,
           densita: _densitaTablet,
-          schermata: schermata);
+          schermata: schermata,
+          dopoIlMontaggio: dopoIlMontaggio);
     });
   });
 }
@@ -161,23 +182,40 @@ void main() {
   // Scout live: la riga dei bottoni rapidi è la parte più larga dell'app.
   // Lo scenario è quello della partita di prova del tutorial, che è già una
   // formazione completa e coerente (set creato, rotazione, libero).
-  perOgniDimensione('ScoutScreen', (db) async {
-    final prefs = await SharedPreferences.getInstance();
-    final dati = await TutorialSandbox.semina(
-      db,
-      prefs,
-      lookupAppLocalizations(const Locale('it')),
-    );
-    final formazione =
-        await MatchSetRepository(db).caricaFormazione(dati.setId);
-    return ScoutScreen(
-      match: dati.match,
-      team: dati.team,
-      palleggiatoreSlot: formazione!.palleggiatoreSlot,
-      assignments: formazione.assignments,
-      ruoloCambiLibero: formazione.ruoloCambiLibero,
-      sistemaGioco:
-          formazione.sistemaGioco ?? SistemaGioco.palleggiatoreUnico,
-    );
-  });
+  perOgniDimensione(
+    'ScoutScreen',
+    _scoutScreenDiProva,
+  );
+
+  // Stessa schermata col PANNELLO VOTO aperto: la pulsantiera è alta cinque
+  // righe da 64 e larga due colonne, ed è la parte che su telefono deve
+  // rimpicciolirsi (FittedBox) invece di sbordare. Il set è appena iniziato e
+  // tocca a noi servire, quindi l'unico giocatore tappabile è quello in P1 —
+  // Anna Bianchi, numero 4 (vedi TutorialSandbox).
+  perOgniDimensione(
+    'ScoutScreen col pannello voto aperto',
+    _scoutScreenDiProva,
+    dopoIlMontaggio: (tester) async {
+      await tester.tap(find.text('4'));
+      await tester.pump();
+    },
+  );
+}
+
+Future<Widget> _scoutScreenDiProva(AppDatabase db) async {
+  final prefs = await SharedPreferences.getInstance();
+  final dati = await TutorialSandbox.semina(
+    db,
+    prefs,
+    lookupAppLocalizations(const Locale('it')),
+  );
+  final formazione = await MatchSetRepository(db).caricaFormazione(dati.setId);
+  return ScoutScreen(
+    match: dati.match,
+    team: dati.team,
+    palleggiatoreSlot: formazione!.palleggiatoreSlot,
+    assignments: formazione.assignments,
+    ruoloCambiLibero: formazione.ruoloCambiLibero,
+    sistemaGioco: formazione.sistemaGioco ?? SistemaGioco.palleggiatoreUnico,
+  );
 }

@@ -367,12 +367,38 @@
   - **`_fondamentaleForzato()`** (`Fondamentale?`): `null` se siamo in fase
     libera (va scelto nel pannello), altrimenti `Fondamentale.battuta` o
     `Fondamentale.ricezione` in base a chi è al servizio.
+  - **Preselezione della difesa in seconda linea** (`_preselezioneSecondaLinea`,
+    2026-08-22): in fase libera, aprendo il pannello su uno dei tre di
+    seconda linea (`_kSlotSecondaLinea` = P1/P6/P5, più il libero che ha
+    `slot` null) il fondamentale parte già su **Difesa** — due tocchi invece
+    di tre sul caso più frequente della partita. Vale anche per gli
+    **avversari** (`_preselezioneSecondaLineaAvversaria`, parametro `zona` di
+    `_tapHandlerAvversario`): lì i token sono identificati dal RUOLO, quindi
+    la seconda linea si legge dalla **zona** che quel ruolo occupa nella loro
+    rotazione (`zonaPerRuolo` in `_buildTokenAvversari`) — zone 1/6/5, le
+    stesse nostre. Nessun caso "libero" da loro: 5-1 canonico senza libero.
+    - È una **preselezione, non una scelta**: si corregge con un tocco sulla
+      colonna e da sola non registra niente, perché a chiudere l'azione è
+      sempre e solo il voto. È il motivo per cui questa strada è stata
+      preferita alla pulsantiera **a matrice**, dove un tocco sbagliato
+      scriverebbe l'azione (vedi il piano della matrice, ancora aperto).
+    - Non interferisce col disegno: `Difesa` sta fra i quattro della colonna,
+      quindi `_preselezionaAttaccoDaTraiettoria` la sovrascrive regolarmente —
+      un attacco di seconda linea (pipe) disegnato resta un attacco.
+    - **Punto da giudicare in campo**: fra i tre c'è anche il palleggiatore
+      quando la rotazione lo porta dietro (3 su 6 nel 5-1), e quello alza più
+      di quanto difenda. Tenuto a difesa perché è quello che è stato chiesto;
+      per escluderlo basta una condizione nelle due
+      `_preselezioneSecondaLinea*` (per gli avversari il palleggiatore è
+      sempre il ruolo `'P'`, quindi lì è ancora più diretto).
   - **Tap su un giocatore tappabile**: `_tapHandlerPerGiocatore(player,
     {slot})` — disabilitato in modalità test o prima dell'inizio del set,
     altrimenti tappabile se `_giocatoreTappabile(slot)`. Tap → apre
-    `_votoInCorso` (record `(giocatore, fondamentale)`, `fondamentale` da
-    `_fondamentaleForzato()` — `null` in fase libera, il pannello mostrerà
-    prima la scelta del fondamentale).
+    `_votoInCorso` (record `(giocatore, fondamentale, voto)`, `fondamentale`
+    da `_fondamentaleForzato()` — `null` in fase libera, dove va scelto nella
+    colonna sinistra della pulsantiera; `voto` sempre `null` all'apertura).
+    Vale anche **a pannello già aperto**: il tap sostituisce la giocatrice
+    (vedi la pulsantiera sotto).
     - **Trabocchetto hit-test fuori dal campo** (`_buildBattitoreTapCatcher`,
       solo quando battiamo noi — in ricezione P1 è una posizione normale in
       campo, già coperta dal proprio token): quando il battitore è in
@@ -398,79 +424,329 @@
       l'eccezione del servizio) — il libero non ha uno slot proprio, quindi
       passa `slot: null` a `_tapHandlerPerGiocatore` (tappabile solo in
       ricezione, mai in battuta: coerente con "il libero non serve mai").
-  - **Pannello voto** (`_buildPannelloVoto`, ritorna una lista — vedi
-    sotto): ancorato al bordo destro dello schermo (`Positioned(right: 16) +
-    Center`), card scura (`_kTopBarBg`) con etichetta giocatore (numero di
-    maglia, grande; sotto il cognome, più piccolo, `maxLines: 1` +
-    ellissi se non ci sta) sempre visibile, poi **due possibili corpi** in
-    base a `_votoInCorso.fondamentale`:
-    - **`null` (fase libera)**: `_buildSceltaFondamentale()` — 4 bottoni
-      rettangolari verticali (150×60, `AppColors.brandPrimary` — ingranditi
-      da 110×40 dopo feedback "troppo piccoli sul device vero"), uno per
-      Alzata/Attacco/Muro/Difesa. Tap → `_sceglieFondamentale(f)`: aggiorna
-      `_votoInCorso` con quel fondamentale (stesso record, ora con
-      `fondamentale` non nullo) — il pannello si ridisegna mostrando il
-      corpo sotto.
-    - **non null**: nome del fondamentale (`Fondamentale.label`) + **solo
-      per battuta** la griglia tipo battuta, **solo per attacco** la riga
-      tipo attacco (vedi sotto) + 5 bottoni quadrati verticali, uno per
-      `Voto` (stesso ordine dell'enum: `#`/`+`/`/`/`-`/`=`), colore da
-      `CourtStyle.votoColor()` (vedi sotto).
-    - **Tipo battuta** (IMPLEMENTATO, opzionale — "Dal basso"/"Float"/
-      "Salto"/"Salto float"): scelto su **`TrajectoryScreen`**, non più nel
-      pannello voto qui — riga orizzontale di 4 chip subito sotto al campo
-      (spostata via per sgombrare il pannello voto, già pieno; vedi
-      "Traiettoria battuta/attacco" più sotto per i dettagli della
-      schermata e del meccanismo di passaggio/ritorno del valore "armato").
-      Tap su un chip → lo seleziona (sfondo/bordo `AppColors.brandAccent`);
-      tap di nuovo sullo stesso chip → lo deseleziona (torna a
-      `nonSpecificato`). **Non blocca il flusso veloce**: ignorarlo e
-      saltare/disegnare la traiettoria registra comunque l'azione, con
-      `tipoEsecuzione = 'nonSpecificato'` come sempre.
-      - **Resta "armato" tra una battuta e l'altra dello STESSO giocatore**
-        (spesso batte sempre nello stesso modo) — cambia battitore e si
-        azzera (non si assume che batta uguale). `_giocatoreTipoBattutaArmato`
-        e `_tipoBattutaSelezionato` restano in `ScoutScreen` (unica istanza
-        persistente tra una `TrajectoryScreen` e la successiva): la prima
-        traccia il `player.id` per cui il valore è valido (resettato a
-        `nonSpecificato` in `_tapHandlerPerGiocatore` quando cambia
-        battitore), la seconda viene passata come `tipoBattutaIniziale` alla
-        navigazione e riletta dal campo `tipoBattuta` del risultato al
-        ritorno — `_registraVoto` non la resetta mai esplicitamente (resta
-        quella che è finché non cambia battitore).
-      - `_registraVoto` passa `tipoEsecuzione: _tipoBattutaSelezionato.name`
-        a `registraAzioneScout()` solo se `fondamentale == battuta`,
-        `_tipoAttaccoSelezionato.name` se `== attacco`, altrimenti
-        `'nonSpecificato'` (ricezione/alzata/muro/difesa non hanno un proprio
-        tipo di esecuzione — vedi Modello dati).
-    - **Tipo attacco** (IMPLEMENTATO, opzionale — "Forte"/"Piazzata"/
-      "Pallonetto" in un'unica riga): scelto anche questo su
-      **`TrajectoryScreen`** (non più nel pannello voto), riga orizzontale
-      di 3 chip sotto al campo — stessa posizione della riga tipo battuta
-      (mai entrambe insieme, sono mutuamente esclusive sullo stesso
-      `widget.fondamentale`). **Non resta mai "armato"** tra un attacco e
-      l'altro (a differenza della battuta, di solito eseguita sempre nello
-      stesso modo dallo stesso giocatore): a differenza del tipo battuta,
-      qui `TrajectoryScreen` non riceve né passa indietro un valore
-      "iniziale" — parte sempre da `nonSpecificato` a ogni apertura della
-      schermata, varia troppo spesso colpo su colpo per assumere che resti
-      lo stesso anche per lo stesso giocatore.
-    - **`_buildTipoChip`** (in `TrajectoryScreen`, duplicata da
-      `ScoutScreen` con lo stesso stile — non più condivisa tra due righe
-      nella stessa schermata, dato che entrambe le righe sono migrate
-      insieme): chip generica (92×52, stesso stile selezionato/non
-      selezionato) parametrizzata su label/selezionato/onTap.
-    - **Annulla = tap fuori dal pannello**, non un bottone dedicato.
-      `_buildPannelloVoto` ritorna **due** widget nello Stack esterno: uno
-      sfondo `Positioned.fill` con `GestureDetector(behavior: opaque)` che
-      chiude il pannello (`_votoInCorso = null`), più il pannello stesso
-      avvolto in un secondo `GestureDetector` (`onTap: () {}`, anch'esso
-      `opaque`) che **assorbe** il tap — necessario perché lo Stack
-      interrompe la ricerca del bersaglio al primo figlio che reclama il
-      tocco (vedi `defaultHitTestChildren`): senza questo assorbimento, un
-      tap su un punto del pannello senza un proprio `onTap` (es. lo sfondo
-      della card, il testo del nome) cadrebbe comunque sullo sfondo
-      sottostante e chiuderebbe il pannello per errore.
+  - **Pannello voto = PULSANTIERA UNICA** (`_buildPannelloVoto` +
+    `_buildPulsantiera`, ritorna una lista — vedi sotto): ancorato al bordo
+    destro dello schermo (`Positioned(right: 16)`), card scura (`_kTopBarBg`)
+    con header (numero di maglia 26 bold; sotto il cognome 18, `maxLines: 1` +
+    ellissi) e sotto **due colonne sempre entrambe a schermo**: fondamentali a
+    sinistra, voti a destra. Righe della stessa altezza, così i 4 fondamentali
+    si allineano ai primi 4 voti e il `=` resta da solo in fondo.
+    - **Si tocca una voce per colonna, in QUALSIASI ORDINE**, e alla coppia
+      completa l'azione parte da sé (`_sceglieFondamentale`/`_scegliVoto` →
+      `_provaRegistrare` → `_registraVoto`). Ri-toccare la stessa colonna
+      **corregge** la scelta senza scrivere niente: nulla finisce a DB finché
+      la coppia non è completa.
+    - **Rifatta il 2026-08-21** (era: prima i 4 fondamentali, POI al loro
+      posto i 5 voti). I tocchi restano 3, il guadagno è altrove — i bottoni
+      non si spostano né cambiano contenuto fra un tocco e l'altro, quindi
+      l'occhio non deve ri-agganciare il pannello e si forma memoria
+      muscolare; e sbagliare fondamentale non costa più "chiudi e ricomincia
+      dal giocatore". Verificato più veloce sul dispositivo reale.
+    - **Ordine libero tenuto di proposito** anche se all'utente viene naturale
+      fondamentale→voto: spegnere i voti fino alla scelta del fondamentale
+      rimetterebbe dentro il difetto appena tolto (5 bottoni che cambiano
+      aspetto richiamano l'occhio via dal campo), e chi usa sempre lo stesso
+      ordine non nota differenza. Imporlo dopo è una guardia di una riga in
+      `_scegliVoto`; il contrario costa di nuovo tutta la discussione.
+    - **Misure** (costanti in cima allo State): righe `_kAltezzaRigaPulsantiera`
+      64, gap `_kGapPulsantiera` 8, colonne `_kLarghezzaFondamentale` e
+      `_kLarghezzaVoto` entrambe 85; `Positioned(right: 4)` e padding card
+      8/6 — **ingombro totale dal bordo destro 194dp**.
+      **Non allargare queste misure senza rifare il conto**: col cambio campo
+      il battitore esce dal campo a DESTRA (`_kBattutaP1Position` specchiata) e
+      finisce proprio dove sta la card — e da lì ci si deve partire col dito
+      per la traiettoria in-line. Misurato su tablet da ~1274dp: il token
+      arriva a 0,84×larghezza schermo, quindi la card non può superare ~196dp.
+      Storia: fondamentali 150×60 → 120 → 100 (uguali ai voti) → 85, e i
+      margini portati al minimo prima di toccare i bottoni.
+      Il taglio del padding VERTICALE va nella direzione opposta a quella che
+      si teme: su telefono è l'altezza a decidere quanto il `FittedBox`
+      rimpicciolisce tutto, quindi meno padding = bottoni più grandi.
+      L'header va vincolato a `_kLarghezzaPulsantiera`: il `FittedBox` passa
+      vincoli **illimitati**, quindi un cognome lungo allargherebbe tutta la
+      card invece di troncarsi.
+    - **Colonna fondamentali**: 4 voci in ordine **fisso**
+      Attacco/Muro/Difesa/Alzata (ordine chiesto dall'utente il 2026-08-22,
+      dopo averlo usato: prima era Difesa/Attacco/Muro/Alzata). Non vanno
+      riordinate né sostituite a seconda della fase: sono coordinate su cui si
+      forma l'abitudine. Battuta e ricezione **non stanno qui** — quando la
+      fase le impone, il fondamentale compare come chip evidenziato
+      nell'header (`_buildChipFondamentaleForzato`). Il "forzato" si deriva da
+      "il fondamentale selezionato non è fra i 4 della colonna", non da
+      `_fondamentaleForzato()`, così i due non possono divergere.
+      In **ricezione** la colonna **non c'è**: dal 2026-08-22 `vociSinistra`
+      arriva vuota e `_buildPulsantiera` passa alla forma a **colonna
+      singola** — quattro bottoni spenti sono solo campo coperto, e lì non
+      c'è nemmeno un tipo di esecuzione da offrire in cambio. I voti si
+      prendono tutta la larghezza della card (`_kLarghezzaPulsantiera` come
+      `larghezza` di `_buildBottoneVoto`): **allargati, non centrati** alla
+      misura solita. La card resta larga uguale — la vincola l'header — quindi
+      il **bordo destro di ogni bottone non si sposta** e il dito li ritrova
+      dov'erano, con un bersaglio più grande; centrarli a 85 li porterebbe
+      verso il campo, cioè l'unica cosa che la memoria muscolare non perdona.
+      In **battuta**
+      dal 2026-08-22 la colonna diventa i **tipi di servizio** (`_colonnaTipiBattuta`) —
+      quattro bottoni spenti non dicono niente, ed è lo stesso spazio in cui in
+      battuta manca proprio quel dato. Sono 5 come i voti, quindi le colonne
+      restano allineate e la card non cambia larghezza. Blu come i
+      fondamentali: l'ambra provata prima rendeva le etichette illeggibili, e
+      la fase la dice già il chip nell'header.
+      La colonna di sinistra arriva a `_buildPulsantiera` **già costruita**
+      (`vociSinistra`), da `_colonnaFondamentali` o `_colonnaTipiBattuta`: così
+      le àncore del tutorial restano dove sono e l'impaginazione è una sola.
+    - **Colonna voti**: 5 bottoni, ordine dell'enum (`#`/`+`/`/`/`-`/`=`),
+      colore da `CourtStyle.votoColor()` (vedi sotto).
+    - **Feedback di selezione** (`_buildBottonePulsantiera`): bordo bianco 3px
+      sul bottone scelto; le altre voci **della stessa colonna** scendono a
+      opacità 0.55, ma **solo se in quella colonna una scelta c'è già** —
+      attenuando sempre, il pannello si aprirebbe con l'aria di essere tutto
+      disattivato. Bottone spento: 0.4, e resta comunque al suo posto.
+    - **Pulsantiera RISTRETTA** (scorciatoia kill, dopo un `#` di attacco
+      dell'altra squadra): solo Muro/Difesa attivi e rossi, un tocco registra
+      subito il `=` (`onErroreDifensivo`, resta a **1 tocco**: è il caso più
+      frequente della partita); la colonna voti è spenta col `=` evidenziato
+      come anteprima di quello che verrà scritto.
+    - **`_registrazioneInCorso`**: guardia contro il doppio tocco rapido
+      sull'ultimo bottone della coppia — `_registraVoto` è async (attende
+      la scrittura a DB) e senza guardia un secondo tocco
+      arrivato nel frattempo registrerebbe due azioni identiche.
+    - **`_buildPulsantiera` è condivisa** fra pannello nostro e avversario:
+      cambiano solo i callback e le funzioni `targetFond`/`targetVoto` delle
+      àncore tutorial.
+    - **Tipi di esecuzione**: vivono tutti nella **colonna di sinistra della
+      pulsantiera** (vedi sopra) — quelli di servizio in fase battuta, quelli
+      di attacco dopo un tratto disegnato. Non c'è più nessuna riga di chip:
+      la schermata che li ospitava è stata cancellata il 2026-08-22 insieme
+      alla vecchia strada delle traiettorie.
+      - Il tipo di **battuta** resta "armato" finché serve lo stesso
+        battitore (`_giocatoreTipoBattutaArmato` per noi,
+        `_ruoloTipoBattutaArmato` per gli avversari); quello di **attacco**
+        non si arma mai — varia colpo su colpo.
+      - Nessuno dei due registra da sé: a chiudere l'azione è sempre e solo
+        il voto, quindi ignorarli lascia il percorso veloce di un tocco.
+    - **Annulla = tap fuori dal pannello**, non un bottone dedicato. Il
+      pannello stesso è avvolto in un `GestureDetector(onTap: () {})`
+      `opaque` che **assorbe** il tap — necessario perché lo Stack interrompe
+      la ricerca del bersaglio al primo figlio che reclama il tocco (vedi
+      `defaultHitTestChildren`): senza, un tap su un punto della card senza un
+      proprio `onTap` (lo sfondo, il testo del nome) cadrebbe sullo scrim e
+      chiuderebbe il pannello per errore.
+    - **Cambio giocatore a pannello aperto, e i trabocchetti di hit-test**
+      (risolti il 2026-08-21; da rileggere prima di toccare l'ordine dei figli
+      dello `Stack` di `ScoutScreen`). Toccare un'altra giocatrice
+      **sostituisce** quella in corso invece di chiudere, e il pannello
+      riparte da coppia vuota — fondamentale e voto già scelti NON si
+      trascinano dietro, altrimenti il cambio registrerebbe da solo.
+      Dal 2026-08-22 vale **anche fra squadre diverse**: col pannello nostro
+      aperto si tocca un token avversario e viceversa, senza chiudere prima —
+      le azioni si susseguono veloci e quel passaggio era un tocco sprecato.
+      Le due guardie che lo impedivano (`_avversarioInCorso != null` in
+      `_tapHandlerPerGiocatore` e la speculare) sono state tolte; i due
+      pannelli restano esclusivi come STATO, perché chi apre azzera l'altro.
+      Per lo stesso motivo le scorciatoie ace/kill
+      (`_registraErroreDifensivoRapido` e il gemello) chiudono ENTRAMBI i
+      pannelli con `_chiudiPannelli()`: ora ci si può arrivare con quello
+      dell'altra squadra aperto, che altrimenti resterebbe appeso.
+      I blocchi del Modello A (`_nostriTokenBloccati`/`_tokenAvversariBloccati`
+      dopo un `#`) NON c'entrano e restano: quelli sono regola di gioco.
+      1. **Lo scrim va in FONDO allo Stack**, cioè come PRIMO figlio
+         (`_buildScrimPannelli`, inserito in `build` prima del campo). Lo
+         Stack cerca il bersaglio dall'ultimo figlio verso il primo: con lo
+         scrim in cima — dov'era — il tocco su un token moriva lì e servivano
+         due tocchi per cambiare giocatrice.
+      2. **`Image` INTERCETTA i tocchi.** Spostato lo scrim sotto, il tocco
+         dentro al campo si fermava sull'immagine di sfondo e non chiudeva
+         più: bisognava uscire dal campo. Serve quindi un chiuditore
+         sull'immagine stessa, primo figlio dello Stack **interno** (sotto ai
+         token): fra i due gesti vince quello del token, colpito per primo.
+      Un token NON tappabile viene disegnato senza `GestureDetector`, quindi
+      il tocco lo attraversa e chiude — nessun tocco che "non fa niente".
+      Conseguenza da tenere a mente: tutto ciò che è interattivo e sta sopra
+      allo scrim riceverebbe il tocco invece di lasciarlo chiudere — per
+      questo mini-map e bottoni di correzione rotazione sono avvolti in
+      `IgnorePointer` mentre un pannello è aperto (correggere la rotazione per
+      sbaglio scriverebbe un evento vero).
+      3. **Terzo trabocchetto, figlio del primo: i `Positioned` senza key sono
+         tutti indistinguibili.** Lo scrim è un `Positioned.fill`, il campo un
+         `Positioned`: stesso tipo, entrambi senza key, quindi `canUpdate` è
+         vero. Finché lo scrim compariva e spariva da QUELLA posizione (primo
+         figlio), chiudere il pannello faceva slittare tutti gli indici e
+         Flutter accoppiava l'elemento dello scrim col widget del campo,
+         **ricostruendo da zero l'intero sottoalbero del campo** — con gli
+         `AnimatedPositioned` dei token rimontati e quindi senza animazione di
+         rotazione. Sintomo: "una cosa che dovrebbe animarsi salta", mai un
+         errore. Rimedio adottato: lo scrim è **sempre** in albero (spento con
+         `IgnorePointer`) e ha una `key` esplicita; stessa key sull'overlay
+         della freccia, che sta dopo il log azioni — anch'esso a lunghezza
+         variabile. **Regola per il futuro**: in questo Stack convivono
+         parecchi builder che restituiscono 0 o N widget; ai figli strutturali
+         va data una key, costa nulla e toglie di mezzo un'intera classe di
+         bug illeggibili.
+
+  - **Traiettorie SUL CAMPO LIVE — l'unico modo** (dal 2026-08-22; niente più
+    interruttore, e la vecchia `TrajectoryScreen` è stata **cancellata**).
+    Ordine: tocchi il giocatore → trascini sul campo → voti. Nasce da una
+    prova in partita vera: in battuta il voto si può dare solo dopo aver visto
+    l'esito, quindi si è già in ritardo — e la schermata dedicata, aperta
+    dopo, ti portava via dal campo proprio mentre lo scambio continuava.
+    Provate entrambe sullo stesso build dietro un interruttore (build 1.0.0+12
+    e +13), verdetto in campo a favore del disegno sul campo: l'interruttore
+    `scout.traiettoriaBattutaInLine`, la schermata, i suoi chip e la nota del
+    tutorial che ci viveva sopra sono spariti insieme. La vecchia strada resta
+    nella storia di git, se un domani servisse rileggerla.
+    - **Il voto chiude l'azione**: se voti prima di trascinare la traiettoria
+      è persa, come il "salta" di oggi. Nessuna regola nuova.
+    - **Il tratto si cattura PRIMA di sapere che fondamentale è.** In fase
+      libera il fondamentale si sceglie nel pannello, quindi al momento del
+      trascinamento non esiste ancora: pretenderlo prima costringerebbe a
+      premere "Attacco" per poter disegnare, cioè l'opposto dell'ordine
+      naturale. Si cattura e basta; è `_scriviVoto` a usare il tratto solo se
+      `fondamentale.richiedeTraiettoria`, altrimenti lo butta.
+    - **Preselezione di Attacco** (`_preselezionaAttaccoDaTraiettoria`): al
+      rilascio del tratto il fondamentale si accende da sé su Attacco — in
+      fase libera un tratto può solo essere quello (la battuta passa sempre
+      dalla fase servizio, alzata/muro/difesa non hanno traiettoria).
+      **Sovrascrive** anche una scelta già fatta nella colonna: se hai
+      disegnato, quell'azione È un attacco e il tocco precedente era lo
+      sbaglio. NON tocca il fondamentale imposto dalla FASE (battuta,
+      ricezione) — trasformare una ricezione in attacco corromperebbe
+      l'azione; la distinzione è la stessa del chip nell'header
+      (`_sceltoNellaColonna`). Mai nella pulsantiera ristretta, dove Attacco è
+      disabilitato. Vale anche col tratto **appeso alla rete**, così l'attacco
+      sbagliato a rete si chiude con un `=` e basta.
+      Conseguenza voluta: col voto già scelto la coppia si completa al
+      rilascio del dito e l'azione parte — è sempre la regola "si registra
+      quando ci sono entrambe", con una metà che arriva da un trascinamento.
+    - **Tocco a muro: SOFFERMAMENTO sulla rete** (solo attacco). Trascinando, se il dito resta nella
+      fascia `_kToleranzaReteInLine` per `_kSoffermamentoReteInLine` (400ms) lo
+      snodo si aggancia alla rete e la freccia prosegue a due segmenti. Il
+      dwell NON può basarsi sui soli eventi di movimento (col dito fermo non ne
+      arrivano): serve un `Timer` avviato all'ingresso nella fascia e annullato
+      se se ne esce prima — o al rilascio, perché un soffermamento non concluso
+      col dito giù non deve scattare dopo. La riga gialla sulla rete dice
+      "resta fermo un attimo e lo snodo si fissa qui". Non si attiva in battuta
+      (attraversare la rete su un servizio è normale); in fase libera si
+      consente sempre, perché lì l'offensiva può solo essere un attacco.
+      **Scelto dopo averli provati entrambi** (2026-08-21): lo "stacco e
+      ripresa del dito" (rilascio nella fascia = snodo, secondo trascinamento =
+      arrivo) è stato implementato, provato sul device e **messo da parte** —
+      il soffermamento convince di più. La porta resta aperta: l'alternativa è
+      per intero nel commit `03fb19d`, e in `_onPointerUpCampo` c'è un
+      promemoria che la richiama.
+    - **`Listener` ANTENATO** dello Stack del corpo, con
+      **`behavior: HitTestBehavior.translucent`**: riceve ogni evento a
+      prescindere da chi lo assorbe e **non partecipa all'arena dei gesti**,
+      quindi non sottrae un solo tocco a bottoni e token. Un `GestureDetector`
+      con `onPan*` sopra ruberebbe i tap, sotto non riceverebbe i
+      trascinamenti che partono FUORI dal campo (il battitore ha X negativa).
+      Stesso motivo per cui `_anchor` usa un `Listener` per il tutorial.
+      **`translucent` e non il predefinito `deferToChild`** — QUARTA trappola,
+      costata un giro di prova: col comportamento predefinito il `Listener`
+      entra nel percorso del tocco **solo se un suo discendente viene colpito**,
+      e nella fascia VUOTA fuori dal campo non c'è niente da colpire (lo scrim
+      lì è spento con `IgnorePointer` finché non si apre un pannello). Risultato:
+      il pointer down non arrivava proprio, e il trascinamento dalla linea di
+      fondo non partiva. Sintomo tipico di tutta questa famiglia: nessun errore,
+      il gesto semplicemente non c'è.
+      Un trascinamento partito sulla card non disegna: la card ha un
+      `Listener` proprio che alza un flag, e — essendo più profondo — riceve
+      l'evento prima dell'antenato (`HitTestResult.path` si costruisce
+      scendendo). Per lo stesso motivo quel flag NON va azzerato nel gestore
+      dell'antenato, ma al rilascio.
+    - **Il trascinamento SELEZIONA la giocatrice** (`_tokenConTrascinamento`):
+      non serve toccarla prima, si parte dal suo token e il pannello si apre da
+      sé. `onTap` da solo non basta — il riconoscitore del tap si arrende appena
+      il dito si muove — quindi si usa **`onTapDown`**, che scatta subito alla
+      pressione, per mettere da parte la callback (che è già "apri il pannello
+      per lui"); la invoca il gestore del movimento quando si supera la soglia.
+      I due non si sovrappongono mai: se trascini, `onTap` non scatta.
+      Il candidato porta con sé un'**identità** (id giocatore per i nostri,
+      etichetta di ruolo per gli avversari — le stesse delle `ValueKey` dei
+      token): serve a distinguere "sto trascinando da un'ALTRA giocatrice"
+      (→ cambia selezione) da "sto ridisegnando il tratto della stessa"
+      (→ non si tocca niente, altrimenti si azzererebbe un voto già scelto).
+    - **In battuta arma tutta la fascia dietro la linea di fondo**, non solo il
+      token: il servizio si batte da qualsiasi punto, e il punto da cui parti
+      viene registrato come partenza del tratto — un dato più vero della
+      posizione fissa di prima. Due fasce, una per squadra (`_aperturaBattitore`
+      e `_aperturaBattitoreAvversario`, stesse condizioni dei rispettivi
+      tap-catcher): la nostra segue il cambio campo, la loro è sempre l'altra.
+      Un tratto di battuta partito dalla fascia **sbagliata** viene ignorato —
+      ma solo quella fascia: partire un po' dentro al campo resta legittimo, il
+      dito non è preciso al pixel e il battitore sta sul bordo della linea.
+    - **`_frecciaInLine` è un `ValueNotifier` passato come `repaint` al
+      painter**, non un campo con `setState`: il dito genera un evento per
+      frame, e un `setState` ricostruirebbe tutto `ScoutScreen` 60 volte al
+      secondo.
+    - Il painter sta in `widgets/freccia_traiettoria_painter.dart`, estratto
+      dalla vecchia schermata dedicata quando le due strade convivevano e
+      rimasto lì dopo la sua cancellazione.
+    - **Tipo di BATTUTA: risolto** (2026-08-22) dalla colonna dei tipi in fase
+      servizio, vedi sopra. Vale per entrambe le squadre e resta **armato**
+      finché serve lo stesso battitore: per noi la chiave è `player.id`
+      (`_giocatoreTipoBattutaArmato`), per loro il **RUOLO in zona 1**
+      (`_ruoloTipoBattutaArmato`), che si ricava dalla loro rotazione con
+      `etichetteAvversarie` — il battitore avversario lo sappiamo eccome. Il
+      ruolo è una posizione, non una persona, ed è la granularità GIUSTA: la
+      squadra avversaria è fittizia e serve a capire cosa arriva alla nostra
+      (vedi l'apertura di scout-avversario.md), non a seguire le loro
+      giocatrici. Un loro cambio dietro a quel ruolo non corrompe niente,
+      perché non abbiamo mai preteso di tracciare una persona.
+      Il tipo non registra mai: a chiudere l'azione è sempre
+      e solo il voto, quindi il percorso veloce resta di un tocco.
+    - **Tipo di ATTACCO: risolto** (2026-08-22) dalla stessa colonna, con la
+      stessa idea della battuta — quando il fondamentale è già deciso, quello
+      spazio passa al tipo. Qui a deciderlo non è la fase ma il **disegno**:
+      al rilascio del tratto `_preselezionaAttaccoDaTraiettoria` accende
+      Attacco, e da quel momento la colonna diventa `_colonnaTipiAttacco`
+      (4 voci come i fondamentali che sostituisce, stesso blu, "Generico"
+      preselezionato: la card non cambia larghezza e il percorso veloce resta
+      il solo voto). `_tipoAttaccoInLine` **non resta mai armato** — varia
+      colpo su colpo — e si azzera dentro `_azzeraTraiettoriaInLine()`, da cui
+      passano già apertura pannello, cambio giocatrice, registrazione e undo.
+      Vale identico per l'avversario.
+      - **Il chip nell'header ora copre due casi**: fondamentale imposto dalla
+        FASE (battuta/ricezione) *oppure* deciso dal DISEGNO. Senza,
+        sostituita la colonna non resterebbe scritto da nessuna parte che
+        quella è una schiacciata — `fondChip` in entrambi i pannelli.
+      - **Vale anche senza disegno** (2026-08-22): la colonna passa ai tipi
+        appena il fondamentale è `attacco`, che l'abbia deciso il tratto o il
+        tocco su "Attacco". Prima solo il primo caso, e un attacco non
+        disegnato restava `nonSpecificato` per sempre. Le due strade ora si
+        comportano identiche.
+      - **Costo accettato**: sostituita la colonna il fondamentale non è più
+        correggibile (per dire "era una difesa" bisogna chiudere il pannello e
+        ritoccare la giocatrice). Da quando basta il TOCCO su "Attacco" a
+        farla sparire, il rischio è più concreto di prima: un tocco sbagliato
+        lì costa la chiusura del pannello. Se in campo dà fastidio, la via
+        d'uscita più economica è rendere tappabile il chip "Attacco"
+        nell'header per tornare ai fondamentali.
+      - **Header ad altezza FISSA** (`_kAltezzaHeaderPulsantiera` 88,
+        `_headerPulsantiera`): i contenuti possibili sono tre e alti diversi —
+        numero+cognome, "Avversario"+sigla, e gli stessi più il chip — e senza
+        una misura imposta la colonna dei bottoni scivolava in giù di ~35dp
+        appena compariva il chip, cioè proprio scegliendo Attacco. Il valore è
+        quello del caso più alto (nostro pannello col chip); gli altri si
+        centrano nello spazio. Il `FittedBox` interno rimpicciolisce un
+        contenuto che eccede invece di spingere giù i bottoni, e la larghezza
+        va rimessa dentro al `FittedBox` (passa vincoli illimitati, quindi
+        senza un cognome lungo tornerebbe ad allargare la card).
+      - **Un'unica etichetta** per tutti i bottoni della colonna
+        (`_etichettaColonna`): fondamentali, tipi di servizio e tipi di attacco
+        si sostituiscono nello stesso posto, quindi devono essere identici per
+        geometria — 14px, due righe consentite, centrati. I fondamentali erano
+        a 16 su una riga: premere "Attacco" faceva cambiare corpo al testo
+        sotto il dito. A 16 "Pallonetto" non ci sta negli 85−8 dp e, essendo
+        una parola sola, non potrebbe nemmeno andare a capo.
+      - **La freccia live resta dritta anche sul pallonetto**: si disegna
+        durante il trascinamento, quando il tipo non è ancora stato scelto.
+        L'arco torna nei report, che leggono `tipoEsecuzione` da DB.
+      - Se il voto era già stato scelto prima del rilascio, la coppia si
+        completa lì e l'azione parte: la colonna dei tipi non si vede proprio.
+        Voluto — è la regola "si registra quando ci sono entrambe".
+      - La pressione prolungata sul token era stata provata e **scartata**
+        (2026-08-21). Vincolo per qualunque alternativa futura: non deve
+        competere né col trascinamento né col tocco singolo.
   - **`CourtStyle.votoColor(Voto)`** (`lib/theme/court_style.dart`, prima
     volta usata in UI) aggiornato allo schema scelto per questo pannello:
     `perfetto` verde (`AppColors.success`) — **stesso colore dei bottoni
@@ -494,7 +770,9 @@
     (ace, schiacciata vincente, muro punto) — ricezione/alzata/difesa non
     vincono mai punti da sole, preparano solo la giocata successiva (tutti
     gli altri casi → `nessuno`, palla in gioco).
-  - **`_registraVoto(voto)`**: chiama
+  - **`_registraVoto()`** (senza parametri: legge fondamentale e voto da
+    `_votoInCorso`, ed esce se una delle due metà manca — la chiama solo
+    `_provaRegistrare`, a coppia completa): chiama
     `ScoutActionRepository.registraAzioneScout()` (stesso calcolo di
     `ordine` di `registraAzioneRapida`, ma `rallyId` non coincide più
     sempre con `ordine`: se l'ultima azione del set ha `esitoPunto ==
@@ -979,134 +1257,14 @@
   funzione duplicata in `lineup_screen.dart`), bordo e testo bianchi (stesso
   stile degli altri token, non più bordo/testo neri). Etichetta: numero di
   maglia se `_showJerseyNumbers`, altrimenti "L1"/"L2".
-- **Traiettoria battuta/attacco** (IMPLEMENTATA): `TrajectoryScreen`
-  (`lib/screens/live/trajectory_screen.dart`) — solo per
-  `Fondamentale.richiedeTraiettoria` (battuta/attacco), qualunque voto
-  (anche `errore`: ha senso vedere dove è finita una battuta in rete/fuori).
-  Aperta da `ScoutScreen._registraVoto` **dopo** la scelta del voto e
-  **prima** di registrare l'azione — `Navigator.push<Traiettoria>` (typedef
-  `({double? x1, y1, x2, y2, muroX, muroY, required TipoBattuta
-  tipoBattuta})`, coordinate normalizzate 0.0-1.0 rispetto al campo intero,
-  stesso spazio di riferimento 1200×600 usato altrove). Il record tornato
-  da `Navigator.pop` **non è mai `null`** (a differenza di prima): porta
-  sempre almeno `tipoBattuta` (vedi sotto), con le coordinate a `null`
-  quando si è saltata la traiettoria.
-  **Nessun bottone "Salta"/"Conferma"**: niente `AppBar` nativa — stessa
-  barra superiore custom di `ScoutScreen` (`Container` 60dp,
-  `Color(0xFF0D2738)`, titolo "Imposta traiettoria" bianco bold 16px
-  ancorato vicino al bordo inferiore della barra), con solo un bottone
-  back a sinistra (niente menu/undo/punteggio, non pertinenti qui) — tap
-  sul back senza aver disegnato nulla (`_onBack`) = pop con coordinate
-  `null` ma `tipoBattuta` valorizzato (salta la traiettoria, non il tipo
-  battuta); un **drag** (`onPanStart/Update/End`) dal punto di partenza a
-  quello di arrivo conferma subito al rilascio
-  (`Navigator.pop(context, risultato)`), niente tocco aggiuntivo. Sfondo
-  schermo `Color(0xFF143E59)`, stesso di
-  `ScoutScreen` (`_kBg`/`_kTopBarBg` duplicati qui per coerenza visiva,
-  stesso pattern di altre costanti duplicate tra schermate). **Stessa
-  dimensione/posizionamento del campo di `ScoutScreen`** (58% della
-  larghezza disponibile, ancorato in alto con margine fisso 16px — non
-  centrato verticalmente, stesse costanti duplicate qui per coerenza
-  visiva tra le due schermate), `double_court_bg.png` (`BoxFit.contain`).
-  **Banner azione** (`_buildBanner`, tra la barra superiore e il campo,
-  stessa altezza fissa 36 di `ScoutScreen`): stesso testo/stile/colore di
-  `ScoutScreen._descrizioneAzione` per il caso `TipoAzione.scout`
-  ("Numero - Cognome - Fondamentale" + simbolo voto più grande), ma qui
-  sull'azione **in corso** (passata a `TrajectoryScreen` come
-  `giocatore`/`fondamentale`/`voto` — non è ancora un `ScoutAction`
-  salvato a questo punto del flusso, quindi si formatta direttamente dai
-  tre parametri invece che da una riga DB). **Spacer di 60px** tra barra
-  superiore e banner (`SizedBox(height: 60)`, prima del banner): qui non
-  c'è la riga dei bottoni rapidi di `ScoutScreen` (padding verticale 8 +
-  bottoni 44 + 8 = 60px) — senza questo spacer banner e campo
-  risulterebbero più in alto rispetto a `ScoutScreen`, a parità di
-  margine interno del campo (stesso `_kCourtTopMargin`).
-  **Tipo battuta/attacco** (`_mostraTipoBattuta`/`_mostraTipoAttacco`, mai
-  entrambe — dipendono dallo stesso `widget.fondamentale`): riga
-  orizzontale di chip (4 per la battuta, 3 per l'attacco —
-  `_buildRigaTipoBattuta`/`_buildRigaTipoAttacco`, entrambe su
-  `_buildTipoChip`) ancorata subito sotto al campo (`top: courtTop +
-  courtHeight + 24`, dentro lo stesso Stack — c'è spazio perché il campo,
-  largo il 58% dello schermo, è molto più basso dell'area disponibile).
-  Per la battuta, stato locale `_tipoBattuta` inizializzato da
-  `widget.tipoBattutaIniziale` (il valore "armato" corrente letto da
-  `ScoutScreen`) e il valore finale torna nel campo `tipoBattuta` del
-  risultato (sia da `_onPanEnd` sia da `_onBack`) — così la scelta non si
-  perde nemmeno saltando la traiettoria, e resta "armata" per il prossimo
-  battitore uguale. Per l'attacco, stato locale `_tipoAttacco` **senza**
-  un valore iniziale da `ScoutScreen` (parte sempre da `nonSpecificato`,
-  mai "armato" — vedi sopra), ma torna comunque nel campo `tipoAttacco`
-  del risultato per lo stesso motivo (non perderlo se si salta la
-  traiettoria dopo averlo scelto). Entrambi spostati qui da `ScoutScreen`
-  (erano griglie/righe nel pannello voto) per sgombrare quel pannello,
-  già pieno.
-  `CustomPaint` (`_FrecciaTraiettoriaPainter`) disegna la
-  freccia in tempo reale durante il drag (linea + punta a "V" + pallino sul
-  punto di partenza), colore/spessore da `CourtStyle.trajectoryArrow`/
-  `trajectoryWidth`. **Pallonetto**: se `_tipoAttacco == TipoAttacco.pallonetto`,
-  il drag viene disegnato come arco bezier quadratica (stesso offset 40px e
-  stessa logica di tangente del painter del report) — muro prevale sull'arco
-  se presente. **Tocco a muro**: due segmenti dritti con pallino sullo snodo
-  (invariato). Stessa costante `_kArcOffset = 40.0` locale al painter./
-  `trajectoryWidth` (già definiti, prima mai usati in UI). **Drag
-  catturabile anche fuori dal riquadro del campo** (es. il battitore dietro
-  la linea di fondo per la battuta): `GestureDetector` sullo Stack
-  **esterno** (coordinate assolute dell'area sotto banner, non del solo
-  riquadro 1200×600) — stessa tecnica di
-  `ScoutScreen._buildBattitoreTapCatcher`. Le coordinate normalizzate si
-  calcolano sottraendo `courtLeft`/`courtTop` e dividendo per
-  `courtWidth`/`courtHeight` (il riquadro del campo), **non clampate**: un
-  punto fuori dal campo produce valori `<0` o `>1`, coerente con
-  `_kBattutaP1Position` (X negativa) usata altrove per lo stesso scopo.
-  **`behavior: HitTestBehavior.opaque`** sul `GestureDetector` (bug
-  riscontrato: senza, il default `deferToChild` cattura il gesto solo se
-  un figlio occupa quel punto — fuori dal riquadro campo non c'è nessun
-  figlio lì, quindi un drag poteva **continuare** fuori una volta già
-  agganciato, ma non **iniziare** da fuori: l'utente lo ha notato subito
-  provandolo).
-  L'azione si
-  registra **una sola volta** in `ScoutScreen` al ritorno da questa
-  schermata (con le coordinate se fornite, altrimenti `null` su tutte e
-  quattro) — mai un insert-poi-update separato. Conseguenza gratuita:
-  l'**undo** esistente (`annullaUltimaAzione`, elimina la riga con
-  `ordine` massimo) cancella già azione e traiettoria insieme, sono la
-  stessa riga `ScoutAction` — nessun codice in più necessario.
-- **Tocco a muro simulato durante il drag** (solo attacco — schema v10,
-  aggiunge `ScoutActions.traiettoriaMuroX`/`traiettoriaMuroY`, nullable):
-  se il drag si **sofferma** sulla rete (fascia di tolleranza
-  `_kToleranzaRete = 24px` attorno a x normalizzata 0.5, qualunque y —
-  "tutta la linea a metà campo" — per almeno `_kSoffermamentoRete = 300ms`),
-  si fissa quel punto come `_puntoMuro` e la freccia continua da lì fino al
-  rilascio, con uno snodo visibile (due segmenti invece di una linea
-  dritta). **Richiede una sosta deliberata, non un semplice
-  attraversamento** (un attacco normale che passa sopra la rete durante un
-  drag continuo non deve attivarlo) — il dwell-time non può basarsi solo
-  sugli eventi `onPanUpdate` (che non arrivano se il dito resta fermo: zero
-  movimento = zero eventi), quindi si usa un `Timer` avviato quando il dito
-  entra nella fascia di tolleranza (`_inZonaRete` passa a `true`) e
-  annullato se ne esce prima che scada (`_timerMuro?.cancel()`, anche in
-  `_onPanEnd`/`dispose`); se il timer arriva a scadenza, scatta il tocco.
-  **Feedback visivo**: appena `_inZonaRete` diventa `true` (e finché
-  `_puntoMuro` resta `null`), una linea gialla (10px, ingrandita da 3px —
-  troppo sottile per notarla) sovrapposta alla rete, alta come il campo,
-  segnala che il dito è nella fascia —
-  sparisce se si esce dalla fascia in tempo o appena il tocco scatta (da lì
-  in poi lo snodo della freccia parla da sé). **Solo per
-  `Fondamentale.attacco`** (`_muroConsentito`): per la battuta
-  attraversare la rete è normale (ogni servizio legale la attraversa),
-  quindi lì non si attiva nessuna logica di "tocco". Il punto del muro è
-  **salvato** (non solo un aiuto visivo) — `Traiettoria` ora porta anche
-  `muroX`/`muroY` (nullable), passati a `registraAzioneScout()` come
-  `traiettoriaMuroX`/`traiettoriaMuroY`.
-  - **Da provare in futuro (non ancora deciso)**: lo sviluppatore non è
-    sicuro che il dwell-time (sosta col dito fermo) sia comodo da usare.
-    Alternativa proposta da testare: **stacco e ripresa del dito** invece
-    di sosta — si comincia il drag, si stacca il dito vicino alla rete
-    (quello fissa il punto di rottura, niente timer), poi si ricomincia un
-    nuovo drag che continua dal punto di rottura fino al rilascio finale.
-    Richiederebbe ripensare il ciclo di vita del gesto (oggi un solo
-    `onPanStart`/`onPanEnd` per tutta la traiettoria, qui ce ne vorrebbero
-    due collegati dallo stato `_puntoMuro` già esistente).
+- **Traiettoria battuta/attacco**: si disegna sul campo dello scout, prima del
+  voto — vedi "Traiettorie SUL CAMPO LIVE" più sopra, che è l'unica descrizione
+  del meccanismo. La schermata dedicata `TrajectoryScreen` **non esiste più**
+  (cancellata il 2026-08-22 insieme al suo interruttore); con lei sono spariti
+  i chip dei tipi, migrati nella colonna della pulsantiera, e la sua nota del
+  tutorial. Il **tocco a muro** (schema v10, colonne
+  `ScoutActions.traiettoriaMuroX`/`MuroY`) è oggi il soffermamento sulla rete
+  durante il trascinamento in-line, descritto nella stessa sezione.
 - **Refactoring colori (importante)**: il colore squadra è mostrato **sempre
   raw** (`Color(team.coloreDivisa)`), in ogni schermata che lo usa —
   `teams_screen`, `team_selection_screen`, `team_form_screen` (incluso il
