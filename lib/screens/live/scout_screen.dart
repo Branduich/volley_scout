@@ -4331,10 +4331,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         posizione.dy,
       ),
       items: [
-        for (final motivo in MotivoErrore.values)
+        // Una riga di separazione fra un motivo e l'altro (mai in coda
+        // all'ultimo): le voci si distinguono a colpo d'occhio a bordo campo.
+        for (final motivo in MotivoErrore.values) ...[
+          if (motivo != MotivoErrore.values.first) const PopupMenuDivider(),
           PopupMenuItem(
               value: motivo,
               child: Text(motivoErroreLabel(motivo, AppLocalizations.of(context)))),
+        ],
       ],
     );
     if (scelto == null) return;
