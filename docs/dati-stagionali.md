@@ -361,11 +361,45 @@ filtro applicato dentro i widget, così è testabile senza UI.
 *Verifica*: "Solo in casa" + "Set 1" su una partita nota dà gli stessi numeri che
 si ottengono a mano dal referto.
 
-**8. Import + IndexedDB.** Drag&drop + `idb_shim`, banner sorgente, "torna alla
-demo", "azzera". Sostituzione integrale del documento: il merge per `uid` slitta,
-non serve al percorso normale.
+**8. Import + IndexedDB.** Sostituzione integrale del documento: il merge per
+`uid` slitta, non serve al percorso normale. Diviso in due commit, perché la
+prima metà si verifica senza persistenza e la seconda ha bisogno del browser.
+- 8a **Caricare un backup** (fatto): trascinamento (`desktop_drop`, che sul web
+  espone `DropItem extends XFile` — `readAsString()` funziona dove i path non
+  esistono) + bottone con `file_selector`, banner della sorgente, "torna ai dati
+  di esempio". `PaginaSquadra` è uscita da `main.dart` in un file suo: il guscio
+  importa i plugin del browser, i test girano sulla VM, e separandoli la pagina
+  si monta senza browser. **Due reset dei filtri, non uno**: `ValueKey` sul nome
+  file (documento diverso → rimonta) e `didUpdateWidget` (stesso nome, contenuto
+  nuovo → il backup si riesporta ogni settimana con lo stesso nome, quindi la
+  chiave non cambia). Senza, un filtro rimasto appeso mostra la pagina vuota e
+  sembra un file letto male.
+- 8b **Ricordarlo** (fatto): `ArchivioBackup` su `idb_shim`. Conserva il **testo
+  JSON grezzo**, non l'oggetto letto: l'archivio non sa niente del modello, e un
+  documento scritto da una versione vecchia ripassa dagli stessi controlli di
+  formato e versione di un file appena trascinato invece di essere letto a metà
+  (se non passa, viene rimosso e lo si dice — altrimenti resterebbe illeggibile
+  a ogni visita). La `IdbFactory` **arriva da fuori**: il guscio passa quella del
+  browser, i test quella in memoria, e il file non dipende da `dart:html`. I
+  metodi lasciano passare gli errori: la politica — proseguire senza memoria
+  invece di rompere la pagina — sta nel guscio, in un punto solo, e il banner
+  smette di promettere una memoria che non c'è.
+  - **Un bottone solo invece di due** (scelta diversa dal piano): "torna alla
+    demo" e "azzera" sono diventati **"Rimuovi i miei dati"**. Tenerli separati
+    creava uno stato — guardo l'esempio ma i miei dati sono ancora salvati — in
+    cui il banner non sa più cosa dire, e lasciava il documento archiviato
+    irraggiungibile. Il bisogno vero è togliere i propri dati da un computer non
+    proprio; l'esempio è lo stato d'ingresso a cui si torna, non una vista da
+    visitare. Chi vuole solo cambiare file ha "Apri un altro backup".
 *Verifica*: droppi il backup → i numeri cambiano; **F5 → i dati sono ancora lì**.
 Archivio testato col backend in-memory di `idb_shim`, senza browser.
+**Per provarlo a mano serve `flutter run -d chrome --web-port=8080`**: per un
+browser l'origine è schema + host + **porta**, e `flutter run` senza `--web-port`
+ne sceglie una nuova a ogni lancio. Con la porta che cambia, ogni esecuzione
+guarda in un IndexedDB diverso e la memoria sembra non funzionare anche quando
+funziona. Vale solo in sviluppo: dopo il passo 10 l'origine è un dominio fisso.
+Da ricordare anche che quel server vive quanto il comando — un URL salvato nei
+preferiti non risponde più quando `flutter run` è finito.
 
 **9. Il grafico di tendenza** (era il 7). Selettore giocatrice + `fl_chart`:
 eff/pos per fondamentale nel tempo, retta di tendenza, **striscia volume**, filtro
