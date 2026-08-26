@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:volley_stats/volley_stats.dart';
 
+import 'calendario_periodo.dart';
+import 'menu_compatto.dart';
+
 /// La barra filtri, comune a tutte le viste della dashboard.
 ///
 /// **Non filtra nulla**: costruisce un [Filtro] e lo consegna a chi la ospita,
@@ -15,6 +18,7 @@ class BarraFiltri extends StatelessWidget {
     required this.filtro,
     required this.onCambia,
     this.squadre = const [],
+    this.partite = const [],
   });
 
   final Filtro filtro;
@@ -23,6 +27,13 @@ class BarraFiltri extends StatelessWidget {
   /// Il selettore squadra compare **solo con più di una squadra**: chi ne ha
   /// una sola non deve vedere un menu con una voce.
   final List<SquadraBackup> squadre;
+
+  /// Tutte le partite del backup (non quelle già filtrate: servono a poter
+  /// riallargare un periodo stretto). Servono al calendario del periodo
+  /// personalizzato, che **colora i giorni in cui si è giocato**: gli altri
+  /// restano scegliibili come sempre, ma così si vede da dove partire e dove
+  /// finire invece di cercare a memoria in mesi tutti uguali.
+  final List<PartitaBackup> partite;
 
   static String etichettaPeriodo(PeriodoPreset p) => switch (p) {
         PeriodoPreset.tuttaStagione => 'Tutta la stagione',
@@ -40,36 +51,40 @@ class BarraFiltri extends StatelessWidget {
       };
 
   static String _data(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/'
-      '${d.month.toString().padLeft(2, '0')}/${d.year}';
+      '${_due(d.day)}/${_due(d.month)}/${d.year}';
 
-  Future<void> _scegliIntervallo(BuildContext context) async {
-    final oggi = DateTime.now();
-    final intervallo = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(oggi.year - 5),
-      lastDate: DateTime(oggi.year + 1),
-      initialDateRange: filtro.da != null && filtro.a != null
-          ? DateTimeRange(start: filtro.da!, end: filtro.a!)
-          : null,
+  static String _due(int n) => n.toString().padLeft(2, '0');
+
+  /// Apre il calendario e, se si conferma, consegna il periodo scelto.
+  Future<void> _scegliPeriodo(
+    BuildContext context,
+    List<Giornata> giornate,
+  ) async {
+    final periodo = await mostraCalendarioPeriodo(
+      context,
+      giornate: giornate,
+      da: filtro.da,
+      a: filtro.a,
     );
-    if (intervallo == null) return;
+    if (periodo == null) return;
     onCambia(filtro.copiaCon(
       periodo: PeriodoPreset.personalizzato,
-      da: intervallo.start,
-      a: intervallo.end,
+      da: periodo.start,
+      a: periodo.end,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final giornate = giornateDi(partite, squadraUid: filtro.squadraUid);
+
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         if (squadre.length > 1)
-          _Menu<String?>(
+          MenuCompatto<String?>(
             etichetta: 'Squadra',
             valore: filtro.squadraUid,
             voci: [
@@ -81,7 +96,7 @@ class BarraFiltri extends StatelessWidget {
                 ? filtro.copiaCon(azzeraSquadra: true)
                 : filtro.copiaCon(squadraUid: v)),
           ),
-        _Menu<PeriodoPreset>(
+        MenuCompatto<PeriodoPreset>(
           etichetta: 'Periodo',
           valore: filtro.periodo,
           voci: [
@@ -91,7 +106,7 @@ class BarraFiltri extends StatelessWidget {
           onCambia: (v) {
             if (v == null) return;
             if (v == PeriodoPreset.personalizzato) {
-              _scegliIntervallo(context);
+              _scegliPeriodo(context, giornate);
               return;
             }
             // Cambiando preset l'intervallo si azzera: lasciarlo lì farebbe
@@ -105,9 +120,9 @@ class BarraFiltri extends StatelessWidget {
             label: Text(filtro.da == null || filtro.a == null
                 ? 'Scegli le date'
                 : '${_data(filtro.da!)} – ${_data(filtro.a!)}'),
-            onPressed: () => _scegliIntervallo(context),
+            onPressed: () => _scegliPeriodo(context, giornate),
           ),
-        _Menu<CampoPartita>(
+        MenuCompatto<CampoPartita>(
           etichetta: 'Campo',
           valore: filtro.campo,
           voci: [
@@ -116,7 +131,7 @@ class BarraFiltri extends StatelessWidget {
           ],
           onCambia: (v) => v == null ? null : onCambia(filtro.copiaCon(campo: v)),
         ),
-        _Menu<int?>(
+        MenuCompatto<int?>(
           etichetta: 'Set',
           valore: filtro.set,
           voci: [
@@ -139,34 +154,3 @@ class BarraFiltri extends StatelessWidget {
   }
 }
 
-class _Menu<T> extends StatelessWidget {
-  const _Menu({
-    required this.etichetta,
-    required this.valore,
-    required this.voci,
-    required this.onCambia,
-  });
-
-  final String etichetta;
-  final T valore;
-  final List<DropdownMenuItem<T>> voci;
-  final ValueChanged<T?> onCambia;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 210,
-      child: DropdownButtonFormField<T>(
-        initialValue: valore,
-        isExpanded: true,
-        decoration: InputDecoration(
-          labelText: etichetta,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        items: voci,
-        onChanged: onCambia,
-      ),
-    );
-  }
-}

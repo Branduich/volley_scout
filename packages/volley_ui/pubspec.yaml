@@ -13,6 +13,7 @@ environment:
 resolution: workspace
 
 dependencies:
+  fl_chart: ^1.2.0
   flutter:
     sdk: flutter
   volley_stats: ^0.1.0

@@ -25,6 +25,39 @@ enum PeriodoPreset {
 /// Una partita con i soli set che passano il filtro.
 typedef PartitaSelezionata = ({PartitaBackup partita, List<SetBackup> sets});
 
+/// Un istante ridotto al suo giorno: le partite hanno un'ora, il calendario e i
+/// menu di periodo no, e confrontarli senza azzerare l'orario non fa mai
+/// combaciare niente.
+DateTime soloGiorno(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Un giorno in cui si è giocato, con le partite di quel giorno.
+typedef Giornata = ({DateTime giorno, List<PartitaBackup> partite});
+
+/// I giorni in cui si è giocato, in ordine cronologico.
+///
+/// È ciò che permette di scegliere il periodo personalizzato **fra partite
+/// vere** invece che su un calendario di giorni vuoti: un allenatore ragiona
+/// per "dalla gara con Masi a quella con Idea", non per date.
+///
+/// Le partite dello stesso giorno (tornei, recuperi doppi) finiscono in una
+/// sola giornata: gli estremi del filtro sono date, quindi due voci con la
+/// stessa data sarebbero indistinguibili in un menu.
+List<Giornata> giornateDi(List<PartitaBackup> partite, {String? squadraUid}) {
+  final perGiorno = <DateTime, List<PartitaBackup>>{};
+  for (final p in partite) {
+    if (squadraUid != null && p.squadraUid != squadraUid) continue;
+    perGiorno.putIfAbsent(soloGiorno(p.dataOra), () => []).add(p);
+  }
+  final giorni = perGiorno.keys.toList()..sort();
+  return [
+    for (final g in giorni)
+      (
+        giorno: g,
+        partite: perGiorno[g]!..sort((a, b) => a.dataOra.compareTo(b.dataOra)),
+      ),
+  ];
+}
+
 class Filtro {
   const Filtro({
     this.periodo = PeriodoPreset.tuttaStagione,
@@ -144,11 +177,18 @@ List<PartitaBackup> _perPeriodo(List<PartitaBackup> partite, Filtro filtro) {
           if (!p.dataOra.isBefore(limite)) p
       ];
 
+    // Estremi confrontati per GIORNO, non per istante: arrivano da un menu (o
+    // da un calendario), quindi a mezzanotte, mentre una partita ha un'ora
+    // (20:30). Confrontando gli istanti, l'ultimo giorno del periodo perdeva
+    // tutte le sue partite — il filtro escludeva proprio la gara appena
+    // indicata come fine.
     case PeriodoPreset.personalizzato:
+      final da = filtro.da == null ? null : soloGiorno(filtro.da!);
+      final a = filtro.a == null ? null : soloGiorno(filtro.a!);
       return [
         for (final p in partite)
-          if ((filtro.da == null || !p.dataOra.isBefore(filtro.da!)) &&
-              (filtro.a == null || !p.dataOra.isAfter(filtro.a!)))
+          if ((da == null || !soloGiorno(p.dataOra).isBefore(da)) &&
+              (a == null || !soloGiorno(p.dataOra).isAfter(a)))
             p
       ];
   }

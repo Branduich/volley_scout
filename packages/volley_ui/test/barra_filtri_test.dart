@@ -7,10 +7,23 @@ import 'package:volley_ui/barra_filtri.dart';
 /// verificano proprio quello — cosa esce da `onCambia` — perché è l'unico
 /// contratto che ha con il resto della dashboard.
 void main() {
+  PartitaBackup partita(String uid, DateTime data, {String? avversario}) =>
+      PartitaBackup(
+        uid: uid,
+        nome: uid,
+        dataOra: data,
+        inCasa: true,
+        stato: StatoPartita.terminata,
+        setCorrente: 3,
+        avversario: avversario,
+        squadraUid: 's1',
+      );
+
   Future<void> monta(
     WidgetTester tester, {
     Filtro filtro = const Filtro(),
     List<SquadraBackup> squadre = const [],
+    List<PartitaBackup> partite = const [],
     required ValueChanged<Filtro> onCambia,
   }) async {
     tester.view.physicalSize = const Size(1600, 800);
@@ -19,7 +32,11 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: BarraFiltri(
-            filtro: filtro, squadre: squadre, onCambia: onCambia),
+          filtro: filtro,
+          squadre: squadre,
+          partite: partite,
+          onCambia: onCambia,
+        ),
       ),
     ));
   }
@@ -72,5 +89,41 @@ void main() {
     expect(uscito?.set, isNull);
     expect(uscito?.squadraUid, 's1');
     expect(uscito?.attivo, isFalse);
+  });
+
+  testWidgets('"Personalizzato" apre il calendario del periodo', (tester) async {
+    await monta(
+      tester,
+      partite: [partita('a', DateTime(2026, 10, 12, 20, 30))],
+      onCambia: (_) {},
+    );
+
+    await tester.tap(find.text('Tutta la stagione'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Personalizzato').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scegli il periodo'), findsOneWidget);
+  });
+
+  testWidgets('col periodo scelto il chip mostra le date e riapre il calendario',
+      (tester) async {
+    await monta(
+      tester,
+      filtro: Filtro(
+        periodo: PeriodoPreset.personalizzato,
+        da: DateTime(2026, 10, 12),
+        a: DateTime(2026, 11, 23),
+      ),
+      partite: [partita('a', DateTime(2026, 10, 12, 20, 30))],
+      onCambia: (_) {},
+    );
+
+    expect(find.text('12/10/2026 – 23/11/2026'), findsOneWidget);
+
+    await tester.tap(find.text('12/10/2026 – 23/11/2026'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scegli il periodo'), findsOneWidget);
   });
 }

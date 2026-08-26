@@ -748,4 +748,62 @@ void main() {
       expect(stato.palleggiatoreAvversarioSlot, 4);
     });
   });
+
+  group('formazione assente o incompleta', () {
+    // Il formato di backup ammette `rotazioni` vuote, e i dati importati da
+    // altri sistemi di scout spesso non registrano il sestetto iniziale. Il
+    // punteggio non dipende dalla formazione e deve venire fuori lo stesso:
+    // prima di questa guardia il primo sideout faceva esplodere il replay su
+    // un null-check, e bastava un backup senza formazione per far crashare il
+    // report di partita.
+    test('senza formazione il punteggio si deriva comunque', () {
+      final stato = ricalcolaStato(
+        azioni: const [
+          // Il primo è un nostro sideout: è l'azione che prima lanciava.
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+          AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
+          AzioneScout(ordine: 3, esitoPunto: EsitoPunto.puntoAvversario),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: const {},
+      );
+
+      expect(stato.punteggioNostro, 2);
+      expect(stato.punteggioAvversario, 1);
+      expect(stato.rotazione, isEmpty);
+      // Il servizio continua a seguire gli eventi: è indipendente dalla
+      // formazione, e resta l'informazione utile quando quella manca.
+      expect(stato.squadraAlServizio, Squadra.avversari);
+    });
+
+    test('una formazione parziale resta com\'è invece di perdere giocatori',
+        () {
+      // Ruotare quattro posizioni su sei ne farebbe sparire due: meglio non
+      // ruotare affatto che restituire una formazione mutilata.
+      const parziale = {1: 10, 2: 20, 3: 30, 4: 40};
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: parziale,
+      );
+
+      expect(stato.punteggioNostro, 1);
+      expect(stato.rotazione, parziale);
+    });
+
+    test('con la formazione completa si ruota come sempre', () {
+      // La guardia non deve cambiare il comportamento normale.
+      final stato = ricalcolaStato(
+        azioni: const [
+          AzioneScout(ordine: 1, esitoPunto: EsitoPunto.puntoNostro),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: const {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6},
+      );
+
+      expect(stato.rotazione, {1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 1});
+    });
+  });
 }

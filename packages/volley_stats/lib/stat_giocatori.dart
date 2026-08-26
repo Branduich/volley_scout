@@ -91,15 +91,30 @@ bool attaccoMurato(AzioneBackup a) {
 List<StatGiocatore> statGiocatori(
   BackupCompleto backup, {
   Filtro filtro = const Filtro(),
+}) =>
+    statGiocatoriDaPartite(
+      backup,
+      partiteFiltrate(backup, filtro),
+      squadraUid: filtro.squadraUid,
+    );
+
+/// Come [statGiocatori] ma su una selezione di partite **già fatta**.
+///
+/// Serve al grafico di tendenza, che vuole un punto PER PARTITA: "una partita
+/// sola" non è esprimibile con un [Filtro] (due partite nello stesso giorno
+/// finirebbero insieme, e gli estremi si confrontano per giorno).
+List<StatGiocatore> statGiocatoriDaPartite(
+  BackupCompleto backup,
+  List<PartitaSelezionata> selezionate, {
+  String? squadraUid,
 }) {
-  final squadraUid = filtro.squadraUid;
   final perUid = {
     for (final g in backup.giocatori)
       if (squadraUid == null || g.squadraUid == squadraUid)
         g.uid: StatGiocatore(g),
   };
 
-  for (final selezione in partiteFiltrate(backup, filtro)) {
+  for (final selezione in selezionate) {
     for (final set in selezione.sets) {
       // La classificazione dell'attacco (su ricezione o su difesa) si decide
       // scorrendo lo scambio: si ricorda l'ultima azione difensiva del rally.

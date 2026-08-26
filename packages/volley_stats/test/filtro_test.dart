@@ -143,6 +143,66 @@ void main() {
 
       expect(_uid(r), ['p1', 'p2', 'p3']);
     });
+
+    test('periodo personalizzato: l\'ultima giornata non si perde per l\'ora',
+        () {
+      // Gli estremi arrivano da un menu (o da un calendario), quindi a
+      // mezzanotte, mentre una partita ha un'ora. Confrontando gli istanti,
+      // il filtro escludeva proprio la gara appena indicata come fine.
+      final sera = _backup([
+        _partita('a', data: DateTime(2026, 10, 4, 20, 30)),
+        _partita('b', data: DateTime(2026, 10, 11, 18, 0)),
+      ]);
+
+      final r = partiteFiltrate(
+        sera,
+        Filtro(
+          periodo: PeriodoPreset.personalizzato,
+          da: DateTime(2026, 10, 4),
+          a: DateTime(2026, 10, 11),
+        ),
+      );
+
+      expect(_uid(r), ['a', 'b']);
+    });
+  });
+
+  group('giornateDi', () {
+    // Alimenta i due menu "dalla partita / alla partita" della dashboard: il
+    // periodo si sceglie fra le partite giocate, non su un calendario di
+    // giorni vuoti in cui non si vede quando si è giocato.
+    test('un giorno per partita, in ordine cronologico', () {
+      final g = giornateDi([
+        _partita('b', data: DateTime(2026, 10, 11, 18, 0)),
+        _partita('a', data: DateTime(2026, 10, 4, 20, 30)),
+      ]);
+
+      // Ridotti a giorno: l'ora della partita non deve entrare nel filtro.
+      expect([for (final x in g) x.giorno],
+          [DateTime(2026, 10, 4), DateTime(2026, 10, 11)]);
+      expect(g.first.partite.single.uid, 'a');
+    });
+
+    test('due partite lo stesso giorno stanno in una giornata sola', () {
+      // Tornei e recuperi doppi: due voci con la stessa data sarebbero
+      // indistinguibili in un menu, e il filtro lavora comunque per date.
+      final g = giornateDi([
+        _partita('sera', data: DateTime(2026, 10, 4, 20, 30)),
+        _partita('mattina', data: DateTime(2026, 10, 4, 10, 0)),
+      ]);
+
+      expect(g, hasLength(1));
+      expect([for (final p in g.single.partite) p.uid], ['mattina', 'sera']);
+    });
+
+    test('con una squadra scelta restano solo le sue giornate', () {
+      final g = giornateDi([
+        _partita('a', data: DateTime(2026, 10, 4), squadra: 's1'),
+        _partita('b', data: DateTime(2026, 10, 11), squadra: 's2'),
+      ], squadraUid: 's2');
+
+      expect([for (final x in g) x.giorno], [DateTime(2026, 10, 11)]);
+    });
   });
 
   test('campo: casa e trasferta', () {

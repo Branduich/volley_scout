@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:volley_stats/volley_stats.dart';
 import 'package:volley_ui/barra_filtri.dart';
+import 'package:volley_ui/grafico_tendenza.dart';
 import 'package:volley_ui/kpi_riga.dart';
 import 'package:volley_ui/tabellone_stagionale.dart';
 
@@ -49,19 +50,56 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
   /// `volley_stats`. Qui si tiene solo qual è quello scelto.
   Filtro _filtro = const Filtro();
 
+  /// Chi si sta guardando nel grafico di tendenza. `null` = nessuna scelta
+  /// ancora fatta, e vale la predefinita (vedi `_giocatricePredefinita`).
+  String? _giocatriceUid;
+  MisuraTendenza _misura = MisuraTendenza.efficienzaAttacco;
+
   @override
   void didUpdateWidget(PaginaSquadra vecchio) {
     super.didUpdateWidget(vecchio);
     // Cambiato backup, i filtri di prima non descrivono più niente: un
     // intervallo di date della stagione scorsa lascerebbe la pagina vuota e
     // sembrerebbe un file letto male. Si riparte da "tutto".
-    if (!identical(vecchio.backup, widget.backup)) _filtro = const Filtro();
+    if (!identical(vecchio.backup, widget.backup)) {
+      _filtro = const Filtro();
+      // E la giocatrice scelta non esiste più: il suo uid verrebbe cercato
+      // fra le voci di un altro documento e non si troverebbe.
+      _giocatriceUid = null;
+    }
+  }
+
+  /// Le giocatrici del menu: **tutte quelle in rosa**, non solo chi ha giocato
+  /// nel periodo. Se la lista si restringesse coi filtri, chi è selezionata
+  /// potrebbe sparirne mentre è ancora il valore del menu — e un menu il cui
+  /// valore non è fra le sue voci non si disegna affatto.
+  List<GiocatoreBackup> _giocatrici(BackupCompleto backup) => [
+        for (final g in backup.giocatori)
+          if (_filtro.squadraUid == null || g.squadraUid == _filtro.squadraUid)
+            g,
+      ]..sort((a, b) => a.numero.compareTo(b.numero));
+
+  /// Chi mostrare senza che nessuno abbia scelto: quella con più azioni nel
+  /// periodo. Su una vetrina è la scheda che ha più da dire.
+  String? _giocatricePredefinita(
+    List<StatGiocatore> stats,
+    List<GiocatoreBackup> rosa,
+  ) {
+    if (stats.isEmpty) return rosa.isEmpty ? null : rosa.first.uid;
+    var migliore = stats.first;
+    for (final s in stats) {
+      if (s.azioni > migliore.azioni) migliore = s;
+    }
+    return migliore.giocatore.uid;
   }
 
   @override
   Widget build(BuildContext context) {
     final backup = widget.backup;
     final riepilogo = riepilogoStagione(backup, filtro: _filtro);
+    final stats = statGiocatori(backup, filtro: _filtro);
+    final rosa = _giocatrici(backup);
+    final giocatriceUid = _giocatriceUid ?? _giocatricePredefinita(stats, rosa);
     final squadra = backup.squadre.isEmpty ? '—' : backup.squadre.first.nome;
     final tema = Theme.of(context);
 
@@ -90,6 +128,10 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
             BarraFiltri(
               filtro: _filtro,
               squadre: backup.squadre,
+              // Tutte le partite, non quelle già filtrate: i due menu del
+              // periodo devono elencare la stagione intera, altrimenti
+              // scegliendo un periodo stretto non si potrebbe più allargarlo.
+              partite: backup.partite,
               onCambia: (f) => setState(() => _filtro = f),
             ),
             const SizedBox(height: 24),
@@ -114,8 +156,31 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
                     ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
-              TabelloneStagionale(
-                stats: statGiocatori(backup, filtro: _filtro),
+              TabelloneStagionale(stats: stats),
+              const SizedBox(height: 40),
+              Text('Tendenza', style: tema.textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                'Come va nel tempo, una partita per punto. '
+                'La riga tratteggiata è la tendenza del periodo.',
+                style: tema.textTheme.bodySmall
+                    ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              GraficoTendenza(
+                punti: giocatriceUid == null
+                    ? const []
+                    : serieTendenza(
+                        backup,
+                        giocatoreUid: giocatriceUid,
+                        misura: _misura,
+                        filtro: _filtro,
+                      ),
+                giocatrici: rosa,
+                giocatriceUid: giocatriceUid,
+                misura: _misura,
+                onGiocatrice: (uid) => setState(() => _giocatriceUid = uid),
+                onMisura: (m) => setState(() => _misura = m),
               ),
             ],
           ],

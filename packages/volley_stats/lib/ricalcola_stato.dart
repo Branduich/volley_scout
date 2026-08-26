@@ -243,9 +243,27 @@ StatoSet ricalcolaStato({
 /// posizione p (la posizione 1, il battitore, eredita chi era in posizione
 /// 2; la posizione 6 eredita chi era in posizione 1).
 Map<int, int> _ruotata(Map<int, int> rotazione) {
+  if (!_ruotabile(rotazione)) return rotazione;
   return {
     for (var pos = 1; pos <= 6; pos++) pos: rotazione[(pos % 6) + 1]!,
   };
+}
+
+/// Una formazione incompleta non si ruota: senza tutte e sei le posizioni non
+/// esiste un "chi prende il posto di chi".
+///
+/// Serve perché il **punteggio deve potersi derivare anche senza formazione**.
+/// Il formato di backup ammette `rotazioni` vuote (docs/backup-format.md), e i
+/// dati importati da altri sistemi di scout spesso registrano le azioni senza
+/// il sestetto iniziale: prima di questa guardia, il primo sideout di un set
+/// così faceva esplodere l'intero replay su un null-check — quindi bastava un
+/// backup senza formazione per far crashare il report di partita.
+bool _ruotabile(Map<int, int> rotazione) {
+  if (rotazione.length != 6) return false;
+  for (var pos = 1; pos <= 6; pos++) {
+    if (rotazione[pos] == null) return false;
+  }
+  return true;
 }
 
 /// Rotazione inversa di `_ruotata` (usata dalla correzione manuale "indietro"):
@@ -253,6 +271,7 @@ Map<int, int> _ruotata(Map<int, int> rotazione) {
 /// chi era in posizione 6). Applicare `_ruotata` poi `_ruotataIndietro` (o
 /// viceversa) riporta la rotazione identica.
 Map<int, int> _ruotataIndietro(Map<int, int> rotazione) {
+  if (!_ruotabile(rotazione)) return rotazione;
   return {
     for (var pos = 1; pos <= 6; pos++) pos: rotazione[pos == 1 ? 6 : pos - 1]!,
   };
