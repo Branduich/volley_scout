@@ -120,6 +120,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
+          // Subordinata allo scout avversari: senza, la battuta avversaria non
+          // viene valutata e non c'è niente da cui dedurre la ricezione.
+          Card(
+            child: SwitchListTile(
+              secondary: const Icon(Icons.bolt),
+              title: Text(l.settingsAutoPassTitle),
+              subtitle: Text(l.settingsAutoPassSubtitle),
+              value: impostazioni.scoutAvversariAbilitato &&
+                  impostazioni.ricezioneAutomatica,
+              onChanged: impostazioni.scoutAvversariAbilitato
+                  ? (v) => ref
+                      .read(impostazioniProvider.notifier)
+                      .setRicezioneAutomatica(v)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Card(
             child: SwitchListTile(
               secondary: const Icon(Icons.school),

@@ -167,11 +167,10 @@ fallisce anche dopo `flutter clean`/stop dei daemon.
    scala = 1, zero differenze. Stessa tecnica già usata dalle card
    formazione del report (i margini interni fissi di `CourtView` non
    reggono un SizedBox più piccolo, la scala proporzionale sì).
-   `ScoutScreen`/`TrajectoryScreen` sono già proporzionali (percentuali
-   dello schermo) e non hanno bisogno del FittedBox, ma su schermi BASSI
-   servono ritocchi dedicati (fatti): campo clampato in altezza
-   (`courtWidth = min(58% larghezza, altezza utile × 2)` — in
-   TrajectoryScreen riservando ~84px per la riga chip), drawer di utilità
+   `ScoutScreen` è già proporzionale (percentuali dello schermo) e non ha
+   bisogno del FittedBox, ma su schermi BASSI servono ritocchi dedicati
+   (fatti): campo clampato in altezza
+   (`courtWidth = min(58% larghezza, altezza utile × 2)`), drawer di utilità
    come `ListView` (scrolla invece di sbordare), pannello voto in
    `FittedBox(scaleDown)` con margini verticali minimi (4/4), offset dei
    pallini timeout nell'header clampato fuori dal gruppo punteggio
@@ -399,8 +398,7 @@ lib/
 │   │   ├── tactical_board_screen.dart    (lavagna tattica premium dal drawer live:
 │   │   │                                  chip ruoli trascinabili nella metà campo +
 │   │   │                                  disegno linee a mano libera, undo/cestino;
-│   │   │                                  effimera, riusa il layout campo di
-│   │   │                                  TrajectoryScreen)
+│   │   │                                  effimera, stesso layout campo dello scout)
 │   │   └── end_set_screen.dart           (fine set/partita: "Prossimo Set"/"Fine Partita")
 │   ├── report/
 │   │   ├── match_report_screen.dart      (Fase 4: report completo — dati partita,
@@ -487,6 +485,12 @@ assets/
 │                    riferimento della mega tabella statistiche del PDF)
 ├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
+
+docs/interfaccia-scout.md  (l'interfaccia dello scout dal vivo spiegata
+                   all'UTENTE: gesti, pulsantiera, traiettorie, scorciatoie —
+                   niente nomi di metodi. Pensato anche come base per la pagina
+                   web di documentazione. Da tenere allineato quando i gesti
+                   cambiano; il gemello tecnico è docs/context/scout-live.md)
 
 docs/samples/     (fixture reali dell'export calendario FIPAV, usate dai test
 │                  del lettore, del parser gare e della classifica)
@@ -696,7 +700,7 @@ Il flusso è navigabile end-to-end: lista partite → "Inizia"/"Continua"/
 configurazione formazione (`FormationConfigScreen`: sistema di gioco,
 conferma palleggiatore e cambi del libero) → `ScoutScreen` (setup grafico
 completo + bottoni rapidi + flusso a 3 tocchi su tutti i fondamentali
-tranne `errore`, con traiettoria per battuta/attacco via `TrajectoryScreen`
+tranne `errore`, con traiettoria per battuta/attacco disegnata sul campo
 — punteggio, chi serve e rotazione derivati in tempo reale dagli eventi
 `ScoutAction`, vedi Modello dati) → drawer ("Sostituzione" apre il flusso
 di cambio giocatore a set in corso — `SostituzioneScreen` +

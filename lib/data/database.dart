@@ -526,8 +526,45 @@ class AppDatabase extends _$AppDatabase {
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
+          await _riparaUidDiUnAltroBranch();
         },
       );
+
+  /// TEMPORANEA — da togliere quando la v19 (uid stabili) arriva su `main`.
+  ///
+  /// Chi ha provato il branch `feature/dati-stagionali` si ritrova sul
+  /// dispositivo un database a schema v19, dove `teams`, `players` e
+  /// `volley_matches` hanno una colonna `uid` con indice **unique** e
+  /// `DEFAULT ''`. Tornando su un branch a v18 quella colonna esiste ancora
+  /// nel file ma il codice Dart non la conosce, quindi non la valorizza: ogni
+  /// riga nuova eredita la stringa vuota del default e la SECONDA inserzione
+  /// fallisce con `UNIQUE constraint failed`. Sul branch v19 non succede
+  /// perché l'uid lo genera drift lato Dart (`clientDefault`), non SQLite.
+  ///
+  /// Qui si rimette in piedi il pezzo mancante *dentro* il database: un uid
+  /// vero alle righe rimaste vuote e un trigger che lo assegna alle prossime.
+  /// Così i dati già salvati non si buttano via e si può continuare a passare
+  /// da un branch all'altro.
+  ///
+  /// Su un database v18 pulito la colonna non c'è e il metodo non fa nulla —
+  /// quindi è inerte in produzione, dove un `uid` non può esistere.
+  Future<void> _riparaUidDiUnAltroBranch() async {
+    for (final tabella in const ['teams', 'players', 'volley_matches']) {
+      if (!await _hasColumn(tabella, 'uid')) continue;
+      // randomblob() è valutato per riga, quindi assegna un valore diverso a
+      // ciascuna: un solo UPDATE basta anche se le righe vuote fossero più di
+      // una (l'indice unique lo impedisce, ma non costa nulla essere generali).
+      await customStatement("UPDATE $tabella SET uid = "
+          "lower(hex(randomblob(16))) WHERE uid IS NULL OR uid = ''");
+      // Il default di una colonna SQLite dev'essere costante, quindi non può
+      // generare un valore casuale: serve un trigger dopo l'inserimento.
+      await customStatement('CREATE TRIGGER IF NOT EXISTS trg_uid_$tabella '
+          'AFTER INSERT ON $tabella FOR EACH ROW '
+          "WHEN NEW.uid IS NULL OR NEW.uid = '' "
+          'BEGIN UPDATE $tabella SET uid = lower(hex(randomblob(16))) '
+          'WHERE rowid = NEW.rowid; END');
+    }
+  }
 }
 
 LazyDatabase _openConnection() {

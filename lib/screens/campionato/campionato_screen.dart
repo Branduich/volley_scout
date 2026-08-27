@@ -173,9 +173,18 @@ class _CampionatoScreenState extends ConsumerState<CampionatoScreen>
                   FilledButton.icon(
                     onPressed: _importa,
                     icon: const Icon(Icons.file_open),
+                    // `Flexible` sul testo, non sul badge: su telefono il
+                    // bottone concede all'etichetta meno della sua larghezza
+                    // intrinseca, e un Text figlio rigido di una Row non può
+                    // né restringersi né andare a capo — sfondava di 42px
+                    // (preso da layout_dimensioni_test). Così va a capo e il
+                    // badge resta sempre visibile.
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: [Text(l.campImportaFile), const PremiumBadge()],
+                      children: [
+                        Flexible(child: Text(l.campImportaFile)),
+                        const PremiumBadge(),
+                      ],
                     ),
                   ),
                 ],

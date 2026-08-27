@@ -1,4 +1,17 @@
-## Scout avversario (scout a due squadre — IMPLEMENTATO, live + report)
+## Scout avversario (IMPLEMENTATO, live + report)
+
+**A cosa serve — leggere prima di estenderlo.** La squadra avversaria è
+**fittizia**: non stiamo facendo lo scout di due squadre, stiamo facendo quello
+della NOSTRA in modo più completo. I loro token esistono per registrare **da
+dove arrivano le palle** — tipi di battuta e di attacco, traiettorie, punti di
+caduta — cioè il contesto che dà senso alla nostra ricezione e alla nostra
+difesa. Non per valutare le loro giocatrici.
+
+Conseguenza pratica, non un limite da togliere: il RUOLO (P/O/S1/S2/C1/C2) è la
+granularità giusta, e un loro cambio dietro a quel ruolo non corrompe niente,
+perché non abbiamo mai preteso di seguire una persona. **Aggiungere una rosa
+avversaria non sarebbe un miglioramento**: sposterebbe l'app su un problema
+diverso e costringerebbe l'utente a inserire dati che a bordo campo non ha.
 
 Scout LEGGERO della squadra avversaria in parallelo al nostro, senza roster né
 numeri di maglia: 6 token placeholder grigi PER RUOLO (P/O/S1/S2/C1/C2) che
@@ -67,18 +80,27 @@ Nei builder token `disabilitato` = `_nostriInAttesa`/`_avversariInAttesa`.
 Dopo un'offensiva `#` la squadra che ha attaccato è bloccata (tap ignorato) +
 attenuata; agisce solo chi difende:
 - ace (battuta `#`): tap sul ricevitore → ricezione `=` DIRETTA, senza pannello;
-- kill (attacco `#`): tap sul difensore → pannello RISTRETTO
-  (`_buildBottoneFondamentale` condiviso), solo Muro/Difesa in rosso → `=`
-  diretto, Alzata/Attacco grigi disabilitati.
+- kill (attacco `#`): tap sul difensore → pulsantiera RISTRETTA
+  (`_buildPulsantiera(ristretto: true)`, condivisa), solo Muro/Difesa in rosso →
+  `=` diretto in UN tocco, Alzata/Attacco spenti; la colonna voti è spenta col
+  `=` evidenziato come anteprima. Resta a un tocco di proposito: è il caso più
+  frequente della partita.
 `_erroreDifensivoForzato`, `_difesaErroreForzata*`.
 
 ### Pannello e traiettorie avversari
-Tap su un token avversario → `_buildPannelloAvversario` (header col RUOLO, poi
-voto). In fase libera offre Attacco/Muro/Difesa; in ricezione forza Ricezione.
-`_registraVotoAvversario` apre `TrajectoryScreen` per battuta/attacco (stesso
-gate traiettorie+premium del nostro `_registraVoto`): `TrajectoryScreen.giocatore`
-è nullable, si passa `etichettaAvversario` per il banner. Il tipo battuta/attacco
-NON resta "armato" per l'avversario.
+Tap su un token avversario → `_buildPannelloAvversario`: header col RUOLO e la
+stessa **pulsantiera unica** del pannello nostro (`_buildPulsantiera`,
+fondamentali | voti, coppia in qualsiasi ordine — vedi scout-live.md). In
+ricezione il fondamentale è forzato: colonna sinistra spenta e chip nell'header.
+Dal 2026-08-22 il tocco su un token avversario funziona **anche col nostro
+pannello aperto** (e viceversa): sostituisce invece di essere ignorato, e chi
+apre azzera l'altro — vedi "Cambio giocatore a pannello aperto" in scout-live.md.
+
+`_registraVotoAvversario` (senza parametri, come il nostro: legge la coppia da
+`_avversarioInCorso`) usa il tratto disegnato sul campo prima del voto, come noi
+— dal token avversario verso la nostra metà. Il tipo di **battuta** resta
+"armato" finché serve lo stesso RUOLO (`_ruoloTipoBattutaArmato`); quello di
+**attacco** non si arma mai, né per loro né per noi.
 
 ### Report avversario (MatchReportScreen, a video)
 Blocco in coda (gate `_scoutDueSquadre`), dopo un separatore col nome squadra,
@@ -131,9 +153,10 @@ l'avversario fa cadere di più.
 - **Export PDF heatmap: NON ancora fatto** (come il PDF avversario).
 
 ### Limiti / backlog
-Nessuna statistica per singolo giocatore avversario (nessun roster); nessun
-libero avversario, nessun numero di maglia; nessun modulo diverso dal 5-1
-canonico; unit test di `zonaTatticaPerAzioneAvversario` non ancora scritto —
-l'originale `zonaTatticaPerAzione` invece **ora è coperta** da
+Nessuna statistica per singolo giocatore avversario: **è una scelta, non un
+buco** — vedi "A cosa serve" in apertura. Nessun libero avversario, nessun
+numero di maglia; nessun modulo diverso dal 5-1 canonico; unit test di
+`zonaTatticaPerAzioneAvversario` non ancora scritto — l'originale
+`zonaTatticaPerAzione` invece **ora è coperta** da
 `test/providers/zona_tattica_test.dart` (dal 2026-08-20), e quel test è il
 modello da copiare per il gemello avversario.

@@ -83,13 +83,24 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
   }
 
   void _advanceToNextEmpty() {
-    final slots = _allSlots;
-    final idx = slots.indexOf(_selectedSlot);
-    if (idx == -1) return;
-    for (var i = 1; i <= slots.length; i++) {
-      final next = slots[(idx + i) % slots.length];
+    // Il campo ha sempre la precedenza: i liberi si selezionano per ultimi,
+    // solo quando P1-P6 sono tutti riempiti (partendo da P3 si prosegue
+    // P4-P5-P6-P1-P2 e solo dopo si passa a L1/L2).
+    // Se la selezione corrente e' un libero, `indexOf` torna -1 e il ciclo
+    // riparte da P1.
+    final idxCampo = _kCourtOrder.indexOf(_selectedSlot);
+    for (var i = 1; i <= _kCourtOrder.length; i++) {
+      final next = _kCourtOrder[(idxCampo + i) % _kCourtOrder.length];
       if (!_assignments.containsKey(next)) {
         _selectedSlot = next;
+        return;
+      }
+    }
+
+    // Campo completo: tocca ai liberi.
+    for (final slot in _allSlots.skip(_kCourtOrder.length)) {
+      if (!_assignments.containsKey(slot)) {
+        _selectedSlot = slot;
         return;
       }
     }

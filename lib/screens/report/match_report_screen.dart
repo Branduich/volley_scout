@@ -222,6 +222,21 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
   String _formatDurata(Duration d) =>
       '${d.inMinutes}:${_pad(d.inSeconds % 60)}';
 
+  // Convenzione del tabellone: a SINISTRA la squadra di casa, a destra gli
+  // ospiti. Quindi in trasferta la NOSTRA squadra va a destra e l'avversario
+  // a sinistra — nomi e punteggi accoppiati seguono sempre questo ordine,
+  // qui e nel PDF (stesso getter in MatchPdfScreen).
+  bool get _nostraADestra => !widget.match.inCasa;
+
+  // Coppia "casa - ospiti" a partire dai valori sempre espressi come
+  // (nostro, avversario). Vale per i nomi e per i punteggi.
+  String _coppia(Object nostro, Object avversario) =>
+      _nostraADestra ? '$avversario - $nostro' : '$nostro - $avversario';
+
+  // Stessa cosa per le colonne affiancate di una tabella (nomi o valori).
+  List<T> _ordinate<T>(T nostro, T avversario) =>
+      _nostraADestra ? [avversario, nostro] : [nostro, avversario];
+
   // Trailing condiviso dalle righe "Set N" e dalla riga "Totale":
   // punteggio a larghezza fissa (colonne allineate) · pallino esito ·
   // durata. `esitoNostro`/`esitoAvversario` pilotano il colore del pallino
@@ -240,7 +255,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
         SizedBox(
           width: 84,
           child: Text(
-            '$nostro - $avversario',
+            _coppia(nostro, avversario),
             textAlign: TextAlign.end,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
@@ -250,6 +265,33 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
         const SizedBox(width: 28),
         _durataLabel(durata),
       ],
+    );
+  }
+
+  // Mezzo blocco "nome + pallino esito" del punteggio finale: il pallino sta
+  // sempre sul lato INTERNO (verso il punteggio al centro), quindi l'ordine
+  // dei due figli e l'allineamento del testo dipendono dal lato occupato.
+  Widget _bloccoSquadraPunteggio({
+    required String nome,
+    required int vinti,
+    required int vintiAltri,
+    required bool aDestra,
+  }) {
+    final testo = Flexible(
+      child: Text(
+        nome,
+        textAlign: aDestra ? TextAlign.end : TextAlign.start,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    );
+    final pallino = _pallinoEsito(vinti, vintiAltri);
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: aDestra ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: aDestra
+            ? [pallino, const SizedBox(width: 10), testo]
+            : [testo, const SizedBox(width: 10), pallino],
+      ),
     );
   }
 
@@ -678,7 +720,7 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$nomeNostro - $nomeAvversario',
+                _coppia(nomeNostro, nomeAvversario),
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
@@ -709,39 +751,32 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                       // Pallino esito accanto a ciascun nome: verde chi ha
                       // vinto, rosso chi ha perso (stesso _pallinoEsito, e
                       // stessa dimensione, dello specchietto dei set).
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                nomeNostro,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            _pallinoEsito(setVintiNostri, setVintiAvversario),
-                          ],
-                        ),
+                      // I due blocchi si scambiano di posto in trasferta
+                      // (vedi _nostraADestra): il pallino resta comunque sul
+                      // lato interno, verso il punteggio.
+                      _bloccoSquadraPunteggio(
+                        nome: _nostraADestra ? nomeAvversario : nomeNostro,
+                        vinti: _nostraADestra
+                            ? setVintiAvversario
+                            : setVintiNostri,
+                        vintiAltri: _nostraADestra
+                            ? setVintiNostri
+                            : setVintiAvversario,
+                        aDestra: false,
                       ),
                       Text(
-                        '$setVintiNostri - $setVintiAvversario',
+                        _coppia(setVintiNostri, setVintiAvversario),
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            _pallinoEsito(setVintiAvversario, setVintiNostri),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                nomeAvversario,
-                                textAlign: TextAlign.end,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                          ],
-                        ),
+                      _bloccoSquadraPunteggio(
+                        nome: _nostraADestra ? nomeNostro : nomeAvversario,
+                        vinti: _nostraADestra
+                            ? setVintiNostri
+                            : setVintiAvversario,
+                        vintiAltri: _nostraADestra
+                            ? setVintiAvversario
+                            : setVintiNostri,
+                        aDestra: true,
                       ),
                     ],
                   ),
@@ -1969,20 +2004,22 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                 2: FlexColumnWidth(1),
               },
               children: [
+                // Colonne nello stesso ordine dei nomi in testa al report:
+                // casa a sinistra, ospiti a destra (vedi _nostraADestra).
                 TableRow(
                   decoration: const BoxDecoration(color: AppColors.surfaceDim),
                   children: [
                     _headerCell('', allineaSinistra: true),
-                    _headerCell(nomeNostro),
-                    _headerCell(nomeAvversario),
+                    for (final n in _ordinate(nomeNostro, nomeAvversario))
+                      _headerCell(n),
                   ],
                 ),
                 TableRow(
                   decoration: const BoxDecoration(color: Colors.white),
                   children: [
                     _labelCell(AppLocalizations.of(context).reportPuntiGenerici),
-                    _totaleCell(r.puntiNostri),
-                    _totaleCell(r.puntiAvversari),
+                    for (final v in _ordinate(r.puntiNostri, r.puntiAvversari))
+                      _totaleCell(v),
                   ],
                 ),
                 TableRow(
@@ -1991,8 +2028,8 @@ class _MatchReportScreenState extends ConsumerState<MatchReportScreen> with Orie
                     _labelCell(
                       AppLocalizations.of(context).reportErroriGenerici,
                     ),
-                    _totaleCell(r.erroriNostri),
-                    _totaleCell(r.erroriAvversari),
+                    for (final v in _ordinate(r.erroriNostri, r.erroriAvversari))
+                      _totaleCell(v),
                   ],
                 ),
               ],

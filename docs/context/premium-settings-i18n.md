@@ -12,14 +12,19 @@ Pagina "Impostazioni" raggiunta dal bottone in fondo al menu di `HomeScreen`
   **sincrono** ovunque, senza FutureProvider. `main()` è diventato `async`
   per questo.
 - **`traiettorieAbilitate`** (bool, default `true`, chiave
-  `scout.traiettorieAbilitate`): unica impostazione per ora. Se `false`,
-  `ScoutScreen._registraVoto` NON apre `TrajectoryScreen` dopo il voto di
-  battuta/attacco — l'azione si registra subito con coordinate `null`
-  (stesso percorso del "salta", zero impatti su DB/report). **Implicazione
-  accettata per ora**: anche i chip tipo battuta/attacco vivono su
-  `TrajectoryScreen`, quindi col toggle spento `tipoEsecuzione` resta
-  `nonSpecificato` — eventuale rientro dei chip nel pannello voto da
-  valutare in futuro (annotato anche nel codice).
+  `scout.traiettorieAbilitate`): se `false` il tratto sul campo non si disegna
+  e l'azione si registra con coordinate `null` — zero impatti su DB/report.
+  Il gate vive in `ScoutScreen._traiettorieInLineConsentite`, insieme a quello
+  premium. I **tipi** di battuta e di attacco non dipendono più da questo
+  interruttore: stanno nella colonna della pulsantiera (vedi scout-live.md),
+  quindi restano indicabili anche con le traiettorie spente — l'unica
+  eccezione è il tipo di ATTACCO, che compare solo dopo un tratto disegnato.
+- **`traiettoriaBattutaInLine`: RIMOSSA** (2026-08-22). Era l'interruttore
+  sperimentale che permetteva di confrontare il disegno sul campo con la
+  vecchia `TrajectoryScreen` sullo stesso build. Verdetto dato in campo (build
+  1.0.0+13): il disegno sul campo è l'**unico** modo, la schermata dedicata è
+  stata cancellata. La chiave `scout.traiettoriaBattutaInLine` resta orfana
+  nelle preferenze di chi l'aveva provata e non viene più letta.
 - **`scoutAvversariAbilitato`** (bool, default `true`, chiave
   `scout.scoutAvversariAbilitato`): abilita lo Scout avversario (vedi sezione
   dedicata). Se `true`, all'avvio di un nuovo set `ScoutScreen` chiede di

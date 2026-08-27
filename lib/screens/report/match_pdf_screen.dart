@@ -575,6 +575,17 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
   String _nomeNostro(Team? team) =>
       team?.nome ?? AppLocalizations.of(context).reportNostraSquadra;
 
+  // Convenzione del tabellone: casa a sinistra, ospiti a destra — in
+  // trasferta la NOSTRA squadra sta a destra. Stesso getter (e stessi
+  // helper) di MatchReportScreen: il PDF deve leggersi come il report.
+  bool get _nostraADestra => !widget.match.inCasa;
+
+  String _coppia(Object nostro, Object avversario) =>
+      _nostraADestra ? '$avversario - $nostro' : '$nostro - $avversario';
+
+  List<T> _ordinate<T>(T nostro, T avversario) =>
+      _nostraADestra ? [avversario, nostro] : [nostro, avversario];
+
   // Scorciatoia alle stringhe tradotte. Getter SINCRONO: il PDF si costruisce
   // in metodi async, e usare `context` direttamente dopo un await farebbe
   // scattare use_build_context_synchronously (il widget è comunque montato:
@@ -592,7 +603,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
     final palestra = match.palestra?.trim();
     return [
       pw.Text(
-        '${_nomeNostro(team)} - $_nomeAvversario',
+        _coppia(_nomeNostro(team), _nomeAvversario),
         style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
       ),
       pw.SizedBox(height: 4),
@@ -613,6 +624,34 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
       if (riga.nostro > riga.avversario) setVintiNostri++;
       if (riga.avversario > riga.nostro) setVintiAvversario++;
     }
+    // Mezzo blocco "nome + pallino": il pallino sta sempre sul lato INTERNO,
+    // verso il punteggio, quindi ordine e allineamento seguono il lato.
+    pw.Widget blocco({
+      required String nome,
+      required int vinti,
+      required int vintiAltri,
+      required bool aDestra,
+    }) {
+      final testo = pw.Flexible(
+        child: pw.Text(
+          nome,
+          textAlign: aDestra ? pw.TextAlign.right : pw.TextAlign.left,
+          style: const pw.TextStyle(fontSize: 14),
+        ),
+      );
+      final pallino = _pallinoEsito(vinti, vintiAltri);
+      return pw.Expanded(
+        child: pw.Row(
+          mainAxisAlignment:
+              aDestra ? pw.MainAxisAlignment.end : pw.MainAxisAlignment.start,
+          children: aDestra
+              ? [pallino, pw.SizedBox(width: 8), testo]
+              : [testo, pw.SizedBox(width: 8), pallino],
+        ),
+      );
+    }
+
+    final nomeNostro = _nomeNostro(team);
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
@@ -624,38 +663,23 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           // Pallino esito accanto a ciascun nome (verde vinto/rosso perso),
-          // sul lato interno — stessa convenzione del report a video.
-          pw.Expanded(
-            child: pw.Row(
-              children: [
-                pw.Flexible(
-                  child: pw.Text(_nomeNostro(team),
-                      style: const pw.TextStyle(fontSize: 14)),
-                ),
-                pw.SizedBox(width: 8),
-                _pallinoEsito(setVintiNostri, setVintiAvversario),
-              ],
-            ),
+          // sul lato interno — stessa convenzione del report a video, cambio
+          // di lato in trasferta compreso (_nostraADestra).
+          blocco(
+            nome: _nostraADestra ? _nomeAvversario : nomeNostro,
+            vinti: _nostraADestra ? setVintiAvversario : setVintiNostri,
+            vintiAltri: _nostraADestra ? setVintiNostri : setVintiAvversario,
+            aDestra: false,
           ),
           pw.Text(
-            '$setVintiNostri - $setVintiAvversario',
+            _coppia(setVintiNostri, setVintiAvversario),
             style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
           ),
-          pw.Expanded(
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.end,
-              children: [
-                _pallinoEsito(setVintiAvversario, setVintiNostri),
-                pw.SizedBox(width: 8),
-                pw.Flexible(
-                  child: pw.Text(
-                    _nomeAvversario,
-                    textAlign: pw.TextAlign.right,
-                    style: const pw.TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
+          blocco(
+            nome: _nostraADestra ? nomeNostro : _nomeAvversario,
+            vinti: _nostraADestra ? setVintiNostri : setVintiAvversario,
+            vintiAltri: _nostraADestra ? setVintiAvversario : setVintiNostri,
+            aDestra: true,
           ),
         ],
       ),
@@ -723,7 +747,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
           pw.TableRow(
             children: [
               cella(_l.reportSetNumero(riga.numero), align: pw.TextAlign.left),
-              cella('${riga.nostro} - ${riga.avversario}'),
+              cella(_coppia(riga.nostro, riga.avversario)),
               cellaEsito(riga.nostro, riga.avversario),
               cella(riga.durata == null ? '—' : _formatDurata(riga.durata!)),
             ],
@@ -734,7 +758,7 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
           decoration: const pw.BoxDecoration(color: PdfColors.grey200),
           children: [
             cella(_l.reportTotale, bold: true, align: pw.TextAlign.left),
-            cella('$puntiNostri - $puntiAvversari', bold: true),
+            cella(_coppia(puntiNostri, puntiAvversari), bold: true),
             cellaEsito(setVintiNostri, setVintiAvversario),
             cella(_formatDurata(durataTotale), bold: true),
           ],
@@ -1136,23 +1160,23 @@ class _MatchPdfScreenState extends ConsumerState<MatchPdfScreen> with Orientamen
           child: pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
             children: [
+              // Colonne nell'ordine dei nomi in testa al documento: casa a
+              // sinistra, ospiti a destra (vedi _nostraADestra).
               pw.TableRow(
                 decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                 children: [
                   cella(''),
-                  cella(_nomeNostro(team), bold: true),
-                  cella(_nomeAvversario, bold: true),
+                  for (final n in _ordinate(_nomeNostro(team), _nomeAvversario))
+                    cella(n, bold: true),
                 ],
               ),
               pw.TableRow(children: [
                 cella(_l.reportPuntiGenerici, bold: true),
-                cella('$puntiNostri'),
-                cella('$puntiAvv'),
+                for (final v in _ordinate(puntiNostri, puntiAvv)) cella('$v'),
               ]),
               pw.TableRow(children: [
                 cella(_l.reportErroriGenerici, bold: true),
-                cella('$erroriNostri'),
-                cella('$erroriAvv'),
+                for (final v in _ordinate(erroriNostri, erroriAvv)) cella('$v'),
               ]),
             ],
           ),

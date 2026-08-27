@@ -33,6 +33,15 @@ class Impostazioni {
   /// dalle Impostazioni.
   final bool tutorialVisibile;
 
+  /// IN PROVA (default OFF) — appena indichi chi riceve, l'app propone il voto
+  /// della ricezione dedotto da quello della battuta e lo conferma da sé dopo
+  /// un paio di secondi, salvo che tu ne prema un altro. Un tocco in meno
+  /// sull'azione più frequente della partita.
+  ///
+  /// Ha senso SOLO con lo scout avversari attivo: senza, la battuta avversaria
+  /// non viene valutata e non c'è niente da cui dedurre.
+  final bool ricezioneAutomatica;
+
   /// Separatore di campo e decimale dell'export CSV (default `europeo`, il
   /// formato storico). Scelta esplicita e NON derivata dalla lingua dell'app:
   /// a decidere è il locale del computer su cui si apre il file — vedi
@@ -43,6 +52,7 @@ class Impostazioni {
     required this.traiettorieAbilitate,
     required this.scoutAvversariAbilitato,
     required this.tutorialVisibile,
+    required this.ricezioneAutomatica,
     required this.formatoCsv,
   });
 
@@ -50,6 +60,7 @@ class Impostazioni {
     bool? traiettorieAbilitate,
     bool? scoutAvversariAbilitato,
     bool? tutorialVisibile,
+    bool? ricezioneAutomatica,
     FormatoCsv? formatoCsv,
   }) {
     return Impostazioni(
@@ -57,6 +68,7 @@ class Impostazioni {
       scoutAvversariAbilitato:
           scoutAvversariAbilitato ?? this.scoutAvversariAbilitato,
       tutorialVisibile: tutorialVisibile ?? this.tutorialVisibile,
+      ricezioneAutomatica: ricezioneAutomatica ?? this.ricezioneAutomatica,
       formatoCsv: formatoCsv ?? this.formatoCsv,
     );
   }
@@ -66,6 +78,11 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
   static const _kTraiettorie = 'scout.traiettorieAbilitate';
   static const _kScoutAvversari = 'scout.scoutAvversariAbilitato';
   static const _kTutorialVisibile = 'scout.tutorialVisibile';
+  // NB: la chiave 'scout.traiettoriaBattutaInLine' non si legge più (il
+  // disegno sul campo è l'unico modo dal 2026-08-22) e resta orfana nelle
+  // preferenze di chi l'aveva provata. Innocua: shared_preferences non si
+  // lamenta di una chiave che nessuno legge.
+  static const _kRicezioneAutomatica = 'scout.ricezioneAutomatica';
   static const _kFormatoCsv = 'export.formatoCsv';
 
   @override
@@ -76,6 +93,9 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
       traiettorieAbilitate: prefs.getBool(_kTraiettorie) ?? true,
       scoutAvversariAbilitato: prefs.getBool(_kScoutAvversari) ?? true,
       tutorialVisibile: prefs.getBool(_kTutorialVisibile) ?? true,
+      // Default OFF: cambia COSA finisce a database, quindi si accende solo
+      // di proposito (vedi il commento sul campo).
+      ricezioneAutomatica: prefs.getBool(_kRicezioneAutomatica) ?? false,
       // Valore sconosciuto (chiave scritta da una versione futura) → default,
       // mai un'eccezione da byName().
       formatoCsv: FormatoCsv.values
@@ -98,6 +118,13 @@ class ImpostazioniNotifier extends Notifier<Impostazioni> {
   Future<void> setTutorialVisibile(bool value) async {
     await ref.read(sharedPreferencesProvider).setBool(_kTutorialVisibile, value);
     state = state.copyWith(tutorialVisibile: value);
+  }
+
+  Future<void> setRicezioneAutomatica(bool value) async {
+    await ref
+        .read(sharedPreferencesProvider)
+        .setBool(_kRicezioneAutomatica, value);
+    state = state.copyWith(ricezioneAutomatica: value);
   }
 
   Future<void> setFormatoCsv(FormatoCsv value) async {

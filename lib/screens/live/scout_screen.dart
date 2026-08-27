@@ -14,12 +14,14 @@ import '../../providers/database_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../theme/court_style.dart';
 import '../../tutorial/tutorial_controller.dart';
 import '../../tutorial/tutorial_overlay.dart';
 import '../../tutorial/tutorial_target.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/enum_l10n.dart';
+import '../../widgets/freccia_traiettoria_painter.dart';
 import '../../widgets/premium_badge.dart';
 import '../premium/paywall_screen.dart';
 import '../report/match_report_screen.dart';
@@ -28,7 +30,6 @@ import '../report/trajectory_report_screen.dart';
 import 'end_set_screen.dart';
 import 'sostituzione_screen.dart';
 import 'tactical_board_screen.dart';
-import 'trajectory_screen.dart';
 import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF143E59);
@@ -51,6 +52,16 @@ const Duration _kPeriodoLampeggioPunteggio = Duration(milliseconds: 350);
 // `Positioned(top: ...)` nel campo vero, altrimenti libero/battitore fuori
 // campo si disallineano dal campo disegnato.
 const double _kCourtTopMargin = 16.0;
+
+// Quanto vicino alla rete (px) il dito deve staccarsi perché quel punto valga
+// come tocco a muro nel disegno in-line. Stesso valore di TrajectoryScreen,
+// duplicato qui come le altre costanti condivise fra le due schermate.
+const double _kToleranzaReteInLine = 24.0;
+
+// Per quanto il dito deve restare nella fascia perché scatti il tocco a muro:
+// un attacco che scavalca la rete di slancio non deve lasciare uno snodo, solo
+// una sosta deliberata. Stesso valore di TrajectoryScreen.
+const Duration _kSoffermamentoReteInLine = Duration(milliseconds: 400);
 
 // Colore invertito (canale per canale) rispetto al colore squadra, usato per
 // il cerchio del libero — in pallavolo il libero indossa sempre una maglia
@@ -79,12 +90,17 @@ const Map<String, Alignment> _kRotationBadgeAnchor = {
 // riferimento rispetto all'immagine double_court_bg.png (1200×600 — ogni
 // singolo campo è quindi un quadrato 600×600). Da estendere in futuro con le
 // posizioni di ricezione (quando l'avversario è al servizio).
+// Le due file esterne stanno a 90 e 510 (non più 130 e 470): allargate di 40
+// verso le linee laterali il 2026-08-22, insieme alle tabelle tattiche di
+// logic/attack_positions.dart — questi sono i RIPIEGHI usati quando la tabella
+// non copre un ruolo, e devono restare in linea con esse. La fila centrale
+// (300) non si è mossa: la traslazione è simmetrica.
 const Map<String, Offset> _kAttackPositions = {
-  'P1': Offset(200, 470),
-  'P2': Offset(530, 470),
+  'P1': Offset(200, 510),
+  'P2': Offset(530, 510),
   'P3': Offset(530, 300),
-  'P4': Offset(530, 130),
-  'P5': Offset(200, 130),
+  'P4': Offset(530, 90),
+  'P5': Offset(200, 90),
   'P6': Offset(200, 300),
 };
 
@@ -95,12 +111,15 @@ const Map<String, Offset> _kAttackPositions = {
 // avversario a inizio set e, in seguito, dai token placeholder avversari.
 // Passa comunque per _displayPosition() come le nostre, così segue il cambio
 // campo restando sempre sul lato opposto ai nostri token.
+// Riflessione esatta di _kAttackPositions: 1200−x, 600−y. Poiché la
+// traslazione del 2026-08-22 è simmetrica attorno a 300, lo specchio di 90 è
+// 510 e viceversa — le zone avversarie si allargano insieme alle nostre.
 const Map<int, Offset> _kOpponentZonePositions = {
-  1: Offset(1000, 130),
-  2: Offset(670, 130),
+  1: Offset(1000, 90),
+  2: Offset(670, 90),
   3: Offset(670, 300),
-  4: Offset(670, 470),
-  5: Offset(1000, 470),
+  4: Offset(670, 510),
+  5: Offset(1000, 510),
   6: Offset(1000, 300),
 };
 
@@ -127,7 +146,7 @@ enum _FaseScambio { servizio, ricezione, libera }
 // semplicemente più indietro ma ancora dentro. Stessa Y della posizione di
 // attacco. Passa comunque per _displayPosition(), quindi si specchia
 // correttamente anche ripartendo da destra.
-const Offset _kBattutaP1Position = Offset(-70, 470);
+const Offset _kBattutaP1Position = Offset(-70, 510);
 
 // Fattore di scala applicato al raggio "base" (ch/20) di tutti i token
 // giocatore — token su campo (_buildPlayerToken), libero attivo/inattivo
@@ -584,22 +603,609 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return _refPositionFor(slot);
   }
 
-  // Giocatore + fondamentale per cui è aperto il pannello di voto — null =
-  // pannello chiuso. `fondamentale` è null quando il giocatore è stato
-  // toccato in fase "libera" (dopo battuta/ricezione già giudicate): in quel
-  // caso il pannello mostra prima la scelta tra Alzata/Attacco/Muro/Difesa
-  // (vedi _sceglieFondamentale), altrimenti è già forzato da
-  // _fondamentaleForzato (battuta/ricezione). Tap sul giocatore (vedi
-  // _tapHandlerPerGiocatore) lo apre; la selezione di un voto (_registraVoto)
-  // lo richiude.
-  ({Player giocatore, Fondamentale? fondamentale})? _votoInCorso;
+  // Giocatore + coppia (fondamentale, voto) in corso di composizione nel
+  // pannello — null = pannello chiuso. Il pannello è una PULSANTIERA UNICA:
+  // le due colonne (fondamentali e voti) sono sempre entrambe a schermo e si
+  // riempiono in QUALSIASI ORDINE; l'azione si registra quando la coppia è
+  // completa (vedi _provaRegistrare). `fondamentale` arriva già valorizzato
+  // quando la fase lo impone (battuta/ricezione, vedi _fondamentaleForzato):
+  // in quel caso la colonna dei fondamentali è spenta e basta il voto.
+  // Tap sul giocatore (vedi _tapHandlerPerGiocatore) apre; la registrazione
+  // (_registraVoto) richiude.
+  ({Player giocatore, Fondamentale? fondamentale, Voto? voto})? _votoInCorso;
 
   // Azione AVVERSARIA in corso: ruolo placeholder toccato (P/O/S1/S2/C1/C2) +
-  // fondamentale scelto (null finché non si sceglie Attacco/Battuta/Muro nel
-  // pannello). Flusso parallelo e ISOLATO da _votoInCorso (legato a un nostro
-  // Player): l'avversario non ha roster, solo il ruolo. Vedi
+  // la stessa coppia (fondamentale, voto) del pannello nostro. Flusso
+  // parallelo e ISOLATO da _votoInCorso (legato a un nostro Player):
+  // l'avversario non ha roster, solo il ruolo. Vedi
   // _tapHandlerAvversario/_buildPannelloAvversario/_registraVotoAvversario.
-  ({String ruolo, Fondamentale? fondamentale})? _avversarioInCorso;
+  ({String ruolo, Fondamentale? fondamentale, Voto? voto})? _avversarioInCorso;
+
+  bool get _pannelloAperto =>
+      _votoInCorso != null || _avversarioInCorso != null;
+
+  // --- Traiettoria disegnata SUL CAMPO LIVE (sperimentale, solo battuta) ---
+  //
+  // Attiva solo con Impostazioni.traiettoriaBattutaInLine acceso: si tocca il
+  // battitore, si trascina sul campo, poi si vota (il voto chiude l'azione,
+  // vedi _registraVoto). Con l'interruttore spento resta tutto com'era e la
+  // traiettoria si prende su TrajectoryScreen dopo il voto — le due strade
+  // convivono apposta, per poterle confrontare sullo stesso build.
+  //
+  // Punto in cui è iniziato il gesto in corso (null = nessun dito giù) e se
+  // quel gesto è partito SULLA CARD del pannello, dove non si deve disegnare.
+  Offset? _pointerGiu;
+  bool _gestoSullaCard = false;
+
+  // Freccia da disegnare, in coordinate ASSOLUTE dello Stack del corpo: resta
+  // a schermo anche dopo il rilascio, così si vede che è stata presa.
+  //
+  // È un ValueNotifier e non un campo con setState perché il dito genera un
+  // evento di movimento a ogni frame: un setState qui ricostruirebbe TUTTO
+  // ScoutScreen (campo, token, log, pannello) 60 volte al secondo. Passato
+  // come `repaint` al painter, ridisegna solo la freccia senza toccare
+  // l'albero dei widget.
+  // `muro` = punto di tocco a muro (solo attacco): quando c'è, la freccia si
+  // disegna a due segmenti con uno snodo lì. `inZonaRete` = il dito è dentro
+  // la fascia della rete e il soffermamento sta scorrendo: accende la riga
+  // gialla. Stanno QUI dentro e non in campi a parte perché così arrivano al
+  // painter senza un `setState`.
+  final ValueNotifier<
+          ({Offset inizio, Offset fine, Offset? muro, bool inZonaRete})?>
+      _frecciaInLine = ValueNotifier(null);
+
+  // Timer del soffermamento sulla rete e flag "dito dentro la fascia" — vedi
+  // _onPointerMoveCampo.
+  Timer? _timerMuroInLine;
+  bool _inZonaReteInLine = false;
+
+  // La stessa freccia normalizzata 0..1 sul riquadro campo, calcolata al
+  // rilascio (dove la geometria del campo è nota) e usata al momento di
+  // registrare. Volutamente NON clampata: il battitore sta fuori dal campo e
+  // le sue X sono negative, come _kBattutaP1Position.
+  ({double x1, double y1, double x2, double y2, double? muroX, double? muroY})?
+      _traiettoriaNormalizzata;
+
+  // Callback "apri il pannello per QUESTO giocatore", messa da parte quando il
+  // dito scende su un token (vedi `onTapDown` nei builder) e invocata dal
+  // gestore del movimento se quel gesto si rivela un trascinamento. Serve a far
+  // partire la traiettoria direttamente dal giocatore, senza il tocco separato
+  // che lo seleziona: `onTap` da solo non basta, perché il riconoscitore del
+  // tap si arrende appena il dito si muove.
+  // `identita` = id del giocatore (nostri) o etichetta di ruolo (avversari):
+  // serve a distinguere "sto trascinando da un ALTRO giocatore" (→ si cambia
+  // selezione) da "sto ridisegnando il tratto dello stesso" (→ non si tocca
+  // niente, altrimenti si azzererebbe un voto già scelto).
+  ({VoidCallback apri, Object identita})? _aperturaDaTrascinamento;
+
+  // Chi è selezionato adesso, nello stesso spazio di `identita`.
+  Object? get _identitaSelezionata =>
+      _votoInCorso?.giocatore.id ?? _avversarioInCorso?.ruolo;
+
+  // Tipo di attacco scelto nella colonna della pulsantiera (vedi
+  // _colonnaTipiAttacco), sia che l'attacco l'abbia deciso il disegno sia che
+  // sia stato premuto a mano.
+  // A differenza del tipo di battuta NON resta mai "armato": varia colpo su
+  // colpo, quindi si azzera a ogni apertura di pannello, cambio di
+  // giocatrice, registrazione e undo — che passano tutti da
+  // _azzeraTraiettoriaInLine, il posto dove si ripulisce l'azione in corso.
+  // Uno solo per entrambi i pannelli: nostro e avversario non convivono mai,
+  // come per _traiettoriaNormalizzata.
+  TipoAttacco _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
+
+  // --- Rete di sicurezza dei passi a campo libero (PassoTutorial.aiutoDopo) --
+  //
+  // Lì non ci sono né velo né card: chi non capisce cosa fare non ha niente
+  // che glielo ripeta. Scaduto il tempo l'app fa da sé il tocco sul battitore
+  // — apre la pulsantiera — e manda avanti il passo.
+  //
+  // Aprire la pulsantiera è la metà indispensabile: il passo successivo ha il
+  // buco su un bottone del voto, e con la pulsantiera chiusa quel bersaglio
+  // non esiste. Un velo senza buco assorbe ogni tocco, quindi limitarsi ad
+  // avanzare trasformerebbe un passo fermo in una schermata morta.
+  Timer? _timerAiutoTutorial;
+  int? _indicePassoAiuto;
+
+  void _aggiornaAiutoTutorial(int indice) {
+    if (_indicePassoAiuto == indice) return; // stesso passo, timer già giusto
+    _indicePassoAiuto = indice;
+    _timerAiutoTutorial?.cancel();
+    _timerRicezioneAuto?.cancel();
+    _timerLampeggioProposta?.cancel();
+    final attesa =
+        ref.read(tutorialControllerProvider.notifier).passo?.aiutoDopo;
+    if (attesa == null) return;
+    _timerAiutoTutorial = Timer(attesa, _aiutaTutorial);
+  }
+
+  void _aiutaTutorial() {
+    if (!mounted) return;
+    final controller = ref.read(tutorialControllerProvider.notifier);
+    final passo = controller.passo;
+    // Nel frattempo si è mosso: il passo è cambiato, oppure sta già facendo
+    // quello che gli era stato chiesto. In entrambi i casi non si interviene.
+    if (passo?.aiutoDopo == null) return;
+    if (_pannelloAperto || _traiettoriaNormalizzata != null) return;
+    _aperturaPerAiuto(passo!.bersaglio)?.call();
+    controller.avanzaPerAiuto();
+  }
+
+  /// Come si apre la pulsantiera al posto dell'utente, in base a chi il passo
+  /// gli aveva chiesto di toccare. Il bersaglio di un passo a campo libero non
+  /// serve a bucare il velo — lì non ce n'è — ma solo a rispondere a questa
+  /// domanda.
+  VoidCallback? _aperturaPerAiuto(TutorialTarget? bersaglio) {
+    switch (bersaglio) {
+      case TutorialTarget.tokenBattitore:
+        return _aperturaBattitore?.apri;
+      case TutorialTarget.tokenAvversarioAttacco:
+      case TutorialTarget.tokenAvversarioRicezione:
+      case TutorialTarget.tokenAvversarioDifesa:
+        final ruolo = kRuoliAvversariTutorial[bersaglio];
+        // Senza `zona` non scatta la preselezione della difesa, che qui
+        // sarebbe comunque sbagliata: il passo insegna un attacco.
+        return ruolo == null ? null : _tapHandlerAvversario(ruolo);
+      case TutorialTarget.tokenNostroAttaccante:
+        // I nostri target si agganciano al RUOLO e non allo slot, così
+        // seguono il giocatore anche dopo una rotazione: qui si fa il giro
+        // inverso, dal ruolo allo slot che lo occupa adesso.
+        final ruolo = kRuoliNostriTutorial[bersaglio];
+        final assegnazioni = _currentAssignments;
+        final etichette = _roleLabels(_currentSlot, assegnazioni);
+        for (final e in etichette.entries) {
+          if (e.value != ruolo) continue;
+          final player = assegnazioni[e.key];
+          if (player == null) return null;
+          return _tapHandlerPerGiocatore(player, slot: e.key);
+        }
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  // --- Ricezione automatica (Impostazioni.ricezioneAutomatica, in prova) ----
+  //
+  // Nel Modello A il voto della battuta e quello della ricezione sono due metà
+  // dello stesso colpo: detto com'è andata la battuta, la ricezione è in larga
+  // parte già detta. Indicato chi riceve si PROPONE il voto dedotto e lo si
+  // conferma da soli dopo un secondo, salvo che l'utente ne prema un altro.
+  //
+  // La proposta vive FUORI dalla coppia (fondamentale, voto): in ricezione il
+  // fondamentale è già imposto dalla fase, quindi valorizzare il voto
+  // registrerebbe all'istante — è la regola che regge tutta la pulsantiera.
+  Voto? _votoPropostoRicezione;
+  Timer? _timerRicezioneAuto;
+  Timer? _timerLampeggioProposta;
+  bool _propostaAccesa = true;
+
+  /// Il voto di ricezione implicato da quello della battuta. `null` dove non
+  /// c'è una deduzione sensata: `#` ha già la sua scorciatoia diretta (ace →
+  /// ricezione `=`, senza pannello) e `=` chiude il punto senza ricezione.
+  static Voto? _ricezioneDedotta(Voto battuta) => switch (battuta) {
+        Voto.positivo => Voto.negativo,
+        Voto.mezzoPunto => Voto.mezzoPunto,
+        Voto.negativo => Voto.positivo,
+        Voto.perfetto || Voto.errore => null,
+      };
+
+  /// Il voto della battuta di QUESTO scambio, se c'è.
+  Voto? get _votoBattutaRallyCorrente {
+    for (final a in _azioniRallyCorrente) {
+      if (a.fondamentale == Fondamentale.battuta) return a.voto;
+    }
+    return null;
+  }
+
+  /// Avvia la proposta quando si apre un pannello di RICEZIONE. Chiamata dai
+  /// due tap handler, che sono gli unici a sapere che la fase la impone.
+  void _proponiRicezione() {
+    _annullaPropostaRicezione();
+    final impostazioni = ref.read(impostazioniProvider);
+    if (!impostazioni.ricezioneAutomatica) return;
+    if (!impostazioni.scoutAvversariAbilitato) return;
+    if (widget.tutorial || _testModeEnabled) return;
+    final battuta = _votoBattutaRallyCorrente;
+    if (battuta == null) return;
+    final dedotto = _ricezioneDedotta(battuta);
+    if (dedotto == null) return;
+    _votoPropostoRicezione = dedotto;
+    _propostaAccesa = true;
+    _timerLampeggioProposta =
+        Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (!mounted) return;
+      setState(() => _propostaAccesa = !_propostaAccesa);
+    });
+    _timerRicezioneAuto =
+        Timer(const Duration(milliseconds: 2800), _confermaPropostaRicezione);
+  }
+
+  /// Spegne proposta e timer. Da chiamare ovunque l'azione in corso cambi o
+  /// finisca: un timer sfuggito scriverebbe un'azione mentre l'utente sta
+  /// facendo altro, che in partita non si perdona.
+  void _annullaPropostaRicezione() {
+    _timerRicezioneAuto?.cancel();
+    _timerRicezioneAuto = null;
+    _timerLampeggioProposta?.cancel();
+    _timerLampeggioProposta = null;
+    _votoPropostoRicezione = null;
+  }
+
+  void _confermaPropostaRicezione() {
+    final proposto = _votoPropostoRicezione;
+    _annullaPropostaRicezione();
+    if (!mounted || proposto == null) return;
+    // Nel frattempo il pannello può essersi chiuso o aver cambiato giocatrice:
+    // si scrive solo se siamo ancora sulla stessa ricezione.
+    if (_votoInCorso?.fondamentale == Fondamentale.ricezione) {
+      _scegliVoto(proposto);
+    } else if (_avversarioInCorso?.fondamentale == Fondamentale.ricezione) {
+      _scegliVotoAvversario(proposto);
+    }
+  }
+
+  void _azzeraTraiettoriaInLine() {
+    _timerMuroInLine?.cancel();
+    _inZonaReteInLine = false;
+    _frecciaInLine.value = null;
+    _traiettoriaNormalizzata = null;
+    _tipoAttaccoSelezionato = TipoAttacco.nonSpecificato;
+  }
+
+  // Il TIPO di esecuzione col disegno in-line è RISOLTO (2026-08-22), da
+  // entrambe le parti, e sempre dalla colonna di sinistra della pulsantiera:
+  // i tipi di servizio in fase battuta (_colonnaTipiBattuta) e i tipi di
+  // attacco dopo un tratto disegnato (_colonnaTipiAttacco). I chip di
+  // TrajectoryScreen restano per la strada classica, dove quella schermata si
+  // apre ancora. Provata prima la pressione prolungata sul battitore
+  // (2026-08-21) e scartata: il gesto non convince, e comunque un gesto non
+  // deve mai competere col trascinamento o col tocco singolo.
+  //
+  // Si disegna se: interruttore acceso, un pannello è aperto, e vale lo stesso
+  // gate di TrajectoryScreen (traiettorie attive + premium — vedi
+  // _registraVoto). Fuori dalla modalità test, che non scrive azioni vere.
+  // Durante il TUTORIAL mai: in questa fase di prova il tutorial passa sempre
+  // dalla schermata dedicata, così i suoi passi restano validi qualunque cosa
+  // dica l'interruttore.
+  //
+  // NON si guarda il fondamentale: in fase libera non è ancora stato scelto
+  // quando il dito comincia a trascinare, e pretenderlo prima costringerebbe a
+  // premere "Attacco" per poter disegnare. Si cattura e basta; poi è chi
+  // registra a usare il tratto solo se il fondamentale lo prevede (vedi
+  // `richiedeTraiettoria` in _scriviVoto), altrimenti lo butta.
+  bool get _traiettoriaInLineAttiva =>
+      _pannelloAperto && _traiettorieInLineConsentite;
+
+  // Le condizioni che NON dipendono dal pannello: servono anche un istante
+  // prima che si apra, quando il trascinamento parte dal giocatore stesso.
+  //
+  // Nel TUTORIAL non decidono impostazioni e premium ma il PASSO corrente
+  // (`PassoTutorial.traiettoriaConsentita`, spenta di default): ogni passo
+  // dev'essere deterministico, quindi il disegno esiste solo dove lo si
+  // insegna. Nei passi in cui è spenta il trascinamento resta possibile e apre
+  // la pulsantiera come farebbe un tocco — semplicemente non lascia la freccia
+  // (vedi _onPointerMoveCampo, dove l'apertura viene prima di questo gate).
+  //
+  // Fuori dal tutorial contano il toggle delle Impostazioni e il premium.
+  // La modalità test è sempre esclusa: non scrive azioni vere.
+  bool get _traiettorieInLineConsentite {
+    if (_testModeEnabled) return false;
+    if (widget.tutorial) {
+      return ref
+              .read(tutorialControllerProvider.notifier)
+              .passo
+              ?.traiettoriaConsentita ??
+          false;
+    }
+    if (!ref.read(impostazioniProvider).traiettorieAbilitate) return false;
+    return ref.read(statoPremiumProvider).attivo;
+  }
+
+  // In battuta il servizio si batte da QUALSIASI punto della linea di fondo,
+  // non solo da dove sta disegnato il token: tutta la fascia fuori dal campo,
+  // dal lato nostro, arma il battitore. In quell'istante non c'è altro da
+  // fare, quindi il gesto non è ambiguo — e il punto da cui parti resta il
+  // punto di partenza del tratto, che è un dato vero (da dove ha servito).
+  // Stesse condizioni di _buildBattitoreTapCatcher, tenute in un posto solo.
+  ({VoidCallback apri, Object identita})? get _aperturaBattitore {
+    if (_squadraAlServizio != Squadra.nostra) return null;
+    if (_faseDopo) return null;
+    final player = _currentAssignments['P1'];
+    if (player == null) return null;
+    final onTap = _tapHandlerPerGiocatore(player, slot: 'P1');
+    if (onTap == null) return null;
+    return (apri: onTap, identita: player.id);
+  }
+
+  // Speculare per la battuta AVVERSARIA: stesse condizioni del loro
+  // tap-catcher. Anche loro servono da tutta la linea di fondo, e la loro
+  // fascia sta dal lato opposto alla nostra.
+  ({VoidCallback apri, Object identita})? get _aperturaBattitoreAvversario {
+    if (!_attesaBattutaAvversaria) return null;
+    final slot = _statoSetReale?.palleggiatoreAvversarioSlot;
+    if (slot == null) return null;
+    final ruolo = etichetteAvversarie(slot)[1]!; // ruolo in zona 1
+    final onTap = _tapHandlerAvversario(ruolo, forzato: Fondamentale.battuta);
+    if (onTap == null) return null;
+    return (apri: onTap, identita: ruolo);
+  }
+
+  // La fascia: fuori dal riquadro campo in orizzontale e dentro la sua
+  // altezza. `latoDestro` dice quale delle due — la nostra segue il cambio
+  // campo, quella avversaria è sempre l'altra.
+  bool _nellaFascia(
+    Offset p,
+    double courtLeft,
+    double courtWidth, {
+    required bool latoDestro,
+  }) {
+    final courtHeight = courtWidth / 2;
+    if (p.dy < _kCourtTopMargin || p.dy > _kCourtTopMargin + courtHeight) {
+      return false;
+    }
+    return latoDestro ? p.dx > courtLeft + courtWidth : p.dx < courtLeft;
+  }
+
+  // Gesti di un token giocatore: il tocco lo seleziona come sempre, e in più
+  // `onTapDown` mette da parte la stessa callback perché il gestore del
+  // movimento possa invocarla se il gesto si rivela un TRASCINAMENTO — così la
+  // traiettoria si può cominciare direttamente dal giocatore, senza il tocco
+  // separato. `onTapDown` scatta subito alla pressione, prima che si sappia se
+  // sarà tocco o trascinamento; `onTap` invece si arrende appena il dito si
+  // muove, ed è il motivo per cui da solo non basterebbe.
+  // I due non si sovrappongono mai: se trascini, `onTap` non scatta.
+  Widget _tokenConTrascinamento(
+    VoidCallback onTap,
+    Object identita, [
+    Widget? child,
+  ]) {
+    return GestureDetector(
+      onTapDown: (_) =>
+          _aperturaDaTrascinamento = (apri: onTap, identita: identita),
+      onTap: onTap,
+      child: child,
+    );
+  }
+
+  // Soglia oltre la quale il gesto è un trascinamento e non un tocco: la
+  // stessa di TrajectoryScreen, proporzionale al campo con un minimo assoluto
+  // (su tablet il campo è molto più grande e gli stessi px direbbero meno).
+  static double _sogliaTrascinamento(double courtWidth) =>
+      math.max(24.0, courtWidth * 0.04);
+
+  // NB: `_gestoSullaCard` non va azzerato qui. Lo alza il Listener sulla card,
+  // che essendo più PROFONDO riceve l'evento PRIMA di questo antenato
+  // (HitTestResult.path si costruisce scendendo e dispatchEvent lo percorre in
+  // quell'ordine): azzerarlo adesso cancellerebbe quello che è appena stato
+  // scritto. Si azzera al rilascio.
+  void _onPointerDownCampo(PointerDownEvent event) =>
+      _pointerGiu = event.localPosition;
+
+  // Il tocco a muro vale per l'attacco, non per la battuta (attraversare la
+  // rete su un servizio è normale). In fase LIBERA il fondamentale non è
+  // ancora stato scelto: lì un'azione offensiva può solo essere un attacco —
+  // la battuta passa sempre dalla fase servizio — quindi si consente.
+  bool get _muroConsentitoInLine =>
+      (_votoInCorso?.fondamentale ?? _avversarioInCorso?.fondamentale) !=
+      Fondamentale.battuta;
+
+  void _onPointerMoveCampo(
+      PointerMoveEvent event, double courtLeft, double courtWidth) {
+    final giu = _pointerGiu;
+    if (giu == null || _gestoSullaCard) return;
+    if (!_traiettorieInLineConsentite) return;
+    final pos = event.localPosition;
+
+    // Il dito è sceso su un giocatore e adesso sta trascinando: si apre il
+    // pannello per lui, così la traiettoria parte dal token senza il tocco
+    // separato che lo seleziona. Vale anche a pannello già aperto — trascinare
+    // da un'ALTRA giocatrice cambia selezione, come farebbe un tocco — ma NON
+    // se è la stessa già selezionata: lì si sta solo ridisegnando il tratto, e
+    // ri-selezionarla azzererebbe un voto eventualmente già scelto.
+    // Va fatto PRIMA della cattura, perché il gate _traiettoriaInLineAttiva
+    // pretende il pannello aperto — e `_votoInCorso` è valorizzato dentro il
+    // setState, quindi subito dopo risulta già aperto.
+    var candidato = _aperturaDaTrascinamento;
+    // Nessun token sotto al dito, ma siamo nella fascia della linea di fondo
+    // mentre si sta per servire: vale come se avessi toccato il battitore. Due
+    // fasce, una per squadra: la nostra segue il cambio campo, la loro è
+    // sempre quella opposta. I due getter sono già esclusivi fra loro (o
+    // serviamo noi o servono loro), ma il lato va controllato lo stesso —
+    // altrimenti un tratto partito dalla fascia sbagliata armerebbe comunque
+    // il battitore, con un punto di partenza che non ha senso.
+    if (candidato == null && !_pannelloAperto) {
+      if (_nellaFascia(giu, courtLeft, courtWidth, latoDestro: _isRightSide)) {
+        candidato = _aperturaBattitore;
+      } else if (_nellaFascia(giu, courtLeft, courtWidth,
+          latoDestro: !_isRightSide)) {
+        candidato = _aperturaBattitoreAvversario;
+      }
+    }
+    // Battuta: il tratto può partire solo da dietro la linea di fondo di CHI
+    // SERVE. Se parte dalla fascia opposta non è una battuta possibile — si
+    // ignora invece di registrare una partenza dall'altra parte del campo.
+    // Si scarta solo la fascia sbagliata, non tutto: partire un po' dentro al
+    // campo resta legittimo, il dito non è preciso al pixel.
+    final battutaInCorso =
+        (_votoInCorso?.fondamentale ?? _avversarioInCorso?.fondamentale) ==
+            Fondamentale.battuta;
+    if (battutaInCorso) {
+      final latoSbagliato =
+          _votoInCorso != null ? !_isRightSide : _isRightSide;
+      if (_nellaFascia(giu, courtLeft, courtWidth,
+          latoDestro: latoSbagliato)) {
+        return;
+      }
+    }
+
+    if (candidato != null && candidato.identita != _identitaSelezionata) {
+      if ((pos - giu).distance < _sogliaTrascinamento(courtWidth)) {
+        return; // ancora un tocco: lo gestirà `onTap` al rilascio
+      }
+      candidato.apri();
+    }
+    if (!_traiettoriaInLineAttiva) return;
+    final precedente = _frecciaInLine.value;
+    final inCorso = _traiettoriaNormalizzata == null &&
+        precedente != null; // trascinamento già riconosciuto
+    if (!inCorso && (pos - giu).distance < _sogliaTrascinamento(courtWidth)) {
+      return; // ancora un tocco, non un trascinamento
+    }
+
+    // TOCCO A MURO, per soffermamento (vedi _kSoffermamentoReteInLine).
+    // Non basta attraversare la rete: bisogna restare nella fascia per un
+    // attimo, altrimenti ogni attacco che la scavalca lascerebbe uno snodo.
+    // Il dwell NON può basarsi sui soli eventi di movimento (col dito fermo
+    // non ne arrivano): serve un Timer avviato all'ingresso nella fascia e
+    // annullato se se ne esce prima che scada.
+    final xRete = courtLeft + courtWidth / 2;
+    final muroGiaPreso = precedente?.muro;
+    if (_muroConsentitoInLine && muroGiaPreso == null) {
+      final dentroFascia = (pos.dx - xRete).abs() <= _kToleranzaReteInLine;
+      if (dentroFascia && !_inZonaReteInLine) {
+        _inZonaReteInLine = true;
+        _timerMuroInLine = Timer(_kSoffermamentoReteInLine, () {
+          final f = _frecciaInLine.value;
+          if (!mounted || f == null || f.muro != null) return;
+          // Lo snodo si aggancia alla rete, come fa TrajectoryScreen.
+          _frecciaInLine.value = (
+            inizio: f.inizio,
+            fine: f.fine,
+            muro: Offset(xRete, f.fine.dy),
+            inZonaRete: false,
+          );
+        });
+      } else if (!dentroFascia && _inZonaReteInLine) {
+        _inZonaReteInLine = false;
+        _timerMuroInLine?.cancel();
+      }
+    }
+
+    // Niente setState: il disegno passa dal notifier (vedi _frecciaInLine).
+    _frecciaInLine.value = (
+      inizio: muroGiaPreso != null ? precedente!.inizio : giu,
+      fine: pos,
+      muro: muroGiaPreso,
+      inZonaRete: _inZonaReteInLine && muroGiaPreso == null,
+    );
+    // Il tratto vecchio è superato: la normalizzata si ricalcola al rilascio.
+    _traiettoriaNormalizzata = null;
+  }
+
+  void _onPointerUpCampo(
+    double courtLeft,
+    double courtTop,
+    double courtWidth,
+    double courtHeight,
+  ) {
+    _pointerGiu = null;
+    _gestoSullaCard = false;
+    _aperturaDaTrascinamento = null;
+    // Il soffermamento vale solo col dito giù: se il tocco a muro non è
+    // scattato prima del rilascio, non deve scattare dopo.
+    _timerMuroInLine?.cancel();
+    _inZonaReteInLine = false;
+    final freccia = _frecciaInLine.value;
+    if (freccia == null || _traiettoriaNormalizzata != null) {
+      return; // nessun trascinamento in questo gesto
+    }
+    // Tratto troppo corto (il dito è tornato quasi al punto di partenza):
+    // quasi sempre involontario, e una freccia lunga zero non dice nulla e
+    // andrebbe poi annullata a mano. Si scarta, come fa TrajectoryScreen.
+    final origine = freccia.muro ?? freccia.inizio;
+    if ((freccia.fine - origine).distance <
+        _sogliaTrascinamento(courtWidth)) {
+      _azzeraTraiettoriaInLine();
+      return;
+    }
+
+    // ALTERNATIVA PROVATA E MESSA DA PARTE — "stacco e ripresa del dito":
+    // rilasciare dentro la fascia della rete fissava lo snodo e il
+    // trascinamento successivo portava la palla a destinazione, senza timer
+    // né sosta col dito fermo. Provata sul device il 2026-08-21 e scartata a
+    // favore del soffermamento (vedi _onPointerMoveCampo), che convince di
+    // più. Tenuta qui a promemoria perché la porta resta aperta;
+    // l'implementazione completa (record con `inSospeso`, ripresa del tratto
+    // nel gestore di movimento) sta nel commit 03fb19d, non serve riscriverla
+    // da zero se si decide di tornarci.
+    //
+    //   if (freccia.muro == null &&
+    //       _muroConsentitoInLine &&
+    //       (freccia.fine.dx - xRete).abs() <= _kToleranzaReteInLine) {
+    //     ... snodo agganciato alla rete, attesa del secondo tratto ...
+    //   }
+
+    final f = _frecciaInLine.value!;
+    _traiettoriaNormalizzata = (
+      x1: (f.inizio.dx - courtLeft) / courtWidth,
+      y1: (f.inizio.dy - courtTop) / courtHeight,
+      x2: (f.fine.dx - courtLeft) / courtWidth,
+      y2: (f.fine.dy - courtTop) / courtHeight,
+      muroX: f.muro == null ? null : (f.muro!.dx - courtLeft) / courtWidth,
+      muroY: f.muro == null ? null : (f.muro!.dy - courtTop) / courtHeight,
+    );
+
+    // DOPO aver fissato la traiettoria, mai prima: la preselezione può far
+    // partire la registrazione (vedi sotto), che deve trovarla già pronta.
+    // Vale ANCHE col tratto appeso alla rete: un trascinamento che finisce lì
+    // è già di per sé un attacco — quello sbagliato a rete — e deve poter
+    // essere chiuso con un `=` senza altri passaggi. Se invece era l'inizio di
+    // un tocco a muro, il secondo tratto arriva e prosegue: il fondamentale
+    // era comunque attacco.
+    _preselezionaAttaccoDaTraiettoria();
+
+    // Il tratto c'è: lo dice al tutorial, che sui passi del trascinamento
+    // avanza di qui e non dal tocco sul token — il dito può partire da
+    // qualunque punto della linea di fondo, e lì l'ancora non scatterebbe.
+    if (widget.tutorial) {
+      ref
+          .read(tutorialControllerProvider.notifier)
+          .segnale(SegnaleTutorial.traiettoriaDisegnata);
+    }
+  }
+
+  // In fase LIBERA un tratto disegnato può solo essere un attacco: la battuta
+  // passa sempre dalla fase servizio, dove il fondamentale è già imposto, e
+  // alzata/muro/difesa non hanno traiettoria. Chiederlo sarebbe un tocco
+  // sprecato, quindi si preseleziona da sé.
+  //
+  // Sovrascrive anche una scelta già fatta nella colonna: se hai disegnato un
+  // tratto quell'azione È un attacco, e il tocco precedente era lo sbaglio.
+  // NON tocca invece il fondamentale imposto dalla FASE (battuta, ricezione):
+  // lì il tratto o è già della battuta giusta, o va buttato — trasformare una
+  // ricezione in attacco corromperebbe l'azione. La distinzione è la stessa
+  // che regge il chip nell'header: sta fra i quattro della colonna oppure no.
+  //
+  // Conseguenza voluta: se il voto era già stato scelto, la coppia si completa
+  // qui e l'azione parte al rilascio del dito. È la stessa regola di sempre
+  // ("si registra quando ci sono entrambe"), applicata a una metà che invece
+  // di un bottone arriva da un trascinamento.
+  // Mai nella pulsantiera RISTRETTA (dopo un `#` avversario): lì le uniche
+  // risposte possibili sono muro e difesa, e preselezionare un attacco
+  // disabilitato lascerebbe il pannello in uno stato incoerente.
+  void _preselezionaAttaccoDaTraiettoria() {
+    if (_votoInCorso != null &&
+        _sceltoNellaColonna(_votoInCorso!.fondamentale) &&
+        !_difesaErroreForzataNostra) {
+      _sceglieFondamentale(Fondamentale.attacco);
+    } else if (_avversarioInCorso != null &&
+        _sceltoNellaColonna(_avversarioInCorso!.fondamentale) &&
+        !_difesaErroreForzataAvversaria) {
+      _scegliFondamentaleAvversario(Fondamentale.attacco);
+    }
+  }
+
+  // `null` (ancora da scegliere) o una delle quattro voci della colonna: in
+  // entrambi i casi la scelta è dell'utente e si può sovrascrivere. Battuta e
+  // ricezione invece le impone la fase e non si toccano.
+  bool _sceltoNellaColonna(Fondamentale? fondamentale) =>
+      fondamentale == null || _kFondamentaliPulsantiera.contains(fondamentale);
+
+  // Guardia contro il doppio tocco rapido sull'ultimo bottone della coppia:
+  // _registraVoto è async (attende TrajectoryScreen e la scrittura a DB) e
+  // senza questa un secondo tocco arrivato nel frattempo registrerebbe due
+  // azioni identiche. Abbassata solo a registrazione conclusa.
+  bool _registrazioneInCorso = false;
 
   // Azioni (solo `scout`) dello scambio CORRENTE ancora aperto, o [] se nessuno
   // scambio è aperto (l'ultima azione di scambio ha chiuso il punto, o non ce
@@ -728,6 +1334,45 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     }
   }
 
+  // Le tre posizioni di SECONDA LINEA (zone 1, 6, 5), le stesse in cui gioca
+  // il libero. Due forme della stessa cosa: i nostri token sono indicizzati
+  // per SLOT ('P1'..'P6'), quelli avversari per ZONA (1..6), che non hanno un
+  // roster da cui ricavare uno slot (vedi _buildTokenAvversari).
+  static const _kSlotSecondaLinea = {'P1', 'P6', 'P5'};
+  static const _kZoneSecondaLinea = {1, 6, 5};
+
+  // In fase LIBERA il fondamentale non lo impone nessuno e va scelto nella
+  // colonna: è il tocco in più che pesa di più, perché è il caso più frequente
+  // della partita. Chi sta in seconda linea però quasi sempre DIFENDE, quindi
+  // aprendo il pannello la difesa è già selezionata.
+  //
+  // È una PRESELEZIONE, non una scelta: resta correggibile con un tocco sulla
+  // colonna e da sola non registra niente — a chiudere l'azione è sempre e
+  // solo il voto. Per questo il tocco risparmiato non si paga con un errore
+  // possibile, che è invece il difetto della pulsantiera a matrice.
+  //
+  // Il libero non ha uno slot proprio (`slot` null) ed è per definizione di
+  // seconda linea.
+  //
+  // NB: fra i tre c'è anche il PALLEGGIATORE quando la rotazione lo porta
+  // dietro (3 rotazioni su 6 nel 5-1), e quello alza più spesso di quanto
+  // difenda. Tenuto comunque a difesa perché è quello che è stato chiesto: se
+  // in campo dà fastidio, basta escludere lo slot del palleggiatore qui.
+  Fondamentale? _preselezioneSecondaLinea(String? slot) =>
+      slot == null || _kSlotSecondaLinea.contains(slot)
+          ? Fondamentale.difesa
+          : null;
+
+  // Gemella avversaria: stessa regola, ma i loro token sono identificati dal
+  // RUOLO e la seconda linea si legge dalla ZONA che quel ruolo occupa nella
+  // loro rotazione (`etichetteAvversarie`). Nessun caso "null = libero": gli
+  // avversari sono un 5-1 canonico senza libero, quindi zona ignota → nessuna
+  // preselezione. Vale anche qui il discorso sul loro palleggiatore dietro.
+  Fondamentale? _preselezioneSecondaLineaAvversaria(int? zona) =>
+      zona != null && _kZoneSecondaLinea.contains(zona)
+          ? Fondamentale.difesa
+          : null;
+
   // Scorciatoia Modello A: se l'ultima azione dello scambio è un'offensiva `#`
   // (ace/kill) dell'ALTRA squadra rispetto a `difensore`, la risposta difensiva
   // è deterministicamente un ERRORE. Ritorna il fondamentale difensivo dovuto
@@ -828,7 +1473,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           esitoPunto: _esitoVoto(fondamentale, Voto.errore),
         );
     if (!mounted) return;
-    setState(() => _votoInCorso = null);
+    // Entrambi: la scorciatoia si può innescare anche col pannello dell'altra
+    // squadra aperto, da quando toccare un token la cambia al volo.
+    _chiudiPannelli();
   }
 
   // Tap-target per il voto di un giocatore: fuori dalla modalità test, col
@@ -838,7 +1485,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   VoidCallback? _tapHandlerPerGiocatore(Player player, {String? slot}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
-    if (_avversarioInCorso != null) return null; // pannello avversario aperto
+    // Il pannello avversario aperto NON blocca più: toccare un nostro token ci
+    // passa direttamente sopra. Le azioni si susseguono veloci e chiudere
+    // prima il pannello era un tocco sprecato. I due pannelli restano
+    // mutuamente esclusivi come STATO: chi apre chiude l'altro (sotto).
     // Dopo un NOSTRO `#`: deve difendere l'avversario, i nostri token bloccati.
     if (_nostriTokenBloccati) return null;
     if (!_giocatoreTappabile(slot)) return null;
@@ -847,46 +1497,116 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     //   pannello;
     // - kill (attacco `#`): la risposta può essere muro O difesa → apri il
     //   pannello ristretto (Muro/Difesa in rosso → `=`, vedi
-    //   _buildSceltaFondamentale con _difesaErroreForzataNostra).
+    //   _buildPulsantiera con _difesaErroreForzataNostra).
     final erroreForzato = _erroreDifensivoForzato(Squadra.nostra);
     if (erroreForzato == Fondamentale.ricezione) {
       return () => _registraErroreDifensivoRapido(player, erroreForzato!);
     }
     if (erroreForzato == Fondamentale.difesa) {
-      return () =>
-          setState(() => _votoInCorso = (giocatore: player, fondamentale: null));
+      return () => setState(() {
+            _votoInCorso =
+                (giocatore: player, fondamentale: null, voto: null);
+            _avversarioInCorso = null;
+            _azzeraTraiettoriaInLine();
+          });
     }
     final forzato = _fondamentaleForzato();
-    return () => setState(() {
-      _votoInCorso = (giocatore: player, fondamentale: forzato);
-      // Il tipo di battuta selezionato resta "armato" da una battuta
-      // all'altra dello stesso giocatore (spesso batte sempre nello stesso
-      // modo); cambia battitore → si azzera, non si assume che batta uguale.
-      if (forzato == Fondamentale.battuta &&
-          _giocatoreTipoBattutaArmato != player.id) {
-        _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
-        _giocatoreTipoBattutaArmato = player.id;
+    // In fase libera (forzato == null) chi gioca dietro parte su Difesa —
+    // preselezione correggibile, vedi _preselezioneSecondaLinea.
+    final iniziale = forzato ?? _preselezioneSecondaLinea(slot);
+    return () {
+      setState(() {
+        _votoInCorso = (giocatore: player, fondamentale: iniziale, voto: null);
+        _avversarioInCorso = null; // i due pannelli non convivono mai
+        // Azione nuova (o cambio di giocatrice a pannello aperto): la freccia
+        // eventualmente disegnata era di quella prima e non va ereditata.
+        _azzeraTraiettoriaInLine();
+        // Il tipo di battuta selezionato resta "armato" da una battuta
+        // all'altra dello stesso giocatore (spesso batte sempre nello stesso
+        // modo); cambia battitore → si azzera, non si assume che batta uguale.
+        if (forzato == Fondamentale.battuta &&
+            _giocatoreTipoBattutaArmato != player.id) {
+          _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
+          _giocatoreTipoBattutaArmato = player.id;
+        }
+      });
+      // Fuori dal setState: fa partire dei timer, non muta lo stato del frame.
+      if (iniziale == Fondamentale.ricezione) {
+        _proponiRicezione();
+      } else {
+        _annullaPropostaRicezione();
       }
-    });
+    };
   }
 
-  // Sceglie il fondamentale (Alzata/Attacco/Muro/Difesa) per il giocatore già
-  // selezionato in fase "libera" (_votoInCorso.fondamentale == null) — tap su
-  // uno dei 4 bottoni del pannello, vedi _buildSceltaFondamentale.
+  // Le due metà della coppia del pannello nostro: colonna sinistra
+  // (Difesa/Attacco/Muro/Alzata, solo in fase libera) e colonna destra (i 5
+  // voti). Si riempiono in qualsiasi ordine; a coppia completa
+  // _provaRegistrare fa partire la scrittura. Ri-toccare la stessa colonna
+  // CORREGGE la scelta senza scrivere nulla — è il motivo per cui la
+  // registrazione è rimandata al momento in cui entrambe sono valorizzate.
   void _sceglieFondamentale(Fondamentale fondamentale) {
     final inCorso = _votoInCorso;
     if (inCorso == null) return;
     setState(() {
-      _votoInCorso = (giocatore: inCorso.giocatore, fondamentale: fondamentale);
+      _votoInCorso = (
+        giocatore: inCorso.giocatore,
+        fondamentale: fondamentale,
+        voto: inCorso.voto,
+      );
     });
+    _provaRegistrare();
   }
 
-  // Tipo di battuta opzionale, scelto su TrajectoryScreen (riga di chip
-  // orizzontale sotto al campo, non più nel pannello voto qui) — passato
-  // come valore iniziale alla navigazione e riletto dal risultato al
-  // ritorno (vedi _registraVoto). nonSpecificato di default, non bloccante
-  // per il flusso veloce. Vedi _tapHandlerPerGiocatore per quando si azzera.
+  void _scegliVoto(Voto voto) {
+    final inCorso = _votoInCorso;
+    if (inCorso == null) return;
+    // Un voto scelto a mano batte sempre la proposta automatica.
+    _annullaPropostaRicezione();
+    setState(() {
+      _votoInCorso = (
+        giocatore: inCorso.giocatore,
+        fondamentale: inCorso.fondamentale,
+        voto: voto,
+      );
+    });
+    _provaRegistrare();
+  }
+
+  void _provaRegistrare() {
+    final inCorso = _votoInCorso;
+    if (inCorso?.fondamentale == null || inCorso?.voto == null) return;
+    _registraVoto();
+  }
+
+  // Tipo di battuta opzionale. Si sceglie in DUE posti che scrivono lo stesso
+  // campo, quindi non possono divergere: la colonna di sinistra della
+  // pulsantiera quando la fase è il servizio (vedi _colonnaTipiBattuta) e la
+  // riga di chip di TrajectoryScreen, dove la schermata si apre ancora.
+  // nonSpecificato ("Generico") di default, mai bloccante per il flusso
+  // veloce: se non lo tocchi, il voto registra lo stesso.
+  // Resta ARMATO per lo stesso battitore (spesso serve sempre allo stesso
+  // modo) e si azzera al cambio battitore — vedi _tapHandlerPerGiocatore.
   TipoBattuta _tipoBattutaSelezionato = TipoBattuta.nonSpecificato;
+
+  // Gemello per la battuta AVVERSARIA. Resta armato come il nostro: il loro
+  // battitore È identificabile — è il RUOLO in zona 1, che ricaviamo dalla
+  // loro rotazione (`etichetteAvversarie`), la stessa identità che usano i
+  // token avversari. Cambia il ruolo al servizio → si riparte da Generico.
+  // Il ruolo indica la posizione nella loro rotazione, non una persona: fra
+  // un set e l'altro potrebbe essere un'altra giocatrice, ma lo stato vive in
+  // ScoutScreen e si azzera comunque a ogni set.
+  TipoBattuta _tipoBattutaAvversario = TipoBattuta.nonSpecificato;
+  String? _ruoloTipoBattutaArmato;
+
+  // Sceglie il tipo di servizio dalla pulsantiera e lo ARMA per quel
+  // battitore. Non registra: a chiudere l'azione è sempre e solo il voto.
+  void _scegliTipoBattuta(Player battitore, TipoBattuta tipo) {
+    setState(() {
+      _tipoBattutaSelezionato = tipo;
+      _giocatoreTipoBattutaArmato = battitore.id;
+    });
+  }
   int? _giocatoreTipoBattutaArmato;
 
   // Esito automatico del voto (Modello A — "la difesa porta il punto"):
@@ -914,63 +1634,54 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return EsitoPunto.nessuno;
   }
 
-  Future<void> _registraVoto(Voto voto) async {
+  // Registra la coppia (fondamentale, voto) composta nel pannello. Chiamata
+  // solo da _provaRegistrare, cioè quando entrambe le colonne sono state
+  // toccate — in qualsiasi ordine.
+  Future<void> _registraVoto() async {
+    if (_registrazioneInCorso) return;
     final set = _setCorrente;
     final inCorso = _votoInCorso;
     final fondamentale = inCorso?.fondamentale;
-    if (set == null || inCorso == null || fondamentale == null) return;
+    final voto = inCorso?.voto;
+    if (set == null || inCorso == null || fondamentale == null || voto == null) {
+      return;
+    }
+    _registrazioneInCorso = true;
+    try {
+      await _scriviVoto(set, inCorso.giocatore, fondamentale, voto);
+    } finally {
+      _registrazioneInCorso = false;
+    }
+  }
+
+  Future<void> _scriviVoto(
+    MatchSet set,
+    Player giocatore,
+    Fondamentale fondamentale,
+    Voto voto,
+  ) async {
     final esito = _esitoVoto(fondamentale, voto);
 
-    // Solo battuta/attacco chiedono la traiettoria — schermata dedicata,
-    // niente bottoni "salta"/"conferma": il back la salta (registra
-    // comunque un risultato, solo senza coordinate — vedi TrajectoryScreen),
-    // il rilascio del drag la conferma subito. Per la battuta,
-    // TrajectoryScreen mostra anche la scelta del tipo (sotto al campo,
-    // spostata qui dal pannello voto): si passa il valore "armato" attuale
-    // come iniziale e si rilegge quello (eventualmente cambiato) dal
-    // risultato, per restare "armato" anche tra una traiettoria e l'altra.
-    // Con le traiettorie disattivate nelle Impostazioni si salta la
-    // schermata: azione registrata subito con coordinate null (stesso
-    // percorso del "salta"). Nota: anche la scelta del tipo battuta/attacco
-    // vive su TrajectoryScreen, quindi resta 'nonSpecificato' — accettato
-    // per ora (flusso ultra-veloce), eventuale rientro dei chip nel
-    // pannello voto da valutare in futuro.
-    // GATE PREMIUM: per un utente free le traiettorie sono spente a
-    // prescindere dal toggle (come se fosse disabilitato) — dopo il voto si
-    // procede subito, nessun paywall in mezzo alla presa dati (il paywall
-    // compare solo dalle voci di menu/report, azioni deliberate).
-    // Nel tutorial la traiettoria si apre sempre: è uno dei passi da mostrare,
-    // e col toggle spento resterebbe una funzione di cui non si sospetta
-    // l'esistenza. Il premium non serve forzarlo: durante il tutorial
-    // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
-    Traiettoria? traiettoria;
-    if (fondamentale.richiedeTraiettoria &&
-        (widget.tutorial ||
-            ref.read(impostazioniProvider).traiettorieAbilitate) &&
-        ref.read(statoPremiumProvider).attivo) {
-      traiettoria = await Navigator.push<Traiettoria>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TrajectoryScreen(
-            giocatore: inCorso.giocatore,
-            fondamentale: fondamentale,
-            voto: voto,
-            tipoBattutaIniziale: fondamentale == Fondamentale.battuta
-                ? _tipoBattutaSelezionato
-                : null,
-          ),
-        ),
-      );
-      if (!mounted) return;
-      if (fondamentale == Fondamentale.battuta && traiettoria != null) {
-        _tipoBattutaSelezionato = traiettoria.tipoBattuta;
-      }
-    }
+    // La traiettoria è già stata disegnata sul campo PRIMA del voto: qui non si
+    // apre nessuna schermata, si prende quello che c'è (o niente, se non è
+    // stato disegnato — è il vecchio "salta", senza un bottone per dirlo).
+    // `richiedeTraiettoria` serve perché il tratto si cattura anche in fase
+    // libera, quando il fondamentale non è ancora stato scelto: se poi si
+    // rivela un'alzata o una difesa, il disegno si butta.
+    // GATE PREMIUM E IMPOSTAZIONI: stanno dentro _traiettorieInLineConsentite,
+    // che decide anche se il tratto si poteva disegnare. Per un utente free non
+    // si disegna e basta — nessun paywall in mezzo alla presa dati (quello
+    // compare solo da menu e report, che sono azioni deliberate).
+    final inLine = _traiettoriaInLineAttiva && fondamentale.richiedeTraiettoria
+        ? _traiettoriaNormalizzata
+        : null;
 
+    // I tipi di esecuzione vengono dalla colonna della pulsantiera: quelli di
+    // servizio in fase battuta, quelli di attacco dopo un tratto disegnato
+    // (vedi _colonnaTipiBattuta / _colonnaTipiAttacco).
     final tipoEsecuzione = switch (fondamentale) {
       Fondamentale.battuta => _tipoBattutaSelezionato.name,
-      Fondamentale.attacco =>
-        (traiettoria?.tipoAttacco ?? TipoAttacco.nonSpecificato).name,
+      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
       _ => 'nonSpecificato',
     };
 
@@ -979,21 +1690,22 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         .registraAzioneScout(
           setId: set.id,
           squadra: Squadra.nostra,
-          giocatoreId: inCorso.giocatore.id,
+          giocatoreId: giocatore.id,
           fondamentale: fondamentale,
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
-          traiettoriaX1: traiettoria?.x1,
-          traiettoriaY1: traiettoria?.y1,
-          traiettoriaX2: traiettoria?.x2,
-          traiettoriaY2: traiettoria?.y2,
-          traiettoriaMuroX: traiettoria?.muroX,
-          traiettoriaMuroY: traiettoria?.muroY,
+          traiettoriaX1: inLine?.x1,
+          traiettoriaY1: inLine?.y1,
+          traiettoriaX2: inLine?.x2,
+          traiettoriaY2: inLine?.y2,
+          traiettoriaMuroX: inLine?.muroX,
+          traiettoriaMuroY: inLine?.muroY,
         );
     if (!mounted) return;
     setState(() {
       _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
       // _fondamentaleGiudicatoRallyCorrente è ora derivato dallo stream: si
       // aggiorna da solo appena l'azione entra nel replay.
       // I tipi selezionati NON si azzerano qui: restano "armati" se lo
@@ -1036,18 +1748,23 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           esitoPunto: _esitoVotoAvversario(fondamentale, Voto.errore),
         );
     if (!mounted) return;
-    setState(() => _avversarioInCorso = null);
+    _chiudiPannelli(); // vedi il gemello nostro
+
   }
 
   // Tap su un token avversario: apre il pannello avversario (scelta
   // fondamentale poi voto). Disabilitato in modalità test, prima dell'inizio
-  // del set, durante la selezione della zona iniziale, o col nostro pannello
-  // voto già aperto (i due flussi sono mutuamente esclusivi).
-  VoidCallback? _tapHandlerAvversario(String ruolo, {Fondamentale? forzato}) {
+  // del set o durante la selezione della zona iniziale. Il nostro pannello
+  // voto aperto NON blocca: il tocco lo sostituisce.
+  // `zona` (1-6) serve solo alla preselezione della difesa in fase libera:
+  // si passa da lì, non dal ruolo, perché è la POSIZIONE a dire chi difende.
+  VoidCallback? _tapHandlerAvversario(String ruolo,
+      {Fondamentale? forzato, int? zona}) {
     if (_testModeEnabled) return null;
     if (_setCorrente == null) return null;
     if (_inSelezionePAvversario) return null;
-    if (_votoInCorso != null) return null;
+    // Come sopra: il nostro pannello aperto non blocca il tocco su un token
+    // avversario, lo sostituisce.
     // Dopo un `#` avversario: dobbiamo difendere noi, i loro token bloccati.
     if (_tokenAvversariBloccati) return null;
     // Scorciatoia dopo un NOSTRO `#` (speculare a _tapHandlerPerGiocatore):
@@ -1059,84 +1776,132 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           _registraErroreDifensivoAvversarioRapido(ruolo, erroreForzato!);
     }
     if (erroreForzato == Fondamentale.difesa) {
-      return () => setState(
-          () => _avversarioInCorso = (ruolo: ruolo, fondamentale: null));
+      return () => setState(() {
+            _avversarioInCorso =
+                (ruolo: ruolo, fondamentale: null, voto: null);
+            _votoInCorso = null;
+            _azzeraTraiettoriaInLine();
+          });
     }
-    return () => setState(
-        () => _avversarioInCorso = (ruolo: ruolo, fondamentale: forzato));
+    // In fase libera (forzato == null) chi gioca dietro parte su Difesa,
+    // come i nostri — vedi _preselezioneSecondaLineaAvversaria.
+    final iniziale = forzato ?? _preselezioneSecondaLineaAvversaria(zona);
+    return () {
+      setState(() {
+        _avversarioInCorso = (ruolo: ruolo, fondamentale: iniziale, voto: null);
+        _votoInCorso = null; // i due pannelli non convivono mai
+        // Stessa regola del nostro battitore: il tipo resta armato finché
+        // serve lo stesso RUOLO, e si azzera quando cambia.
+        if (forzato == Fondamentale.battuta &&
+            _ruoloTipoBattutaArmato != ruolo) {
+          _tipoBattutaAvversario = TipoBattuta.nonSpecificato;
+          _ruoloTipoBattutaArmato = ruolo;
+        }
+        // Come nel pannello nostro: la freccia di un'azione precedente non
+        // va ereditata dalla nuova.
+        _azzeraTraiettoriaInLine();
+      });
+      if (iniziale == Fondamentale.ricezione) {
+        _proponiRicezione();
+      } else {
+        _annullaPropostaRicezione();
+      }
+    };
   }
 
+  // Le due metà della coppia avversaria — speculari a _sceglieFondamentale/
+  // _scegliVoto, stessa regola: si registra solo quando entrambe ci sono.
   void _scegliFondamentaleAvversario(Fondamentale fondamentale) {
     final inCorso = _avversarioInCorso;
     if (inCorso == null) return;
-    setState(() =>
-        _avversarioInCorso = (ruolo: inCorso.ruolo, fondamentale: fondamentale));
+    setState(() => _avversarioInCorso = (
+          ruolo: inCorso.ruolo,
+          fondamentale: fondamentale,
+          voto: inCorso.voto,
+        ));
+    _provaRegistrareAvversario();
   }
 
-  Future<void> _registraVotoAvversario(Voto voto) async {
+  void _scegliVotoAvversario(Voto voto) {
+    final inCorso = _avversarioInCorso;
+    if (inCorso == null) return;
+    _annullaPropostaRicezione();
+    setState(() => _avversarioInCorso = (
+          ruolo: inCorso.ruolo,
+          fondamentale: inCorso.fondamentale,
+          voto: voto,
+        ));
+    _provaRegistrareAvversario();
+  }
+
+  void _provaRegistrareAvversario() {
+    final inCorso = _avversarioInCorso;
+    if (inCorso?.fondamentale == null || inCorso?.voto == null) return;
+    _registraVotoAvversario();
+  }
+
+  Future<void> _registraVotoAvversario() async {
+    if (_registrazioneInCorso) return;
     final set = _setCorrente;
     final inCorso = _avversarioInCorso;
     final fondamentale = inCorso?.fondamentale;
-    if (set == null || inCorso == null || fondamentale == null) return;
+    final voto = inCorso?.voto;
+    if (set == null || inCorso == null || fondamentale == null || voto == null) {
+      return;
+    }
+    _registrazioneInCorso = true;
+    try {
+      await _scriviVotoAvversario(set, inCorso.ruolo, fondamentale, voto);
+    } finally {
+      _registrazioneInCorso = false;
+    }
+  }
+
+  Future<void> _scriviVotoAvversario(
+    MatchSet set,
+    String ruolo,
+    Fondamentale fondamentale,
+    Voto voto,
+  ) async {
     final esito = _esitoVotoAvversario(fondamentale, voto);
 
     // Traiettoria per battuta/attacco avversari — stesso flusso del nostro
-    // _registraVoto (gate traiettorie + premium). TrajectoryScreen disegna
-    // sulla stessa immagine campo doppio: il drag parte dal token avversario
-    // (loro metà) verso la nostra. `giocatore` è null, si passa l'etichetta
-    // di ruolo per il banner. Il tipo battuta/attacco NON resta "armato" per
-    // l'avversario (nessun roster): parte sempre da nonSpecificato.
-    // Nel tutorial la traiettoria si apre sempre: è uno dei passi da mostrare,
-    // e col toggle spento resterebbe una funzione di cui non si sospetta
-    // l'esistenza. Il premium non serve forzarlo: durante il tutorial
-    // `statoPremiumProvider` è già premium (vedi premium_provider.dart).
-    Traiettoria? traiettoria;
-    if (fondamentale.richiedeTraiettoria &&
-        (widget.tutorial ||
-            ref.read(impostazioniProvider).traiettorieAbilitate) &&
-        ref.read(statoPremiumProvider).attivo) {
-      traiettoria = await Navigator.push<Traiettoria>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TrajectoryScreen(
-            etichettaAvversario: inCorso.ruolo,
-            fondamentale: fondamentale,
-            voto: voto,
-            tipoBattutaIniziale: fondamentale == Fondamentale.battuta
-                ? TipoBattuta.nonSpecificato
-                : null,
-          ),
-        ),
-      );
-      if (!mounted) return;
-    }
+    // _scriviVoto: il tratto si disegna sul campo prima del voto, dal token
+    // avversario (loro metà) verso la nostra.
+    final inLine = _traiettoriaInLineAttiva && fondamentale.richiedeTraiettoria
+        ? _traiettoriaNormalizzata
+        : null;
 
+    // Dalla colonna della pulsantiera, come per noi. Il tipo di battuta resta
+    // "armato" finché serve lo stesso RUOLO (vedi _ruoloTipoBattutaArmato);
+    // quello di attacco non si arma mai, né per noi né per loro.
     final tipoEsecuzione = switch (fondamentale) {
-      Fondamentale.battuta =>
-        (traiettoria?.tipoBattuta ?? TipoBattuta.nonSpecificato).name,
-      Fondamentale.attacco =>
-        (traiettoria?.tipoAttacco ?? TipoAttacco.nonSpecificato).name,
+      Fondamentale.battuta => _tipoBattutaAvversario.name,
+      Fondamentale.attacco => _tipoAttaccoSelezionato.name,
       _ => 'nonSpecificato',
     };
 
     await ref.read(scoutActionRepositoryProvider).registraAzioneAvversaria(
           setId: set.id,
-          ruoloAvversario: inCorso.ruolo,
+          ruoloAvversario: ruolo,
           fondamentale: fondamentale,
           voto: voto,
           esitoPunto: esito,
           tipoEsecuzione: tipoEsecuzione,
-          traiettoriaX1: traiettoria?.x1,
-          traiettoriaY1: traiettoria?.y1,
-          traiettoriaX2: traiettoria?.x2,
-          traiettoriaY2: traiettoria?.y2,
-          traiettoriaMuroX: traiettoria?.muroX,
-          traiettoriaMuroY: traiettoria?.muroY,
+          traiettoriaX1: inLine?.x1,
+          traiettoriaY1: inLine?.y1,
+          traiettoriaX2: inLine?.x2,
+          traiettoriaY2: inLine?.y2,
+          traiettoriaMuroX: inLine?.muroX,
+          traiettoriaMuroY: inLine?.muroY,
         );
     if (!mounted) return;
     // La fase (_fondamentaleGiudicatoRallyCorrente/_attesaBattutaAvversaria) è
     // derivata dallo stream: si aggiorna da sola con la nuova azione.
-    setState(() => _avversarioInCorso = null);
+    setState(() {
+      _avversarioInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // Mappa di ricezione attiva per la rotazione corrente, solo se: stiamo
@@ -1259,6 +2024,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void dispose() {
     _timerLampeggio?.cancel();
     _timerLampeggioTick?.cancel();
+    _timerMuroInLine?.cancel();
+    _timerAiutoTutorial?.cancel();
+    _timerRicezioneAuto?.cancel();
+    _timerLampeggioProposta?.cancel();
+    _frecciaInLine.dispose();
     super.dispose();
   }
 
@@ -1710,6 +2480,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       // se ancora aperto, non avrebbe più senso (l'esito è già stato
       // deciso per un'altra via).
       _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
     });
   }
 
@@ -1764,7 +2535,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     if (!mounted) return;
     // Come l'undo singolo: punteggio/servizio/rotazione si ricalcolano da soli
     // dallo stream, qui basta chiudere un eventuale pannello voto aperto.
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // Dialog di conferma prima dell'undo vero e proprio (irreversibile: una
@@ -1833,7 +2607,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final repo = ref.read(scoutActionRepositoryProvider);
     await repo.annullaUltimaAzione(set.id);
     if (!mounted) return;
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   // --- Sostituzione (cambio giocatore) ---
@@ -1987,7 +2764,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // _fondamentaleGiudicatoRallyCorrente NON si tocca: il cambio non
     // chiude lo scambio (si può sostituire tra un punto e l'altro senza
     // alterare la fase di gioco).
-    setState(() => _votoInCorso = null);
+    setState(() {
+      _votoInCorso = null;
+      _azzeraTraiettoriaInLine();
+    });
   }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -2035,6 +2815,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
   @override
   Widget build(BuildContext context) {
+    // Solo in tutorial: ricostruire a ogni cambio di passo. Serve al promemoria
+    // dei passi a campo libero (vedi _bannerCentrale), che altrimenti
+    // comparirebbe o sparirebbe con un passo di ritardo — la schermata si
+    // ricostruisce sulle azioni, non sui passi. Fuori dal tutorial non si
+    // osserva niente e non cambia nulla.
+    if (widget.tutorial) {
+      _aggiornaAiutoTutorial(ref.watch(tutorialControllerProvider).indice);
+    }
     _labelsCorrezione = _computeLabelsCorrezione();
     _rilevaCambioPunteggio();
     final scaffold = Scaffold(
@@ -2267,8 +3055,49 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 final minimapLeft = _isRightSide
                     ? constraints.maxWidth - smallCourtSize - horizontalMargin
                     : horizontalMargin;
-                return Stack(
+                // Geometria del riquadro campo in coordinate di QUESTO Stack:
+                // la stessa formula di centratura usata da _buildLiberoSwapTokens
+                // e dai tap-catcher, qui serve a normalizzare la traiettoria
+                // disegnata a mano libera.
+                final courtHeight = courtWidth / 2;
+                final courtLeft = (constraints.maxWidth - courtWidth) / 2;
+                const courtTop = _kCourtTopMargin;
+                // `Listener` ANTENATO dello Stack: riceve ogni evento che
+                // colpisce qualunque cosa lì dentro, a prescindere da chi lo
+                // assorbe, e — non partecipando all'arena dei gesti — non
+                // sottrae un solo tocco ai bottoni e ai token. È lo stesso
+                // motivo per cui _anchor usa un Listener per il tutorial.
+                // Serve perché un GestureDetector con onPan* qui sopra
+                // ruberebbe i tap, e sotto non riceverebbe i trascinamenti che
+                // partono fuori dal campo (il battitore ha X negativa).
+                return Listener(
+                  // `translucent` e non il default `deferToChild`: senza, questo
+                  // Listener entrerebbe nel percorso del tocco solo se un suo
+                  // discendente viene colpito, e nella fascia VUOTA fuori dal
+                  // campo non c'è niente da colpire (lo scrim lì è spento
+                  // finché non si apre un pannello). Con translucent si
+                  // aggiunge sempre al percorso e i figli restano colpibili
+                  // come prima — e non partecipando all'arena dei gesti non
+                  // sottrae comunque un tocco a nessuno.
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _onPointerDownCampo,
+                  onPointerMove: (e) =>
+                      _onPointerMoveCampo(e, courtLeft, courtWidth),
+                  onPointerUp: (_) => _onPointerUpCampo(
+                      courtLeft, courtTop, courtWidth, courtHeight),
+                  onPointerCancel: (_) {
+                    _pointerGiu = null;
+                    _gestoSullaCard = false;
+                    _aperturaDaTrascinamento = null;
+                    _timerMuroInLine?.cancel();
+                    _inZonaReteInLine = false;
+                  },
+                  child: Stack(
                   children: [
+                    // Primo figlio = ultimo a ricevere il tocco: vedi
+                    // _buildScrimPannelli per il perché sta quaggiù, e perché
+                    // c'è sempre invece di comparire e sparire.
+                    _buildScrimPannelli(),
                     Positioned(
                       top: _kCourtTopMargin,
                       left: 0,
@@ -2290,9 +3119,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                                   // disegnarlo comunque sopra.
                                   clipBehavior: Clip.none,
                                   children: [
-                                    Image.asset(
-                                      _kCourtImage,
-                                      fit: BoxFit.contain,
+                                    // L'immagine del campo INTERCETTA il
+                                    // tocco, quindi non lo lascia scendere
+                                    // fino allo scrim (vedi
+                                    // _buildScrimPannelli): il chiuditore va
+                                    // messo qui sopra. Sta come primo figlio,
+                                    // cioè sotto ai token: fra i due gesti
+                                    // vince quello del token, che viene
+                                    // colpito per primo — così toccare una
+                                    // giocatrice la sostituisce e toccare il
+                                    // campo vuoto annulla.
+                                    GestureDetector(
+                                      behavior: _pannelloAperto
+                                          ? HitTestBehavior.opaque
+                                          : HitTestBehavior.deferToChild,
+                                      onTap:
+                                          _pannelloAperto ? _chiudiPannelli : null,
+                                      child: Image.asset(
+                                        _kCourtImage,
+                                        fit: BoxFit.contain,
+                                      ),
                                     ),
                                     ..._buildCourtTokens(cw, ch),
                                     ..._buildTokenAvversari(cw, ch),
@@ -2309,7 +3155,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                       left: minimapLeft,
                       width: smallCourtSize,
                       height: smallCourtSize,
-                      child: _anchor(
+                      // Col pannello aperto il tocco deve cadere sullo scrim
+                      // (che chiude), non alternare la mini-map: lo scrim ora
+                      // sta SOTTO, vedi _buildScrimPannelli.
+                      child: IgnorePointer(
+                        ignoring: _pannelloAperto,
+                        child: _anchor(
                         TutorialTarget.minimappa,
                           GestureDetector(
                           // Tap sulla finestra: alterna rotazione nostra/
@@ -2340,6 +3191,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                               ),
                             ),
                           ),
+                        ),
                         ),
                       ),
                     ),
@@ -2378,7 +3230,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         top: constraints.maxHeight * 0.05 + smallCourtSize + 8,
                         left: minimapLeft,
                           width: smallCourtSize,
-                          child: _anchor(
+                          // Col pannello aperto questi bottoni devono lasciar
+                          // passare il tocco allo scrim sottostante: correggere
+                          // la rotazione per sbaglio scriverebbe un evento.
+                          child: IgnorePointer(
+                            ignoring: _pannelloAperto,
+                            child: _anchor(
                             TutorialTarget.bottoniCorrezioneRotazione,
                             Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2413,6 +3270,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                                   ],
                           ),
                         ),
+                        ),
                       ),
                     ..._buildLiberoSwapTokens(constraints, courtWidth),
                     ..._buildBattitoreTapCatcher(constraints, courtWidth),
@@ -2420,9 +3278,15 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         constraints, courtWidth),
                     ..._buildSelezionePAvversario(constraints, courtWidth),
                     ..._buildActionLog(),
+                    // Freccia della traiettoria in-line: sopra al campo e ai
+                    // token, sotto ai pannelli. IgnorePointer perché è puro
+                    // disegno e non deve mai intercettare un tocco.
+                    _buildFrecciaInLine(
+                        courtLeft, courtTop, courtWidth, courtHeight),
                     ..._buildPannelloVoto(),
                     ..._buildPannelloAvversario(),
                   ],
+                ),
                 );
               },
             ),
@@ -3089,6 +3953,29 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       );
 
   Widget _bannerCentrale() {
+    // Passo del tutorial a CAMPO LIBERO: lì non c'è card, e questa fascia è
+    // l'unico spazio orizzontale libero che non toglie altezza al campo. Ha la
+    // precedenza su tutto: in quel momento conta cosa devi fare, non cosa hai
+    // appena fatto. Una riga sola — la fascia è alta quanto un bottone — e il
+    // FittedBox qui sotto la stringe se non ci sta.
+    if (widget.tutorial) {
+      final passo = ref.read(tutorialControllerProvider.notifier).passo;
+      if (passo != null && passo.campoLibero) {
+        return Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              passo.testo,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }
+    }
     // Priorità al promemoria "CONCLUDI …" quando un `#` attende la difesa
     // errata (Modello A) — è il momento in cui lo scout DEVE ancora agire.
     final concludi = _difesaDaConcludere;
@@ -3444,10 +4331,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         posizione.dy,
       ),
       items: [
-        for (final motivo in MotivoErrore.values)
+        // Una riga di separazione fra un motivo e l'altro (mai in coda
+        // all'ultimo): le voci si distinguono a colpo d'occhio a bordo campo.
+        for (final motivo in MotivoErrore.values) ...[
+          if (motivo != MotivoErrore.values.first) const PopupMenuDivider(),
           PopupMenuItem(
               value: motivo,
               child: Text(motivoErroreLabel(motivo, AppLocalizations.of(context)))),
+        ],
       ],
     );
     if (scelto == null) return;
@@ -3501,70 +4392,412 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     );
   }
 
-  // Bottoni di scelta del fondamentale (Alzata/Attacco/Muro/Difesa), mostrati
-  // nel pannello voto quando _votoInCorso.fondamentale è ancora null (fase
-  // "libera", dopo che battuta/ricezione sono già state giudicate in questo
-  // scambio) — vedi _sceglieFondamentale.
-  Widget _buildSceltaFondamentale(Player giocatore) {
-    const opzioni = [
-      Fondamentale.alzata,
-      Fondamentale.attacco,
-      Fondamentale.muro,
-      Fondamentale.difesa,
+  // Le 4 voci della colonna fondamentali, sempre nello stesso ordine e sempre
+  // negli stessi slot: sono coordinate fisse su cui si forma la memoria
+  // muscolare, non vanno riordinate né sostituite a seconda della fase.
+  // Battuta e ricezione non sono qui: quando la fase le impone il fondamentale
+  // è già deciso e compare come chip nell'header (vedi _buildPulsantiera).
+  static const _kFondamentaliPulsantiera = [
+    Fondamentale.attacco,
+    Fondamentale.muro,
+    Fondamentale.difesa,
+    Fondamentale.alzata,
+  ];
+
+  // Misure della pulsantiera. Le due colonne hanno righe della STESSA altezza
+  // così i fondamentali si allineano ai primi 4 voti e la griglia si legge a
+  // colpo d'occhio (il 5° voto resta da solo in fondo).
+  static const double _kAltezzaRigaPulsantiera = 64;
+  static const double _kGapPulsantiera = 8;
+  // Colonne strette per un motivo preciso: col CAMBIO CAMPO il battitore esce
+  // dal campo sul lato destro (X oltre la linea di fondo, vedi
+  // _kBattutaP1Position specchiata) e finisce proprio dove sta la card — e da
+  // lì ci si deve partire col dito per disegnare la traiettoria. Misurato su
+  // un tablet da ~1274dp: il token arriva a 0,84×larghezza schermo, quindi
+  // l'ingombro della card dal bordo destro non può superare ~196dp. Con i
+  // margini ridotti al minimo (vedi sotto) restano 85dp a colonna.
+  // "Attacco" a 16px sta in 85−12 di padding; oltre si tronca con l'ellissi
+  // invece di sfondare il bottone.
+  static const double _kLarghezzaFondamentale = 85;
+  static const double _kLarghezzaVoto = 85;
+
+  // L'header del pannello va vincolato a questa larghezza: il FittedBox passa
+  // vincoli ILLIMITATI, quindi un cognome lungo allargherebbe tutta la card
+  // (e, per compensare, la rimpicciolirebbe di scala) invece di troncarsi.
+  static const double _kLarghezzaPulsantiera =
+      _kLarghezzaFondamentale + _kGapPulsantiera + _kLarghezzaVoto;
+
+  // ===== PROVA USA-E-GETTA (2026-08-21) =====================================
+  // Griglia 4 colonne x 5 righe alla larghezza che la card aveva PRIMA di
+  // stringerla per il cambio campo (236dp totali): serve solo a vedere quanto
+  // verrebbero grandi i bottoni. Per toglierla: questa costante a false e via
+  // il metodo _buildProvaGriglia4x5.
+  static const bool _kProvaGriglia4x5 = false;
+
+  // Larghezza di una cella: è LA MANOPOLA della prova, cambia solo questo
+  // numero e ricarica. La card viene 4 x cella + 3 gap da 8 + 12 di padding,
+  // e l'ingombro dal bordo destro è quello + 4.
+  //   50 -> card 236  (quanto era prima di stringerla per il cambio campo)
+  //   62 -> card 284  (etichette su una riga, ma sfonda il limite del
+  //                    battitore col cambio campo, che sta a ~196)
+  // Altezza riga invariata, 64.
+  static const double _kProvaLarghezzaCella = 62;
+
+  Widget _buildProvaGriglia4x5() {
+    // Contenuto plausibile solo per giudicare la leggibilità alla misura:
+    // fondamentali, voti, tipi di battuta, tipi di attacco.
+    const colonne = <List<String>>[
+      ['Difesa', 'Attacco', 'Muro', 'Alzata', ''],
+      ['#', '+', '/', '-', '='],
+      ['Dal basso', 'Float', 'Salto', 'Salto float', ''],
+      ['Forte', 'Piazzata', 'Pallonetto', '', ''],
     ];
-    final ristretto = _difesaErroreForzataNostra;
-    return Column(
+    const colori = <Color>[
+      AppColors.brandPrimary,
+      AppColors.neutral,
+      AppColors.brandPrimary,
+      AppColors.brandPrimary,
+    ];
+    return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final f in opzioni) ...[
-          _anchorOpz(
-            targetFondamentaleNostro(f),
-            _buildBottoneFondamentale(
-              fondamentale: f,
-              ristretto: ristretto,
-              onNormale: () => _sceglieFondamentale(f),
-              onErroreDifensivo: () =>
-                  _registraErroreDifensivoRapido(giocatore, f),
-            ),
+        for (var c = 0; c < colonne.length; c++) ...[
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var r = 0; r < 5; r++) ...[
+                Container(
+                  width: _kProvaLarghezzaCella,
+                  height: _kAltezzaRigaPulsantiera,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: colonne[c][r].isEmpty
+                        ? Colors.white10
+                        : (c == 1
+                            ? CourtStyle.votoColor(Voto.values[r])
+                            : colori[c]),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    colonne[c][r],
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: c == 1 ? 28 : 12,
+                    ),
+                  ),
+                ),
+                if (r < 4) const SizedBox(height: _kGapPulsantiera),
+              ],
+            ],
           ),
-          if (f != opzioni.last) const SizedBox(height: 10),
+          if (c < colonne.length - 1)
+            const SizedBox(width: _kGapPulsantiera),
         ],
       ],
     );
   }
+  // ===== FINE PROVA USA-E-GETTA ============================================
 
-  // Bottone del pannello scelta-fondamentale, condiviso tra pannello nostro e
-  // avversario. In modalità normale (`ristretto == false`) tutti abilitati
-  // (blu) → `onNormale` sceglie il fondamentale. In modalità "errore difensivo
-  // ristretto" (dopo un `#` di attacco dell'altra squadra) SOLO Muro/Difesa
-  // sono abilitati e rossi → `onErroreDifensivo` registra subito quel
-  // fondamentale con voto `=`; Alzata/Attacco sono grigi e disabilitati.
+  // PULSANTIERA UNICA: fondamentali a sinistra, voti a destra, sempre
+  // entrambi a schermo. Si tocca una voce per colonna, in QUALSIASI ORDINE, e
+  // alla coppia completa l'azione parte da sé (vedi _provaRegistrare). Toccare
+  // di nuovo la stessa colonna corregge la scelta senza scrivere nulla.
+  //
+  // Tre configurazioni, tutte con la stessa forma e le stesse coordinate:
+  // - fase LIBERA: entrambe le colonne attive;
+  // - fase FORZATA (battuta/ricezione): colonna fondamentali spenta — il
+  //   fondamentale lo impone la fase — basta il voto;
+  // - RISTRETTA (dopo un `#` avversario, scorciatoia kill): solo Muro/Difesa
+  //   attivi e rossi, un tocco registra subito il `=`; la colonna voti è
+  //   spenta col `=` evidenziato, come anteprima di quello che verrà scritto.
+  // Etichetta di un bottone della colonna di SINISTRA — unica per fondamentali,
+  // tipi di servizio e tipi di attacco.
+  //
+  // Le tre varianti si sostituiscono a vicenda nello stesso identico posto,
+  // quindi devono essere indistinguibili per geometria: stessa dimensione,
+  // stesso numero di righe, stesso allineamento. Se cambiasse anche solo il
+  // corpo del testo, premere "Attacco" farebbe "saltare" la colonna sotto il
+  // dito — l'opposto del principio per cui la pulsantiera è unica.
+  //
+  // 14px e non 16 (com'erano i soli fondamentali): dentro gli 85−8 dp del
+  // bottone deve starci anche l'etichetta più lunga — "Pallonetto",
+  // "Salto float", "Placed shot" — e a 16 una parola singola e non spezzabile
+  // finirebbe troncata con l'ellissi. Due righe consentite, centrate: le
+  // etichette con uno spazio vanno a capo invece di rimpicciolirsi.
+  Widget _etichettaColonna(String testo) => Text(
+        testo,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      );
+
+  // Colonna di sinistra "normale": i 4 fondamentali.
+  List<Widget> _colonnaFondamentali({
+    required Fondamentale? selezionato,
+    required bool bloccata,
+    required bool ristretto,
+    required void Function(Fondamentale) onFondamentale,
+    required void Function(Fondamentale) onErroreDifensivo,
+    required TutorialTarget? Function(Fondamentale) targetFond,
+  }) {
+    return [
+      for (final f in _kFondamentaliPulsantiera)
+        _anchorOpz(
+          targetFond(f),
+          _buildBottoneFondamentale(
+            fondamentale: f,
+            bloccato: bloccata,
+            ristretto: ristretto,
+            selezionato: f == selezionato,
+            // Si attenuano le voci NON scelte solo quando una scelta in questa
+            // colonna c'è: finché è vuota devono restare tutte piene,
+            // altrimenti il pannello si apre con l'aria di essere tutto
+            // disattivato.
+            attenuato: selezionato != null && f != selezionato,
+            onNormale: () => onFondamentale(f),
+            onErroreDifensivo: () => onErroreDifensivo(f),
+          ),
+        ),
+    ];
+  }
+
+  // Colonna di sinistra in BATTUTA: i tipi di servizio al posto dei quattro
+  // fondamentali, che lì sono spenti e non dicono niente — è lo stesso spazio,
+  // usato per l'unico dato che in battuta manca. Sono 5 come i voti, quindi le
+  // due colonne restano allineate.
+  // "Generico" è una voce come le altre: si parte da lì e si torna lì.
+  // Colore BLU come i fondamentali: l'ambra era stata scelta per distinguere
+  // la colonna, ma sul giallo le etichette si leggevano male — e la fase la
+  // dice già il chip nell'header, quindi il colore non deve dirla due volte.
+  List<Widget> _colonnaTipiBattuta({
+    required TipoBattuta selezionato,
+    required void Function(TipoBattuta) onTipo,
+  }) {
+    return [
+      for (final tipo in TipoBattuta.values)
+        _buildBottonePulsantiera(
+          larghezza: _kLarghezzaFondamentale,
+          colore: AppColors.brandPrimary,
+          abilitato: true,
+          selezionato: tipo == selezionato,
+          attenuato: tipo != selezionato,
+          onTap: () => onTipo(tipo),
+          child: _etichettaColonna(
+              tipoBattutaLabel(tipo, AppLocalizations.of(context))),
+        ),
+    ];
+  }
+
+  // Colonna di sinistra dopo un tratto DISEGNATO in fase libera: i tipi di
+  // attacco al posto dei fondamentali, che a quel punto non servono più — il
+  // disegno ha già deciso che è un attacco (vedi
+  // _preselezionaAttaccoDaTraiettoria). Stessa forma della colonna che
+  // sostituisce (4 voci) e stesso blu: la card non cambia larghezza.
+  // È l'unico modo per indicare il tipo di attacco col disegno in-line, dove
+  // TrajectoryScreen — che ospita i chip — non si apre mai.
+  List<Widget> _colonnaTipiAttacco() {
+    return [
+      for (final tipo in TipoAttacco.values)
+        _buildBottonePulsantiera(
+          larghezza: _kLarghezzaFondamentale,
+          colore: AppColors.brandPrimary,
+          abilitato: true,
+          selezionato: tipo == _tipoAttaccoSelezionato,
+          attenuato: tipo != _tipoAttaccoSelezionato,
+          onTap: () => setState(() => _tipoAttaccoSelezionato = tipo),
+          child: _etichettaColonna(
+              tipoAttaccoLabel(tipo, AppLocalizations.of(context))),
+        ),
+    ];
+  }
+
+  Widget _buildPulsantiera({
+    required Fondamentale? selezionato,
+    required Voto? votoSelezionato,
+    required bool colonnaFondBloccata,
+    required bool ristretto,
+    required void Function(Fondamentale) onFondamentale,
+    required void Function(Fondamentale) onErroreDifensivo,
+    required void Function(Voto) onVoto,
+    required TutorialTarget? Function(Fondamentale) targetFond,
+    required TutorialTarget? Function(Voto) targetVoto,
+    // Voci della colonna di SINISTRA già costruite: i 4 fondamentali di
+    // norma, i tipi di battuta quando la fase è il servizio (vedi
+    // _colonnaTipiBattuta). Passarle dall'esterno tiene le àncore del tutorial
+    // dove sono e questo metodo si limita a impaginare.
+    required List<Widget> vociSinistra,
+  }) {
+    if (_kProvaGriglia4x5) return _buildProvaGriglia4x5(); // PROVA, da togliere
+    // Colonna di sinistra VUOTA = forma a COLONNA SINGOLA: la fase impone il
+    // fondamentale e non c'è nessun tipo di esecuzione da offrire (ricezione),
+    // quindi quattro bottoni spenti sarebbero solo campo coperto.
+    // I voti si prendono tutta la larghezza della card: ALLARGATI, non
+    // centrati alla misura solita. La card resta larga uguale (l'header la
+    // vincola a _kLarghezzaPulsantiera), quindi il bordo destro di ogni
+    // bottone NON si sposta — il dito li ritrova dove li ha imparati e in più
+    // il bersaglio cresce. Centrandoli a 85 si sposterebbero verso il campo,
+    // che è l'unica cosa che la memoria muscolare non perdona.
+    final soloVoti = vociSinistra.isEmpty;
+    final colonnaVoti = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final voto in Voto.values) ...[
+          _anchorOpz(
+            targetVoto(voto),
+            _buildBottoneVoto(
+              voto: voto,
+              larghezza: soloVoti ? _kLarghezzaPulsantiera : _kLarghezzaVoto,
+              // Nel ristretto il `=` è solo un'anteprima: evidenziato ma
+              // non tappabile, la registrazione parte dal fondamentale.
+              bloccato: ristretto,
+              // La PROPOSTA della ricezione automatica si mostra come un
+              // selezionato che lampeggia: dice "scrivo questo se non dici
+              // altro". Non è una scelta vera — vive fuori dalla coppia — ma
+              // sotto il dito deve leggersi allo stesso modo, perché è quello
+              // che sta per finire a database.
+              selezionato: ristretto
+                  ? voto == Voto.errore
+                  : voto == votoSelezionato ||
+                      (voto == _votoPropostoRicezione && _propostaAccesa),
+              attenuato: votoSelezionato != null && voto != votoSelezionato,
+              onTap: () => onVoto(voto),
+            ),
+          ),
+          if (voto != Voto.values.last)
+            const SizedBox(height: _kGapPulsantiera),
+        ],
+      ],
+    );
+    if (soloVoti) return colonnaVoti;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < vociSinistra.length; i++) ...[
+              vociSinistra[i],
+              if (i < vociSinistra.length - 1)
+                const SizedBox(height: _kGapPulsantiera),
+            ],
+          ],
+        ),
+        const SizedBox(width: _kGapPulsantiera),
+        colonnaVoti,
+      ],
+    );
+  }
+
+  // Bottone della colonna fondamentali, condiviso tra pannello nostro e
+  // avversario. `bloccato` = la fase impone già il fondamentale (spento non
+  // tappabile). `ristretto` = scorciatoia kill: SOLO Muro/Difesa attivi e
+  // rossi → `onErroreDifensivo` registra subito quel fondamentale con voto
+  // `=`, senza passare dalla colonna voti.
   Widget _buildBottoneFondamentale({
     required Fondamentale fondamentale,
+    required bool bloccato,
     required bool ristretto,
+    required bool selezionato,
+    required bool attenuato,
     required VoidCallback onNormale,
     required VoidCallback onErroreDifensivo,
   }) {
     final difensivo = fondamentale == Fondamentale.muro ||
         fondamentale == Fondamentale.difesa;
-    final abilitato = !ristretto || difensivo;
+    final abilitato = !bloccato && (!ristretto || difensivo);
     final rosso = ristretto && difensivo;
-    final colore = !abilitato
-        ? AppColors.neutral
-        : (rosso ? Colors.red : AppColors.brandPrimary);
+    return _buildBottonePulsantiera(
+      larghezza: _kLarghezzaFondamentale,
+      colore: !abilitato
+          ? AppColors.neutral
+          : (rosso ? Colors.red : AppColors.brandPrimary),
+      abilitato: abilitato,
+      selezionato: selezionato,
+      attenuato: attenuato,
+      onTap: ristretto ? onErroreDifensivo : onNormale,
+      child: _etichettaColonna(
+          fondamentaleLabel(fondamentale, AppLocalizations.of(context))),
+    );
+  }
+
+  Widget _buildBottoneVoto({
+    required Voto voto,
+    // _kLarghezzaVoto nella forma a due colonne, tutta la card in quella a
+    // colonna singola (vedi _buildPulsantiera).
+    required double larghezza,
+    required bool bloccato,
+    required bool selezionato,
+    required bool attenuato,
+    required VoidCallback onTap,
+  }) {
+    return _buildBottonePulsantiera(
+      larghezza: larghezza,
+      colore: bloccato && !selezionato
+          ? AppColors.neutral
+          : CourtStyle.votoColor(voto),
+      abilitato: !bloccato,
+      selezionato: selezionato,
+      attenuato: attenuato,
+      onTap: onTap,
+      child: Text(
+        voto.simbolo,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 28,
+        ),
+      ),
+    );
+  }
+
+  // Forma comune ai bottoni delle due colonne: la selezione si legge da un
+  // bordo bianco spesso, e le voci NON scelte della stessa colonna si
+  // attenuano — così a colpo d'occhio si vede cosa manca per chiudere la
+  // coppia. Un bottone spento resta al suo posto (non sparisce mai): è la
+  // stabilità delle coordinate il motivo per cui la pulsantiera è unica.
+  Widget _buildBottonePulsantiera({
+    required double larghezza,
+    required Color colore,
+    required bool abilitato,
+    required bool selezionato,
+    required bool attenuato,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    // La selezione vince sul blocco: nella pulsantiera ristretta il `=` è
+    // spento ma va comunque letto bene, è l'anteprima di cosa verrà scritto.
+    final opacita = selezionato
+        ? 1.0
+        : !abilitato
+            ? 0.4
+            : (attenuato ? 0.55 : 1.0);
     return Opacity(
-      opacity: abilitato ? 1.0 : 0.4,
+      opacity: opacita,
       child: GestureDetector(
-        onTap: !abilitato
-            ? null
-            : (ristretto ? onErroreDifensivo : onNormale),
+        onTap: abilitato ? onTap : null,
         child: Container(
-          width: 150,
-          height: 60,
+          width: larghezza,
+          height: _kAltezzaRigaPulsantiera,
           alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: colore,
             borderRadius: BorderRadius.circular(10),
+            border: selezionato
+                ? Border.all(color: Colors.white, width: 3)
+                : null,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(120),
@@ -3573,14 +4806,146 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
               ),
             ],
           ),
-          child: Text(
-            fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  // Sfondo che chiude il pannello aperto toccando fuori dalla card.
+  //
+  // Va messo come PRIMO figlio dello Stack, cioè in FONDO a tutto: lo Stack
+  // cerca il bersaglio del tocco dall'ultimo figlio verso il primo e si ferma
+  // al primo che lo reclama. Con lo scrim in cima (dov'era) il tocco su un
+  // token non arrivava mai al token: il pannello si chiudeva e basta, e per
+  // passare a un'altra giocatrice servivano due tocchi. In fondo, invece, i
+  // token lo intercettano prima — così un tocco su un'altra giocatrice
+  // SOSTITUISCE quella in corso (vedi _tapHandlerPerGiocatore, che riparte da
+  // una coppia vuota: fondamentale e voto già scelti NON si trascinano dietro,
+  // altrimenti il cambio registrerebbe da solo) — mentre un tocco sul campo
+  // vuoto o sullo sfondo cade quaggiù e chiude, come prima. L'immagine del
+  // campo non intercetta i tocchi, quindi non fa da schermo.
+  //
+  // Conseguenza da tenere a mente: tutto ciò che è interattivo e sta sopra
+  // (mini-map, bottoni di correzione rotazione) adesso riceverebbe il tocco
+  // invece di chiudere — per questo in build sono avvolti in `IgnorePointer`
+  // mentre un pannello è aperto.
+  // SEMPRE in albero, spento con IgnorePointer quando non serve, e con una
+  // key esplicita. Non è pignoleria: comparendo e sparendo da QUESTA
+  // posizione faceva slittare di uno tutti i figli dello Stack, e Flutter
+  // accoppiava l'elemento dello scrim col widget del campo — stesso tipo
+  // (`Positioned`) e stessa key (nessuna), quindi `canUpdate` vero. Risultato:
+  // l'intero sottoalbero del campo ricostruito da zero a ogni apertura o
+  // chiusura del pannello, con gli `AnimatedPositioned` dei token rimontati e
+  // quindi **senza animazione** di rotazione. Con una lunghezza costante e una
+  // key il problema non si pone.
+  Widget _buildScrimPannelli() {
+    return Positioned.fill(
+      key: const ValueKey('scrim-pannelli'),
+      child: IgnorePointer(
+        ignoring: !_pannelloAperto,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _chiudiPannelli,
+        ),
+      ),
+    );
+  }
+
+  void _chiudiPannelli() {
+    _annullaPropostaRicezione();
+    _chiudiPannelliInterno();
+  }
+
+  void _chiudiPannelliInterno() => setState(() {
+        _votoInCorso = null;
+        _avversarioInCorso = null;
+        _azzeraTraiettoriaInLine();
+      });
+
+  // Freccia della traiettoria disegnata sul campo live. Resta visibile anche
+  // dopo il rilascio, fino a che l'azione non viene registrata o il pannello
+  // chiuso: è l'unica conferma che il tratto è stato preso.
+  //
+  // Sempre in albero, anche quando non c'è niente da disegnare: il painter si
+  // ridisegna da solo osservando `_frecciaInLine`, e montarlo/smontarlo
+  // vorrebbe dire tornare a un setState per ogni frame del trascinamento.
+  // Key esplicita per lo stesso motivo dello scrim: i builder che la
+  // precedono nello Stack hanno lunghezza variabile (il log azioni compare e
+  // sparisce), e senza key un `Positioned` può essere accoppiato con quello
+  // sbagliato quando gli indici slittano.
+  Widget _buildFrecciaInLine(
+    double courtLeft,
+    double courtTop,
+    double courtWidth,
+    double courtHeight,
+  ) =>
+      Positioned.fill(
+        key: const ValueKey('freccia-in-line'),
+        child: IgnorePointer(
+          child: CustomPaint(
+            painter: _FrecciaLivePainter(
+              _frecciaInLine,
+              xRete: courtLeft + courtWidth / 2,
+              cimaCampo: courtTop,
+              altezzaCampo: courtHeight,
             ),
           ),
+        ),
+      );
+
+  // Chip del fondamentale imposto dalla fase (battuta/ricezione), nell'header
+  // del pannello: quelle due voci non stanno nella colonna — che ha 4 slot
+  // fissi — ma vanno comunque mostrate, altrimenti non si saprebbe cosa si sta
+  // votando.
+  // Altezza FISSA dell'header della pulsantiera, e quindi posizione fissa dei
+  // bottoni sotto.
+  //
+  // I contenuti possibili sono tre e alti diversi: numero + cognome (nostro
+  // pannello), "Avversario" + sigla di ruolo, e gli stessi PIÙ il chip del
+  // fondamentale già deciso. Senza un'altezza imposta la colonna scivolava in
+  // giù di ~35dp appena compariva il chip — cioè proprio nel passaggio più
+  // frequente, scegliere Attacco — e il dito perdeva i voti.
+  //
+  // Il valore è quello del caso più alto (nostro pannello COL chip): gli altri
+  // due si centrano nello spazio avanzato. Il `FittedBox` dentro
+  // `_headerPulsantiera` fa il resto: se un contenuto eccede — un font di
+  // sistema ingrandito, una traduzione più alta — si rimpicciolisce invece di
+  // spingere giù i bottoni.
+  static const double _kAltezzaHeaderPulsantiera = 88;
+
+  /// Header a dimensione fissa: dentro ci sta quello che serve, ma la sua
+  /// scatola non cambia mai — vedi [_kAltezzaHeaderPulsantiera].
+  Widget _headerPulsantiera(List<Widget> figli) => SizedBox(
+        width: _kLarghezzaPulsantiera,
+        height: _kAltezzaHeaderPulsantiera,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          // La larghezza va rimessa QUI: il FittedBox passa vincoli
+          // illimitati, e senza questo un cognome lungo non si troncherebbe
+          // più — si allargherebbe, facendo poi rimpicciolire tutto.
+          child: SizedBox(
+            width: _kLarghezzaPulsantiera,
+            child: Column(mainAxisSize: MainAxisSize.min, children: figli),
+          ),
+        ),
+      );
+
+  Widget _buildChipFondamentaleForzato(Fondamentale fondamentale) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.brandPrimary,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Text(
+        fondamentaleLabel(fondamentale, AppLocalizations.of(context)),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
         ),
       ),
     );
@@ -3599,20 +4964,64 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final inCorso = _votoInCorso;
     if (inCorso == null) return const [];
     final player = inCorso.giocatore;
+    // Battuta e ricezione non hanno uno slot nella colonna: se il pannello si
+    // è aperto su uno dei due, è la fase ad averlo imposto → chip nell'header
+    // e colonna bloccata. Derivato da cosa c'è nella colonna, non da
+    // _fondamentaleForzato(), così i due non possono divergere.
+    final fondForzato = inCorso.fondamentale != null &&
+            !_kFondamentaliPulsantiera.contains(inCorso.fondamentale)
+        ? inCorso.fondamentale
+        : null;
+
+    // Fondamentale = attacco: la colonna passa ai tipi di schiacciata. Vale
+    // sia quando l'attacco l'ha deciso il DISEGNO
+    // (_preselezionaAttaccoDaTraiettoria) sia quando l'hai premuto tu nella
+    // colonna — prima solo il primo caso, e un attacco non disegnato restava
+    // senza tipo per sempre. Le due strade ora si comportano identiche, che è
+    // anche più facile da ricordare a bordo campo.
+    final tipiAttacco =
+        fondForzato == null && inCorso.fondamentale == Fondamentale.attacco;
+
+    // Quale colonna di sinistra: la fase e il disegno decidono, la
+    // pulsantiera si limita a impaginare quello che le arriva (vedi
+    // _buildPulsantiera).
+    final List<Widget> vociSinistra;
+    if (fondForzato == Fondamentale.battuta) {
+      // In battuta la colonna diventa i tipi di servizio: i fondamentali lì
+      // sono spenti e sprecherebbero lo spazio dove manca proprio quel dato.
+      vociSinistra = _colonnaTipiBattuta(
+        selezionato: _tipoBattutaSelezionato,
+        onTipo: (t) => _scegliTipoBattuta(player, t),
+      );
+    } else if (fondForzato != null) {
+      // Ricezione: niente da scegliere a sinistra e nessun tipo da offrire in
+      // cambio — via la colonna, i voti si allargano su tutta la card.
+      vociSinistra = const [];
+    } else if (tipiAttacco) {
+      vociSinistra = _colonnaTipiAttacco();
+    } else {
+      vociSinistra = _colonnaFondamentali(
+        selezionato: inCorso.fondamentale,
+        bloccata: false,
+        ristretto: _difesaErroreForzataNostra,
+        onFondamentale: _sceglieFondamentale,
+        onErroreDifensivo: (f) => _registraErroreDifensivoRapido(player, f),
+        targetFond: targetFondamentaleNostro,
+      );
+    }
+
+    // Il chip nell'header dice qual è il fondamentale quando NON lo si legge
+    // dalla colonna: imposto dalla fase (battuta/ricezione) oppure — da quando
+    // la colonna può diventare i tipi di attacco — deciso dal disegno.
+    // Senza, tolta la colonna non resterebbe scritto da nessuna parte che
+    // quella che stai per registrare è una schiacciata.
+    final fondChip = fondForzato ?? (tipiAttacco ? Fondamentale.attacco : null);
 
     return [
-      // Tap fuori dal pannello = annulla. Lo Stack ferma la ricerca del
-      // tocco al primo figlio che lo "reclama" (vedi GestureDetector del
-      // pannello sotto, che lo assorbe con un onTap no-op): quindi un tap
-      // sul pannello non arriva mai qui, solo un tap altrove sullo schermo.
-      Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _votoInCorso = null),
-        ),
-      ),
       Positioned(
-        right: 16,
+        // 4 e non 16: ogni dp fra la card e il bordo dello schermo è un dp in
+        // meno di campo coperto, e col cambio campo lì sotto c'è il battitore.
+        right: 4,
         // Margini verticali minimi: su smartphone la scala del pannello è
         // vincolata dall'altezza disponibile (vedi FittedBox sotto), ogni
         // px recuperato qui ingrandisce la bottoniera dei voti.
@@ -3626,15 +5035,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           // GestureDetector sta DENTRO la scala). Su tablet scala = 1.
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: GestureDetector(
+            // Un trascinamento partito sulla card non deve disegnare una
+            // traiettoria. Questo Listener è più PROFONDO di quello che
+            // avvolge lo Stack, quindi riceve l'evento prima e fa in tempo ad
+            // alzare il flag (vedi _onPointerDownCampo).
+            child: Listener(
+              onPointerDown: (_) => _gestoSullaCard = true,
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {}, // assorbe il tap, non deve propagarsi allo sfondo
               child: _anchor(
                 TutorialTarget.pannelloVoto,
                 Container(
+                  // Padding stretto: orizzontale perché la card non deve
+                  // invadere il campo (vedi _kLarghezzaFondamentale),
+                  // verticale perché su telefono è l'altezza a decidere di
+                  // quanto il FittedBox rimpicciolisce tutto — meno padding
+                  // qui vuol dire bottoni più grandi, non più piccoli.
                   padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 12,
+                    vertical: 8,
+                    horizontal: 6,
                   ),
                   decoration: BoxDecoration(
                     color: _kTopBarBg,
@@ -3644,83 +5064,53 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: 100,
-                        child: Column(
-                          children: [
-                            Text(
-                              '${player.numero}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 22,
-                              ),
-                            ),
-                            Text(
-                              player.cognome,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (inCorso.fondamentale == null) ...[
-                        const SizedBox(height: 4),
-                        _buildSceltaFondamentale(player),
-                      ] else ...[
+                      _headerPulsantiera([
                         Text(
-                          fondamentaleLabel(
-                              inCorso.fondamentale!, AppLocalizations.of(context)),
+                          '${player.numero}',
                           style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 26,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        for (final voto in Voto.values) ...[
-                          _anchorOpz(
-                            targetVotoNostro(voto),
-                            GestureDetector(
-                              onTap: () => _registraVoto(voto),
-                              child: Container(
-                                width: 100,
-                                height: 64,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: CourtStyle.votoColor(voto),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withAlpha(120),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  voto.simbolo,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 28,
-                                  ),
-                                ),
-                              ),
-                            ),
+                        // Il cognome ha tutta la larghezza della pulsantiera:
+                        // serve a confermare a colpo d'occhio di aver toccato
+                        // la giocatrice giusta, quindi va letto senza
+                        // fermarsi. Resta su una riga: se non ci sta si
+                        // tronca, non manda a capo la card.
+                        Text(
+                          player.cognome,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
                           ),
-                          if (voto != Voto.values.last)
-                            const SizedBox(height: 12),
-                        ],
-                      ],
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (fondChip != null)
+                          _buildChipFondamentaleForzato(fondChip),
+                      ]),
+                      const SizedBox(height: _kGapPulsantiera),
+                      _buildPulsantiera(
+                        selezionato: inCorso.fondamentale,
+                        votoSelezionato: inCorso.voto,
+                        colonnaFondBloccata: fondForzato != null,
+                        ristretto: _difesaErroreForzataNostra,
+                        onFondamentale: _sceglieFondamentale,
+                        onErroreDifensivo: (f) =>
+                            _registraErroreDifensivoRapido(player, f),
+                        onVoto: _scegliVoto,
+                        targetFond: targetFondamentaleNostro,
+                        targetVoto: targetVotoNostro,
+                        vociSinistra: vociSinistra,
+                      ),
                     ],
                   ),
                 ),
               ),
+            ),
             ),
           ),
         ),
@@ -3729,39 +5119,77 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   }
 
   // Pannello per un'azione AVVERSARIA: si apre toccando un token avversario
-  // (vedi _tapHandlerAvversario). Stessa struttura/stile di _buildPannelloVoto
-  // (scrim + card a destra), ma header col RUOLO placeholder (niente giocatore)
-  // e — non essendoci una fase forzata — chiede SEMPRE prima il fondamentale
-  // tra Attacco/Battuta/Muro, poi il voto (esito invertito, vedi
+  // (vedi _tapHandlerAvversario). Stessa struttura/stile/pulsantiera di
+  // _buildPannelloVoto (scrim + card a destra), ma header col RUOLO
+  // placeholder invece del giocatore, e esito invertito (vedi
   // _registraVotoAvversario). Ritorna [] se chiuso.
   List<Widget> _buildPannelloAvversario() {
     final inCorso = _avversarioInCorso;
     if (inCorso == null) return const [];
+    // Come nel pannello nostro: battuta/ricezione non hanno uno slot nella
+    // colonna, quindi se sono selezionate le ha imposte la fase.
+    final fondForzato = inCorso.fondamentale != null &&
+            !_kFondamentaliPulsantiera.contains(inCorso.fondamentale)
+        ? inCorso.fondamentale
+        : null;
+
+    // Colonna di sinistra e chip: stesse tre forme del pannello nostro —
+    // tipi di servizio in battuta, niente colonna in ricezione, tipi di
+    // attacco quando il fondamentale è attacco (disegnato o scelto a mano).
+    final tipiAttacco =
+        fondForzato == null && inCorso.fondamentale == Fondamentale.attacco;
+
+    final List<Widget> vociSinistra;
+    if (fondForzato == Fondamentale.battuta) {
+      vociSinistra = _colonnaTipiBattuta(
+        selezionato: _tipoBattutaAvversario,
+        onTipo: (t) => setState(() => _tipoBattutaAvversario = t),
+      );
+    } else if (fondForzato != null) {
+      vociSinistra = const [];
+    } else if (tipiAttacco) {
+      vociSinistra = _colonnaTipiAttacco();
+    } else {
+      vociSinistra = _colonnaFondamentali(
+        selezionato: inCorso.fondamentale,
+        bloccata: false,
+        ristretto: _difesaErroreForzataAvversaria,
+        onFondamentale: _scegliFondamentaleAvversario,
+        onErroreDifensivo: (f) =>
+            _registraErroreDifensivoAvversarioRapido(inCorso.ruolo, f),
+        targetFond: targetFondamentaleAvversario,
+      );
+    }
+
+    final fondChip = fondForzato ?? (tipiAttacco ? Fondamentale.attacco : null);
 
     return [
-      Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _avversarioInCorso = null),
-        ),
-      ),
       Positioned(
-        right: 16,
+        right: 4, // vedi il gemello in _buildPannelloVoto
         top: 4,
         bottom: 4,
         child: Align(
           alignment: Alignment.topCenter,
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: GestureDetector(
+            // Come nel pannello nostro: un trascinamento partito sulla card
+            // non deve disegnare una traiettoria (vedi _onPointerDownCampo).
+            child: Listener(
+              onPointerDown: (_) => _gestoSullaCard = true,
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {},
               child: _anchor(
                 TutorialTarget.pannelloAvversario,
                 Container(
+                  // Padding stretto: orizzontale perché la card non deve
+                  // invadere il campo (vedi _kLarghezzaFondamentale),
+                  // verticale perché su telefono è l'altezza a decidere di
+                  // quanto il FittedBox rimpicciolisce tutto — meno padding
+                  // qui vuol dire bottoni più grandi, non più piccoli.
                   padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 12,
+                    vertical: 8,
+                    horizontal: 6,
                   ),
                   decoration: BoxDecoration(
                     color: _kTopBarBg,
@@ -3771,115 +5199,53 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: 100,
-                        child: Column(
-                          children: [
-                            Text(
-                              AppLocalizations.of(
-                                context,
-                              ).scoutAvversarioEtichetta,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              siglaRuolo(
-                                  inCorso.ruolo, AppLocalizations.of(context)),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 22,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (inCorso.fondamentale == null) ...[
-                        const SizedBox(height: 8),
-                        // In fase libera l'avversario può aver alzato,
-                        // attaccato, murato o difeso — le stesse quattro voci del
-                        // nostro pannello (battuta e ricezione passano dai flussi
-                        // forzati di zona 1 / fase ricezione, non da qui). Dopo un
-                        // NOSTRO `#` di attacco il pannello è ristretto a Muro/
-                        // Difesa in rosso (→ `=` diretto, vedi
-                        // _difesaErroreForzataAvversaria).
-                        for (final f in const [
-                          Fondamentale.alzata,
-                          Fondamentale.attacco,
-                          Fondamentale.muro,
-                          Fondamentale.difesa,
-                        ]) ...[
-                          _anchorOpz(
-                            targetFondamentaleAvversario(f),
-                            _buildBottoneFondamentale(
-                              fondamentale: f,
-                              ristretto: _difesaErroreForzataAvversaria,
-                              onNormale: () => _scegliFondamentaleAvversario(f),
-                              onErroreDifensivo: () =>
-                                  _registraErroreDifensivoAvversarioRapido(
-                                      inCorso.ruolo, f),
-                            ),
-                          ),
-                          if (f != Fondamentale.difesa)
-                            const SizedBox(height: 10),
-                        ],
-                      ] else ...[
+                      _headerPulsantiera([
                         Text(
-                          fondamentaleLabel(
-                              inCorso.fondamentale!, AppLocalizations.of(context)),
+                          AppLocalizations.of(context).scoutAvversarioEtichetta,
                           style: const TextStyle(
-                            color: Colors.white54,
+                            color: Colors.white70,
                             fontSize: 12,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        for (final voto in Voto.values) ...[
-                          _anchorOpz(
-                            targetVotoAvversario(voto),
-                            GestureDetector(
-                              onTap: () => _registraVotoAvversario(voto),
-                              child: Container(
-                                width: 100,
-                                height: 64,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: CourtStyle.votoColor(voto),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withAlpha(120),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  voto.simbolo,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 28,
-                                  ),
-                                ),
-                              ),
-                            ),
+                        Text(
+                          siglaRuolo(
+                              inCorso.ruolo, AppLocalizations.of(context)),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 26,
                           ),
-                          if (voto != Voto.values.last)
-                            const SizedBox(height: 12),
-                        ],
-                      ],
+                        ),
+                        if (fondChip != null)
+                          _buildChipFondamentaleForzato(fondChip),
+                      ]),
+                      const SizedBox(height: _kGapPulsantiera),
+                      _buildPulsantiera(
+                        selezionato: inCorso.fondamentale,
+                        votoSelezionato: inCorso.voto,
+                        colonnaFondBloccata: fondForzato != null,
+                        ristretto: _difesaErroreForzataAvversaria,
+                        onFondamentale: _scegliFondamentaleAvversario,
+                        onErroreDifensivo: (f) =>
+                            _registraErroreDifensivoAvversarioRapido(
+                                inCorso.ruolo, f),
+                        onVoto: _scegliVotoAvversario,
+                        targetFond: targetFondamentaleAvversario,
+                        targetVoto: targetVotoAvversario,
+                        vociSinistra: vociSinistra,
+                      ),
                     ],
                   ),
                 ),
               ),
+            ),
             ),
           ),
         ),
       ),
     ];
   }
+
 
   Widget _buildRotationButton(
     IconData icon,
@@ -4192,7 +5558,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         // è l'area di tap vera del battitore, ed è già in coordinate schermo.
         child: _anchor(
           TutorialTarget.tokenBattitore,
-          GestureDetector(onTap: onTap),
+          _tokenConTrascinamento(onTap, player.id),
         ),
       ),
     ];
@@ -4232,7 +5598,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         top: cy - radius,
         width: radius * 2,
         height: radius * 2,
-        child: GestureDetector(onTap: onTap),
+        child: _tokenConTrascinamento(onTap, ruolo),
       ),
     ];
   }
@@ -4443,7 +5809,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
             : (onTap == null
                 ? tokenVisual
-                : GestureDetector(onTap: onTap, child: tokenVisual)),
+                : _tokenConTrascinamento(onTap, player.id, tokenVisual)),
       ),
     );
   }
@@ -4526,7 +5892,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
             : (onTap == null
                 ? tokenVisual
-                : GestureDetector(onTap: onTap, child: tokenVisual)),
+                : _tokenConTrascinamento(onTap, player.id, tokenVisual)),
       ),
     );
   }
@@ -4582,7 +5948,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             onTap = _tapHandlerAvversario(ruolo,
                 forzato: Fondamentale.ricezione);
           } else if (faseLibera) {
-            onTap = _tapHandlerAvversario(ruolo);
+            onTap = _tapHandlerAvversario(ruolo, zona: zonaPerRuolo[ruolo]!);
           } else {
             onTap = null;
           }
@@ -4659,8 +6025,63 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             ? Opacity(opacity: _kAlphaTokenBloccato, child: tokenVisual)
             : (onTap == null
                 ? tokenVisual
-                : GestureDetector(onTap: onTap, child: tokenVisual)),
+                : _tokenConTrascinamento(onTap, roleLabel, tokenVisual)),
       ),
     );
   }
+}
+
+/// Disegna la freccia della traiettoria in-line leggendola da un
+/// `ValueNotifier`, passato anche come `repaint`: così il tratto segue il dito
+/// ridisegnando SOLO questo layer, senza un `setState` — e quindi senza
+/// ricostruire campo, token, log e pannello — a ogni frame del trascinamento.
+///
+/// Il disegno vero è quello condiviso con `TrajectoryScreen`
+/// (`FrecciaTraiettoriaPainter`), qui solo delegato: una copia sola, così le
+/// due strade non divergono mentre le si confronta.
+class _FrecciaLivePainter extends CustomPainter {
+  final ValueNotifier<
+      ({Offset inizio, Offset fine, Offset? muro, bool inZonaRete})?> freccia;
+
+  /// Geometria del riquadro campo, per la riga sulla rete: `xRete` è la sua
+  /// ascissa, `cimaCampo`/`altezzaCampo` la sua estensione verticale.
+  final double xRete;
+  final double cimaCampo;
+  final double altezzaCampo;
+
+  _FrecciaLivePainter(
+    this.freccia, {
+    required this.xRete,
+    required this.cimaCampo,
+    required this.altezzaCampo,
+  }) : super(repaint: freccia);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final f = freccia.value;
+    if (f == null) return;
+    // Riga sulla rete: "sei nella fascia, resta fermo un attimo e lo snodo si
+    // fissa qui". Stesso segnale visivo di TrajectoryScreen; sparisce appena
+    // il tocco a muro scatta (da lì in poi parla lo snodo della freccia) o se
+    // si esce dalla fascia prima che il soffermamento maturi.
+    if (f.inZonaRete) {
+      canvas.drawLine(
+        Offset(xRete, cimaCampo),
+        Offset(xRete, cimaCampo + altezzaCampo),
+        Paint()
+          ..color = AppColors.brandAccent
+          ..strokeWidth = 10,
+      );
+    }
+    FrecciaTraiettoriaPainter(f.inizio, f.fine, f.muro).paint(canvas, size);
+  }
+
+  // Il ridisegno del TRATTO lo governa `repaint`; qui restano solo i valori
+  // che cambiano a ogni build (geometria del campo, stato del muro).
+  @override
+  bool shouldRepaint(covariant _FrecciaLivePainter oldDelegate) =>
+      oldDelegate.freccia != freccia ||
+      oldDelegate.xRete != xRete ||
+      oldDelegate.cimaCampo != cimaCampo ||
+      oldDelegate.altezzaCampo != altezzaCampo;
 }
