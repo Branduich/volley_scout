@@ -34,7 +34,9 @@ import 'package:volley_scout/main.dart';
 import 'package:volley_scout/models/enums.dart';
 import 'package:volley_scout/providers/database_provider.dart';
 import 'package:volley_scout/providers/settings_provider.dart';
+import 'package:volley_scout/data/demo_match_importer.dart';
 import 'package:volley_scout/screens/campionato/campionato_screen.dart';
+import 'package:volley_scout/screens/dashboard/dashboard_screen.dart';
 import 'package:volley_scout/screens/live/scout_screen.dart';
 import 'package:volley_scout/screens/matches/matches_screen.dart';
 import 'package:volley_scout/screens/teams/team_form_screen.dart';
@@ -226,6 +228,16 @@ void main() {
     final team = await (db.select(db.teams)..where((t) => t.id.equals(teamId)))
         .getSingle();
     return TeamFormScreen(team: team);
+  });
+
+  // Dashboard di stagione: il tabellone ha una colonna per fondamentale e
+  // scorre in orizzontale, ma tutto il resto (KPI, filtri, grafico) deve
+  // stare in larghezza da solo. Serve una partita VERA: senza azioni il
+  // tabellone sarebbe vuoto e il test non proverebbe niente.
+  perOgniDimensione('DashboardScreen con una partita', (db) async {
+    await DemoMatchImporter(db)
+        .importaDaJson(File('assets/demo/demo_match.json').readAsStringSync());
+    return const DashboardScreen();
   });
 
   // Scout live: la riga dei bottoni rapidi è la parte più larga dell'app.

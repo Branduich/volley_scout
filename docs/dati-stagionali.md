@@ -441,6 +441,18 @@ painter, costo quasi zero).
 **13. Unifica il demo in-app** sul formato backup; `demo_match_importer.dart` si
 riduce a due righe.
 
+**14. Revisione dei contenuti — ULTIMO passo, quando tutto il resto è in piedi.**
+Rivedere *quali* dati la dashboard mostra e *come* li mostra: oggi la vista di
+squadra è cresciuta un pezzo alla volta (KPI, tabellone, tendenza) seguendo
+l'ordine in cui erano pronti i calcoli, non l'ordine in cui un allenatore se li
+chiede. Va guardata intera, con una stagione vera davanti, e riordinata —
+togliendo quello che non si guarda mai e dando spazio a quello che si guarda
+sempre.
+*Perché alla fine e non prima*: con cinque partite demo e metà delle viste
+ancora da fare (traiettorie aggregate, heatmap) qualunque riordino sarebbe una
+decisione presa su un disegno incompleto, da rifare al passo dopo. Deciso con
+l'utente il 2026-08-28, subito dopo aver visto 9b funzionare.
+
 ## La vetrina: deploy e SEO
 
 ### v1: Google Sites (già esistente) + host statico gratuito

@@ -200,6 +200,17 @@ test dei package. Il comando completo è:
 flutter test test packages/volley_stats/test packages/volley_ui/test packages/volley_web/test
 ```
 
+**`packages/volley_ui`** sono i widget della dashboard, condivisi fra il guscio
+web e l'app (dal passo 9b): `pagina_squadra.dart` (la vista di squadra intera),
+`barra_filtri.dart` + `calendario_periodo.dart`, `kpi_riga.dart`,
+`tabellone_stagionale.dart`, `grafico_tendenza.dart` (fl_chart),
+`menu_compatto.dart`. Stessa regola del package puro con UNA deroga: qui
+Flutter c'è, ma **niente drift, niente riverpod, niente AppLocalizations** —
+i widget ricevono dati già pronti e callback. Da cui il limite noto: i testi
+sono in **italiano fisso**, quindi la schermata 9b non segue la lingua
+dell'app (deciso il 2026-08-28: tradurla richiede iniettare le stringhe
+dall'app, ~40 chiavi, rimandato).
+
 ```
 packages/volley_stats/          (Dart/Flutter puro, zero drift)
 ├── lib/
@@ -429,6 +440,21 @@ lib/
 │   │   └── campionato_screen.dart        (import del calendario FIPAV .xls + tab
 │   │                                      Calendario (crea partita per gara) e
 │   │                                      Classifica — da HomeScreen, vedi Campionato)
+│   ├── dashboard/
+│   │   └── dashboard_screen.dart         (passo 9b: le statistiche di STAGIONE
+│   │                                      dentro l'app — monta la stessa
+│   │                                      `PaginaSquadra` di `volley_ui` che usa
+│   │                                      la dashboard web, su un
+│   │                                      `BackupCompleto` costruito IN MEMORIA
+│   │                                      dal database (`leggiTutto()` +
+│   │                                      `costruisciBackup()`, nessun file di
+│   │                                      mezzo). Voce di HomeScreen, PREMIUM
+│   │                                      intera come la lavagna tattica.
+│   │                                      `backupInMemoriaProvider` è un
+│   │                                      FutureProvider.autoDispose: una
+│   │                                      fotografia per apertura, non uno
+│   │                                      stream — ricostruire tutto a ogni
+│   │                                      azione registrata sarebbe uno spreco)
 │   ├── premium/
 │   │   └── paywall_screen.dart           (paywall placeholder — vedi sezione Premium)
 │   └── settings/

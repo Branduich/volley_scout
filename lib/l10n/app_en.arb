@@ -5,6 +5,8 @@
   "homeTeamsSetup": "Team setup",
   "homeMatches": "Matches",
   "homeCampionato": "League",
+  "homeDashboard": "Season stats",
+  "dashboardNessunDato": "No matches recorded yet: season stats appear after your first scouted match.",
   "homeSettings": "Settings",
 
   "settingsTitle": "Settings",

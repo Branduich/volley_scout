@@ -5,6 +5,8 @@
   "homeTeamsSetup": "Setup squadre",
   "homeMatches": "Gestione partite",
   "homeCampionato": "Campionato",
+  "homeDashboard": "Statistiche stagione",
+  "dashboardNessunDato": "Nessuna partita registrata: le statistiche di stagione compaiono dopo la prima partita scoutata.",
   "homeSettings": "Impostazioni",
 
   "settingsTitle": "Impostazioni",

@@ -11,9 +11,12 @@ import 'data/default_team_seeder.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/database_provider.dart';
 import 'providers/lingua_provider.dart';
+import 'providers/premium_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/campionato/campionato_screen.dart';
+import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/matches/matches_screen.dart';
+import 'screens/premium/paywall_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/teams/teams_screen.dart';
 import 'theme/app_theme.dart';
@@ -21,6 +24,7 @@ import 'tutorial/avvia_tutorial.dart';
 import 'tutorial/tutorial_sandbox.dart';
 import 'utils/orientamento.dart';
 import 'widgets/debug_paint_toggle.dart';
+import 'widgets/premium_badge.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -233,6 +237,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     ),
                     SizedBox(height: distanza),
+                    // Premium intera, come la lavagna tattica: le
+                    // statistiche di stagione sono la linea premium già
+                    // tracciata dal report per singola partita.
+                    _MenuButton(
+                      icon: Icons.insights,
+                      label: l.homeDashboard,
+                      altezza: altezza,
+                      premium: true,
+                      onTap: () {
+                        if (!ref.read(statoPremiumProvider).attivo) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const PaywallScreen()),
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const DashboardScreen()),
+                        );
+                      },
+                    ),
+                    SizedBox(height: distanza),
                     _MenuButton(
                       icon: Icons.emoji_events,
                       label: l.homeCampionato,
@@ -312,11 +341,17 @@ class _MenuButton extends StatelessWidget {
   /// (vedi HomeScreen): 64 quando lo spazio c'è, meno su schermo piccolo.
   final double altezza;
 
+  /// Mostra il badge premium accanto all'etichetta. Il badge si vede solo
+  /// da utente free (ci pensa PremiumBadge), quindi qui basta dichiarare che
+  /// la voce è gated: nessun `if` nel punto d'uso.
+  final bool premium;
+
   const _MenuButton({
     required this.icon,
     required this.label,
     required this.onTap,
     this.altezza = 64,
+    this.premium = false,
   });
 
   @override
@@ -327,7 +362,20 @@ class _MenuButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: onTap,
         icon: Icon(icon),
-        label: Text(label, style: const TextStyle(fontSize: 16)),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(label,
+                  style: const TextStyle(fontSize: 16),
+                  overflow: TextOverflow.ellipsis),
+            ),
+            if (premium) const Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: PremiumBadge(),
+            ),
+          ],
+        ),
         // Sotto i 48dp il tap-target di Material impedirebbe al bottone di
         // rimpicciolirsi davvero: senza shrinkWrap resterebbe alto 48.
         style: FilledButton.styleFrom(
