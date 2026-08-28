@@ -5,7 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/jersey_colors.dart';
 import '../../utils/orientamento.dart';
 
-const _kCourtImage = 'assets/images/double_court_bg.png';
+const _kCourtImage = 'packages/volley_ui/assets/double_court_bg.png';
 
 // Stesso sfondo/barra/campo di TrajectoryScreen (costanti duplicate per
 // coerenza visiva tra le schermate live, stesso pattern già usato).

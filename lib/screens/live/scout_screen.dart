@@ -34,7 +34,7 @@ import '../../utils/orientamento.dart';
 
 const _kBg = Color(0xFF143E59);
 const _kTopBarBg = Color(0xFF0D2738);
-const _kCourtImage = 'assets/images/double_court_bg.png';
+const _kCourtImage = 'packages/volley_ui/assets/double_court_bg.png';
 const _kSmallCourtImage = 'assets/images/small_court.png';
 
 // Lampeggio del punteggio quando cambia: durata totale (regolabile) e

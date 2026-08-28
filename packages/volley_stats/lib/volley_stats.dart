@@ -17,3 +17,4 @@ export 'riepilogo_stagione.dart';
 export 'stat_giocatori.dart';
 export 'filtro.dart';
 export 'tendenza.dart';
+export 'tiri_partita.dart';

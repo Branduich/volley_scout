@@ -3,6 +3,7 @@ import 'package:volley_stats/volley_stats.dart';
 import 'package:volley_ui/barra_filtri.dart';
 import 'package:volley_ui/grafico_tendenza.dart';
 import 'package:volley_ui/kpi_riga.dart';
+import 'package:volley_ui/sezione_traiettorie.dart';
 import 'package:volley_ui/tabellone_stagionale.dart';
 
 /// La vista di squadra. **Non sa da dove arrivano i dati**: riceve un backup
@@ -63,6 +64,26 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
   String? _giocatriceUid;
   MisuraTendenza _misura = MisuraTendenza.efficienzaAttacco;
 
+  /// Stato della sezione traiettorie. La battuta apre per prima perché è il
+  /// fondamentale con più colpi in assoluto: il campo non è mai vuoto.
+  Fondamentale _fondamentaleTiri = Fondamentale.battuta;
+
+  /// Qui la giocatrice è un FILTRO, e parte da chi ha più colpi invece che
+  /// da "tutte": con una stagione intera il campo diventa un groviglio di
+  /// centinaia di frecce, e la heatmap si spegne per non saturare. La vista
+  /// che dice qualcosa è quella di una giocatrice sola. "Tutte" resta nel
+  /// menu, ma va chiesta.
+  String? _giocatriceTiriUid;
+  bool _heatmapTiri = false;
+
+  
+  @override
+  void initState() {
+    super.initState();
+    _giocatriceTiriUid = giocatriceConPiuTiri(widget.backup,
+        fondamentale: _fondamentaleTiri);
+  }
+
   @override
   void didUpdateWidget(PaginaSquadra vecchio) {
     super.didUpdateWidget(vecchio);
@@ -74,6 +95,8 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
       // E la giocatrice scelta non esiste più: il suo uid verrebbe cercato
       // fra le voci di un altro documento e non si troverebbe.
       _giocatriceUid = null;
+      _giocatriceTiriUid = giocatriceConPiuTiri(widget.backup,
+          fondamentale: _fondamentaleTiri);
     }
   }
 
@@ -189,6 +212,51 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
                 misura: _misura,
                 onGiocatrice: (uid) => setState(() => _giocatriceUid = uid),
                 onMisura: (m) => setState(() => _misura = m),
+              ),
+              const SizedBox(height: 40),
+              Text('Traiettorie', style: tema.textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                'Tutti i colpi del periodo su un campo solo. '
+                'Le frecce vanno sempre da sinistra a destra, così colpi di '
+                'scambi diversi si confrontano fra loro.',
+                style: tema.textTheme.bodySmall
+                    ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              SezioneTraiettorie(
+                tiri: tiriFiltrati(
+                  backup,
+                  fondamentale: _fondamentaleTiri,
+                  filtro: _filtro,
+                  // Qui la giocatrice è un FILTRO, non una selezione come nel
+                  // grafico: "tutte" è la vista che si guarda più spesso.
+                  giocatoreUid: _giocatriceTiriUid,
+                ),
+                fondamentale: _fondamentaleTiri,
+                giocatrici: rosa,
+                giocatriceUid: _giocatriceTiriUid,
+                heatmap: _heatmapTiri,
+                onFondamentale: (f) => setState(() {
+                  _fondamentaleTiri = f;
+                  // Passando da battuta ad attacco chi era selezionata può
+                  // non avere nessun colpo del nuovo fondamentale (un
+                  // centrale batte poco, un libero mai): in quel caso si
+                  // riparte dal default, invece di mostrare un campo vuoto.
+                  final ancoraValida = _giocatriceTiriUid != null &&
+                      tiriFiltrati(backup,
+                              fondamentale: f,
+                              filtro: _filtro,
+                              giocatoreUid: _giocatriceTiriUid)
+                          .isNotEmpty;
+                  if (!ancoraValida) {
+                    _giocatriceTiriUid = giocatriceConPiuTiri(backup,
+                        fondamentale: f, filtro: _filtro);
+                  }
+                }),
+                onGiocatrice: (uid) =>
+                    setState(() => _giocatriceTiriUid = uid),
+                onHeatmap: (v) => setState(() => _heatmapTiri = v),
               ),
             ],
           ],

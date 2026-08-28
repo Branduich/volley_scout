@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:volley_ui/campo_traiettorie.dart';
 import 'app_colors.dart';
 import '../models/enums.dart';
 
@@ -13,10 +14,12 @@ class CourtStyle {
 
   // Traiettoria
   static const Color trajectoryArrow = AppColors.brandAccent;
-  static const double trajectoryWidth = 2.5;
+  static const double trajectoryWidth = kSpessoreTraiettoria;
   // Verde brillante per le frecce di battuta/attacco vincenti (ace, punto) —
   // più saturo di AppColors.success per risaltare sul campo scuro.
-  static const Color trajectoryAce = Color(0xFF00FF08);
+  // Il valore vero sta in volley_ui, che disegna il campo: qui si ri-espone
+  // perché le schermate live lo cercano da sempre in CourtStyle.
+  static const Color trajectoryAce = kColoreTraiettoriaVincente;
 
   // Colore associato a ciascun voto (#, +, !, -, =). Mezzo punto e negativo
   // condividono un colore neutro (non richiesto un trattamento dedicato).

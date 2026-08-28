@@ -122,4 +122,82 @@ void main() {
     }
     expect(conGiocatrice, greaterThan(1000));
   });
+
+  group('le traiettorie sintetiche', () {
+    // Sono inventate (i file di partenza non avevano coordinate) ma NON a caso:
+    // le genera `tool/traiettorie_demo.dart` coerenti col voto già registrato.
+    // Questi test sono ciò che impedisce a una rigenerazione distratta di
+    // lasciare la vetrina con un campo vuoto, o di far cadere dentro gli errori.
+    Iterable<AzioneBackup> tiri() sync* {
+      for (final p in _demo().partite) {
+        for (final s in p.sets) {
+          for (final a in s.azioni) {
+            final f = a.fondamentale;
+            if (a.voto == null) continue;
+            if (f == Fondamentale.battuta || f == Fondamentale.attacco) yield a;
+          }
+        }
+      }
+    }
+
+    test('ogni battuta e ogni attacco giudicati ne hanno una', () {
+      final tutti = tiri().toList();
+
+      expect(tutti, hasLength(715));
+      for (final a in tutti) {
+        expect(a.traiettoriaX1, isNotNull, reason: 'azione ${a.ordine}');
+        expect(a.traiettoriaY1, isNotNull);
+        expect(a.traiettoriaX2, isNotNull);
+        expect(a.traiettoriaY2, isNotNull);
+      }
+    });
+
+    test('stanno nello spazio del campo, con lo sconfino degli errori', () {
+      // 0-1 è il campo doppio; un errore può uscire, ma di poco: coordinate
+      // lontanissime disegnerebbero frecce che escono dal riquadro.
+      for (final a in tiri()) {
+        for (final c in [
+          a.traiettoriaX1!,
+          a.traiettoriaY1!,
+          a.traiettoriaX2!,
+          a.traiettoriaY2!,
+        ]) {
+          expect(c, inInclusiveRange(-0.1, 1.1), reason: 'azione ${a.ordine}');
+        }
+      }
+    });
+
+    test('quello che il voto dice vincente cade DENTRO', () {
+      // È la promessa che rende accettabile un dato inventato: il disegno e la
+      // statistica raccontano la stessa partita. Un ace che atterra fuori dal
+      // campo smentirebbe la tabella che gli sta accanto.
+      for (final a in tiri().where((a) => a.voto == Voto.perfetto)) {
+        final x = a.traiettoriaX2!;
+        final y = a.traiettoriaY2!;
+        // Metà avversaria: dipende da chi tira, quindi si guarda il verso.
+        final versoDestra = a.traiettoriaX1! < 0.5;
+        expect(versoDestra ? x > 0.5 : x < 0.5, isTrue,
+            reason: 'azione ${a.ordine}: vincente nella propria metà');
+        expect(x, inInclusiveRange(0.0, 1.0), reason: 'azione ${a.ordine}');
+        expect(y, inInclusiveRange(0.0, 1.0), reason: 'azione ${a.ordine}');
+      }
+    });
+
+    test('gli attacchi murati tornano indietro col tocco a rete', () {
+      final murati = tiri()
+          .where((a) => a.traiettoriaMuroX != null)
+          .toList();
+
+      expect(murati, isNotEmpty);
+      for (final a in murati) {
+        expect(a.fondamentale, Fondamentale.attacco);
+        expect(a.voto, Voto.errore);
+        expect(a.traiettoriaMuroY, isNotNull);
+        // Partenza e arrivo dalla stessa parte della rete: è la condizione con
+        // cui `attaccoMurato` li riconosce.
+        expect((a.traiettoriaX1! < 0.5) == (a.traiettoriaX2! < 0.5), isTrue,
+            reason: 'azione ${a.ordine}');
+      }
+    });
+  });
 }

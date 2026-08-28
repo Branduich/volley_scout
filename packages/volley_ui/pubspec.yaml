@@ -22,3 +22,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+flutter:
+  assets:
+    # Il campo doppio 1200×600. Vive qui, nel package che possiede il DISEGNO
+    # del campo, e non nell'app: lo usano sia le schermate live sia la
+    # dashboard web, e due copie della stessa immagine divergerebbero al primo
+    # ritocco. Chi lo usa lo referenzia come
+    # `packages/volley_ui/assets/double_court_bg.png`.
+    - assets/double_court_bg.png
