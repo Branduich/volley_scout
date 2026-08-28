@@ -296,10 +296,12 @@
     "placeholders": { "dettaglio": { "type": "String" } }
   },
   "partiteDemoTooltip": "Genera partita demo",
-  "partiteDemoImportata": "Importata \"{nome}\"",
+  "partiteDemoImportata": "Stagione di esempio caricata: {n} partite",
   "@partiteDemoImportata": {
-    "placeholders": { "nome": { "type": "String" } }
+    "placeholders": { "n": { "type": "int" } }
   },
+  "partiteDemoConfermaTitolo": "Caricare la stagione di esempio?",
+  "partiteDemoConfermaTesto": "Sostituisce TUTTI i dati di questo dispositivo: squadre, partite, azioni e campionati importati. Voce di sviluppo, visibile solo in debug.",
   "partiteDemoFallito": "Import demo fallito: {dettaglio}",
   "@partiteDemoFallito": {
     "placeholders": { "dettaglio": { "type": "String" } }

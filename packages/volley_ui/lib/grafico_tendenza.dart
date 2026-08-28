@@ -317,9 +317,16 @@ class _RigaTendenza extends StatelessWidget {
           color: tema.colorScheme.tertiary,
         ),
         const SizedBox(width: 8),
-        Text(
-          GraficoTendenza.descrizioneTendenza(retta!.pendenza),
-          style: tema.textTheme.titleSmall,
+        // Flexible come nell'altro ramo: "In crescita: +20,0 punti a partita"
+        // su un telefono in verticale non ci sta, e senza questo la riga
+        // sbordava di una settantina di pixel. Lo si è visto solo quando la
+        // stagione demo è passata da una partita a cinque — con una sola, la
+        // tendenza non si calcola e questo ramo non veniva mai disegnato.
+        Flexible(
+          child: Text(
+            GraficoTendenza.descrizioneTendenza(retta!.pendenza),
+            style: tema.textTheme.titleSmall,
+          ),
         ),
       ],
     );

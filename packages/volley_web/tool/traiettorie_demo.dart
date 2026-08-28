@@ -24,7 +24,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-const _percorso = 'assets/backup_demo.json';
+const _percorso = '../volley_stats/assets/backup_demo.json';
 
 /// Cambiandolo cambia tutta la stagione: tienilo fisso.
 const _seed = 20260828;
@@ -53,6 +53,13 @@ void main(List<String> argomenti) {
         // Solo le azioni giudicate: un'azione senza voto non è un tiro.
         final voto = a['v'] as String?;
         if (voto == null) continue;
+        // Chi ha GIÀ le coordinate non si tocca. Le 197 della gara del 30
+        // aprile sono VERE — travasate dal vecchio demo dell'app, che le
+        // aveva registrate durante lo scout, prima che quel file venisse
+        // cancellato (lo script del travaso vive nella storia di git).
+        // Sovrascriverle con numeri inventati sarebbe una perdita secca, e
+        // silenziosa: il file continuerebbe a sembrare a posto.
+        if (a['x1'] != null) continue;
 
         final nostra = a['s'] != 'avversari';
         final tiro = _tiro(

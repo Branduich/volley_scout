@@ -25,7 +25,7 @@ void main() {
   tearDown(() async => db.close());
 
   Future<void> seminaDemo() => DemoMatchImporter(db)
-      .importaDaJson(File('assets/demo/demo_match.json').readAsStringSync());
+      .importaDaJson(File('packages/volley_stats/assets/backup_demo.json').readAsStringSync());
 
   test('su database vuoto produce un backup valido ma senza partite',
       () async {
@@ -44,7 +44,7 @@ void main() {
     await seminaDemo();
     final dopo = await repo.conteggi();
 
-    expect(dopo.partite, 1);
+    expect(dopo.partite, 5);
     expect(dopo.azioni, greaterThan(400));
   });
 
@@ -59,7 +59,11 @@ void main() {
     expect(backup.squadre, hasLength(1));
     expect(backup.giocatori.length, greaterThanOrEqualTo(12));
 
-    final partita = backup.partite.single;
+    // La gara del 30 aprile è l'unica scoutata dal vivo, quindi l'unica
+    // con la formazione di partenza: le altre vengono da un export che non
+    // la registra.
+    final partita = backup.partite
+        .firstWhere((p) => p.dataOra.month == 4 && p.dataOra.day == 30);
     expect(partita.sets, hasLength(5));
     expect(partita.sets.first.rotazioni, hasLength(6));
     expect(partita.sets.expand((s) => s.azioni).length, greaterThan(400));

@@ -76,7 +76,7 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> _caricaEsempio() async {
     try {
-      final testo = await rootBundle.loadString('assets/backup_demo.json');
+      final testo = await rootBundle.loadString('packages/volley_stats/assets/backup_demo.json');
       // `BackupCompleto.fromJson` è nel package condiviso e fa già i controlli
       // su formato e versione: la dashboard legge gli stessi file che l'app
       // esporta, con lo stesso codice.

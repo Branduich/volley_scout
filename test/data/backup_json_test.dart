@@ -23,11 +23,17 @@ void main() {
   // Punteggi reali di Clai Imola - Nettunia (avversario, nostro), persa 2-3.
   const attesi = [(25, 16), (15, 25), (21, 25), (25, 16), (25, 23)];
 
+  // La stagione di esempio ha cinque partite, ma di UNA sola conosciamo il
+  // referto: quella del 30 aprile, l'unica scoutata dal vivo. È quindi
+  // l'unica su cui si può pretendere che il replay dia i punteggi giusti.
+  PartitaBackup laGara(BackupCompleto b) => b.partite
+      .firstWhere((p) => p.dataOra.month == 4 && p.dataOra.day == 30);
+
   late AppDatabase db;
   late String demoJson;
 
   setUpAll(() {
-    demoJson = File('assets/demo/demo_match.json').readAsStringSync();
+    demoJson = File('packages/volley_stats/assets/backup_demo.json').readAsStringSync();
   });
 
   setUp(() async {
@@ -71,7 +77,10 @@ void main() {
       final setPrima = prima.partite.expand((p) => p.sets).toList();
       final setDopo = dopo.partite.expand((p) => p.sets).toList();
       expect(setDopo.length, setPrima.length);
-      expect(setDopo.length, 5);
+      // La stagione di esempio: 5 partite, 18 set. Il numero esatto conta
+      // poco, ma un crollo direbbe che si sta girando su un file quasi vuoto,
+      // e tutto il round-trip passerebbe senza provare niente.
+      expect(setDopo.length, 18);
 
       final azioniPrima = setPrima.expand((s) => s.azioni).length;
       final azioniDopo = setDopo.expand((s) => s.azioni).length;
@@ -83,7 +92,7 @@ void main() {
 
     test('replay delle azioni ri-parsate: punteggi del referto', () async {
       final backup = await giroCompleto();
-      final partita = backup.partite.single;
+      final partita = laGara(backup);
 
       for (final set in partita.sets) {
         final rotazione = {
@@ -122,7 +131,10 @@ void main() {
       for (final p in backup.partite) {
         if (p.squadraUid != null) expect(uidSquadre, contains(p.squadraUid));
         for (final s in p.sets) {
-          expect(s.rotazioni, hasLength(6));
+          // Solo 5 set su 18 hanno la formazione di partenza: le altre
+          // partite vengono da un export che non la registra. Dove c'è,
+          // dev'essere completa.
+          if (s.rotazioni.isNotEmpty) expect(s.rotazioni, hasLength(6));
           for (final r in s.rotazioni) {
             expect(uidGiocatori, contains(r.giocatoreUid));
           }
@@ -170,7 +182,7 @@ void main() {
     test('i tempi sono ancorati alla prima azione, non alla data di '
         'calendario', () async {
       final backup = await giroCompleto();
-      final partita = backup.partite.single;
+      final partita = laGara(backup);
       final azioni = partita.sets.expand((s) => s.azioni).toList();
 
       // L'ancora c'è ed è un istante reale di gioco.
@@ -192,21 +204,36 @@ void main() {
       // È la garanzia che il delta non perde informazione: `inizioAzioni + t`
       // deve riportare al timestamp originale a DB (al secondo).
       final backup = await giroCompleto();
-      final partita = backup.partite.single;
-      final righe = await db.select(db.scoutActions).get()
+      final partita = laGara(backup);
+      // Le righe di QUELLA partita: il database ne contiene cinque, e la
+      // più vecchia in assoluto appartiene a un'altra gara.
+      final riga = await (db.select(db.volleyMatches)
+            ..where((m) => m.uid.equals(partita.uid)))
+          .getSingle();
+      final suoiSet = await (db.select(db.matchSets)
+            ..where((s) => s.matchId.equals(riga.id)))
+          .get();
+      final idSet = suoiSet.map((s) => s.id).toSet();
+      final sue = (await db.select(db.scoutActions).get())
+          .where((a) => idSet.contains(a.setId))
+          .toList()
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-      final primaAzione = partita.sets
-          .expand((s) => s.azioni)
-          .reduce((a, b) =>
-              a.secondiDaInizioPartita <= b.secondiDaInizioPartita ? a : b);
-
-      expect(partita.inizioAzioni!.difference(righe.first.timestamp).inSeconds,
+      // L'ancora È il timestamp della prima azione, non la data di
+      // calendario della partita.
+      expect(partita.inizioAzioni!.difference(sue.first.timestamp).inSeconds,
           0);
+
+      // E il delta più grande riporta esattamente all'ultima azione: è
+      // questo che dimostra che `t` non perde informazione lungo il giro
+      // database -> file -> database.
+      final ultimoDelta = partita.sets
+          .expand((s) => s.azioni)
+          .map((a) => a.secondiDaInizioPartita)
+          .reduce((a, b) => a > b ? a : b);
       expect(
-        partita.inizioAzioni!
-            .add(Duration(seconds: primaAzione.secondiDaInizioPartita)),
-        partita.inizioAzioni,
+        partita.inizioAzioni!.add(Duration(seconds: ultimoDelta)),
+        sue.last.timestamp,
       );
     });
 
@@ -280,13 +307,13 @@ void main() {
 
       final backup = leggiBackupDaStringa(jsonEncode(json));
       expect(backup.squadre, isNotEmpty);
-      expect(backup.partite.single.sets, hasLength(5));
+      expect(backup.partite, hasLength(5));
     });
 
     test('un BOM UTF-8 in testa non impedisce la lettura', () async {
       final testo = '\u{FEFF}${codificaBackup(await esporta())}';
       final byte = Uint8List.fromList(utf8.encode(testo));
-      expect(leggiBackupDaByte(byte).partite, hasLength(1));
+      expect(leggiBackupDaByte(byte).partite, hasLength(5));
     });
   });
 }

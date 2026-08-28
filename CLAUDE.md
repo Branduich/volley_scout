@@ -312,10 +312,21 @@ lib/
 │   │                               Modello dati → Categorie personalizzabili)
 │   ├── default_team_seeder.dart  (squadra demo "Volley Star" pre-caricata
 │   │                               al primo avvio, seed una-tantum via flag)
-│   ├── demo_match_importer.dart  (import partita demo da assets/demo/ —
-│   │                               solo debug, vedi Fase 4; `importaDaJson()`
-│   │                               è la variante senza rootBundle usata dai
-│   │                               test, che leggono l'asset con File)
+│   ├── demo_match_importer.dart  (carica la STAGIONE di esempio — 5 partite,
+│   │                               nomi inventati — da
+│   │                               `packages/volley_stats/assets/backup_demo.json`,
+│   │                               lo stesso file che mostra la dashboard web.
+│   │                               Dal passo 13 sono TRE righe: il demo è un
+│   │                               backup, quindi caricarlo = ripristinarlo, e
+│   │                               la lettura la fa lo stesso codice dei backup
+│   │                               degli utenti. Era un parser su misura di 190
+│   │                               righe per un formato inventato apposta.
+│   │                               **SOSTITUISCE** il database invece di
+│   │                               accodare (è un ripristino): bottone solo in
+│   │                               `kDebugMode` e con conferma. Per accodare
+│   │                               servirebbe il merge per uid, passo 4b.
+│   │                               `importaDaJson()` è la variante senza
+│   │                               rootBundle usata dai test)
 │   ├── uid.dart                  (nuovoUid() — identità stabile di una riga,
 │   │                               32 hex da Random.secure(); schema v19, vedi
 │   │                               Modello dati e docs/dati-stagionali.md)
@@ -506,9 +517,12 @@ lib/
 
 assets/
 ├── images/         (court_bg.png, double_court_bg.png, small_court.png)
-├── demo/           (demo_match.json — partita reale convertita, vedi Fase 4;
-│                    + "VOLLEY STATS PDF - Stats_Match_PDF.csv", foglio di
-│                    riferimento della mega tabella statistiche del PDF)
+├── demo/           ("VOLLEY STATS PDF - Stats_Match_PDF.csv", foglio di
+│                    riferimento della mega tabella statistiche del PDF.
+│                    `demo_match.json` NON c'è più dal passo 13: era
+│                    l'ultimo file del repo con cognomi veri di minorenni.
+│                    La stagione di esempio vive ora in
+│                    packages/volley_stats/assets/backup_demo.json)
 ├── icon/           (logo app: anche asset runtime per l'header del PDF)
 └── fonts/Barlow/    (Barlow-Regular/Medium/SemiBold/Bold.ttf — pesi 400/500/600/700)
 

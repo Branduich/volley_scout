@@ -23,3 +23,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+flutter:
+  assets:
+    # La stagione dimostrativa, nel formato backup. Vive qui, nel package dei
+    # DATI, perché la usano in due: la vetrina web la mostra a chi arriva senza
+    # l'app, e il bottone demo dell'app (solo debug) la carica nel database.
+    # Due copie dello stesso file divergerebbero al primo aggiornamento.
+    # Si riferisce come `packages/volley_stats/assets/backup_demo.json`.
+    # Si rigenera con gli script in packages/volley_web/tool/.
+    - assets/backup_demo.json

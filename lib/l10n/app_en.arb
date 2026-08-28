@@ -293,7 +293,9 @@
   "partiteTrasferta": "Away",
   "partiteCsvFallito": "CSV export failed: {dettaglio}",
   "partiteDemoTooltip": "Generate demo match",
-  "partiteDemoImportata": "Imported \"{nome}\"",
+  "partiteDemoImportata": "Demo season loaded: {n} matches",
+  "partiteDemoConfermaTitolo": "Load the demo season?",
+  "partiteDemoConfermaTesto": "This replaces ALL data on this device: teams, matches, actions and imported leagues. Development-only, visible in debug builds.",
   "partiteDemoFallito": "Demo import failed: {dettaglio}",
 
   "mappaApri": "Open in maps",

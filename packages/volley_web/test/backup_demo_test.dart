@@ -16,8 +16,8 @@ import 'package:volley_stats/ricalcola_stato.dart';
 /// invoca `flutter test`, da cui le due strade.
 File _asset() {
   for (final p in [
-    'packages/volley_web/assets/backup_demo.json',
-    'assets/backup_demo.json',
+    'packages/volley_stats/assets/backup_demo.json',
+    '../volley_stats/assets/backup_demo.json',
   ]) {
     final f = File(p);
     if (f.existsSync()) return f;
@@ -29,6 +29,8 @@ BackupCompleto _demo() => BackupCompleto.fromJson(
     jsonDecode(_asset().readAsStringSync()) as Map<String, Object?>);
 
 void main() {
+  _rotazioni();
+
   test('si legge con lo stesso codice che legge i file dell\'app', () {
     // Se questo fallisce dopo un cambio di formato, la vetrina è rotta: è il
     // motivo per cui il convertitore sta nel repo e non solo il suo risultato.
@@ -199,5 +201,39 @@ void main() {
             reason: 'azione ${a.ordine}');
       }
     });
+  });
+}
+
+/// Le rotazioni iniziali. Il controllo veniva da `test/logic/demo_match_test`,
+/// cancellato col vecchio formato del demo (passo 13): l'invariante però resta
+/// valido e vale la pena non perderlo. Un set con la rotazione incompleta non
+/// si può ricostruire — la formazione di partenza sparirebbe dal report senza
+/// nessun errore.
+void _rotazioni() {
+  test('almeno una partita ha le formazioni di partenza complete', () {
+    // Le rotazioni vengono dallo scout dal vivo: gli `.xlsx` di partenza non
+    // le hanno, quindi quattro partite su cinque ne sono prive e non possono
+    // averle. Quella del 30 aprile invece sì, travasata dal vecchio demo
+    // dell'app: è ciò che permette di provare in-app la formazione di
+    // partenza nel report e la ripresa di un set. Se sparisse, il demo
+    // smetterebbe di servire a quello senza che nessuno se ne accorga.
+    var setConRotazione = 0;
+    for (final p in _demo().partite) {
+      for (final s in p.sets) {
+        final nostre =
+            s.rotazioni.where((r) => r.squadra == Squadra.nostra).toList();
+        if (nostre.isEmpty) continue;
+        // Dove c'è, dev'essere completa: sei posizioni, sei giocatrici
+        // diverse. Una rotazione a metà è peggio di nessuna.
+        expect(nostre, hasLength(6),
+            reason: '${p.nome} set ${s.numero}: rotazione incompleta');
+        expect(nostre.map((r) => r.posizione).toSet(), hasLength(6),
+            reason: '${p.nome} set ${s.numero}: posizione ripetuta');
+        expect(nostre.map((r) => r.giocatoreUid).toSet(), hasLength(6),
+            reason: '${p.nome} set ${s.numero}: giocatrice ripetuta');
+        setConRotazione++;
+      }
+    }
+    expect(setConRotazione, 5);
   });
 }

@@ -236,7 +236,7 @@ void main() {
   // tabellone sarebbe vuoto e il test non proverebbe niente.
   perOgniDimensione('DashboardScreen con una partita', (db) async {
     await DemoMatchImporter(db)
-        .importaDaJson(File('assets/demo/demo_match.json').readAsStringSync());
+        .importaDaJson(File('packages/volley_stats/assets/backup_demo.json').readAsStringSync());
     return const DashboardScreen();
   });
 

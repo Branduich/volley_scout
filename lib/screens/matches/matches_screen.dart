@@ -150,20 +150,41 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
       appBar: AppBar(
         title: Text(l.partiteTitolo),
         actions: [
-          // Solo in debug: importa la partita demo (Clai-Nettunia, 5 set)
-          // per sviluppare/provare i report — vedi DemoMatchImporter.
+          // Solo in debug: carica la stagione di esempio (5 partite) per
+          // sviluppare e provare report e statistiche — vedi
+          // DemoMatchImporter. SOSTITUISCE i dati del dispositivo, da cui la
+          // conferma: è un ripristino di backup, non più un import che accoda.
           if (kDebugMode)
             IconButton(
               tooltip: l.partiteDemoTooltip,
               icon: const Icon(Icons.science),
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
+                final conferma = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(l.partiteDemoConfermaTitolo),
+                    content: Text(l.partiteDemoConfermaTesto),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text(l.comuneAnnulla),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: Text(l.comuneConferma),
+                      ),
+                    ],
+                  ),
+                );
+                if (conferma != true) return;
                 try {
-                  final nome = await DemoMatchImporter(
+                  final esito = await DemoMatchImporter(
                     ref.read(appDatabaseProvider),
                   ).importa();
                   messenger.showSnackBar(
-                    SnackBar(content: Text(l.partiteDemoImportata(nome))),
+                    SnackBar(
+                        content: Text(l.partiteDemoImportata(esito.partite))),
                   );
                 } catch (e) {
                   messenger.showSnackBar(

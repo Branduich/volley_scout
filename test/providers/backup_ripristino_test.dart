@@ -33,7 +33,7 @@ void main() {
   });
 
   Future<void> seminaDemo(AppDatabase db) => DemoMatchImporter(db)
-      .importaDaJson(File('assets/demo/demo_match.json').readAsStringSync());
+      .importaDaJson(File('packages/volley_stats/assets/backup_demo.json').readAsStringSync());
 
   /// Export con `esportatoIl` fisso, così due file dello stesso contenuto sono
   /// confrontabili carattere per carattere.
@@ -145,7 +145,10 @@ void main() {
 
   test('il collegamento gara → partita si ricostruisce per uid', () async {
     await seminaDemo(origine);
-    final partita = await origine.select(origine.volleyMatches).getSingle();
+    // Una qualunque delle cinque partite della stagione di esempio: al
+    // collegamento gara -> partita interessa l'uid, non quale sia.
+    final partita =
+        (await origine.select(origine.volleyMatches).get()).first;
     final campionatoId = await origine.into(origine.campionati).insert(
           CampionatiCompanion.insert(
             nome: 'GIRONE X',
@@ -166,8 +169,8 @@ void main() {
         .ripristinaSostituendo(leggiBackupDaStringa(await esporta(origine)));
 
     final gara = await destinazione.select(destinazione.gare).getSingle();
-    final partitaNuova =
-        await destinazione.select(destinazione.volleyMatches).getSingle();
+    final partitaNuova = (await destinazione.select(destinazione.volleyMatches).get())
+        .firstWhere((p) => p.uid == partita.uid);
     // Gli id sono cambiati, il collegamento no.
     expect(gara.matchId, partitaNuova.id);
     expect(partitaNuova.uid, partita.uid);
@@ -182,7 +185,7 @@ void main() {
     final riepilogo = await repo.riepilogoCorrente();
 
     expect(riepilogo.vuoto, isFalse);
-    expect(riepilogo.partite, 1);
+    expect(riepilogo.partite, 5);
     expect(riepilogo.ultimaPartita, isNotNull);
   });
 

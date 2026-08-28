@@ -78,11 +78,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  assets:
-    # Backup di esempio (la partita demo esportata col formato vero): è quello
-    # che la vetrina mostrerà a chi arriva senza l'app. Rigenerabile dall'app
-    # con Impostazioni → Esporta backup.
-    - assets/backup_demo.json
+  # Nessun asset proprio: la stagione dimostrativa vive in volley_stats (il
+  # package dei dati), perche' la usa anche l'app — vedi il suo pubspec.
 
   # To add assets to your application, add an assets section, like this:
   # assets:

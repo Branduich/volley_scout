@@ -19,7 +19,7 @@ import 'package:volley_ui/pagina_squadra.dart';
 /// quella condivisa.
 void main() {
   Future<void> seminaDemo(AppDatabase db) => DemoMatchImporter(db)
-      .importaDaJson(File('assets/demo/demo_match.json').readAsStringSync());
+      .importaDaJson(File('packages/volley_stats/assets/backup_demo.json').readAsStringSync());
 
   Future<ProviderContainer> contenitore(AppDatabase db) async {
     SharedPreferences.setMockInitialValues({'app.lingua': 'it'});
@@ -76,7 +76,7 @@ void main() {
 
       final backup = await c.read(backupInMemoriaProvider.future);
 
-      expect(backup.partite, hasLength(1));
+      expect(backup.partite, hasLength(5));
       expect(backup.giocatori, isNotEmpty);
       final azioniNelBackup = backup.partite
           .expand((p) => p.sets)

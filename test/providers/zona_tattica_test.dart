@@ -21,7 +21,7 @@ void main() {
   setUp(() async {
     db = AppDatabase.perTest(NativeDatabase.memory());
     await DemoMatchImporter(db)
-        .importaDaJson(File('assets/demo/demo_match.json').readAsStringSync());
+        .importaDaJson(File('packages/volley_stats/assets/backup_demo.json').readAsStringSync());
   });
 
   tearDown(() async => db.close());
@@ -61,6 +61,10 @@ void main() {
   }
 
   test('assegna una zona a 63 attacchi della demo', () async {
+    // 63 su 332: la zona TATTICA si ricava dalla formazione in campo, e
+    // nella stagione di esempio solo la gara del 30 aprile ha le rotazioni
+    // (le altre vengono da un export che non le registra). Il numero non è
+    // sbagliato: è tutto ciò che si può calcolare su quei dati.
     final r = await calcola();
     expect(r.zone.length, 63);
   });
