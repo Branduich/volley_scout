@@ -1,13 +1,14 @@
 {
-    "name": "volley_web",
-    "short_name": "volley_web",
+    "name": "Statistiche di stagione — Volley Scout Stratego",
+    "short_name": "Volley Stratego",
+    "description": "Statistiche di stagione per la pallavolo: efficienza, positività e andamento nel tempo di ogni giocatrice. I dati restano nel browser.",
+    "lang": "it",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Dashboard stagionale web di Volley Scout Stratego",
-    "orientation": "portrait-primary",
+    "background_color": "#FFFFFF",
+    "theme_color": "#1E3A8A",
     "prefer_related_applications": false,
+    "categories": ["sports", "productivity"],
     "icons": [
         {
             "src": "icons/Icon-192.png",

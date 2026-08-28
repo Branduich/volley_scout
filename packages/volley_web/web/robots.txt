@@ -1,0 +1,6 @@
+# La dashboard è pubblica e indicizzabile, ma per un motore di ricerca questa
+# pagina è quasi vuota: Flutter disegna su canvas, quindi non c'è testo da
+# leggere oltre al <noscript>. La vetrina indicizzata è il sito su Google
+# Sites, che linka qui — vedi "La vetrina" in docs/dati-stagionali.md.
+User-agent: *
+Allow: /

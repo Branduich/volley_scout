@@ -52,6 +52,13 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Genera le icone del sito (192/512 + maskable) dallo STESSO logo dell'app:
+  # due loghi diversi per la stessa cosa si notano subito.
+  flutter_launcher_icons: ^0.14.4
+  # Solo per tool/icona_maskable.dart, che rifinisce le icone che
+  # flutter_launcher_icons genera senza zona sicura. Arriva comunque con lui,
+  # ma un import diretto va dichiarato.
+  image: ^4.9.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -107,3 +114,15 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Icone del sito — `dart run flutter_launcher_icons` da questa cartella.
+# Il logo è quello dell'app (assets/icon/ nella radice del repo): la dashboard
+# è la stessa cosa vista da un altro schermo, non un prodotto diverso.
+# image_path è la versione appiattita su bianco; per la maskable serve
+# l'originale trasparente, che il tool centra dentro la zona sicura.
+flutter_launcher_icons:
+  web:
+    generate: true
+    image_path: "../../assets/icon/icon.png"
+    background_color: "#FFFFFF"
+    theme_color: "#1E3A8A"

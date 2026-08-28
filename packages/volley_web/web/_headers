@@ -1,0 +1,35 @@
+# Header per Cloudflare Pages (file copiato tal quale in build/web).
+#
+# Il problema che risolve: i file di Flutter Web NON hanno un hash nel nome —
+# `main.dart.js` si chiama così anche dopo una ricostruzione. Con la cache
+# predefinita del browser, chi ha già visitato il sito continua a vedere la
+# versione vecchia dopo una pubblicazione, senza nessun errore e senza capire
+# perché. Da cui: niente cache sui file d'ingresso, cache breve sul resto.
+#
+# `no-cache` non vuol dire "non salvare": vuol dire "richiedi conferma al
+# server prima di riusare la copia". Se il file non è cambiato la risposta è un
+# 304 di poche centinaia di byte, quindi non costa quasi niente.
+
+/index.html
+  Cache-Control: no-cache
+
+/flutter_bootstrap.js
+  Cache-Control: no-cache
+
+/flutter_service_worker.js
+  Cache-Control: no-cache
+
+/main.dart.js
+  Cache-Control: no-cache
+
+/manifest.json
+  Cache-Control: no-cache
+
+# Il motore e i font cambiano solo quando cambia la versione di Flutter, ma
+# stanno sempre allo stesso indirizzo: un anno di cache "immutable" li
+# congelerebbe attraverso un aggiornamento. Un giorno è il compromesso.
+/canvaskit/*
+  Cache-Control: public, max-age=86400
+
+/assets/*
+  Cache-Control: public, max-age=86400

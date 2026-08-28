@@ -1,46 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
   <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
+    Sostituito da `flutter build web --base-href`. Servito dalla radice di un
+    dominio (…pages.dev) resta "/". Sbagliarlo dà una pagina BIANCA senza
+    nessun errore: è la prima cosa da verificare dopo una pubblicazione.
   -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Dashboard stagionale web di Volley Scout Stratego">
+  <meta name="description" content="Statistiche di stagione per la pallavolo: efficienza in attacco, positività in ricezione, andamento nel tempo di ogni giocatrice. Carica il backup di Volley Scout Stratego, i dati restano nel tuo browser.">
+  <meta name="theme-color" content="#1E3A8A">
 
-  <!-- iOS meta tags & icons -->
+  <!--
+    Metà del traino in questo settore è il link incollato in WhatsApp o in un
+    gruppo: senza queste righe l'anteprima mostra l'indirizzo nudo.
+    ATTENZIONE: og:url e og:image vogliono URL ASSOLUTI. Se il Worker cambia nome
+    (o arriva un dominio vero), vanno aggiornati qui e va rifatta la build
+    (vedi docs/deploy-dashboard.md).
+  -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Volley Scout Stratego">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="Statistiche di stagione — Volley Scout Stratego">
+  <meta property="og:description" content="Come sta andando la squadra, e ogni giocatrice, nell'arco della stagione. Nessuna registrazione: i dati restano nel tuo browser.">
+  <meta property="og:url" content="https://volley-stratego.branduich.workers.dev/">
+  <meta property="og:image" content="https://volley-stratego.branduich.workers.dev/icons/Icon-512.png">
+  <meta name="twitter:card" content="summary">
+
+  <!-- iOS -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="volley_web">
+  <!-- Nome sotto l'icona: corto, come il launcher Android dell'app. -->
+  <meta name="apple-mobile-web-app-title" content="Volley Stratego">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>volley_web</title>
+  <title>Statistiche di stagione — Volley Scout Stratego</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
   <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
+    Il testo qui sotto è ciò che si vede mentre il motore di Flutter scarica, e
+    l'unica cosa che resta a chi ha JavaScript disattivato. Flutter disegna su
+    canvas, quindi per un motore di ricerca questa pagina è vuota: la vetrina
+    vera è il sito su Google Sites, che è testo indicizzabile e linka qui
+    (vedi "La vetrina" in docs/dati-stagionali.md).
+    Il caricatore rimpiazza il contenuto del body, quindi questo blocco sparisce
+    da sé quando l'app parte.
   -->
+  <noscript>
+    <h1>Statistiche di stagione — Volley Scout Stratego</h1>
+    <p>
+      Questa pagina ha bisogno di JavaScript. I dati restano comunque sul tuo
+      dispositivo: non vengono caricati da nessuna parte.
+    </p>
+  </noscript>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
