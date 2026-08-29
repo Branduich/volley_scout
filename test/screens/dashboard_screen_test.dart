@@ -118,7 +118,7 @@ void main() {
 
       await monta(tester, db);
 
-      expect(find.text('Giocatrici'), findsOneWidget);
+      expect(find.text('Atleti'), findsOneWidget);
       expect(find.text('Tendenza'), findsOneWidget);
       expect(find.text('Periodo'), findsOneWidget);
       await smonta(tester);

@@ -453,6 +453,29 @@ ancora da fare (traiettorie aggregate, heatmap) qualunque riordino sarebbe una
 decisione presa su un disegno incompleto, da rifare al passo dopo. Deciso con
 l'utente il 2026-08-28, subito dopo aver visto 9b funzionare.
 
+*Primo giro fatto il 2026-08-29*, guardando la pagina intera:
+- **Riga KPI**: ordine rifatto — Partite, Set, Punti, Errori, Ace, Efficienza
+  attacco, Positività ricezione. Le tessere sono tutte alte uguali (la riga del
+  sottopancia c'è sempre, vuota quando non serve: un'altezza in pixel si
+  sfascerebbe al primo cambio di font). Le due percentuali portano la formula
+  sotto, con le stesse stringhe delle card del report nell'app.
+  **"Ricezione perfetta" è diventata "Positività ricezione"** — non solo
+  l'etichetta: `RiepilogoStagione.positivitaRicezione` somma `#` e `+`. La
+  perfetta da sola dava 0% su una stagione intera, cioè un numero che non si
+  guarda.
+- **Tabellone**: si chiama **Atleti** (come il filtro della tendenza e delle
+  traiettorie: "giocatrice" è sparito dall'interfaccia) e ha un selettore
+  Riepilogo / Battuta / Attacco / Ricezione / Difesa / Muro. Il riepilogo
+  risponde a "chi sta giocando bene"; le viste per fondamentale sono la fetta
+  corrispondente della **mega tabella del PDF**, sotto-blocchi "su ricezione" e
+  "su difesa" compresi — che è la ragione per cui l'allenatore la stampava.
+  Chi non ha toccato quel fondamentale mostra `0` nel totale e **celle vuote**
+  nel resto: la riga resta (si vede chi non riceve mai) senza riempirsi di zeri
+  e trattini che sembrano dati.
+- Tutto questo NON è costato un calcolo nuovo: `StatGiocatore` teneva già i
+  conteggi per voto di tutti e cinque i fondamentali più la partizione
+  dell'attacco. Era solo questione di quali mostrare.
+
 ## La vetrina: deploy e SEO
 
 ### v1: Google Sites (già esistente) + host statico gratuito

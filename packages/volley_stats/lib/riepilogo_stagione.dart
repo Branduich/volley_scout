@@ -28,7 +28,7 @@ class RiepilogoStagione {
     required this.azioni,
     this.efficienzaAttacco,
     this.percentualeAce,
-    this.ricezionePerfetta,
+    this.positivitaRicezione,
   });
 
   final int partite;
@@ -49,7 +49,7 @@ class RiepilogoStagione {
 
   final double? efficienzaAttacco;
   final double? percentualeAce;
-  final double? ricezionePerfetta;
+  final double? positivitaRicezione;
 
   int get partitePerse => partite - partiteVinte;
 }
@@ -146,8 +146,9 @@ RiepilogoStagione riepilogoStagione(
     // Ace = battute `#` sul totale delle battute.
     percentualeAce: percentuale(
         conteggioVoto(battuta, Voto.perfetto), totaleVoti(battuta)),
-    // Ricezione perfetta: solo `#`, non `#`+`+` (quella è la positività).
-    ricezionePerfetta: percentuale(
-        conteggioVoto(ricezione, Voto.perfetto), totaleVoti(ricezione)),
+    // Positività della ricezione: `#`+`+` sul totale — la stessa card del
+    // report a video, non la sola perfetta. Una ricezione `+` non è un punto
+    // ma lascia comunque attaccare, e a fine stagione è quella la domanda.
+    positivitaRicezione: positivitaDaVoti(ricezione),
   );
 }

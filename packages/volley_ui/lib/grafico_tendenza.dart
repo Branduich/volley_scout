@@ -109,7 +109,7 @@ class GraficoTendenza extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             MenuCompatto<String?>(
-              etichetta: 'Giocatrice',
+              etichetta: 'Atleta',
               valore: giocatriceUid,
               larghezza: 250,
               voci: [

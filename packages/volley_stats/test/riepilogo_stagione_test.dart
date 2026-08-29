@@ -66,7 +66,7 @@ void main() {
 
     expect(r.efficienzaAttacco, isNotNull);
     expect(r.percentualeAce, inInclusiveRange(0, 100));
-    expect(r.ricezionePerfetta, inInclusiveRange(0, 100));
+    expect(r.positivitaRicezione, inInclusiveRange(0, 100));
     // L'efficienza può essere negativa, ma non oltre il -100%.
     expect(r.efficienzaAttacco, inInclusiveRange(-100, 100));
   });

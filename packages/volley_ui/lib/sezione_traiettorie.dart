@@ -84,7 +84,7 @@ class SezioneTraiettorie extends StatelessWidget {
               onCambia: (v) => v == null ? null : onFondamentale(v),
             ),
             MenuCompatto<String?>(
-              etichetta: 'Giocatrice',
+              etichetta: 'Atleta',
               valore: giocatriceUid,
               larghezza: 250,
               voci: [

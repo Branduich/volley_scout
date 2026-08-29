@@ -179,9 +179,10 @@ class _PaginaSquadraState extends State<PaginaSquadra> {
             else ...[
               KpiRiga(kpi: kpiDaRiepilogo(riepilogo)),
               const SizedBox(height: 32),
-              Text('Giocatrici', style: tema.textTheme.titleLarge),
+              Text('Atleti', style: tema.textTheme.titleLarge),
               const SizedBox(height: 4),
               Text(
+                'Scegli un fondamentale per le stesse colonne del PDF. '
                 'Tocca l\'intestazione di una colonna per ordinare.',
                 style: tema.textTheme.bodySmall
                     ?.copyWith(color: tema.colorScheme.onSurfaceVariant),
