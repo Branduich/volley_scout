@@ -476,6 +476,32 @@ l'utente il 2026-08-28, subito dopo aver visto 9b funzionare.
   conteggi per voto di tutti e cinque i fondamentali più la partizione
   dell'attacco. Era solo questione di quali mostrare.
 
+**15. Colore alla dashboard — ULTIMA miglioria** (decisa con l'utente il
+2026-08-29, dopo il passo 14). Portare sulla dashboard i **colori per gruppo di
+colonne della mega tabella del PDF**: battuta pesca `FCE5CD`, attacco verde
+`D9EAD3` coi due sotto-blocchi in `EBF3E8`, ricezione `C9DAF8`, difesa `9FC5E8`,
+muro `EAD1DC`, punti/errori `D5A6BD` — la lista sta in `_buildMegaTabella`
+(`screens/report/match_pdf_screen.dart`), presa a suo tempo dal foglio Google
+dell'utente.
+
+*Perché non è decorazione*: la vista per fondamentale del tabellone È la fetta
+corrispondente del PDF. Con gli stessi colori le due cose si riconoscono come lo
+stesso documento invece di sembrare due tabelle che dicono per caso le stesse
+cose. Il colore qui **richiama il dato**, che è esattamente l'uso buono del
+colore in una tabella di numeri.
+
+Due vincoli da rispettare quando si farà:
+- **Gli stessi widget girano sotto due temi diversi** — il guscio web
+  (`ThemeData(colorSchemeSeed: 0xFF1E3A8A)`) e la pagina dentro l'app
+  (`AppTheme.light`, Barlow e palette del brand). I colori del PDF sono valori
+  fissi e vanno bene come tali, ma tutto il resto (testo, sfondi, bordi) deve
+  continuare a uscire da `Theme.of(context).colorScheme`, o la dashboard in-app
+  stona con l'app che le sta intorno. Verificare il contrasto del testo sopra
+  ognuna delle tinte: sono pastelli nati per la carta.
+- **Non colorare anche i numeri per valore** (efficienza rossa/verde) nello
+  stesso momento: due codici colore sovrapposti nella stessa tabella non si
+  leggono più. Se un domani serve, prima si toglie quello per gruppo.
+
 ## La vetrina: deploy e SEO
 
 ### v1: Google Sites (già esistente) + host statico gratuito
