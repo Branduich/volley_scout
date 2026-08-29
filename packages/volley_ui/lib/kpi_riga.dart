@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:volley_stats/volley_stats.dart';
 
+import 'sfondo_tenue.dart';
+
 /// Una tessera della riga KPI: un numero grande con la sua etichetta.
 ///
 /// Il [dettaglio] è la riga piccola sotto al numero — il bilancio delle
@@ -75,7 +77,10 @@ class _KpiCard extends StatelessWidget {
       width: 190,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: tema.colorScheme.surfaceContainerHighest,
+        // Lo stesso tenue delle righe alternate del tabellone: la riga KPI e la
+        // tabella sotto sono due parti della stessa pagina, e col grigio neutro
+        // sembravano due componenti presi da posti diversi.
+        color: sfondoTenue(tema.colorScheme),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

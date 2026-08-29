@@ -476,13 +476,17 @@ l'utente il 2026-08-28, subito dopo aver visto 9b funzionare.
   conteggi per voto di tutti e cinque i fondamentali più la partizione
   dell'attacco. Era solo questione di quali mostrare.
 
-**15. Colore alla dashboard — ULTIMA miglioria** (decisa con l'utente il
-2026-08-29, dopo il passo 14). Portare sulla dashboard i **colori per gruppo di
-colonne della mega tabella del PDF**: battuta pesca `FCE5CD`, attacco verde
+**15. Colore alla dashboard — ULTIMA miglioria. FATTA il 2026-08-29**, decisa e
+realizzata nella stessa sessione del passo 14, guardando la pagina a ogni giro.
+
+Sulla dashboard sono arrivati i **colori per gruppo di colonne della mega
+tabella del PDF**: identità `DD7E6B`, battuta pesca `FCE5CD`, attacco verde
 `D9EAD3` coi due sotto-blocchi in `EBF3E8`, ricezione `C9DAF8`, difesa `9FC5E8`,
-muro `EAD1DC`, punti/errori `D5A6BD` — la lista sta in `_buildMegaTabella`
-(`screens/report/match_pdf_screen.dart`), presa a suo tempo dal foglio Google
-dell'utente.
+muro `EAD1DC`, punti/errori `D5A6BD`. Vivono in `tabellone_stagionale.dart`
+(`kColoreGruppo*`), **copiati a mano** da `_buildMegaTabella`
+(`screens/report/match_pdf_screen.dart`): il package non può importare una
+schermata dell'app, quindi se il PDF cambia palette vanno riallineati — il
+commento sulle costanti lo dice.
 
 *Perché non è decorazione*: la vista per fondamentale del tabellone È la fetta
 corrispondente del PDF. Con gli stessi colori le due cose si riconoscono come lo
@@ -490,17 +494,40 @@ stesso documento invece di sembrare due tabelle che dicono per caso le stesse
 cose. Il colore qui **richiama il dato**, che è esattamente l'uso buono del
 colore in una tabella di numeri.
 
-Due vincoli da rispettare quando si farà:
-- **Gli stessi widget girano sotto due temi diversi** — il guscio web
-  (`ThemeData(colorSchemeSeed: 0xFF1E3A8A)`) e la pagina dentro l'app
-  (`AppTheme.light`, Barlow e palette del brand). I colori del PDF sono valori
-  fissi e vanno bene come tali, ma tutto il resto (testo, sfondi, bordi) deve
-  continuare a uscire da `Theme.of(context).colorScheme`, o la dashboard in-app
-  stona con l'app che le sta intorno. Verificare il contrasto del testo sopra
-  ognuna delle tinte: sono pastelli nati per la carta.
-- **Non colorare anche i numeri per valore** (efficienza rossa/verde) nello
-  stesso momento: due codici colore sovrapposti nella stessa tabella non si
-  leggono più. Se un domani serve, prima si toglie quello per gruppo.
+Come è stato fatto, e le tre decisioni che contano:
+- **La tinta appartiene alla COLONNA, non alla riga di intestazione**
+  (`ColonnaTabellone.colore` + `_Intestazione`). Sembra un dettaglio ed è invece
+  ciò che rende la strada percorribile fino in fondo: nella vista Attacco i
+  gruppi sono tre e devono distinguersi fra loro, cosa che una fascia unica su
+  tutta la riga non potrebbe fare.
+- **Nel Riepilogo il colore dice la PROVENIENZA** di ogni colonna: Battute e Ace
+  pesca, Attacchi e Punti att. verde, Ricezioni e Pos. ric. azzurro, Punti ed
+  Errori nel rosa del gruppo "PT - ERR". `#`, `Atleta` e `Azioni` stanno insieme
+  nel blocco d'identità — "Azioni" nel PDF non esiste, ma è il totale che
+  attraversa tutti i fondamentali, quindi appartiene a chi è la riga più che a
+  un gruppo di gioco.
+- **Il testo sopra le tinte è fisso e scuro** (`_kTestoSuColoreGruppo`), non
+  `onSurface`: quando blocchi lo sfondo devi bloccare anche il testo, o in un
+  eventuale tema scuro diventerebbe chiaro su pastello chiaro.
+
+Più due cose che il colore dei gruppi non copre, decise a video:
+- **Righe alternate** nel tabellone (le PARI contando da uno, come il PDF: se si
+  invertisse, la riga in cima sembrerebbe selezionata) — con dieci colonne di
+  numeri l'occhio scivola sulla riga sbagliata.
+- **Le tessere KPI usano lo stesso tenue delle righe** al posto del grigio
+  neutro: la riga KPI e la tabella sono due parti della stessa pagina, e col
+  grigio sembravano due componenti presi da posti diversi.
+  Quel tenue sta in **`sfondo_tenue.dart`** (`primary` al 6%) e non nei due
+  chiamanti: l'intero senso della modifica è che sia *lo stesso* colore, e due
+  `withValues` scritti a mano divergono alla prima ritoccata. Viene dal **tema**
+  e non è un azzurro fisso — la primaria è lo stesso blu del brand in entrambi
+  gli host — al contrario delle tinte del PDF, che sono un dato del documento.
+  Il 6% è basso di proposito: serve a raggruppare, non a colorare.
+
+**Resta valido il vincolo che non abbiamo usato**: niente colore dei *numeri*
+per valore (efficienza rossa/verde) sopra a questo. Due codici colore
+sovrapposti nella stessa tabella non si leggono più; se un domani serve, prima
+si toglie quello per gruppo.
 
 ## La vetrina: deploy e SEO
 

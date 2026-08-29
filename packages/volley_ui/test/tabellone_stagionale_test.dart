@@ -40,6 +40,13 @@ Future<void> _monta(WidgetTester tester, List<StatGiocatore> stats) =>
       MaterialApp(home: Scaffold(body: TabelloneStagionale(stats: stats))),
     );
 
+/// Trova le intestazioni dipinte con [colore]: il riquadro colorato è un
+/// `Container` con quello sfondo.
+bool Function(Widget) _tinta(Color colore) => (widget) =>
+    widget is Container &&
+    widget.decoration is BoxDecoration &&
+    (widget.decoration! as BoxDecoration).color == colore;
+
 Future<void> _vista(WidgetTester tester, String etichetta) async {
   await tester.tap(find.widgetWithText(ChoiceChip, etichetta));
   await tester.pumpAndSettle();
@@ -140,6 +147,55 @@ void main() {
 
     await ordinaPerEfficienza(); // decrescente
     expect(cognomiInOrdine().last, contains('Senzattacchi'));
+  });
+
+  testWidgets('le intestazioni portano i colori dei gruppi del PDF',
+      (tester) async {
+    // La tinta appartiene alla COLONNA, non alla riga di intestazione: nella
+    // vista Attacco i gruppi sono tre e devono distinguersi fra loro, cosa che
+    // una fascia unica non potrebbe fare.
+    _finestraLarga(tester);
+    await _monta(tester, [_stat(7, 'Bianchi')]);
+
+    Finder tinte(Color c) => find.byWidgetPredicate(_tinta(c));
+
+    // Riepilogo: il colore dice da quale gruppo viene ogni colonna.
+    // #, Atleta e Azioni stanno insieme nel blocco d'identità.
+    expect(tinte(kColoreGruppoIdentita), findsNWidgets(3));
+    expect(tinte(kColoreGruppoBattuta), findsNWidgets(2)); // Battute, Ace
+    expect(tinte(kColoreGruppoAttacco), findsNWidgets(2)); // Attacchi, Punti a.
+    expect(tinte(kColoreGruppoRicezione), findsNWidgets(2)); // Ricezioni, Pos.
+    expect(tinte(kColoreGruppoPuntiErrori), findsNWidgets(2)); // Punti, Errori
+
+    await _vista(tester, 'Battuta');
+    // Battute, Ace, Errori, Eff.% — non # né Atleta, che restano neutre.
+    expect(tinte(kColoreGruppoBattuta), findsNWidgets(4));
+
+    await _vista(tester, 'Attacco');
+    // Il blocco principale ha cinque colonne (Murati compreso); i due
+    // sotto-blocchi quattro ciascuno, nella tinta più chiara della stessa
+    // famiglia.
+    expect(tinte(kColoreGruppoAttacco), findsNWidgets(5));
+    expect(tinte(kColoreGruppoAttaccoDettaglio), findsNWidgets(8));
+  });
+
+  testWidgets('le righe si alternano per farsi seguire con l\'occhio',
+      (tester) async {
+    // Tinge le righe PARI contando da uno, come il PDF: la prima resta sul
+    // fondo della tabella. Se si invertisse, la riga in cima sembrerebbe
+    // selezionata.
+    _finestraLarga(tester);
+    await _monta(tester, [
+      _stat(1, 'Prima'),
+      _stat(2, 'Seconda'),
+      _stat(3, 'Terza'),
+    ]);
+
+    final righe = tester.widget<DataTable>(find.byType(DataTable)).rows;
+    expect(righe, hasLength(3));
+    expect(righe[0].color, isNull);
+    expect(righe[1].color, isNotNull);
+    expect(righe[2].color, isNull);
   });
 
   testWidgets('cambiando vista l\'ordinamento riparte dal numero',
