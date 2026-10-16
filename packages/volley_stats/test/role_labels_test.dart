@@ -40,6 +40,41 @@ void main() {
     });
   });
 
+  // Le etichette leggono il ruolo che viene loro passato: per questo il ruolo
+  // in campo (schema v20) basta a sistemare le etichette, senza toccare
+  // roleLabelsFor. Il primo test è il problema segnalato dal campo.
+  group('roleLabelsFor — schiacciatrice entrata per un centrale', () {
+    const conRuoloAnagrafico = {
+      'P1': Ruolo.palleggiatore,
+      'P2': Ruolo.schiacciatore,
+      'P3': Ruolo.schiacciatore, // entrata al posto del centrale
+      'P4': Ruolo.opposto,
+      'P5': Ruolo.schiacciatore,
+      'P6': Ruolo.centrale,
+    };
+
+    test('col ruolo anagrafico una giocatrice resta senza etichetta', () {
+      final labels = roleLabelsFor('P1', conRuoloAnagrafico);
+
+      expect(labels.length, 5);
+      expect(labels.values, isNot(contains('C2')));
+    });
+
+    test('col ruolo in campo "centrale" le etichette tornano complete', () {
+      final labels =
+          roleLabelsFor('P1', {...conRuoloAnagrafico, 'P3': Ruolo.centrale});
+
+      expect(labels, {
+        'P1': 'P',
+        'P2': 'S1',
+        'P3': 'C1',
+        'P4': 'O',
+        'P5': 'S2',
+        'P6': 'C2',
+      });
+    });
+  });
+
   group('roleLabelsFor — universali per completamento', () {
     test('due universali con coppia centrali mancante → C1/C2', () {
       final labels = roleLabelsFor('P1', {

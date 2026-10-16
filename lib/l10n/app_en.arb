@@ -473,6 +473,8 @@
   "lineupDoppioLibero": "Two liberos",
   "lineupGiocatori": "Players",
   "lineupAggiungi": "Add",
+  "lineupRuoloInCampo": "Role on court",
+  "lineupRuoloAnagrafico": "{ruolo} (their own role)",
 
   "configTitolo": "Line-up setup – {squadra}",
   "configIniziaScout": "Start scouting",
@@ -492,6 +494,9 @@
   "sostSelezionaUscente": "First tap the player going out (on the court card)",
   "sostPanchina": "Bench",
   "sostNessunGiocatore": "No players available",
+  "sostGiocaDaTitolo": "{entra} in for {esce}",
+  "sostGiocaDaDomanda": "Plays on court as:",
+  "scoutCambioGiocaDa": "(as {ruolo})",
 
   "scoutAvversariGenerico": "Opponents",
   "scoutAvversariMaiuscolo": "OPPONENTS",

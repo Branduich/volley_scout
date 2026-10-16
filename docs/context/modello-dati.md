@@ -151,7 +151,7 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   a `configurazione`/`1` alla creazione (`MatchFormScreen`); `ScoutScreen`
   porta `stato` a `inCorso` non appena si risponde al dialog "Chi serve per
   primo?" (vedi sotto).
-- Schema DB attuale: **v18** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
+- Schema DB attuale: **v20** (v6 ha aggiunto `stato`/`setCorrente` + le tabelle
   `MatchSets`/`Rotations`/`ScoutActions`; v7 ha aggiunto
   `MatchSets.squadraServizioIniziale`; v8 ha aggiunto
   `MatchSets.liberoId`/`libero2Id`/`ruoloCambiLibero`; v9 ha aggiunto
@@ -173,7 +173,35 @@ nullable, setNull on delete), lat (real nullable), lon (real nullable).
   l'import del calendario FIPAV e la classifica — vedi la sezione
   "Campionato", nessuna modifica alle tabelle esistenti; v18 ha aggiunto
   `Campionati.stagione` (text nullable, es. "2025/26") per distinguere due
-  import dello stesso girone in stagioni diverse — vedi Campionato).
+  import dello stesso girone in stagioni diverse — vedi Campionato; v19 gli
+  uid stabili su squadre/giocatori/partite — vedi docs/dati-stagionali.md;
+  v20 il **ruolo in campo**, vedi sotto).
+
+**Ruolo in campo (schema v20).** Il ruolo con cui una giocatrice gioca in una
+partita può differire da quello anagrafico (caso reale: centrale infortunato,
+entra una schiacciatrice che fa il centrale). Da `Players.ruolo` dipendono le
+etichette tattiche (`roleLabelsFor`), quindi posizioni dei token, coppia del
+libero e zone d'attacco dei report: con 3 schiacciatrici e 1 centrale una resta
+senza etichetta e in ricezione il suo token sparisce. **Cambiare l'anagrafica non
+è la soluzione**: i report di tutte le partite passate rileggono `Players.ruolo`
+dal vivo e cambierebbero retroattivamente. È quindi un dato della PARTITA, con
+la solita semantica `null` = ruolo anagrafico:
+- `Rotations.ruoloInCampo` — titolare a inizio set (pressione prolungata sulla
+  card in `LineupScreen`). Scritto da `salvaRotazioneIniziale` solo se diverso
+  dall'anagrafico; `caricaFormazione` restituisce la copia del `Player` col
+  ruolo sostituito (anche la ricerca del palleggiatore usa il ruolo effettivo).
+- `ScoutActions.ruoloInCampo` — sulle righe `cambioGiocatore`, il ruolo che chi
+  entra assume (dialog "Gioca da" in `SostituzioneScreen`).
+- Replay: `StatoSet.ruoliInCampo` (giocatoreId → ruolo), con parametro
+  `ruoliInCampoIniziali`. Segue la PERSONA: chi esce lo perde, chi entra prende
+  quello del cambio. Il cambio libero-per-libero non lo tocca. Undo e ripresa
+  tornano coerenti da soli; `zonaTatticaPerAzione` applica la stessa regola.
+- **Nelle schermate viaggia come copia del `Player`** (`copyWith(ruolo: …)`):
+  così `roleLabelsFor`, la coppia del libero di `FormationConfigScreen` e le
+  card funzionano senza modifiche. Conseguenza: in quei punti `Player.ruolo` è
+  il ruolo IN CAMPO; per l'anagrafico si passa dal roster (`_rosterById`).
+- Vale per il set: "Prossimo Set" riparte dal ruolo anagrafico, come il resto
+  della formazione. Il CSV non lo esporta.
 
 ### Implementato (Fase 3 — parziale): avvio dello scout
 

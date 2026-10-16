@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:volley_scout/data/database.dart';
 import 'package:volley_scout/data/demo_match_importer.dart';
+import 'package:volley_scout/models/enums.dart';
 import 'package:volley_scout/providers/database_provider.dart';
 
 /// Rete di sicurezza su `zonaTatticaPerAzione`: ~100 righe che rigiocano cambi
@@ -84,6 +86,89 @@ void main() {
     // rotazione — vedi zonaDaPosizione.
     expect(perZona, {1: 12, 2: 12, 3: 5, 4: 22, 6: 12});
     expect(perRotazione, {1: 20, 2: 20, 3: 8, 4: 6, 5: 4, 6: 5});
+  });
+
+  // Ruolo in campo (schema v20): una schiacciatrice schierata da centrale.
+  // Le sue zone d'attacco devono cambiare, e i due percorsi — inizio set
+  // (Rotations.ruoloInCampo) e riga di cambio — devono dare lo stesso
+  // risultato. Nella demo il primo set schiera quattro schiacciatrici e
+  // nessun centrale, che è proprio il caso di una che fa il centrale.
+  group('ruolo in campo', () {
+    Future<List<int>> zoneDi(int setId, int giocatoreId) async {
+      final r = await calcola();
+      final azioni = await db.select(db.scoutActions).get();
+      final perId = {for (final a in azioni) a.id: a};
+      final ordinate = r.zone.entries
+          .where((e) =>
+              perId[e.key]!.setId == setId &&
+              perId[e.key]!.giocatoreId == giocatoreId)
+          .toList()
+        ..sort((a, b) => perId[a.key]!.ordine.compareTo(perId[b.key]!.ordine));
+      return [for (final e in ordinate) e.value.zona];
+    }
+
+    /// Una schiacciatrice titolare del primo set con la rotazione, che abbia
+    /// attacchi con una zona: altrimenti non ci sarebbe niente da confrontare.
+    Future<({int setId, Rotation riga, List<int> zone})> bersaglio() async {
+      final rotazioni = await db.select(db.rotations).get();
+      final ruolo = {
+        for (final p in await db.select(db.players).get()) p.id: p.ruolo,
+      };
+      final setId = rotazioni.first.setId;
+      for (final r in rotazioni.where((r) =>
+          r.setId == setId && ruolo[r.giocatoreId] == Ruolo.schiacciatore)) {
+        final zone = await zoneDi(setId, r.giocatoreId);
+        if (zone.isNotEmpty) return (setId: setId, riga: r, zone: zone);
+      }
+      throw StateError('nessuna schiacciatrice con attacchi nel set $setId');
+    }
+
+    Future<void> daCentraleAInizioSet(Rotation riga) =>
+        (db.update(db.rotations)..where((r) => r.id.equals(riga.id)))
+            .write(const RotationsCompanion(
+                ruoloInCampo: Value(Ruolo.centrale)));
+
+    test('a inizio set sposta le zone d\'attacco', () async {
+      final k = await bersaglio();
+
+      await daCentraleAInizioSet(k.riga);
+      final dopo = await zoneDi(k.setId, k.riga.giocatoreId);
+
+      // Da centrale attacca al centro della rete. Può avere MENO attacchi
+      // con una zona: in seconda linea il centrale lo sostituisce il libero,
+      // quindi le tabelle non hanno una posizione per lei.
+      expect(dopo, isNot(k.zone));
+      expect(dopo, isNotEmpty);
+      expect(dopo, everyElement(3));
+    });
+
+    test('con una riga di cambio dà lo stesso risultato di inizio set',
+        () async {
+      final k = await bersaglio();
+      // Riga "no-op" (esce == entra) in testa al set: cambia il ruolo senza
+      // sostituire, come fa ricalcolaStato.
+      await db.into(db.scoutActions).insert(ScoutActionsCompanion.insert(
+            setId: k.setId,
+            rallyId: 0,
+            ordine: 0,
+            timestamp: DateTime(2026, 4, 30),
+            squadra: Squadra.nostra,
+            tipo: TipoAzione.cambioGiocatore,
+            esitoPunto: EsitoPunto.nessuno,
+            giocatoreId: Value(k.riga.giocatoreId),
+            giocatoreUscenteId: Value(k.riga.giocatoreId),
+            ruoloInCampo: const Value(Ruolo.centrale),
+          ));
+      final conCambio = await zoneDi(k.setId, k.riga.giocatoreId);
+
+      await (db.delete(db.scoutActions)..where((a) => a.ordine.equals(0)))
+          .go();
+      await daCentraleAInizioSet(k.riga);
+      final inizioSet = await zoneDi(k.setId, k.riga.giocatoreId);
+
+      expect(conCambio, isNot(k.zone));
+      expect(conCambio, inizioSet);
+    });
   });
 
   test('firma per-azione stabile (set.ordine = zona/rotazione)', () async {

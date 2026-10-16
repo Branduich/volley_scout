@@ -170,6 +170,7 @@ BackupCompleto costruisciBackup(
                         squadra: r.squadra,
                         posizione: r.posizione,
                         giocatoreUid: uidGiocatore[r.giocatoreId]!,
+                        ruoloInCampo: r.ruoloInCampo,
                       ),
                 ],
                 azioni: [
@@ -256,6 +257,7 @@ AzioneBackup _azione(
     nuovoRuoloCambiLibero: a.nuovoRuoloCambiLibero,
     gruppoCambio: a.gruppoCambio,
     ruoloAvversario: a.ruoloAvversario,
+    ruoloInCampo: a.ruoloInCampo,
   );
 }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:volley_scout/data/backup_json.dart';
@@ -235,6 +236,35 @@ void main() {
         partita.inizioAzioni!.add(Duration(seconds: ultimoDelta)),
         sue.last.timestamp,
       );
+    });
+
+    test('il ruolo in campo sopravvive al giro (rotazione e cambio)',
+        () async {
+      // Schema v20: una giocatrice schierata con un ruolo diverso dal suo.
+      final rotazione = (await db.select(db.rotations).get()).first;
+      await (db.update(db.rotations)..where((r) => r.id.equals(rotazione.id)))
+          .write(const RotationsCompanion(ruoloInCampo: Value(Ruolo.centrale)));
+      final azione = (await db.select(db.scoutActions).get()).first;
+      await (db.update(db.scoutActions)..where((a) => a.id.equals(azione.id)))
+          .write(const ScoutActionsCompanion(
+              ruoloInCampo: Value(Ruolo.opposto)));
+
+      final backup = await giroCompleto();
+      final rotazioni = [
+        for (final p in backup.partite)
+          for (final s in p.sets) ...s.rotazioni,
+      ];
+      final azioni = [
+        for (final p in backup.partite)
+          for (final s in p.sets) ...s.azioni,
+      ];
+
+      expect(rotazioni.where((r) => r.ruoloInCampo == Ruolo.centrale),
+          hasLength(1));
+      expect(
+          azioni.where((a) => a.ruoloInCampo == Ruolo.opposto), hasLength(1));
+      // Il caso normale (null) non scrive la chiave: niente peso inutile.
+      expect(rotazioni.where((r) => r.ruoloInCampo == null), isNotEmpty);
     });
 
     test('le coordinate sono troncate a 4 decimali', () async {

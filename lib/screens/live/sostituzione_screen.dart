@@ -29,6 +29,9 @@ typedef RisultatoSostituzione = ({
   Map<String, Player> liberiFinali,
   String palleggiatoreSlot,
   Ruolo? ruoloCambiLibero,
+  // Slot P1..P6 -> ruolo che chi entra assume in campo, solo dove è diverso
+  // dal suo anagrafico (dialog "Gioca da" in _onPanchinaTap).
+  Map<String, Ruolo> ruoliInCampo,
 });
 
 /// Schermata "Sostituzioni" (voce drawer di ScoutScreen): replica
@@ -66,6 +69,12 @@ class SostituzioneScreen extends StatefulWidget {
   /// palleggiatori e nasconde i cambi libero (come a inizio partita).
   final SistemaGioco sistemaGioco;
 
+  /// Ruolo ANAGRAFICO per id (dal roster): chi è in campo può avere un ruolo
+  /// in campo diverso (copia in `seiCorrenti`), e se esce e rientra altrove
+  /// nella stessa visita il confronto del dialog "Gioca da" va fatto col suo
+  /// ruolo vero.
+  final Map<int, Ruolo> ruoliAnagrafici;
+
   const SostituzioneScreen({
     super.key,
     required this.match,
@@ -76,6 +85,7 @@ class SostituzioneScreen extends StatefulWidget {
     required this.palleggiatoreSlotCorrente,
     required this.ruoloCambiLiberoCorrente,
     required this.sistemaGioco,
+    this.ruoliAnagrafici = const {},
   });
 
   @override
@@ -88,6 +98,11 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
 
   late final Map<String, Player> _pending = Map.of(widget.seiCorrenti);
   late final Map<String, Player> _pendingLiberi = Map.of(widget.liberi);
+  // Ruolo in campo scelto per chi entra, per slot — solo se diverso dal suo
+  // anagrafico. In `_pending` c'è già la copia col ruolo sostituito, così
+  // card e riconferma della formazione lo vedono; questa mappa serve a
+  // scriverlo sull'evento di cambio.
+  final Map<String, Ruolo> _ruoliInCampoPending = {};
   // Slot P1..P6 oppure chiave libero L1/L2 selezionata come "chi esce".
   String? _selectedSlot;
 
@@ -172,6 +187,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
     }
     setState(() {
       _pending[slot] = originale;
+      _ruoliInCampoPending.remove(slot);
       _selectedSlot = null;
     });
   }
@@ -185,7 +201,11 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
     });
   }
 
-  void _onPanchinaTap(Player player) {
+  Future<void> _onPanchinaTap(Player candidato) async {
+    final anagrafico = widget.ruoliAnagrafici[candidato.id];
+    final player = (anagrafico == null || anagrafico == candidato.ruolo)
+        ? candidato
+        : candidato.copyWith(ruolo: anagrafico);
     final slot = _selectedSlot;
     if (slot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -196,16 +216,78 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
       );
       return;
     }
+    // Guardia ridondante (le tile incompatibili sono già disabilitate): un
+    // libero entra solo per un libero, e viceversa.
+    if (_selezioneLibero) {
+      if (player.ruolo != Ruolo.libero) return;
+      setState(() {
+        _pendingLiberi[slot] = player;
+        _selectedSlot = null;
+      });
+      return;
+    }
+    if (player.ruolo == Ruolo.libero) return;
+
+    final ruolo = await _chiediRuoloInCampo(player, widget.seiCorrenti[slot]);
+    if (ruolo == null || !mounted) return; // dialog chiuso: niente cambio
     setState(() {
-      // Guardia ridondante (le tile incompatibili sono già disabilitate):
-      // un libero entra solo per un libero, e viceversa.
-      if (_selezioneLibero) {
-        if (player.ruolo == Ruolo.libero) _pendingLiberi[slot] = player;
+      if (ruolo == player.ruolo) {
+        _pending[slot] = player;
+        _ruoliInCampoPending.remove(slot);
       } else {
-        if (player.ruolo != Ruolo.libero) _pending[slot] = player;
+        _pending[slot] = player.copyWith(ruolo: ruolo);
+        _ruoliInCampoPending[slot] = ruolo;
       }
       _selectedSlot = null;
     });
+  }
+
+  /// Con che ruolo gioca chi entra. Si chiede SOLO se il suo ruolo è diverso
+  /// da quello di chi esce — caso tipico: una schiacciatrice entrata per un
+  /// centrale infortunato, che in campo fa il centrale. Nei cambi ruolo-su-
+  /// ruolo nessun dialog. Il ruolo di chi esce è quello EFFETTIVO
+  /// (`seiCorrenti` porta già le copie), così anche i cambi a catena tornano.
+  /// L'Universale non chiede: riempie da solo l'etichetta mancante (vedi
+  /// roleLabelsFor). Ritorna null se il dialog viene chiuso senza scegliere.
+  Future<Ruolo?> _chiediRuoloInCampo(Player entra, Player? esce) async {
+    if (esce == null ||
+        entra.ruolo == esce.ruolo ||
+        entra.ruolo == Ruolo.undefined ||
+        esce.ruolo == Ruolo.undefined) {
+      return entra.ruolo;
+    }
+    final l = AppLocalizations.of(context);
+    return showDialog<Ruolo>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(l.sostGiocaDaTitolo(
+          '${entra.numero} ${entra.cognome}',
+          '${esce.numero} ${esce.cognome}',
+        )),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(l.sostGiocaDaDomanda),
+          ),
+          // Prima e in evidenza il ruolo di chi esce: è il motivo per cui il
+          // dialog esiste (il subentrante ne prende il posto tattico).
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, esce.ruolo),
+            child: Text(
+              ruoloLabel(esce.ruolo, l),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, entra.ruolo),
+            child: Text(
+              l.lineupRuoloAnagrafico(ruoloLabel(entra.ruolo, l)),
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _onAvanti() async {
@@ -234,6 +316,7 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
       liberiFinali: Map.of(_pendingLiberi),
       palleggiatoreSlot: risultato.palleggiatoreSlot,
       ruoloCambiLibero: risultato.ruoloCambiLibero,
+      ruoliInCampo: Map.of(_ruoliInCampoPending),
     ));
   }
 

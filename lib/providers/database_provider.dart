@@ -32,6 +32,7 @@ AzioneScout azioneScoutDaRiga(ScoutAction a) => AzioneScout(
               entraId: a.giocatoreId!,
               nuovoPalleggiatoreId: a.nuovoPalleggiatoreId,
               nuovoRuoloCambiLibero: a.nuovoRuoloCambiLibero,
+              ruoloInCampo: a.ruoloInCampo,
             )
           : null,
       // Verso della correzione rotazione dal .name in tipoEsecuzione (colonna
@@ -350,18 +351,32 @@ class MatchSetRepository {
   /// poter ricostruire la formazione quando si riprende lo scout senza
   /// passare di nuovo da LineupScreen/FormationConfigScreen — vedi
   /// `caricaFormazione()`.
+  ///
+  /// Il ruolo in campo arriva DENTRO gli `assignments` (copia del `Player` col
+  /// ruolo sostituito, vedi LineupScreen): qui si confronta col ruolo a DB e
+  /// si salva solo se diverso, così `ruoloInCampo == null` resta "anagrafico".
   Future<void> salvaRotazioneIniziale(
       int setId, Map<String, Player> assignments,
       {Ruolo? ruoloCambiLibero, SistemaGioco? sistemaGioco}) async {
+    final ids = [for (final p in assignments.values) p.id];
+    final anagrafici = {
+      for (final p in await (_db.select(_db.players)
+            ..where((p) => p.id.isIn(ids)))
+          .get())
+        p.id: p.ruolo,
+    };
     final righe = <RotationsCompanion>[];
     for (final entry in assignments.entries) {
       final posizione = int.tryParse(entry.key.replaceFirst('P', ''));
       if (posizione == null || posizione < 1 || posizione > 6) continue;
+      final ruolo = entry.value.ruolo;
       righe.add(RotationsCompanion.insert(
         setId: setId,
         squadra: Squadra.nostra,
         posizione: posizione,
         giocatoreId: entry.value.id,
+        ruoloInCampo: Value(
+            anagrafici[entry.value.id] == ruolo ? null : ruolo),
       ));
     }
     await _db.batch((batch) => batch.insertAll(_db.rotations, righe));
@@ -402,10 +417,17 @@ class MatchSetRepository {
     final assignments = <String, Player>{};
     final palleggiatoriSlots = <String>[];
     for (final r in righeRotazione) {
-      final player = await (_db.select(_db.players)
+      final anagrafico = await (_db.select(_db.players)
             ..where((p) => p.id.equals(r.giocatoreId)))
           .getSingleOrNull();
-      if (player == null) continue; // giocatore eliminato dopo la creazione
+      if (anagrafico == null) continue; // giocatore eliminato dopo la creazione
+      // Ruolo in campo del set (vedi Rotations.ruoloInCampo): da qui in poi
+      // la copia "è" quel ruolo per tutta la logica tattica — compresa la
+      // ricerca del palleggiatore qui sotto.
+      final ruoloInCampo = r.ruoloInCampo;
+      final player = ruoloInCampo == null
+          ? anagrafico
+          : anagrafico.copyWith(ruolo: ruoloInCampo);
       final slot = 'P${r.posizione}';
       assignments[slot] = player;
       if (player.ruolo == Ruolo.palleggiatore) palleggiatoriSlots.add(slot);
@@ -483,7 +505,13 @@ class MatchSetRepository {
         if (a.tipo == TipoAzione.cambioGiocatore &&
             a.giocatoreId != null &&
             a.giocatoreUscenteId != null) {
-          final entra = perId[a.giocatoreId!];
+          final anagrafico = perId[a.giocatoreId!];
+          final ruoloInCampo = a.ruoloInCampo;
+          // Stessa regola di ricalcolaStato: chi entra porta il ruolo in
+          // campo indicato nel cambio, da cui dipende la sua etichetta.
+          final entra = (anagrafico != null && ruoloInCampo != null)
+              ? anagrafico.copyWith(ruolo: ruoloInCampo)
+              : anagrafico;
           final esceId = a.giocatoreUscenteId!;
           final duplicherebbe = esceId != a.giocatoreId &&
               rot.values.any((p) => p.id == a.giocatoreId);
@@ -913,6 +941,7 @@ class ScoutActionRepository {
     int? nuovoPalleggiatoreId,
     Ruolo? nuovoRuoloCambiLibero,
     int? gruppoCambio,
+    Ruolo? ruoloInCampo,
   }) {
     return _registraAzione(
       setId: setId,
@@ -924,6 +953,7 @@ class ScoutActionRepository {
       nuovoPalleggiatoreId: nuovoPalleggiatoreId,
       nuovoRuoloCambiLibero: nuovoRuoloCambiLibero,
       gruppoCambio: gruppoCambio,
+      ruoloInCampo: ruoloInCampo,
     );
   }
 
@@ -1004,6 +1034,7 @@ class ScoutActionRepository {
     Ruolo? nuovoRuoloCambiLibero,
     int? gruppoCambio,
     String? ruoloAvversario,
+    Ruolo? ruoloInCampo,
   }) async {
     final maxOrdine = await (_db.selectOnly(_db.scoutActions)
           ..addColumns([_db.scoutActions.ordine.max()])
@@ -1050,6 +1081,7 @@ class ScoutActionRepository {
             nuovoRuoloCambiLibero: Value(nuovoRuoloCambiLibero),
             gruppoCambio: Value(gruppoCambio),
             ruoloAvversario: Value(ruoloAvversario),
+            ruoloInCampo: Value(ruoloInCampo),
           ),
         );
   }
@@ -1241,6 +1273,7 @@ class BackupRepository {
                     squadra: r.squadra,
                     posizione: r.posizione,
                     giocatoreId: giocatoreId,
+                    ruoloInCampo: Value(r.ruoloInCampo),
                   ),
                 );
           }
@@ -1280,6 +1313,7 @@ class BackupRepository {
                     nuovoRuoloCambiLibero: Value(a.nuovoRuoloCambiLibero),
                     gruppoCambio: Value(a.gruppoCambio),
                     ruoloAvversario: Value(a.ruoloAvversario),
+                    ruoloInCampo: Value(a.ruoloInCampo),
                   ),
                 );
             azioniInserite++;

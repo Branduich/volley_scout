@@ -55,6 +55,12 @@
     assegnato (lista o badge ✕) → deassegna. "Conferma formazione" abilitato
     solo quando P1–P6 sono tutti riempiti. La formazione è in memoria (non
     ancora persistita a DB).
+    **Ruolo in campo** (schema v20): pressione prolungata su una card P1–P6
+    occupata → "Ruolo in campo" (ruoli non-libero, quello anagrafico marcato
+    "il suo ruolo"). La card mostra il ruolo scelto in blu con l'icona ⇄. Tenuto
+    in `_ruoliInCampo` (slot → ruolo) a parte da `_assignments` e applicato alla
+    conferma come copia del `Player`; togliere/riassegnare la card lo azzera.
+    Vedi "Ruolo in campo" in modello-dati.md.
     Icona matita (`Icons.edit`) nel `trailing` della lista, **visibile solo
     se il giocatore non è assegnato**: apre `PlayerFormScreen` per
     modificarlo. Un giocatore già in formazione non è modificabile finché
@@ -158,6 +164,15 @@
     dalla modalità test): apre il flusso di cambio giocatore
     (`SostituzioneScreen` → `FormationConfigScreen` in modalità conferma)
     — vedi la voce dedicata in "Fasi di sviluppo" Fase 3.
+    **"Gioca da"** (schema v20): se chi entra ha un ruolo diverso da chi esce
+    (né libero né Universale), un dialog chiede con che ruolo gioca — primo e
+    in evidenza quello di chi esce, poi il suo; chiuderlo annulla quel cambio.
+    Nei cambi ruolo-su-ruolo nessun dialog. Il ruolo scelto viaggia come copia
+    del `Player` in `_pending` (lo vedono card e riconferma) e torna in
+    `RisultatoSostituzione.ruoliInCampo`; `ScoutScreen` lo scrive sulla riga
+    di cambio. Il banner mostra "(da Centrale)". Il confronto usa il ruolo
+    ANAGRAFICO di chi entra (`ruoliAnagrafici`, dal roster): chi era uscito con
+    un ruolo assunto e rientra altrove viene confrontato col suo vero.
   - **Toggle "Mostra numeri/ruoli"** (`SwitchListTile`): stato
     `_showJerseyNumbers`, **default `true`** (numeri di maglia visibili
     appena apri lo scout). Label dinamica che descrive l'azione del tap, non

@@ -451,17 +451,26 @@ class RotazioneBackup {
     required this.squadra,
     required this.posizione,
     required this.giocatoreUid,
+    this.ruoloInCampo,
   });
 
   final Squadra squadra;
   final int posizione;
   final String giocatoreUid;
 
-  Map<String, Object?> toJson() => {
-        'squadra': squadra.name,
-        'posizione': posizione,
-        'giocatoreUid': giocatoreUid,
-      };
+  /// Ruolo con cui la titolare gioca nel set, se diverso dall'anagrafico.
+  /// Omesso quando null (il caso normale).
+  final Ruolo? ruoloInCampo;
+
+  Map<String, Object?> toJson() {
+    final m = <String, Object?>{
+      'squadra': squadra.name,
+      'posizione': posizione,
+      'giocatoreUid': giocatoreUid,
+    };
+    _metti(m, 'ruoloInCampo', ruoloInCampo?.name);
+    return m;
+  }
 
   factory RotazioneBackup.fromJson(Map<String, Object?> m, String contesto) =>
       RotazioneBackup(
@@ -471,6 +480,8 @@ class RotazioneBackup {
         posizione: _intero(m, 'posizione', '$contesto, rotazione'),
         giocatoreUid:
             _stringa(m, 'giocatoreUid', '$contesto, rotazione'),
+        ruoloInCampo: _enumOpt(
+            Ruolo.values, m['ruoloInCampo'] as String?, '$contesto, rotazione'),
       );
 }
 
@@ -506,6 +517,7 @@ class AzioneBackup {
     this.nuovoRuoloCambiLibero,
     this.gruppoCambio,
     this.ruoloAvversario,
+    this.ruoloInCampo,
   });
 
   final int ordine;
@@ -537,6 +549,9 @@ class AzioneBackup {
   final int? gruppoCambio;
   final String? ruoloAvversario;
 
+  /// Solo sui cambi giocatore: ruolo assunto in campo da chi entra.
+  final Ruolo? ruoloInCampo;
+
   Map<String, Object?> toJson() {
     final m = <String, Object?>{
       'o': ordine,
@@ -565,6 +580,7 @@ class AzioneBackup {
     _metti(m, 'nr', nuovoRuoloCambiLibero?.name);
     _metti(m, 'gc', gruppoCambio);
     _metti(m, 'ra', ruoloAvversario);
+    _metti(m, 'rc', ruoloInCampo?.name);
     return m;
   }
 
@@ -596,6 +612,7 @@ class AzioneBackup {
           _enumOpt(Ruolo.values, m['nr'] as String?, dove),
       gruppoCambio: m['gc'] as int?,
       ruoloAvversario: m['ra'] as String?,
+      ruoloInCampo: _enumOpt(Ruolo.values, m['rc'] as String?, dove),
     );
   }
 }

@@ -12,12 +12,17 @@ class SostituzioneGiocatore {
   final int entraId;
   final int? nuovoPalleggiatoreId; // null = invariato
   final Ruolo? nuovoRuoloCambiLibero; // null = invariato
+  // Ruolo che chi entra assume in campo, se diverso dal suo anagrafico (es.
+  // una schiacciatrice entrata per un centrale infortunato). null = gioca
+  // col suo ruolo. Vedi StatoSet.ruoliInCampo.
+  final Ruolo? ruoloInCampo;
 
   const SostituzioneGiocatore({
     required this.esceId,
     required this.entraId,
     this.nuovoPalleggiatoreId,
     this.nuovoRuoloCambiLibero,
+    this.ruoloInCampo,
   });
 }
 
@@ -63,6 +68,11 @@ class StatoSet {
   // sideout avversario). null = scout avversari non attivo / posizione non
   // impostata: in quel caso non si traccia alcuna rotazione avversaria.
   final int? palleggiatoreAvversarioSlot;
+  // Ruolo in campo di chi lo ha diverso dall'anagrafico (giocatoreId ->
+  // ruolo): parte dai titolari del set e segue i cambi — chi entra con un
+  // ruolo assunto lo porta finché resta in campo, chi esce lo perde. Chi non
+  // compare qui gioca col ruolo anagrafico.
+  final Map<int, Ruolo> ruoliInCampo;
 
   const StatoSet({
     required this.punteggioNostro,
@@ -74,6 +84,7 @@ class StatoSet {
     this.liberoId,
     this.libero2Id,
     this.palleggiatoreAvversarioSlot,
+    this.ruoliInCampo = const {},
   });
 
   @override
@@ -87,11 +98,15 @@ class StatoSet {
         other.liberoId != liberoId ||
         other.libero2Id != libero2Id ||
         other.palleggiatoreAvversarioSlot != palleggiatoreAvversarioSlot ||
-        other.rotazione.length != rotazione.length) {
+        other.rotazione.length != rotazione.length ||
+        other.ruoliInCampo.length != ruoliInCampo.length) {
       return false;
     }
     for (final entry in rotazione.entries) {
       if (other.rotazione[entry.key] != entry.value) return false;
+    }
+    for (final entry in ruoliInCampo.entries) {
+      if (other.ruoliInCampo[entry.key] != entry.value) return false;
     }
     return true;
   }
@@ -109,6 +124,9 @@ class StatoSet {
         Object.hashAllUnordered(
           rotazione.entries.map((e) => Object.hash(e.key, e.value)),
         ),
+        Object.hashAllUnordered(
+          ruoliInCampo.entries.map((e) => Object.hash(e.key, e.value)),
+        ),
       );
 
   @override
@@ -116,7 +134,8 @@ class StatoSet {
       'StatoSet(nostro: $punteggioNostro, avversario: $punteggioAvversario, '
       'al servizio: $squadraAlServizio, rotazione: $rotazione, '
       'palleggiatore: $palleggiatoreId, cambiLibero: $ruoloCambiLibero, '
-      'liberi: $liberoId/$libero2Id, pAvversario: $palleggiatoreAvversarioSlot)';
+      'liberi: $liberoId/$libero2Id, pAvversario: $palleggiatoreAvversarioSlot, '
+      'ruoliInCampo: $ruoliInCampo)';
 }
 
 /// Ricalcola punteggio e rotazione corrente di un set rigiocando, in ordine,
@@ -130,6 +149,10 @@ class StatoSet {
 /// chiamanti che non hanno bisogno della configurazione effettiva — es. il
 /// solo punteggio nei report — possono ometterli): partono dal valore
 /// iniziale del set e seguono gli override dei cambi giocatore.
+///
+/// `ruoliInCampoIniziali`: ruolo in campo dei titolari (giocatoreId -> ruolo).
+/// Può contenere anche ruoli uguali all'anagrafico — al chiamante basta
+/// passare quelli della formazione così com'è, senza distinguere.
 StatoSet ricalcolaStato({
   required List<AzioneScout> azioni,
   required Squadra servizioIniziale,
@@ -139,11 +162,13 @@ StatoSet ricalcolaStato({
   int? liberoInizialeId,
   int? libero2InizialeId,
   int? palleggiatoreAvversarioSlotIniziale,
+  Map<int, Ruolo> ruoliInCampoIniziali = const {},
 }) {
   var punteggioNostro = 0;
   var punteggioAvversario = 0;
   var alServizio = servizioIniziale;
   var rotazione = Map<int, int>.from(rotazioneIniziale);
+  final ruoliInCampo = Map<int, Ruolo>.from(ruoliInCampoIniziali);
   var palleggiatoreId = palleggiatoreInizialeId;
   var ruoloCambiLibero = ruoloCambiLiberoIniziale;
   var liberoId = liberoInizialeId;
@@ -180,6 +205,13 @@ StatoSet ricalcolaStato({
             for (final entry in rotazione.entries)
               entry.key: entry.value == esce ? entra : entry.value,
           };
+          // Il ruolo in campo segue la persona: chi esce lo perde, chi
+          // entra prende quello indicato nel cambio (se c'è). Vale anche per
+          // la riga no-op (esce == entra): cambia ruolo senza sostituire.
+          // Solo per la rotazione — un libero gioca sempre da libero.
+          ruoliInCampo.remove(esce);
+          final ruolo = sostituzione.ruoloInCampo;
+          if (ruolo != null) ruoliInCampo[entra] = ruolo;
         }
         palleggiatoreId =
             sostituzione.nuovoPalleggiatoreId ?? palleggiatoreId;
@@ -236,6 +268,7 @@ StatoSet ricalcolaStato({
     liberoId: liberoId,
     libero2Id: libero2Id,
     palleggiatoreAvversarioSlot: palleggiatoreAvversarioSlot,
+    ruoliInCampo: ruoliInCampo,
   );
 }
 

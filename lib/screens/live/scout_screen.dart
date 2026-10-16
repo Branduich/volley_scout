@@ -377,8 +377,18 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       liberoInizialeId: widget.assignments['L1']?.id,
       libero2InizialeId: widget.assignments['L2']?.id,
       palleggiatoreAvversarioSlotIniziale: set.palleggiatoreAvversarioSlot,
+      ruoliInCampoIniziali: _ruoliInCampoIniziali,
     );
   }
+
+  // Ruolo in campo dei 6 titolari, così com'è nella formazione del set
+  // (widget.assignments porta già le copie col ruolo sostituito — vedi
+  // LineupScreen e caricaFormazione). Passarli tutti, anche quelli uguali
+  // all'anagrafico, evita di dover sapere quali sono override.
+  Map<int, Ruolo> get _ruoliInCampoIniziali => {
+        for (final e in widget.assignments.entries)
+          if (e.key.startsWith('P')) e.value.id: e.value.ruolo,
+      };
 
   // Roster completo della squadra (id -> Player), per risolvere i
   // giocatoreId della rotazione derivata: dopo un cambio giocatore la
@@ -2267,7 +2277,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       final result = <String, Player>{};
       for (final entry in stato.rotazione.entries) {
         final player = idToPlayer[entry.value];
-        if (player != null) result['P${entry.key}'] = player;
+        if (player == null) continue;
+        // Ruolo in campo (vedi StatoSet.ruoliInCampo): il roster porta il
+        // ruolo anagrafico, ed è da questa mappa che partono etichette,
+        // posizioni e coppia del libero.
+        final ruolo = stato.ruoliInCampo[player.id];
+        result['P${entry.key}'] = (ruolo == null || ruolo == player.ruolo)
+            ? player
+            : player.copyWith(ruolo: ruolo);
       }
       if (result.length == 6) return result;
     }
@@ -2685,6 +2702,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           palleggiatoreSlotCorrente: palleggiatoreSlotCorrente,
           ruoloCambiLiberoCorrente: _ruoloCambiLiberoEffettivo,
           sistemaGioco: widget.sistemaGioco,
+          ruoliAnagrafici: {
+            for (final p in _rosterById.values) p.id: p.ruolo,
+          },
         ),
       ),
     );
@@ -2713,19 +2733,25 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // anche per L1/L2 (cambio libero-per-libero): ricalcolaStato riconosce
     // dall'esceId che si tratta del libero e aggiorna quello invece della
     // rotazione.
-    final cambi = <({int esceId, int entraId})>[];
+    // `ruoloInCampo`: il ruolo che chi entra assume, se scelto diverso dal
+    // suo anagrafico nel dialog "Gioca da" di SostituzioneScreen.
+    final cambi = <({int esceId, int entraId, Ruolo? ruoloInCampo})>[];
     for (final slot in _kSlotOrder) {
       final originale = seiCorrenti[slot];
       final finale = risultato.seiFinali[slot];
       if (originale != null && finale != null && originale.id != finale.id) {
-        cambi.add((esceId: originale.id, entraId: finale.id));
+        cambi.add((
+          esceId: originale.id,
+          entraId: finale.id,
+          ruoloInCampo: risultato.ruoliInCampo[slot],
+        ));
       }
     }
     for (final key in const ['L1', 'L2']) {
       final originale = liberi[key];
       final finale = risultato.liberiFinali[key];
       if (originale != null && finale != null && originale.id != finale.id) {
-        cambi.add((esceId: originale.id, entraId: finale.id));
+        cambi.add((esceId: originale.id, entraId: finale.id, ruoloInCampo: null));
       }
     }
 
@@ -2782,6 +2808,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           nuovoPalleggiatoreId: ultimo ? overridePalleggiatore : null,
           nuovoRuoloCambiLibero: ultimo ? overrideRuoloCambi : null,
           gruppoCambio: gruppoCambio,
+          ruoloInCampo: cambi[i].ruoloInCampo,
         );
       }
     }
@@ -3897,8 +3924,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
       final esce = _playerPerId(azione.giocatoreUscenteId);
       String etichetta(Player? p) =>
           p == null ? '?' : '${p.numero} ${p.cognome}';
+      final ruoloInCampo = azione.ruoloInCampo;
+      final daRuolo = ruoloInCampo == null
+          ? ''
+          : ' ${AppLocalizations.of(context).scoutCambioGiocaDa(
+              ruoloLabel(ruoloInCampo, AppLocalizations.of(context)))}';
       return (
-        testo: 'Cambio: esce ${etichetta(esce)}, entra ${etichetta(player)}',
+        testo: 'Cambio: esce ${etichetta(esce)}, '
+            'entra ${etichetta(player)}$daRuolo',
         voto: null,
         colore: AppColors.brandPrimary,
       );

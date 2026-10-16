@@ -2658,12 +2658,22 @@ class $RotationsTable extends Rotations
     ),
   );
   @override
+  late final GeneratedColumnWithTypeConverter<Ruolo?, String> ruoloInCampo =
+      GeneratedColumn<String>(
+        'ruolo_in_campo',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Ruolo?>($RotationsTable.$converterruoloInCampon);
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     setId,
     squadra,
     posizione,
     giocatoreId,
+    ruoloInCampo,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2738,6 +2748,12 @@ class $RotationsTable extends Rotations
         DriftSqlType.int,
         data['${effectivePrefix}giocatore_id'],
       )!,
+      ruoloInCampo: $RotationsTable.$converterruoloInCampon.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}ruolo_in_campo'],
+        ),
+      ),
     );
   }
 
@@ -2748,6 +2764,10 @@ class $RotationsTable extends Rotations
 
   static TypeConverter<Squadra, String> $convertersquadra =
       const SquadraConverter();
+  static TypeConverter<Ruolo, String> $converterruoloInCampo =
+      const RuoloConverter();
+  static TypeConverter<Ruolo?, String?> $converterruoloInCampon =
+      NullAwareTypeConverter.wrap($converterruoloInCampo);
 }
 
 class Rotation extends DataClass implements Insertable<Rotation> {
@@ -2756,12 +2776,14 @@ class Rotation extends DataClass implements Insertable<Rotation> {
   final Squadra squadra;
   final int posizione;
   final int giocatoreId;
+  final Ruolo? ruoloInCampo;
   const Rotation({
     required this.id,
     required this.setId,
     required this.squadra,
     required this.posizione,
     required this.giocatoreId,
+    this.ruoloInCampo,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2775,6 +2797,11 @@ class Rotation extends DataClass implements Insertable<Rotation> {
     }
     map['posizione'] = Variable<int>(posizione);
     map['giocatore_id'] = Variable<int>(giocatoreId);
+    if (!nullToAbsent || ruoloInCampo != null) {
+      map['ruolo_in_campo'] = Variable<String>(
+        $RotationsTable.$converterruoloInCampon.toSql(ruoloInCampo),
+      );
+    }
     return map;
   }
 
@@ -2785,6 +2812,9 @@ class Rotation extends DataClass implements Insertable<Rotation> {
       squadra: Value(squadra),
       posizione: Value(posizione),
       giocatoreId: Value(giocatoreId),
+      ruoloInCampo: ruoloInCampo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ruoloInCampo),
     );
   }
 
@@ -2799,6 +2829,7 @@ class Rotation extends DataClass implements Insertable<Rotation> {
       squadra: serializer.fromJson<Squadra>(json['squadra']),
       posizione: serializer.fromJson<int>(json['posizione']),
       giocatoreId: serializer.fromJson<int>(json['giocatoreId']),
+      ruoloInCampo: serializer.fromJson<Ruolo?>(json['ruoloInCampo']),
     );
   }
   @override
@@ -2810,6 +2841,7 @@ class Rotation extends DataClass implements Insertable<Rotation> {
       'squadra': serializer.toJson<Squadra>(squadra),
       'posizione': serializer.toJson<int>(posizione),
       'giocatoreId': serializer.toJson<int>(giocatoreId),
+      'ruoloInCampo': serializer.toJson<Ruolo?>(ruoloInCampo),
     };
   }
 
@@ -2819,12 +2851,14 @@ class Rotation extends DataClass implements Insertable<Rotation> {
     Squadra? squadra,
     int? posizione,
     int? giocatoreId,
+    Value<Ruolo?> ruoloInCampo = const Value.absent(),
   }) => Rotation(
     id: id ?? this.id,
     setId: setId ?? this.setId,
     squadra: squadra ?? this.squadra,
     posizione: posizione ?? this.posizione,
     giocatoreId: giocatoreId ?? this.giocatoreId,
+    ruoloInCampo: ruoloInCampo.present ? ruoloInCampo.value : this.ruoloInCampo,
   );
   Rotation copyWithCompanion(RotationsCompanion data) {
     return Rotation(
@@ -2835,6 +2869,9 @@ class Rotation extends DataClass implements Insertable<Rotation> {
       giocatoreId: data.giocatoreId.present
           ? data.giocatoreId.value
           : this.giocatoreId,
+      ruoloInCampo: data.ruoloInCampo.present
+          ? data.ruoloInCampo.value
+          : this.ruoloInCampo,
     );
   }
 
@@ -2845,13 +2882,15 @@ class Rotation extends DataClass implements Insertable<Rotation> {
           ..write('setId: $setId, ')
           ..write('squadra: $squadra, ')
           ..write('posizione: $posizione, ')
-          ..write('giocatoreId: $giocatoreId')
+          ..write('giocatoreId: $giocatoreId, ')
+          ..write('ruoloInCampo: $ruoloInCampo')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, setId, squadra, posizione, giocatoreId);
+  int get hashCode =>
+      Object.hash(id, setId, squadra, posizione, giocatoreId, ruoloInCampo);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2860,7 +2899,8 @@ class Rotation extends DataClass implements Insertable<Rotation> {
           other.setId == this.setId &&
           other.squadra == this.squadra &&
           other.posizione == this.posizione &&
-          other.giocatoreId == this.giocatoreId);
+          other.giocatoreId == this.giocatoreId &&
+          other.ruoloInCampo == this.ruoloInCampo);
 }
 
 class RotationsCompanion extends UpdateCompanion<Rotation> {
@@ -2869,12 +2909,14 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
   final Value<Squadra> squadra;
   final Value<int> posizione;
   final Value<int> giocatoreId;
+  final Value<Ruolo?> ruoloInCampo;
   const RotationsCompanion({
     this.id = const Value.absent(),
     this.setId = const Value.absent(),
     this.squadra = const Value.absent(),
     this.posizione = const Value.absent(),
     this.giocatoreId = const Value.absent(),
+    this.ruoloInCampo = const Value.absent(),
   });
   RotationsCompanion.insert({
     this.id = const Value.absent(),
@@ -2882,6 +2924,7 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
     required Squadra squadra,
     required int posizione,
     required int giocatoreId,
+    this.ruoloInCampo = const Value.absent(),
   }) : setId = Value(setId),
        squadra = Value(squadra),
        posizione = Value(posizione),
@@ -2892,6 +2935,7 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
     Expression<String>? squadra,
     Expression<int>? posizione,
     Expression<int>? giocatoreId,
+    Expression<String>? ruoloInCampo,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2899,6 +2943,7 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
       if (squadra != null) 'squadra': squadra,
       if (posizione != null) 'posizione': posizione,
       if (giocatoreId != null) 'giocatore_id': giocatoreId,
+      if (ruoloInCampo != null) 'ruolo_in_campo': ruoloInCampo,
     });
   }
 
@@ -2908,6 +2953,7 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
     Value<Squadra>? squadra,
     Value<int>? posizione,
     Value<int>? giocatoreId,
+    Value<Ruolo?>? ruoloInCampo,
   }) {
     return RotationsCompanion(
       id: id ?? this.id,
@@ -2915,6 +2961,7 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
       squadra: squadra ?? this.squadra,
       posizione: posizione ?? this.posizione,
       giocatoreId: giocatoreId ?? this.giocatoreId,
+      ruoloInCampo: ruoloInCampo ?? this.ruoloInCampo,
     );
   }
 
@@ -2938,6 +2985,11 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
     if (giocatoreId.present) {
       map['giocatore_id'] = Variable<int>(giocatoreId.value);
     }
+    if (ruoloInCampo.present) {
+      map['ruolo_in_campo'] = Variable<String>(
+        $RotationsTable.$converterruoloInCampon.toSql(ruoloInCampo.value),
+      );
+    }
     return map;
   }
 
@@ -2948,7 +3000,8 @@ class RotationsCompanion extends UpdateCompanion<Rotation> {
           ..write('setId: $setId, ')
           ..write('squadra: $squadra, ')
           ..write('posizione: $posizione, ')
-          ..write('giocatoreId: $giocatoreId')
+          ..write('giocatoreId: $giocatoreId, ')
+          ..write('ruoloInCampo: $ruoloInCampo')
           ..write(')'))
         .toString();
   }
@@ -3219,6 +3272,15 @@ class $ScoutActionsTable extends ScoutActions
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<Ruolo?, String> ruoloInCampo =
+      GeneratedColumn<String>(
+        'ruolo_in_campo',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Ruolo?>($ScoutActionsTable.$converterruoloInCampon);
   static const VerificationMeta _ruoloAvversarioMeta = const VerificationMeta(
     'ruoloAvversario',
   );
@@ -3256,6 +3318,7 @@ class $ScoutActionsTable extends ScoutActions
     nuovoPalleggiatoreId,
     nuovoRuoloCambiLibero,
     gruppoCambio,
+    ruoloInCampo,
     ruoloAvversario,
   ];
   @override
@@ -3549,6 +3612,12 @@ class $ScoutActionsTable extends ScoutActions
         DriftSqlType.int,
         data['${effectivePrefix}gruppo_cambio'],
       ),
+      ruoloInCampo: $ScoutActionsTable.$converterruoloInCampon.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}ruolo_in_campo'],
+        ),
+      ),
       ruoloAvversario: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}ruolo_avversario'],
@@ -3578,6 +3647,10 @@ class $ScoutActionsTable extends ScoutActions
       const RuoloConverter();
   static TypeConverter<Ruolo?, String?> $converternuovoRuoloCambiLiberon =
       NullAwareTypeConverter.wrap($converternuovoRuoloCambiLibero);
+  static TypeConverter<Ruolo, String> $converterruoloInCampo =
+      const RuoloConverter();
+  static TypeConverter<Ruolo?, String?> $converterruoloInCampon =
+      NullAwareTypeConverter.wrap($converterruoloInCampo);
 }
 
 class ScoutAction extends DataClass implements Insertable<ScoutAction> {
@@ -3605,6 +3678,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
   final int? nuovoPalleggiatoreId;
   final Ruolo? nuovoRuoloCambiLibero;
   final int? gruppoCambio;
+  final Ruolo? ruoloInCampo;
   final String? ruoloAvversario;
   const ScoutAction({
     required this.id,
@@ -3631,6 +3705,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     this.nuovoPalleggiatoreId,
     this.nuovoRuoloCambiLibero,
     this.gruppoCambio,
+    this.ruoloInCampo,
     this.ruoloAvversario,
   });
   @override
@@ -3710,6 +3785,11 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     if (!nullToAbsent || gruppoCambio != null) {
       map['gruppo_cambio'] = Variable<int>(gruppoCambio);
     }
+    if (!nullToAbsent || ruoloInCampo != null) {
+      map['ruolo_in_campo'] = Variable<String>(
+        $ScoutActionsTable.$converterruoloInCampon.toSql(ruoloInCampo),
+      );
+    }
     if (!nullToAbsent || ruoloAvversario != null) {
       map['ruolo_avversario'] = Variable<String>(ruoloAvversario);
     }
@@ -3770,6 +3850,9 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       gruppoCambio: gruppoCambio == null && nullToAbsent
           ? const Value.absent()
           : Value(gruppoCambio),
+      ruoloInCampo: ruoloInCampo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ruoloInCampo),
       ruoloAvversario: ruoloAvversario == null && nullToAbsent
           ? const Value.absent()
           : Value(ruoloAvversario),
@@ -3812,6 +3895,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
         json['nuovoRuoloCambiLibero'],
       ),
       gruppoCambio: serializer.fromJson<int?>(json['gruppoCambio']),
+      ruoloInCampo: serializer.fromJson<Ruolo?>(json['ruoloInCampo']),
       ruoloAvversario: serializer.fromJson<String?>(json['ruoloAvversario']),
     );
   }
@@ -3843,6 +3927,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       'nuovoPalleggiatoreId': serializer.toJson<int?>(nuovoPalleggiatoreId),
       'nuovoRuoloCambiLibero': serializer.toJson<Ruolo?>(nuovoRuoloCambiLibero),
       'gruppoCambio': serializer.toJson<int?>(gruppoCambio),
+      'ruoloInCampo': serializer.toJson<Ruolo?>(ruoloInCampo),
       'ruoloAvversario': serializer.toJson<String?>(ruoloAvversario),
     };
   }
@@ -3872,6 +3957,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     Value<int?> nuovoPalleggiatoreId = const Value.absent(),
     Value<Ruolo?> nuovoRuoloCambiLibero = const Value.absent(),
     Value<int?> gruppoCambio = const Value.absent(),
+    Value<Ruolo?> ruoloInCampo = const Value.absent(),
     Value<String?> ruoloAvversario = const Value.absent(),
   }) => ScoutAction(
     id: id ?? this.id,
@@ -3920,6 +4006,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
         ? nuovoRuoloCambiLibero.value
         : this.nuovoRuoloCambiLibero,
     gruppoCambio: gruppoCambio.present ? gruppoCambio.value : this.gruppoCambio,
+    ruoloInCampo: ruoloInCampo.present ? ruoloInCampo.value : this.ruoloInCampo,
     ruoloAvversario: ruoloAvversario.present
         ? ruoloAvversario.value
         : this.ruoloAvversario,
@@ -3982,6 +4069,9 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
       gruppoCambio: data.gruppoCambio.present
           ? data.gruppoCambio.value
           : this.gruppoCambio,
+      ruoloInCampo: data.ruoloInCampo.present
+          ? data.ruoloInCampo.value
+          : this.ruoloInCampo,
       ruoloAvversario: data.ruoloAvversario.present
           ? data.ruoloAvversario.value
           : this.ruoloAvversario,
@@ -4015,6 +4105,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
           ..write('nuovoPalleggiatoreId: $nuovoPalleggiatoreId, ')
           ..write('nuovoRuoloCambiLibero: $nuovoRuoloCambiLibero, ')
           ..write('gruppoCambio: $gruppoCambio, ')
+          ..write('ruoloInCampo: $ruoloInCampo, ')
           ..write('ruoloAvversario: $ruoloAvversario')
           ..write(')'))
         .toString();
@@ -4046,6 +4137,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
     nuovoPalleggiatoreId,
     nuovoRuoloCambiLibero,
     gruppoCambio,
+    ruoloInCampo,
     ruoloAvversario,
   ]);
   @override
@@ -4076,6 +4168,7 @@ class ScoutAction extends DataClass implements Insertable<ScoutAction> {
           other.nuovoPalleggiatoreId == this.nuovoPalleggiatoreId &&
           other.nuovoRuoloCambiLibero == this.nuovoRuoloCambiLibero &&
           other.gruppoCambio == this.gruppoCambio &&
+          other.ruoloInCampo == this.ruoloInCampo &&
           other.ruoloAvversario == this.ruoloAvversario);
 }
 
@@ -4104,6 +4197,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
   final Value<int?> nuovoPalleggiatoreId;
   final Value<Ruolo?> nuovoRuoloCambiLibero;
   final Value<int?> gruppoCambio;
+  final Value<Ruolo?> ruoloInCampo;
   final Value<String?> ruoloAvversario;
   const ScoutActionsCompanion({
     this.id = const Value.absent(),
@@ -4130,6 +4224,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     this.nuovoPalleggiatoreId = const Value.absent(),
     this.nuovoRuoloCambiLibero = const Value.absent(),
     this.gruppoCambio = const Value.absent(),
+    this.ruoloInCampo = const Value.absent(),
     this.ruoloAvversario = const Value.absent(),
   });
   ScoutActionsCompanion.insert({
@@ -4157,6 +4252,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     this.nuovoPalleggiatoreId = const Value.absent(),
     this.nuovoRuoloCambiLibero = const Value.absent(),
     this.gruppoCambio = const Value.absent(),
+    this.ruoloInCampo = const Value.absent(),
     this.ruoloAvversario = const Value.absent(),
   }) : setId = Value(setId),
        rallyId = Value(rallyId),
@@ -4190,6 +4286,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     Expression<int>? nuovoPalleggiatoreId,
     Expression<String>? nuovoRuoloCambiLibero,
     Expression<int>? gruppoCambio,
+    Expression<String>? ruoloInCampo,
     Expression<String>? ruoloAvversario,
   }) {
     return RawValuesInsertable({
@@ -4222,6 +4319,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
       if (nuovoRuoloCambiLibero != null)
         'nuovo_ruolo_cambi_libero': nuovoRuoloCambiLibero,
       if (gruppoCambio != null) 'gruppo_cambio': gruppoCambio,
+      if (ruoloInCampo != null) 'ruolo_in_campo': ruoloInCampo,
       if (ruoloAvversario != null) 'ruolo_avversario': ruoloAvversario,
     });
   }
@@ -4251,6 +4349,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     Value<int?>? nuovoPalleggiatoreId,
     Value<Ruolo?>? nuovoRuoloCambiLibero,
     Value<int?>? gruppoCambio,
+    Value<Ruolo?>? ruoloInCampo,
     Value<String?>? ruoloAvversario,
   }) {
     return ScoutActionsCompanion(
@@ -4279,6 +4378,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
       nuovoRuoloCambiLibero:
           nuovoRuoloCambiLibero ?? this.nuovoRuoloCambiLibero,
       gruppoCambio: gruppoCambio ?? this.gruppoCambio,
+      ruoloInCampo: ruoloInCampo ?? this.ruoloInCampo,
       ruoloAvversario: ruoloAvversario ?? this.ruoloAvversario,
     );
   }
@@ -4374,6 +4474,11 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
     if (gruppoCambio.present) {
       map['gruppo_cambio'] = Variable<int>(gruppoCambio.value);
     }
+    if (ruoloInCampo.present) {
+      map['ruolo_in_campo'] = Variable<String>(
+        $ScoutActionsTable.$converterruoloInCampon.toSql(ruoloInCampo.value),
+      );
+    }
     if (ruoloAvversario.present) {
       map['ruolo_avversario'] = Variable<String>(ruoloAvversario.value);
     }
@@ -4407,6 +4512,7 @@ class ScoutActionsCompanion extends UpdateCompanion<ScoutAction> {
           ..write('nuovoPalleggiatoreId: $nuovoPalleggiatoreId, ')
           ..write('nuovoRuoloCambiLibero: $nuovoRuoloCambiLibero, ')
           ..write('gruppoCambio: $gruppoCambio, ')
+          ..write('ruoloInCampo: $ruoloInCampo, ')
           ..write('ruoloAvversario: $ruoloAvversario')
           ..write(')'))
         .toString();
@@ -8829,6 +8935,7 @@ typedef $$RotationsTableCreateCompanionBuilder =
       required Squadra squadra,
       required int posizione,
       required int giocatoreId,
+      Value<Ruolo?> ruoloInCampo,
     });
 typedef $$RotationsTableUpdateCompanionBuilder =
     RotationsCompanion Function({
@@ -8837,6 +8944,7 @@ typedef $$RotationsTableUpdateCompanionBuilder =
       Value<Squadra> squadra,
       Value<int> posizione,
       Value<int> giocatoreId,
+      Value<Ruolo?> ruoloInCampo,
     });
 
 final class $$RotationsTableReferences
@@ -8902,6 +9010,12 @@ class $$RotationsTableFilterComposer
     column: $table.posizione,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<Ruolo?, Ruolo, String> get ruoloInCampo =>
+      $composableBuilder(
+        column: $table.ruoloInCampo,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   $$MatchSetsTableFilterComposer get setId {
     final $$MatchSetsTableFilterComposer composer = $composerBuilder(
@@ -8974,6 +9088,11 @@ class $$RotationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ruoloInCampo => $composableBuilder(
+    column: $table.ruoloInCampo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MatchSetsTableOrderingComposer get setId {
     final $$MatchSetsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9038,6 +9157,12 @@ class $$RotationsTableAnnotationComposer
 
   GeneratedColumn<int> get posizione =>
       $composableBuilder(column: $table.posizione, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<Ruolo?, String> get ruoloInCampo =>
+      $composableBuilder(
+        column: $table.ruoloInCampo,
+        builder: (column) => column,
+      );
 
   $$MatchSetsTableAnnotationComposer get setId {
     final $$MatchSetsTableAnnotationComposer composer = $composerBuilder(
@@ -9119,12 +9244,14 @@ class $$RotationsTableTableManager
                 Value<Squadra> squadra = const Value.absent(),
                 Value<int> posizione = const Value.absent(),
                 Value<int> giocatoreId = const Value.absent(),
+                Value<Ruolo?> ruoloInCampo = const Value.absent(),
               }) => RotationsCompanion(
                 id: id,
                 setId: setId,
                 squadra: squadra,
                 posizione: posizione,
                 giocatoreId: giocatoreId,
+                ruoloInCampo: ruoloInCampo,
               ),
           createCompanionCallback:
               ({
@@ -9133,12 +9260,14 @@ class $$RotationsTableTableManager
                 required Squadra squadra,
                 required int posizione,
                 required int giocatoreId,
+                Value<Ruolo?> ruoloInCampo = const Value.absent(),
               }) => RotationsCompanion.insert(
                 id: id,
                 setId: setId,
                 squadra: squadra,
                 posizione: posizione,
                 giocatoreId: giocatoreId,
+                ruoloInCampo: ruoloInCampo,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -9246,6 +9375,7 @@ typedef $$ScoutActionsTableCreateCompanionBuilder =
       Value<int?> nuovoPalleggiatoreId,
       Value<Ruolo?> nuovoRuoloCambiLibero,
       Value<int?> gruppoCambio,
+      Value<Ruolo?> ruoloInCampo,
       Value<String?> ruoloAvversario,
     });
 typedef $$ScoutActionsTableUpdateCompanionBuilder =
@@ -9274,6 +9404,7 @@ typedef $$ScoutActionsTableUpdateCompanionBuilder =
       Value<int?> nuovoPalleggiatoreId,
       Value<Ruolo?> nuovoRuoloCambiLibero,
       Value<int?> gruppoCambio,
+      Value<Ruolo?> ruoloInCampo,
       Value<String?> ruoloAvversario,
     });
 
@@ -9467,6 +9598,12 @@ class $$ScoutActionsTableFilterComposer
     column: $table.gruppoCambio,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<Ruolo?, Ruolo, String> get ruoloInCampo =>
+      $composableBuilder(
+        column: $table.ruoloInCampo,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<String> get ruoloAvversario => $composableBuilder(
     column: $table.ruoloAvversario,
@@ -9675,6 +9812,11 @@ class $$ScoutActionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ruoloInCampo => $composableBuilder(
+    column: $table.ruoloInCampo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get ruoloAvversario => $composableBuilder(
     column: $table.ruoloAvversario,
     builder: (column) => ColumnOrderings(column),
@@ -9871,6 +10013,12 @@ class $$ScoutActionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<Ruolo?, String> get ruoloInCampo =>
+      $composableBuilder(
+        column: $table.ruoloInCampo,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<String> get ruoloAvversario => $composableBuilder(
     column: $table.ruoloAvversario,
     builder: (column) => column,
@@ -10026,6 +10174,7 @@ class $$ScoutActionsTableTableManager
                 Value<int?> nuovoPalleggiatoreId = const Value.absent(),
                 Value<Ruolo?> nuovoRuoloCambiLibero = const Value.absent(),
                 Value<int?> gruppoCambio = const Value.absent(),
+                Value<Ruolo?> ruoloInCampo = const Value.absent(),
                 Value<String?> ruoloAvversario = const Value.absent(),
               }) => ScoutActionsCompanion(
                 id: id,
@@ -10052,6 +10201,7 @@ class $$ScoutActionsTableTableManager
                 nuovoPalleggiatoreId: nuovoPalleggiatoreId,
                 nuovoRuoloCambiLibero: nuovoRuoloCambiLibero,
                 gruppoCambio: gruppoCambio,
+                ruoloInCampo: ruoloInCampo,
                 ruoloAvversario: ruoloAvversario,
               ),
           createCompanionCallback:
@@ -10080,6 +10230,7 @@ class $$ScoutActionsTableTableManager
                 Value<int?> nuovoPalleggiatoreId = const Value.absent(),
                 Value<Ruolo?> nuovoRuoloCambiLibero = const Value.absent(),
                 Value<int?> gruppoCambio = const Value.absent(),
+                Value<Ruolo?> ruoloInCampo = const Value.absent(),
                 Value<String?> ruoloAvversario = const Value.absent(),
               }) => ScoutActionsCompanion.insert(
                 id: id,
@@ -10106,6 +10257,7 @@ class $$ScoutActionsTableTableManager
                 nuovoPalleggiatoreId: nuovoPalleggiatoreId,
                 nuovoRuoloCambiLibero: nuovoRuoloCambiLibero,
                 gruppoCambio: gruppoCambio,
+                ruoloInCampo: ruoloInCampo,
                 ruoloAvversario: ruoloAvversario,
               ),
           withReferenceMapper: (p0) => p0

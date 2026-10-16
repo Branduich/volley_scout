@@ -76,6 +76,12 @@ lunghe: le righe sono poche e leggere il file a occhio vale più dei byte.
 | `pc` `po` | punteggio al momento | opzionale, di servizio |
 | `gu` `np` `nr` `gc` | cambio giocatore | uscente, nuovo palleggiatore, nuovo ruolo cambi libero, gruppo |
 | `ra` | ruolo avversario | `P`/`O`/`S1`/`S2`/`C1`/`C2` per le azioni avversarie |
+| `rc` | ruolo in campo | solo sui cambi: ruolo che chi entra assume, se diverso dal suo (schema v20) |
+
+Gemello di `rc` sulle **rotazioni**: la chiave lunga `ruoloInCampo`, presente
+solo per una titolare schierata con un ruolo diverso dal suo (es. una
+schiacciatrice da centrale). Entrambe additive: un file che non le ha si legge
+come prima, senza alzare la versione del formato.
 
 **Le chiavi assenti valgono `null`**: è la forma compatta, e chi legge le tratta
 come tali.

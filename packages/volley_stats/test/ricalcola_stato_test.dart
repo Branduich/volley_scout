@@ -408,6 +408,109 @@ void main() {
     });
   });
 
+  // Caso reale (feedback dal campo, 2026-10): centrale infortunato, entra una
+  // schiacciatrice che in campo fa il centrale. Il ruolo in campo è un dato
+  // della partita e segue la persona.
+  group('ricalcolaStato — ruolo in campo', () {
+    AzioneScout cambio(int ordine, int esce, int entra, [Ruolo? ruolo]) =>
+        AzioneScout(
+          ordine: ordine,
+          esitoPunto: EsitoPunto.nessuno,
+          sostituzione: SostituzioneGiocatore(
+              esceId: esce, entraId: entra, ruoloInCampo: ruolo),
+        );
+
+    test('chi entra porta il ruolo indicato nel cambio', () {
+      final stato = ricalcolaStato(
+        azioni: [cambio(1, 30, 99, Ruolo.centrale)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.ruoliInCampo, {99: Ruolo.centrale});
+      expect(stato.rotazione[3], 99);
+    });
+
+    test('senza ruolo nel cambio la mappa resta vuota (gioca col suo)', () {
+      final stato = ricalcolaStato(
+        azioni: [cambio(1, 30, 99)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.ruoliInCampo, isEmpty);
+    });
+
+    test('chi esce lo perde, anche se era un ruolo di inizio set', () {
+      final stato = ricalcolaStato(
+        azioni: [cambio(1, 30, 99)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        ruoliInCampoIniziali: {30: Ruolo.centrale, 40: Ruolo.opposto},
+      );
+
+      expect(stato.ruoliInCampo, {40: Ruolo.opposto});
+    });
+
+    test('segue la persona attraverso la rotazione e i cambi a catena', () {
+      final stato = ricalcolaStato(
+        azioni: [
+          cambio(1, 30, 99, Ruolo.centrale),
+          // Sideout: 99 passa dalla posizione 3 alla 2, il ruolo resta suo.
+          const AzioneScout(ordine: 2, esitoPunto: EsitoPunto.puntoNostro),
+          // Poi esce anche lei: entra 98, di nuovo da centrale.
+          cambio(3, 99, 98, Ruolo.centrale),
+        ],
+        servizioIniziale: Squadra.avversari,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.rotazione[2], 98);
+      expect(stato.ruoliInCampo, {98: Ruolo.centrale});
+    });
+
+    test('il cambio libero-per-libero non tocca i ruoli in campo', () {
+      final stato = ricalcolaStato(
+        azioni: [cambio(1, 70, 71, Ruolo.centrale)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        ruoliInCampoIniziali: {30: Ruolo.centrale},
+      );
+
+      expect(stato.liberoId, 71);
+      expect(stato.ruoliInCampo, {30: Ruolo.centrale});
+    });
+
+    test('una riga incoerente (subentrante già in campo) non lo applica', () {
+      final stato = ricalcolaStato(
+        azioni: [cambio(1, 30, 20, Ruolo.centrale)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.ruoliInCampo, isEmpty);
+    });
+
+    test('undo = togliere la riga: si torna allo stato di prima', () {
+      final prima = ricalcolaStato(
+        azioni: const [],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        ruoliInCampoIniziali: {30: Ruolo.centrale},
+      );
+      final dopo = ricalcolaStato(
+        azioni: [cambio(1, 30, 99, Ruolo.centrale)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        ruoliInCampoIniziali: {30: Ruolo.centrale},
+      );
+
+      expect(dopo, isNot(prima)); // == confronta anche i ruoli in campo
+      expect(prima.ruoliInCampo, {30: Ruolo.centrale});
+    });
+  });
+
   group('ricalcolaStato — cambio libero (solo libero-per-libero)', () {
     test('esce il libero L1: si aggiorna liberoId, rotazione intatta', () {
       final stato = ricalcolaStato(

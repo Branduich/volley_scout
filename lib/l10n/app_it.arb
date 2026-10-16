@@ -485,6 +485,11 @@
   "lineupDoppioLibero": "Doppio libero",
   "lineupGiocatori": "Giocatori",
   "lineupAggiungi": "Aggiungi",
+  "lineupRuoloInCampo": "Ruolo in campo",
+  "lineupRuoloAnagrafico": "{ruolo} (il suo ruolo)",
+  "@lineupRuoloAnagrafico": {
+    "placeholders": { "ruolo": { "type": "String" } }
+  },
 
   "configTitolo": "Configurazione formazione – {squadra}",
   "@configTitolo": {
@@ -516,6 +521,15 @@
   "sostSelezionaUscente": "Seleziona prima chi esce (tap sulla card in campo)",
   "sostPanchina": "Panchina",
   "sostNessunGiocatore": "Nessun giocatore disponibile",
+  "sostGiocaDaTitolo": "{entra} entra per {esce}",
+  "@sostGiocaDaTitolo": {
+    "placeholders": { "entra": { "type": "String" }, "esce": { "type": "String" } }
+  },
+  "sostGiocaDaDomanda": "In campo gioca da:",
+  "scoutCambioGiocaDa": "(da {ruolo})",
+  "@scoutCambioGiocaDa": {
+    "placeholders": { "ruolo": { "type": "String" } }
+  },
 
   "scoutAvversariGenerico": "Avversari",
   "scoutAvversariMaiuscolo": "AVVERSARI",

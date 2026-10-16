@@ -199,6 +199,13 @@ class Rotations extends Table {
   IntColumn get posizione => integer()(); // 1-6, 1 = battitore
   IntColumn get giocatoreId =>
       integer().references(Players, #id, onDelete: KeyAction.cascade)();
+  // Ruolo con cui il titolare gioca IN QUESTO SET, se diverso da quello
+  // anagrafico (es. una schiacciatrice schierata da centrale dopo un
+  // infortunio) — schema v20. null = ruolo anagrafico. È un dato della
+  // partita, non della giocatrice: cambiare `Players.ruolo` riscriverebbe i
+  // report di tutte le partite passate.
+  TextColumn get ruoloInCampo =>
+      text().nullable().map(const RuoloConverter())();
 }
 
 class ScoutActions extends Table {
@@ -250,6 +257,12 @@ class ScoutActions extends Table {
   // valore (schema v12): l'undo di una riga cambio elimina l'intero gruppo
   // — annullare solo metà di un doppio cambio non ha senso pallavolistico.
   IntColumn get gruppoCambio => integer().nullable()();
+  // Solo per tipo == cambioGiocatore (schema v20): il ruolo che chi ENTRA
+  // assume in campo, se diverso dal suo anagrafico (null = anagrafico). Vale
+  // finché quella giocatrice resta in campo — vedi Rotations.ruoloInCampo e
+  // StatoSet.ruoliInCampo.
+  TextColumn get ruoloInCampo =>
+      text().nullable().map(const RuoloConverter())();
   // Ruolo placeholder della squadra AVVERSARIA (P/O/S1/S2/C1/C2) per le azioni
   // avversarie (squadra == avversari, giocatoreId == null) — schema v15. null
   // per le nostre azioni. Da qui le future statistiche avversarie per ruolo.
@@ -330,7 +343,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.perTest(super.executor);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   // Le ALTER TABLE/CREATE TABLE in onUpgrade NON sono atomiche (un fallimento
   // a metà migrazione lascia i passi precedenti già committati, ma senza che
@@ -521,6 +534,16 @@ class AppDatabase extends _$AppDatabase {
                   "WHERE uid = '' OR uid IS NULL");
               await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS '
                   'idx_${tabella}_uid ON $tabella (uid)');
+            }
+          }
+          if (from < 20) {
+            // Ruolo in campo diverso dall'anagrafico: a inizio set (rotations)
+            // e sul cambio giocatore (scout_actions). Solo aggiunte nullable.
+            for (final tabella in ['rotations', 'scout_actions']) {
+              if (!await _hasColumn(tabella, 'ruolo_in_campo')) {
+                await customStatement(
+                    'ALTER TABLE $tabella ADD COLUMN ruolo_in_campo TEXT');
+              }
             }
           }
         },

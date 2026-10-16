@@ -4,6 +4,7 @@ import '../../data/database.dart';
 import '../../models/enums.dart';
 import '../../models/jersey_colors.dart';
 import '../../providers/database_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/certificato_dot.dart';
 import '../teams/player_form_screen.dart';
@@ -45,6 +46,11 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
   bool _doppiLibero = false;
   String _selectedSlot = 'P1';
   final Map<String, Player> _assignments = {};
+  // Ruolo in campo per slot, solo dove diverso dall'anagrafico (pressione
+  // prolungata sulla card, vedi _scegliRuoloInCampo). Tenuto a parte da
+  // `_assignments` e applicato solo alla conferma: così togliere o
+  // riassegnare una card lo azzera senza casi speciali.
+  final Map<String, Ruolo> _ruoliInCampo = {};
 
   List<String> get _allSlots => [..._kCourtOrder, 'L1', if (_doppiLibero) 'L2'];
 
@@ -65,12 +71,14 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
       }
       if (existingSlot != null) {
         _assignments.remove(existingSlot);
+        _ruoliInCampo.remove(existingSlot);
         _selectedSlot = existingSlot;
         return;
       }
 
       // Assign to currently selected slot
       _assignments[_selectedSlot] = player;
+      _ruoliInCampo.remove(_selectedSlot);
       _advanceToNextEmpty();
     });
   }
@@ -78,7 +86,52 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
   void _removeFromSlot(String slot) {
     setState(() {
       _assignments.remove(slot);
+      _ruoliInCampo.remove(slot);
       _selectedSlot = slot;
+    });
+  }
+
+  /// Pressione prolungata su una card del campo: con che ruolo gioca in
+  /// QUESTO set (es. una schiacciatrice schierata da centrale dopo un
+  /// infortunio). Non tocca l'anagrafica: è un dato della partita, salvato
+  /// sulla rotazione del set (vedi Rotations.ruoloInCampo).
+  Future<void> _scegliRuoloInCampo(String slot) async {
+    final player = _assignments[slot];
+    if (player == null || !slot.startsWith('P')) return;
+    final l = AppLocalizations.of(context);
+    final attuale = _ruoliInCampo[slot] ?? player.ruolo;
+    final scelto = await showDialog<Ruolo>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('${player.numero} ${player.cognome} — '
+            '${l.lineupRuoloInCampo}'),
+        children: [
+          for (final ruolo in Ruolo.values)
+            if (ruolo != Ruolo.libero)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, ruolo),
+                child: Text(
+                  ruolo == player.ruolo
+                      ? l.lineupRuoloAnagrafico(ruoloLabel(ruolo, l))
+                      : ruoloLabel(ruolo, l),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: ruolo == attuale
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+    if (scelto == null || !mounted) return;
+    setState(() {
+      if (scelto == player.ruolo) {
+        _ruoliInCampo.remove(slot);
+      } else {
+        _ruoliInCampo[slot] = scelto;
+      }
     });
   }
 
@@ -114,7 +167,15 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
         builder: (_) => FormationConfigScreen(
           match: widget.match,
           team: widget.team,
-          assignments: Map.from(_assignments),
+          // Il ruolo in campo viaggia come copia del Player col ruolo
+          // sostituito: da qui in avanti (coppia del libero, etichette,
+          // salvataggio della rotazione) quella giocatrice "è" quel ruolo.
+          assignments: {
+            for (final e in _assignments.entries)
+              e.key: _ruoliInCampo[e.key] == null
+                  ? e.value
+                  : e.value.copyWith(ruolo: _ruoliInCampo[e.key]),
+          },
         ),
       ),
     );
@@ -322,6 +383,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
         Positioned.fill(
           child: GestureDetector(
             onTap: () => _onSlotTap(slot),
+            onLongPress: player == null || !slot.startsWith('P')
+                ? null
+                : () => _scegliRuoloInCampo(slot),
             child: Container(
               margin: margin,
               decoration: BoxDecoration(
@@ -343,7 +407,9 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
               ),
               child: player == null
                   ? _slotLabel(slot, phaseLabel: phaseLabel)
-                  : _slotPlayer(player, phaseLabel: phaseLabel),
+                  : _slotPlayer(player,
+                      phaseLabel: phaseLabel,
+                      ruoloInCampo: _ruoliInCampo[slot]),
             ),
           ),
         ),
@@ -393,7 +459,7 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
     );
   }
 
-  Widget _slotPlayer(Player player, {String? phaseLabel}) {
+  Widget _slotPlayer(Player player, {String? phaseLabel, Ruolo? ruoloInCampo}) {
     const nameRoleStyle = TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
@@ -438,13 +504,35 @@ class _LineupScreenState extends ConsumerState<LineupScreen> with OrientamentoSc
             bottom: 0,
             left: 0,
             right: 0,
-            child: Text(
-              phaseLabel ?? ruoloLabel(player.ruolo, AppLocalizations.of(context)),
-              style: nameRoleStyle,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            // Ruolo in campo diverso dall'anagrafico: icona ⇄ e colore del
+            // brand, perché si veda a colpo d'occhio che non è il suo ruolo.
+            child: ruoloInCampo != null && phaseLabel == null
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.swap_horiz,
+                          size: 18, color: AppColors.brandPrimary),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(
+                          ruoloLabel(ruoloInCampo, AppLocalizations.of(context)),
+                          style: nameRoleStyle.copyWith(
+                              color: AppColors.brandPrimary,
+                              fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    phaseLabel ??
+                        ruoloLabel(player.ruolo, AppLocalizations.of(context)),
+                    style: nameRoleStyle,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
           ),
         ],
       ),
