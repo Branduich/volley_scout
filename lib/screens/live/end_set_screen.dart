@@ -68,13 +68,25 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
         widget.match.copyWith(setCorrente: widget.match.setCorrente + 1);
     await ref.read(matchRepositoryProvider).updateMatch(nuovoMatch);
     if (!context.mounted) return;
-    Navigator.push(
+    // Le schermate del set appena chiuso (Lineup/Config/Scout/Fine) vengono
+    // RIMOSSE, non lasciate sotto: prima si accumulavano una catena per set,
+    // e a "Fine Partita" di un quinto set c'erano cinque ScoutScreen da
+    // smontare — ognuna ricostruita a ogni frame del ritorno delle barre di
+    // sistema, da cui l'app "congelata" segnalata dagli utenti.
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
         builder: (_) => LineupScreen(match: nuovoMatch, team: widget.team),
       ),
+      _finoAllaListaPartite,
     );
   }
+
+  // MatchesScreen (vedi RouteSettings(name: '/matches') in main.dart), con
+  // la prima route come rete di sicurezza: se lo scout fosse stato aperto da
+  // un'altra strada, svuotare tutto lo stack lascerebbe lo schermo nero.
+  static bool _finoAllaListaPartite(Route<dynamic> route) =>
+      route.settings.name == '/matches' || route.isFirst;
 
   Future<void> _finePartita(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
@@ -88,11 +100,9 @@ class _EndSetScreenState extends ConsumerState<EndSetScreen>
         .read(matchRepositoryProvider)
         .updateMatch(widget.match.copyWith(stato: StatoPartita.terminata));
     if (!context.mounted) return;
-    // Pop fino a MatchesScreen (vedi RouteSettings(name: '/matches') in
-    // main.dart) — robusto a quante schermate si siano accumulate nello
-    // stack per i set precedenti (LineupScreen/FormationConfigScreen/
-    // ScoutScreen/EndSetScreen ripetuti ad ogni "Prossimo Set").
-    Navigator.popUntil(context, ModalRoute.withName('/matches'));
+    // Pop fino a MatchesScreen. Da quando "Prossimo Set" rimuove le schermate
+    // del set chiuso, sopra ci sono solo quelle del set corrente.
+    Navigator.popUntil(context, _finoAllaListaPartite);
   }
 
   @override

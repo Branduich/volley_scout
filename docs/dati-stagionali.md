@@ -625,3 +625,37 @@ apri la dashboard in Chrome, droppa il file, e controlla che **l'efficienza
 attacco di una giocatrice su una singola partita coincida cifra per cifra con la
 mega-tabella del PDF** della stessa partita. Poi F5 e verifica che i dati siano
 ancora lì. Quello è il momento in cui il giro è completo.
+
+## Backlog (dopo il passo 15)
+
+Cose viste e messe da parte con l'utente, non dimenticate. Nessuna è bloccante:
+il giro è completo senza.
+
+**Traduzione inglese della dashboard.** I testi di `packages/volley_ui` sono in
+**italiano fisso**: la regola del package vieta `AppLocalizations` (come drift e
+riverpod), quindi le stringhe stanno nel codice. Conseguenza concreta: la voce
+"Statistiche stagionali" dentro l'app **non segue la lingua scelta**, mentre
+tutto il resto dell'app sì (vedi premium-settings-i18n.md: l'i18n è al 100% su
+ogni altra schermata). Sul web la questione non si pone ancora, perché la
+vetrina esiste solo in italiano.
+
+Il conto è cresciuto col passo 14-15: alle ~40 stringhe stimate il 2026-08-28
+si aggiungono le sei etichette del selettore fondamentali, i titoli di colonna
+delle sei viste e i loro tooltip.
+
+*Come si farebbe*: i widget ricevono le stringhe **iniettate dall'ospite**, in
+un oggetto passato al costruttore di `PaginaSquadra` (l'app lo riempie da
+`AppLocalizations`, il guscio web con le costanti italiane). NON aggiungendo
+`flutter_localizations` al package: quella è la porta da cui rientrerebbe la
+dipendenza dall'app, ed è la cosa che rende condivisibile il codice col web.
+
+**Confronto fra due atlete nella tendenza.** Oggi il grafico segue una
+giocatrice per volta; l'idea è sovrapporre due serie per rispondere a "chi delle
+due sta crescendo". `serieTendenza` (`packages/volley_stats/lib/tendenza.dart`)
+prende già `giocatoreUid` e torna una lista di punti: chiamarla due volte è
+tutto il calcolo che serve — il lavoro è nel disegno (seconda linea, seconda
+retta, legenda) e nel selettore.
+
+Da guardare prima di farlo: due rette tratteggiate e due bande di volume sullo
+stesso riquadro possono diventare illeggibili. Vale la pena decidere se la
+seconda serie porta anche la sua retta o solo i punti.

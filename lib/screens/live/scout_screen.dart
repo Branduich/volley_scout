@@ -336,11 +336,37 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // (dialog "Chi serve per primo?" non ancora risposto). Punto centrale del
   // principio event-sourcing: niente di tutto questo è salvato come stato
   // mutabile, si ricalcola sempre dalla sequenza di azioni.
+  //
+  // MEMOIZZATO sull'identità della lista di righe (più set e widget): il
+  // getter è letto da decine di altri getter, e senza cache un solo build
+  // rigiocava l'intero set ~85 volte. Lo stream emette una lista NUOVA a ogni
+  // modifica, quindi l'identità basta a invalidare. Pesava soprattutto a
+  // "Fine Partita": tornando alla lista partite ricompaiono le barre di
+  // sistema, e ogni ScoutScreen ancora nello stack si ricostruiva per ogni
+  // frame dell'animazione della barra.
   StatoSet? get _statoSetReale {
     final set = _setCorrente;
     if (set == null) return null;
+    // Il watch va fatto SEMPRE, anche quando la cache è valida: è lui che
+    // iscrive il build allo stream.
     final azioniAsync = ref.watch(scoutAzioniStreamProvider(set.id));
     final righe = azioniAsync.value ?? const <ScoutAction>[];
+    final cache = _cacheStatoSet;
+    if (cache != null &&
+        identical(cache.righe, righe) &&
+        identical(cache.set, set) &&
+        identical(cache.widget, widget)) {
+      return cache.stato;
+    }
+    final stato = _replaySet(set, righe);
+    _cacheStatoSet = (righe: righe, set: set, widget: widget, stato: stato);
+    return stato;
+  }
+
+  ({List<ScoutAction> righe, MatchSet set, ScoutScreen widget, StatoSet stato})?
+      _cacheStatoSet;
+
+  StatoSet _replaySet(MatchSet set, List<ScoutAction> righe) {
     final azioni = [for (final r in righe) azioneScoutDaRiga(r)];
     return ricalcolaStato(
       azioni: azioni,
