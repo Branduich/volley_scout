@@ -206,10 +206,13 @@ StatoSet ricalcolaStato({
               entry.key: entry.value == esce ? entra : entry.value,
           };
           // Il ruolo in campo segue la persona: chi esce lo perde, chi
-          // entra prende quello indicato nel cambio (se c'è). Vale anche per
-          // la riga no-op (esce == entra): cambia ruolo senza sostituire.
-          // Solo per la rotazione — un libero gioca sempre da libero.
-          ruoliInCampo.remove(esce);
+          // entra prende quello indicato nel cambio (se c'è). Solo per la
+          // rotazione — un libero gioca sempre da libero.
+          // La riga no-op (esce == entra, riconfigurazione senza cambi) NON
+          // toglie niente: la giocatrice che le fa da àncora resta in campo,
+          // e perdeva un ruolo impostato in formazione. Se porta un ruolo,
+          // lo cambia senza sostituire.
+          if (esce != entra) ruoliInCampo.remove(esce);
           final ruolo = sostituzione.ruoloInCampo;
           if (ruolo != null) ruoliInCampo[entra] = ruolo;
         }

@@ -107,6 +107,71 @@ void main() {
       expect(labels['P6'], 'C2');
     });
 
+    // Il caso dal campo (2026-10-17): l'universale entra al posto dello
+    // schiacciatore di PRIMA linea (l'S1, vicino al palleggiatore). Prima del
+    // fix veniva accodato e prendeva S2, e i due schiacciatori si scambiavano
+    // le posizioni. I test sopra lo mettevano sempre al posto dell'S2.
+    test('universale al posto dell\'S1 → S1 (non scambia con l\'S2)', () {
+      final labels = roleLabelsFor('P1', {
+        'P1': Ruolo.palleggiatore,
+        'P2': Ruolo.undefined, // era l'S1
+        'P3': Ruolo.centrale,
+        'P4': Ruolo.opposto,
+        'P5': Ruolo.schiacciatore, // l'S2, resta S2
+        'P6': Ruolo.centrale,
+      });
+
+      expect(labels['P2'], 'S1');
+      expect(labels['P5'], 'S2');
+    });
+
+    test('universale al posto del C1 → C1', () {
+      final labels = roleLabelsFor('P1', {
+        'P1': Ruolo.palleggiatore,
+        'P2': Ruolo.schiacciatore,
+        'P3': Ruolo.undefined, // era il C1
+        'P4': Ruolo.opposto,
+        'P5': Ruolo.schiacciatore,
+        'P6': Ruolo.centrale, // il C2, resta C2
+      });
+
+      expect(labels['P3'], 'C1');
+      expect(labels['P6'], 'C2');
+    });
+
+    test('in ogni rotazione l\'universale eredita l\'etichetta di chi esce',
+        () {
+      // Composizione canonica a partire dal P, nel verso di kSlotOrder.
+      const canonica = ['P', 'S1', 'C1', 'O', 'S2', 'C2'];
+      const ruoloDi = {
+        'P': Ruolo.palleggiatore,
+        'S1': Ruolo.schiacciatore,
+        'C1': Ruolo.centrale,
+        'O': Ruolo.opposto,
+        'S2': Ruolo.schiacciatore,
+        'C2': Ruolo.centrale,
+      };
+      for (var p = 0; p < 6; p++) {
+        final slotP = kSlotOrder[p];
+        final etichettaDi = {
+          for (var i = 0; i < 6; i++) kSlotOrder[(p + i) % 6]: canonica[i],
+        };
+        for (final uscente in ['S1', 'C1', 'O', 'S2', 'C2']) {
+          final slotUscente =
+              etichettaDi.entries.firstWhere((e) => e.value == uscente).key;
+          final labels = roleLabelsFor(slotP, {
+            for (final e in etichettaDi.entries)
+              e.key: e.key == slotUscente
+                  ? Ruolo.undefined
+                  : ruoloDi[e.value]!,
+          });
+
+          expect(labels, etichettaDi,
+              reason: 'P in $slotP, universale al posto di $uscente');
+        }
+      }
+    });
+
     test('universale al posto dell\'opposto → O', () {
       final labels = roleLabelsFor('P1', {
         'P1': Ruolo.palleggiatore,

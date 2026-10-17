@@ -2910,7 +2910,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             color: _kTopBarBg,
             child: LayoutBuilder(
               builder: (context, headerConstraints) {
-                const scoreControlWidth = 116.0;
+                final scoreFontSize =
+                    _scoreFontSize(headerConstraints.maxWidth);
+                final scoreControlWidth = _scoreControlWidth(scoreFontSize);
                 final leftScoreLeft =
                     headerConstraints.maxWidth * 0.30 - scoreControlWidth / 2;
                 // Offset dei pallini timeout dal bordo: 237 (allineati col
@@ -2925,17 +2927,19 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                 );
                 final rightScoreLeft =
                     headerConstraints.maxWidth * 0.70 - scoreControlWidth / 2;
+                // Il titolo sta FRA i due gruppi punteggio, con 8 di aria:
+                // da quando il punteggio è grande, lasciarlo largo fino alle
+                // icone (104 dai bordi) lo farebbe passare sotto ai numeri.
+                // Simmetrico, quindi il centro del titolo non si sposta.
+                final titoloMargine = math.max(
+                  104.0,
+                  leftScoreLeft + scoreControlWidth + 8,
+                );
                 return Stack(
                   children: [
-                    // Margini simmetrici da 104 = due icone (48+48) più aria:
-                    // a destra ci sono "annulla scambio" + undo, a sinistra
-                    // solo il menu. Simmetrici e non 56/104 per non spostare
-                    // il centro del titolo, che è centrato: su telefono costa
-                    // un po' di larghezza (va in ellissi prima), ma il titolo
-                    // resta dov'è invece di apparire storto.
                     Positioned(
-                      left: 104,
-                      right: 104,
+                      left: titoloMargine,
+                      right: titoloMargine,
                       bottom: 4,
                       child: Text(
                         _matchTitle,
@@ -2949,10 +2953,9 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Center: il contenuto (−/numero/+, ~76px) è più stretto
-                    // del riquadro da 116 — senza, la Row resta allineata a
-                    // sinistra in entrambi i riquadri e i due punteggi
-                    // risultano asimmetrici rispetto al titolo centrato.
+                    // Center: tiene il gruppo −/numero/+ centrato nel suo
+                    // riquadro, così i due punteggi restano simmetrici
+                    // rispetto al titolo centrato.
                     Positioned(
                       left: leftScoreLeft,
                       width: scoreControlWidth,
@@ -2962,10 +2965,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                             ? _buildScoreDisplay(
                                 _punteggioAvversario,
                                 Squadra.avversari,
+                                scoreFontSize,
                               )
                             : _buildScoreDisplay(
                                 _punteggioNostro,
                                 Squadra.nostra,
+                                scoreFontSize,
                               ),
                       ),
                     ),
@@ -2978,10 +2983,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                             ? _buildScoreDisplay(
                                 _punteggioNostro,
                                 Squadra.nostra,
+                                scoreFontSize,
                               )
                             : _buildScoreDisplay(
                                 _punteggioAvversario,
                                 Squadra.avversari,
+                                scoreFontSize,
                               ),
                       ),
                     ),
@@ -4134,7 +4141,39 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return Opacity(opacity: _lampeggioAcceso ? 1.0 : 0.0, child: child);
   }
 
-  Widget _buildScoreDisplay(int score, Squadra squadra) {
+  // --- Dimensione del punteggio nella barra superiore -------------------
+  //
+  // Due limiti misurati sul font reale (Barlow w600, altezza di riga 1: la
+  // scatola è alta quanto il corpo, "88" largo ~1,07 volte il corpo):
+  // - VERTICALE: la barra è alta 80 e il gruppo è ancorato a 4 dal fondo,
+  //   quindi ci starebbe fino a 64 — provato in campo e troppo grande:
+  //   il tetto `_kScoreFontMax` è la metà, scelto dall'utente (2026-10-17).
+  // - ORIZZONTALE: i gruppi stanno al 30%/70% e fra loro deve restare il
+  //   titolo della partita (almeno `_kTitoloMinimo`). Su schermi stretti il
+  //   corpo scende da sé invece di schiacciare il titolo.
+  static const double _kScoreFontMax = 32;
+  static const double _kScoreFontMin = 16;
+  static const double _kTitoloMinimo = 160;
+  static const double _kScoreBottone = 28; // bottoni − e +
+  static const double _kScoreGap = 8;
+
+  // Larghezza del numero: "88" più un margine, così 1 o 2 cifre non
+  // spostano i bottoni.
+  static double _scoreNumeroWidth(double fontSize) => fontSize * 1.1;
+
+  static double _scoreControlWidth(double fontSize) =>
+      2 * _kScoreBottone + 2 * _kScoreGap + _scoreNumeroWidth(fontSize);
+
+  // Fra i gruppi resta 0,4 × larghezza − larghezza di un gruppo.
+  static double _scoreFontSize(double larghezzaBarra) {
+    final perIlTitolo = larghezzaBarra * 0.4 -
+        _kTitoloMinimo -
+        2 * _kScoreBottone -
+        2 * _kScoreGap;
+    return (perIlTitolo / 1.1).clamp(_kScoreFontMin, _kScoreFontMax);
+  }
+
+  Widget _buildScoreDisplay(int score, Squadra squadra, double fontSize) {
     final attivo = _bottoniRapidiAttivi;
     // Il tutorial indica il gruppo punteggio NOSTRO: qui, e non nel build,
     // perché quale dei due riquadri sia il nostro dipende da _isRightSide.
@@ -4150,23 +4189,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             attivo && score > 0 ? () => _correggiPunteggio(squadra, -1) : null,
           ),
           // Distacco tra bottoni e numero (prima erano attaccati).
-          const SizedBox(width: 8),
+          const SizedBox(width: _kScoreGap),
           SizedBox(
-            width: 32,
+            width: _scoreNumeroWidth(fontSize),
             child: _lampeggiaSe(
               squadra,
               Text(
                 '$score',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                // height 1: la scatola è alta quanto il corpo — vedi i
+                // limiti in _scoreFontSize.
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                  fontSize: fontSize,
+                  height: 1,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: _kScoreGap),
           _buildScoreAdjustButton(
             Icons.add,
             attivo ? () => _correggiPunteggio(squadra, 1) : null,

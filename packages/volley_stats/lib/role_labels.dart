@@ -88,6 +88,11 @@ Map<String, String> roleLabelsFor(
 
   // L'opposto è canonicamente a 3 posizioni dal palleggiatore.
   opposto ??= prendiUniversale(vicinoA: palleggiatoreSlot);
+  // Dopo il completamento la coppia va RIORDINATA per distanza dal
+  // palleggiatore: S1/C1 sono di chi gli sta più vicino, non di chi c'era
+  // prima. Senza, un universale entrato al posto dell'S1 veniva accodato e
+  // prendeva S2, mentre lo schiacciatore rimasto saliva a S1 — i due si
+  // scambiavano le posizioni tattiche (bug dal campo, 2026-10-17).
   if (schiacciatori.length == 1) {
     final u = prendiUniversale(vicinoA: schiacciatori[0]);
     if (u != null) schiacciatori.add(u);
@@ -96,9 +101,8 @@ Map<String, String> roleLabelsFor(
       final u = prendiUniversale();
       if (u != null) schiacciatori.add(u);
     }
-    schiacciatori
-        .sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
   }
+  schiacciatori.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
   if (centrali.length == 1) {
     final u = prendiUniversale(vicinoA: centrali[0]);
     if (u != null) centrali.add(u);
@@ -107,8 +111,8 @@ Map<String, String> roleLabelsFor(
       final u = prendiUniversale();
       if (u != null) centrali.add(u);
     }
-    centrali.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
   }
+  centrali.sort((a, b) => distanceFromP(a).compareTo(distanceFromP(b)));
 
   final labels = <String, String>{palleggiatoreSlot: 'P'};
   if (opposto != null) labels[opposto] = 'O';

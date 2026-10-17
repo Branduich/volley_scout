@@ -482,6 +482,20 @@ void main() {
       expect(stato.ruoliInCampo, {30: Ruolo.centrale});
     });
 
+    test('la riconfigurazione senza cambi non toglie il ruolo all\'àncora', () {
+      // Riga no-op (esce == entra): la scrive ScoutScreen quando si cambia
+      // solo palleggiatore designato o coppia del libero, appoggiandola a
+      // una giocatrice in campo — che deve tenersi il suo ruolo in campo.
+      final stato = ricalcolaStato(
+        azioni: [cambio(1, 30, 30)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        ruoliInCampoIniziali: {30: Ruolo.centrale},
+      );
+
+      expect(stato.ruoliInCampo, {30: Ruolo.centrale});
+    });
+
     test('una riga incoerente (subentrante già in campo) non lo applica', () {
       final stato = ricalcolaStato(
         azioni: [cambio(1, 30, 20, Ruolo.centrale)],

@@ -361,6 +361,17 @@
   un `Center` dentro il riquadro fisso da 116px — senza, la `Row` (~76px)
   resta allineata a sinistra in entrambi i riquadri e i punteggi risultano
   asimmetrici rispetto al titolo centrato (bug reale corretto).
+  **Numero più grande** (2026-10-17, era 16 come il titolo): il corpo lo
+  calcola `_scoreFontSize(larghezza barra)`, tetto `_kScoreFontMax` **32**.
+  In altezza ci starebbe fino a 64 (barra alta 80, gruppo a 4 dal fondo,
+  altezza di riga 1), provato e giudicato troppo grande dall'utente: 32 è la
+  metà, scelta sua — non rialzarlo senza chiedere. Il limite ORIZZONTALE è
+  il titolo: fra i due gruppi devono restare `_kTitoloMinimo` 160dp, quindi
+  su schermi stretti il corpo scende da solo (minimo 16). Misure prese sul
+  font reale: "88" in Barlow w600 è largo ~1,07 × il corpo, il riquadro del
+  numero è 1,1 ×. Il titolo ora è **confinato fra i
+  due gruppi** (`titoloMargine`, mai meno di 104 dai bordi): prima arrivava
+  a 104 dai bordi e un nome lungo ci passava sotto.
 - **Voto battuta/ricezione/altri fondamentali** (IMPLEMENTATO — flusso a 3
   tocchi generalizzato a tutti i fondamentali tranne `errore`: giocatore →
   fondamentale → voto). Nessuna traiettoria per ora.
