@@ -526,6 +526,16 @@
     "placeholders": { "entra": { "type": "String" }, "esce": { "type": "String" } }
   },
   "sostGiocaDaDomanda": "In campo gioca da:",
+  "scoutLiberoEntra": "Entra il libero {giocatore}",
+  "@scoutLiberoEntra": {
+    "placeholders": { "giocatore": { "type": "String" } }
+  },
+  "sostAggiungiLibero": "Aggiungi libero",
+  "sostLiberoTolto": "Tolto",
+  "scoutLiberoEsce": "Esce il libero {giocatore}",
+  "@scoutLiberoEsce": {
+    "placeholders": { "giocatore": { "type": "String" } }
+  },
   "scoutCambioGiocaDa": "(da {ruolo})",
   "@scoutCambioGiocaDa": {
     "placeholders": { "ruolo": { "type": "String" } }

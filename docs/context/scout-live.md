@@ -173,6 +173,25 @@
     di cambio. Il banner mostra "(da Centrale)". Il confronto usa il ruolo
     ANAGRAFICO di chi entra (`ruoliAnagrafici`, dal roster): chi era uscito con
     un ruolo assunto e rientra altrove viene confrontato col suo vero.
+    **Aggiungi libero** (2026-10-28): se il set è partito senza libero (o con
+    uno solo) e in panchina c'è un libero, accanto al campo compare una card
+    vuota azzurra (`_buildLiberoVuoto`, prima L1 poi L2 — l'ordine in cui il
+    replay riempie i posti). Si riempie come un cambio: tocco sulla card,
+    libero dalla panchina. La riconferma chiede la coppia sostituita. Il ✕
+    lo toglie (togliendo L1 va via anche un L2 aggiunto nella stessa
+    visita, che il replay altrimenti promuoverebbe a L1). Banner: "Entra il
+    libero N Cognome". Vedi "Ingresso del libero" in modello-dati.md.
+    **Togli libero** (2026-10-28): la **✕ sulla card del libero** (sempre
+    visibile) lo toglie e si gioca senza (`_togliLibero`). Su un libero già
+    cambiato o appena aggiunto la stessa ✕ annulla quel cambio, come sulle
+    card del campo. La card resta grigia, "Tolto", con una **↺** (non una ✕,
+    che lì vorrebbe dire l'opposto) per rimetterlo. Prima era una voce
+    "Nessuno — si gioca senza libero" in cima alla panchina: scartata su
+    richiesta dell'utente, la ✕ è un tocco in meno ed è il gesto che si usa
+    già in formazione. Un posto tolto non
+    viene offerto anche come "Aggiungi libero" nella stessa visita: per un
+    altro libero al suo posto c'è il cambio libero-per-libero. Banner: "Esce
+    il libero N Cognome".
   - **Toggle "Mostra numeri/ruoli"** (`SwitchListTile`): stato
     `_showJerseyNumbers`, **default `true`** (numeri di maglia visibili
     appena apri lo scout). Label dinamica che descrive l'azione del tap, non
@@ -362,10 +381,13 @@
   resta allineata a sinistra in entrambi i riquadri e i punteggi risultano
   asimmetrici rispetto al titolo centrato (bug reale corretto).
   **Numero più grande** (2026-10-17, era 16 come il titolo): il corpo lo
-  calcola `_scoreFontSize(larghezza barra)`, tetto `_kScoreFontMax` **32**.
+  calcola `_scoreFontSize(larghezza barra)`, tetto `_kScoreFontMax` **28**.
   In altezza ci starebbe fino a 64 (barra alta 80, gruppo a 4 dal fondo,
-  altezza di riga 1), provato e giudicato troppo grande dall'utente: 32 è la
-  metà, scelta sua — non rialzarlo senza chiedere. Il limite ORIZZONTALE è
+  altezza di riga 1), provato e giudicato troppo grande dall'utente: prima
+  32, poi 28 dopo la prova sul device — scelte sue, non rialzarlo senza
+  chiedere. Il numero è in un `FittedBox(scaleDown)` con `maxLines: 1`:
+  l'app segue la dimensione del testo di SISTEMA, e con un testo di sistema
+  ingrandito "20"/"25" sforavano il riquadro e andavano su due righe. Il limite ORIZZONTALE è
   il titolo: fra i due gruppi devono restare `_kTitoloMinimo` 160dp, quindi
   su schermi stretti il corpo scende da solo (minimo 16). Misure prese sul
   font reale: "88" in Barlow w600 è largo ~1,07 × il corpo, il riquadro del

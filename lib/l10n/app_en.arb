@@ -496,6 +496,10 @@
   "sostNessunGiocatore": "No players available",
   "sostGiocaDaTitolo": "{entra} in for {esce}",
   "sostGiocaDaDomanda": "Plays on court as:",
+  "scoutLiberoEntra": "Libero in: {giocatore}",
+  "sostAggiungiLibero": "Add libero",
+  "sostLiberoTolto": "Removed",
+  "scoutLiberoEsce": "Libero out: {giocatore}",
   "scoutCambioGiocaDa": "(as {ruolo})",
 
   "scoutAvversariGenerico": "Opponents",

@@ -114,11 +114,24 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
       if (widget.seiCorrenti[e.key]?.id != e.value.id) e.key,
   };
 
-  /// Chiavi libero con un cambio pending.
+  /// Chiavi libero con un cambio pending: sostituito, aggiunto (posto vuoto
+  /// a inizio visita) o tolto (c'era e ora manca).
   Set<String> get _liberiCambiati => {
     for (final e in _pendingLiberi.entries)
       if (widget.liberi[e.key]?.id != e.value.id) e.key,
+    for (final k in widget.liberi.keys)
+      if (_pendingLiberi[k] == null) k,
   };
+
+  /// Toglie il libero [key] senza sostituto: si continua senza, con la
+  /// giocatrice che sostituiva. Ammesso dal regolamento. È la ✕ sulla card
+  /// di un libero non ancora toccato in questa visita.
+  void _togliLibero(String key) {
+    setState(() {
+      _pendingLiberi.remove(key);
+      if (_selectedSlot == key) _selectedSlot = null;
+    });
+  }
 
   /// Panchina visibile: candidati (panchina originale + eventuali usciti
   /// nei cambi pending, titolari e liberi) meno chi è attualmente nei
@@ -194,9 +207,18 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
 
   void _annullaCambioLibero(String key) {
     final originale = widget.liberi[key];
-    if (originale == null) return;
     setState(() {
-      _pendingLiberi[key] = originale;
+      if (originale != null) {
+        _pendingLiberi[key] = originale;
+      } else {
+        // Era un INGRESSO (a inizio set quel posto era vuoto): si toglie.
+        // Tolto L1, va via anche un L2 aggiunto nella stessa visita — senza
+        // L1 il replay lo metterebbe al primo posto, cioè lo promuoverebbe.
+        _pendingLiberi.remove(key);
+        if (key == 'L1' && widget.liberi['L2'] == null) {
+          _pendingLiberi.remove('L2');
+        }
+      }
       _selectedSlot = null;
     });
   }
@@ -389,7 +411,9 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
                           onBadgeTap: _annullaCambio,
                         ),
                       ),
-                      if (_pendingLiberi.isNotEmpty) ...[
+                      if (_pendingLiberi.isNotEmpty ||
+                          widget.liberi.isNotEmpty ||
+                          _slotLiberoDaAggiungere != null) ...[
                         const SizedBox(width: 10),
                         Column(
                           mainAxisSize: MainAxisSize.min,
@@ -397,6 +421,12 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
                             for (final key in const ['L1', 'L2'])
                               if (_pendingLiberi[key] != null) ...[
                                 _buildLiberoCard(key),
+                                const SizedBox(height: 10),
+                              ] else if (widget.liberi[key] != null) ...[
+                                _buildLiberoTolto(key),
+                                const SizedBox(height: 10),
+                              ] else if (key == _slotLiberoDaAggiungere) ...[
+                                _buildLiberoVuoto(key),
                                 const SizedBox(height: 10),
                               ],
                           ],
@@ -452,10 +482,141 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
     );
   }
 
+  // Posto libero per far ENTRARE un libero che a inizio set non c'era (il
+  // regolamento lo ammette): prima L1, poi L2 — il replay riempie i posti in
+  // quell'ordine. Solo se in panchina c'è davvero un libero da far entrare,
+  // altrimenti la card sarebbe un vicolo cieco.
+  String? get _slotLiberoDaAggiungere {
+    final inUso = {for (final p in _pendingLiberi.values) p.id};
+    final disponibile = widget.panchina
+        .any((p) => p.ruolo == Ruolo.libero && !inUso.contains(p.id));
+    if (!disponibile) return null;
+    // Un posto che a inizio visita era occupato e ora è vuoto è un libero
+    // TOLTO (mostrato come tale, con la ↺ per rimetterlo): non lo si offre
+    // anche come "aggiungi". Per mettere un altro libero al suo posto c'è
+    // già il cambio libero-per-libero.
+    bool occupato(String k) =>
+        _pendingLiberi[k] != null || widget.liberi[k] != null;
+    if (!occupato('L1')) return 'L1';
+    if (!occupato('L2')) return 'L2';
+    return null;
+  }
+
+  // Card di un libero TOLTO in questa visita: grigia, "Tolto", con la ↺ che
+  // lo rimette (vedi _annullaCambioLibero). Non una ✕: lì vorrebbe dire
+  // l'opposto di quello che vuol dire sulla card del libero in campo.
+  Widget _buildLiberoTolto(String key) {
+    final player = widget.liberi[key]!;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 112,
+          height: 112,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${player.numero}',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black45,
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
+              Text(
+                AppLocalizations.of(context).sostLiberoTolto,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
+                ),
+              ),
+              Text(
+                key,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: -8,
+          right: -8,
+          child: GestureDetector(
+            onTap: () => _annullaCambioLibero(key),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.undo, size: 14, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Card vuota "Aggiungi libero": stessa misura di _buildLiberoCard, sfondo
+  // azzurro come gli slot vuoti di LineupScreen. Tap = la seleziona, poi un
+  // libero dalla panchina la riempie (stesso percorso di un cambio).
+  Widget _buildLiberoVuoto(String key) {
+    final isSelected = _selectedSlot == key;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _onSlotTap(key),
+      child: Container(
+        width: 112,
+        height: 112,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.lightBlueAccent,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected ? Border.all(color: Colors.red, width: 3) : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add, size: 32, color: Colors.black87),
+            Text(
+              AppLocalizations.of(context).sostAggiungiLibero,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              key,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Card del libero accanto al campo (stile analogo alle card slot di
   // CourtView, in scala ridotta): tap = seleziona come "chi esce" (solo un
-  // altro libero potrà entrare — vedi _panchinaVisibile); badge ✕ se ha un
-  // cambio pending.
+  // altro libero potrà entrare — vedi _panchinaVisibile); badge ✕ sempre,
+  // vedi sotto cosa fa.
   Widget _buildLiberoCard(String key) {
     final player = _pendingLiberi[key]!;
     final isSelected = _selectedSlot == key;
@@ -529,7 +690,9 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
       ),
     );
 
-    if (!cambiato) return card;
+    // La ✕ c'è SEMPRE: su un libero non toccato in questa visita lo toglie
+    // (si gioca senza), su uno cambiato o appena aggiunto annulla il cambio
+    // — come la ✕ sulle card del campo e su quelle di LineupScreen.
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -538,7 +701,9 @@ class _SostituzioneScreenState extends State<SostituzioneScreen> with Orientamen
           top: -8,
           right: -8,
           child: GestureDetector(
-            onTap: () => _annullaCambioLibero(key),
+            onTap: cambiato
+                ? () => _annullaCambioLibero(key)
+                : () => _togliLibero(key),
             child: Container(
               width: 22,
               height: 22,

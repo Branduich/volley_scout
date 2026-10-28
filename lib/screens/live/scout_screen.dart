@@ -381,6 +381,53 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     );
   }
 
+  // Id delle righe di cambio che sono un'USCITA del libero senza sostituto.
+  // Ingresso e uscita hanno la stessa forma (esce == entra == il libero):
+  // è uscita se in quel momento era già un libero — stessa regola di
+  // ricalcolaStato, rigiocata qui sui soli liberi. Una passata sulle azioni,
+  // tenuta finché la lista non cambia (serve al banner e al log, che la
+  // chiederebbero una volta per riga).
+  Set<int> get _usciteLibero {
+    final set = _setCorrente;
+    if (set == null) return const {};
+    final righe = ref.watch(scoutAzioniStreamProvider(set.id)).value ??
+        const <ScoutAction>[];
+    final cache = _cacheUsciteLibero;
+    if (cache != null && identical(cache.righe, righe)) return cache.uscite;
+
+    final liberi = <int>{
+      for (final k in const ['L1', 'L2'])
+        if (widget.assignments[k] != null) widget.assignments[k]!.id,
+    };
+    final uscite = <int>{};
+    for (final a in righe) {
+      final entra = a.giocatoreId;
+      final esce = a.giocatoreUscenteId;
+      if (a.tipo != TipoAzione.cambioGiocatore ||
+          entra == null ||
+          esce == null) {
+        continue;
+      }
+      if (esce == entra) {
+        // Niente controllo sul ruolo (il roster può non essere ancora
+        // arrivato, e la cache resterebbe sbagliata): un'àncora di
+        // riconfigurazione finita qui per errore non conta, perché il
+        // banner usa questo insieme solo per le giocatrici libero.
+        if (liberi.remove(entra)) {
+          uscite.add(a.id);
+        } else {
+          liberi.add(entra);
+        }
+      } else if (liberi.remove(esce)) {
+        liberi.add(entra);
+      }
+    }
+    _cacheUsciteLibero = (righe: righe, uscite: uscite);
+    return uscite;
+  }
+
+  ({List<ScoutAction> righe, Set<int> uscite})? _cacheUsciteLibero;
+
   // Ruolo in campo dei 6 titolari, così com'è nella formazione del set
   // (widget.assignments porta già le copie col ruolo sostituito — vedi
   // LineupScreen e caricaFormazione). Passarli tutti, anche quelli uguali
@@ -427,11 +474,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     };
     final stato = _testModeEnabled ? null : _statoSetReale;
     if (stato == null) return iniziali;
+    // Niente `!` sul ripiego: un libero entrato a set in corso non è nella
+    // formazione iniziale, e se il roster non l'avesse ancora (primi frame)
+    // si salta invece di andare in errore.
+    final l1 = _rosterById[stato.liberoId] ?? iniziali['L1'];
+    final l2 = _rosterById[stato.libero2Id] ?? iniziali['L2'];
     return <String, Player>{
-      if (stato.liberoId != null)
-        'L1': _rosterById[stato.liberoId] ?? iniziali['L1']!,
-      if (stato.libero2Id != null)
-        'L2': _rosterById[stato.libero2Id] ?? iniziali['L2']!,
+      if (stato.liberoId != null && l1 != null) 'L1': l1,
+      if (stato.libero2Id != null && l2 != null) 'L2': l2,
     };
   }
 
@@ -2747,11 +2797,25 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         ));
       }
     }
+    // L1 prima di L2: un ingresso prende il primo posto libero nel replay,
+    // quindi l'ordine delle righe deve rispettare quello delle chiavi.
     for (final key in const ['L1', 'L2']) {
       final originale = liberi[key];
       final finale = risultato.liberiFinali[key];
       if (originale != null && finale != null && originale.id != finale.id) {
         cambi.add((esceId: originale.id, entraId: finale.id, ruoloInCampo: null));
+      } else if (originale == null && finale != null) {
+        // Ingresso di un libero che a inizio set non c'era: esce == entra
+        // (vedi l'ingresso del libero in ricalcolaStato).
+        cambi.add((esceId: finale.id, entraId: finale.id, ruoloInCampo: null));
+      } else if (originale != null && finale == null) {
+        // Uscita del libero senza sostituto: stessa forma, su un libero
+        // effettivo (vedi l'uscita del libero in ricalcolaStato).
+        cambi.add((
+          esceId: originale.id,
+          entraId: originale.id,
+          ruoloInCampo: null,
+        ));
       }
     }
 
@@ -3936,6 +4000,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
           ? ''
           : ' ${AppLocalizations.of(context).scoutCambioGiocaDa(
               ruoloLabel(ruoloInCampo, AppLocalizations.of(context)))}';
+      // Ingresso o uscita di un libero a set in corso: la riga ha esce ==
+      // entra, e "esce Rossi, entra Rossi" non vorrebbe dire niente. Le due
+      // hanno la stessa forma: le distingue _usciteLibero.
+      if (azione.giocatoreUscenteId == azione.giocatoreId &&
+          player?.ruolo == Ruolo.libero) {
+        final l = AppLocalizations.of(context);
+        return (
+          testo: _usciteLibero.contains(azione.id)
+              ? l.scoutLiberoEsce(etichetta(player))
+              : l.scoutLiberoEntra(etichetta(player)),
+          voto: null,
+          colore: AppColors.brandPrimary,
+        );
+      }
       return (
         testo: 'Cambio: esce ${etichetta(esce)}, '
             'entra ${etichetta(player)}$daRuolo',
@@ -4147,11 +4225,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // scatola è alta quanto il corpo, "88" largo ~1,07 volte il corpo):
   // - VERTICALE: la barra è alta 80 e il gruppo è ancorato a 4 dal fondo,
   //   quindi ci starebbe fino a 64 — provato in campo e troppo grande:
-  //   il tetto `_kScoreFontMax` è la metà, scelto dall'utente (2026-10-17).
+  //   il tetto `_kScoreFontMax` è stato portato a 32 e poi a 28, scelti
+  //   dall'utente provandolo sul device (2026-10-17 e 2026-10-28).
   // - ORIZZONTALE: i gruppi stanno al 30%/70% e fra loro deve restare il
   //   titolo della partita (almeno `_kTitoloMinimo`). Su schermi stretti il
   //   corpo scende da sé invece di schiacciare il titolo.
-  static const double _kScoreFontMax = 32;
+  static const double _kScoreFontMax = 28;
   static const double _kScoreFontMin = 16;
   static const double _kTitoloMinimo = 160;
   static const double _kScoreBottone = 28; // bottoni − e +
@@ -4194,16 +4273,26 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             width: _scoreNumeroWidth(fontSize),
             child: _lampeggiaSe(
               squadra,
-              Text(
-                '$score',
-                textAlign: TextAlign.center,
-                // height 1: la scatola è alta quanto il corpo — vedi i
-                // limiti in _scoreFontSize.
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: fontSize,
-                  height: 1,
+              // Una riga sola, sempre. Il riquadro è calcolato sul corpo, ma
+              // l'app segue la dimensione del testo di SISTEMA: con un testo
+              // ingrandito nelle impostazioni del tablet "20" sforava e
+              // Flutter lo spezzava su due righe (visto sul device,
+              // 2026-10-28). Il FittedBox lo rimpicciolisce quanto basta.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '$score',
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  // height 1: la scatola è alta quanto il corpo — vedi i
+                  // limiti in _scoreFontSize.
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: fontSize,
+                    height: 1,
+                  ),
                 ),
               ),
             ),

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
@@ -9,7 +9,7 @@ import 'package:volley_scout/models/enums.dart';
 import 'package:volley_scout/providers/database_provider.dart';
 
 /// Rete di sicurezza su `zonaTatticaPerAzione`: ~100 righe che rigiocano cambi
-/// e rotazioni per dire in che zona TATTICA è avvenuto ogni attacco, e che
+/// e rotazioni per dire in che zona TATTICA Ã¨ avvenuto ogni attacco, e che
 /// alimentano la distribuzione alzate del report e del PDF.
 ///
 /// Non aveva alcun test (segnata come mancante in
@@ -28,7 +28,7 @@ void main() {
 
   tearDown(() async => db.close());
 
-  /// Le zone calcolate, più la firma `set.ordine → zona/rotazione`, che è
+  /// Le zone calcolate, piÃ¹ la firma `set.ordine â†’ zona/rotazione`, che Ã¨
   /// indipendente dagli id autoincrement (quelli cambiano se cambia l'ordine
   /// di inserimento, la firma no).
   Future<({Map<int, ({int zona, int rotazione})> zone, List<String> firma})>
@@ -65,8 +65,8 @@ void main() {
   test('assegna una zona a 63 attacchi della demo', () async {
     // 63 su 332: la zona TATTICA si ricava dalla formazione in campo, e
     // nella stagione di esempio solo la gara del 30 aprile ha le rotazioni
-    // (le altre vengono da un export che non le registra). Il numero non è
-    // sbagliato: è tutto ciò che si può calcolare su quei dati.
+    // (le altre vengono da un export che non le registra). Il numero non Ã¨
+    // sbagliato: Ã¨ tutto ciÃ² che si puÃ² calcolare su quei dati.
     final r = await calcola();
     expect(r.zone.length, 63);
   });
@@ -81,18 +81,18 @@ void main() {
       perRotazione[v.rotazione] = (perRotazione[v.rotazione] ?? 0) + 1;
     }
 
-    // Zona 5 assente: nella demo nessun attacco parte da lì. Le zone sono
+    // Zona 5 assente: nella demo nessun attacco parte da lÃ¬. Le zone sono
     // TATTICHE (dalle coordinate della mappa di attacco), non zone di
-    // rotazione — vedi zonaDaPosizione.
+    // rotazione â€” vedi zonaDaPosizione.
     expect(perZona, {1: 12, 2: 12, 3: 5, 4: 22, 6: 12});
     expect(perRotazione, {1: 20, 2: 20, 3: 8, 4: 6, 5: 4, 6: 5});
   });
 
   // Ruolo in campo (schema v20): una schiacciatrice schierata da centrale.
-  // Le sue zone d'attacco devono cambiare, e i due percorsi — inizio set
-  // (Rotations.ruoloInCampo) e riga di cambio — devono dare lo stesso
+  // Le sue zone d'attacco devono cambiare, e i due percorsi â€” inizio set
+  // (Rotations.ruoloInCampo) e riga di cambio â€” devono dare lo stesso
   // risultato. Nella demo il primo set schiera quattro schiacciatrici e
-  // nessun centrale, che è proprio il caso di una che fa il centrale.
+  // nessun centrale, che Ã¨ proprio il caso di una che fa il centrale.
   group('ruolo in campo', () {
     Future<List<int>> zoneDi(int setId, int giocatoreId) async {
       final r = await calcola();
@@ -134,7 +134,7 @@ void main() {
       await daCentraleAInizioSet(k.riga);
       final dopo = await zoneDi(k.setId, k.riga.giocatoreId);
 
-      // Da centrale attacca al centro della rete. Può avere MENO attacchi
+      // Da centrale attacca al centro della rete. PuÃ² avere MENO attacchi
       // con una zona: in seconda linea il centrale lo sostituisce il libero,
       // quindi le tabelle non hanno una posizione per lei.
       expect(dopo, isNot(k.zone));
@@ -142,7 +142,7 @@ void main() {
       expect(dopo, everyElement(3));
     });
 
-    test('con una riga di cambio dà lo stesso risultato di inizio set',
+    test('con una riga di cambio dÃ  lo stesso risultato di inizio set',
         () async {
       final k = await bersaglio();
       // Riga "no-op" (esce == entra) in testa al set: cambia il ruolo senza
@@ -169,6 +169,84 @@ void main() {
       expect(conCambio, isNot(k.zone));
       expect(conCambio, inizioSet);
     });
+  });
+
+  // Libero entrato a set in corso: le zone d'attacco devono passare alle
+  // tabelle col libero da quel momento. Prova per equivalenza: lo stesso
+  // set, fatto partire SENZA libero e col libero che entra prima del primo
+  // scambio, deve dare esattamente le zone di quando il libero c'era giÃ .
+  //
+  // Coppia degli SCHIACCIATORI di proposito: con il libero sui centrali le
+  // tabelle "senza libero" derivano da quelle col libero e per gli
+  // attaccanti coincidono quasi sempre â€” il test passerebbe anche col
+  // replay sbagliato. Il controllo intermedio lo garantisce.
+  test('libero entrato a inizio set equivale a libero in formazione',
+      () async {
+    final set = (await db.select(db.matchSets).get())
+        .firstWhere((s) => s.liberoId != null);
+    Future<void> scriviSet(int? libero, Ruolo? coppia) =>
+        (db.update(db.matchSets)..where((s) => s.id.equals(set.id))).write(
+            MatchSetsCompanion(
+                liberoId: Value(libero),
+                libero2Id: const Value(null),
+                ruoloCambiLibero: Value(coppia)));
+
+    await scriviSet(set.liberoId, Ruolo.schiacciatore);
+    final conLiberoDaSubito = await calcola();
+
+    await scriviSet(null, null);
+    final senzaLibero = await calcola();
+    expect(senzaLibero.firma, isNot(conLiberoDaSubito.firma),
+        reason: 'i due scenari devono essere distinguibili');
+
+    await db.into(db.scoutActions).insert(ScoutActionsCompanion.insert(
+          setId: set.id,
+          rallyId: 0,
+          ordine: 0,
+          timestamp: DateTime(2026, 4, 30),
+          squadra: Squadra.nostra,
+          tipo: TipoAzione.cambioGiocatore,
+          esitoPunto: EsitoPunto.nessuno,
+          giocatoreId: Value(set.liberoId),
+          giocatoreUscenteId: Value(set.liberoId),
+          nuovoRuoloCambiLibero: const Value(Ruolo.schiacciatore),
+        ));
+    final liberoEntrato = await calcola();
+
+    expect(liberoEntrato.firma, conLiberoDaSubito.firma);
+  });
+
+  // Il gemello: libero TOLTO prima del primo scambio â‰¡ set senza libero.
+  // Stessa coppia degli schiacciatori, perchÃ© i due scenari si distinguano
+  // (verificato nel test sopra).
+  test('libero tolto a inizio set equivale a set senza libero', () async {
+    final set = (await db.select(db.matchSets).get())
+        .firstWhere((s) => s.liberoId != null);
+    Future<void> scriviSet(int? libero, Ruolo? coppia) =>
+        (db.update(db.matchSets)..where((s) => s.id.equals(set.id))).write(
+            MatchSetsCompanion(
+                liberoId: Value(libero),
+                libero2Id: const Value(null),
+                ruoloCambiLibero: Value(coppia)));
+
+    await scriviSet(null, null);
+    final senzaLibero = await calcola();
+
+    await scriviSet(set.liberoId, Ruolo.schiacciatore);
+    await db.into(db.scoutActions).insert(ScoutActionsCompanion.insert(
+          setId: set.id,
+          rallyId: 0,
+          ordine: 0,
+          timestamp: DateTime(2026, 4, 30),
+          squadra: Squadra.nostra,
+          tipo: TipoAzione.cambioGiocatore,
+          esitoPunto: EsitoPunto.nessuno,
+          giocatoreId: Value(set.liberoId),
+          giocatoreUscenteId: Value(set.liberoId),
+        ));
+    final liberoTolto = await calcola();
+
+    expect(liberoTolto.firma, senzaLibero.firma);
   });
 
   test('firma per-azione stabile (set.ordine = zona/rotazione)', () async {

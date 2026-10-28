@@ -195,8 +195,40 @@ StatoSet ricalcolaStato({
           (rotazione.containsValue(entra) ||
               entra == liberoId ||
               entra == libero2Id);
+      // INGRESSO di un libero a set in corso (il set era partito senza, o
+      // con uno solo): riga con esce == entra, come la no-op, ma con
+      // qualcuno che NON è in campo né è già un libero — l'àncora della
+      // no-op è sempre una giocatrice in rotazione, quindi i due casi non
+      // si confondono. Prende il primo posto libero: L1, poi L2. Ammesso dal
+      // regolamento: il libero non deve per forza essere in campo a inizio
+      // set. Con entrambi già occupati la riga resta un no-op.
+      final ingressoLibero = esce == entra &&
+          !rotazione.containsValue(entra) &&
+          entra != liberoId &&
+          entra != libero2Id;
+      // USCITA di un libero senza sostituto (sta andando male, si gioca
+      // senza): stessa forma, esce == entra, ma è uno dei liberi effettivi.
+      // Se esce L1 e c'è L2, L2 diventa il libero unico (il posto L1 è
+      // quello che lo scout fa giocare quando ce n'è uno solo).
+      final uscitaLibero =
+          esce == entra && (entra == liberoId || entra == libero2Id);
       if (!duplicherebbe) {
-        if (esce == liberoId) {
+        if (ingressoLibero) {
+          // Niente rotazione né ruoli in campo da toccare.
+          if (liberoId == null) {
+            liberoId = entra;
+          } else {
+            libero2Id ??= entra;
+          }
+        } else if (uscitaLibero) {
+          if (entra == liberoId) {
+            liberoId = libero2Id;
+          }
+          libero2Id = null;
+          // Senza più liberi non c'è coppia da sostituire: lasciarla
+          // farebbe sparire dal campo la giocatrice "sostituita".
+          if (liberoId == null) ruoloCambiLibero = null;
+        } else if (esce == liberoId) {
           liberoId = entra;
         } else if (esce == libero2Id) {
           libero2Id = entra;

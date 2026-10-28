@@ -494,7 +494,13 @@ class MatchSetRepository {
       if (rot.length != 6) continue; // dato incoerente
       var setterId = formazione.assignments[formazione.palleggiatoreSlot]?.id;
       var ruoloCambi = formazione.ruoloCambiLibero;
-      final conLibero = formazione.assignments.containsKey('L1');
+      // Liberi in campo, che cambiano a set in corso: un libero può entrare
+      // dopo l'inizio o uscire senza sostituto (stesse regole di
+      // ricalcolaStato). Da qui la scelta delle tabelle d'attacco.
+      final liberi = <int>{
+        for (final k in const ['L1', 'L2'])
+          if (formazione.assignments[k] != null) formazione.assignments[k]!.id,
+      };
       final is62 =
           formazione.sistemaGioco == SistemaGioco.doppioPalleggiatore;
       var nostraAlServizio = set.squadraServizioIniziale == Squadra.nostra;
@@ -513,6 +519,23 @@ class MatchSetRepository {
               ? anagrafico.copyWith(ruolo: ruoloInCampo)
               : anagrafico;
           final esceId = a.giocatoreUscenteId!;
+          // Liberi: esce == entra è un'uscita se è già un libero, un
+          // ingresso se non è nemmeno in campo (altrimenti è l'àncora di una
+          // riconfigurazione); con esce libero ed entra un altro è il cambio
+          // libero-per-libero. Stesse regole di ricalcolaStato.
+          final entraId = a.giocatoreId!;
+          if (esceId == entraId) {
+            if (liberi.contains(entraId)) {
+              liberi.remove(entraId);
+            } else if (!rot.values.any((p) => p.id == entraId) &&
+                liberi.length < 2) {
+              liberi.add(entraId);
+            }
+          } else if (liberi.contains(esceId)) {
+            liberi
+              ..remove(esceId)
+              ..add(entraId);
+          }
           final duplicherebbe = esceId != a.giocatoreId &&
               rot.values.any((p) => p.id == a.giocatoreId);
           if (entra != null && !duplicherebbe) {
@@ -523,11 +546,14 @@ class MatchSetRepository {
           }
           setterId = a.nuovoPalleggiatoreId ?? setterId;
           ruoloCambi = a.nuovoRuoloCambiLibero ?? ruoloCambi;
+          // Come ricalcolaStato: senza liberi non c'è coppia da sostituire.
+          if (liberi.isEmpty) ruoloCambi = null;
         }
 
         if (a.tipo == TipoAzione.scout &&
             a.fondamentale == Fondamentale.attacco &&
             a.giocatoreId != null) {
+          final conLibero = liberi.isNotEmpty;
           int? posAttaccante;
           int? posSetter;
           rot.forEach((pos, p) {

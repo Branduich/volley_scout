@@ -525,6 +525,191 @@ void main() {
     });
   });
 
+  // Il set parte senza libero (o con uno solo) e il libero entra dopo: il
+  // regolamento lo ammette. La riga è un cambio con esce == entra == il
+  // libero, che non è in campo — a differenza della no-op di
+  // riconfigurazione, la cui àncora è sempre in rotazione.
+  group('ricalcolaStato — ingresso del libero a set in corso', () {
+    AzioneScout ingresso(int ordine, int libero, {Ruolo? coppia}) =>
+        AzioneScout(
+          ordine: ordine,
+          esitoPunto: EsitoPunto.nessuno,
+          sostituzione: SostituzioneGiocatore(
+            esceId: libero,
+            entraId: libero,
+            nuovoRuoloCambiLibero: coppia,
+          ),
+        );
+
+    test('set partito senza libero: entra e diventa L1, con la sua coppia',
+        () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 70, coppia: Ruolo.centrale)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, isNull);
+      expect(stato.ruoloCambiLibero, Ruolo.centrale);
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    test('con un libero già in campo, il secondo diventa L2', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 80)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, 80);
+    });
+
+    test('entrambi in un colpo solo: L1 poi L2, nell\'ordine delle righe', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 70, coppia: Ruolo.centrale), ingresso(2, 80)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, 80);
+    });
+
+    test('con due liberi già presenti un terzo non entra', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 90)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, 80);
+    });
+
+    test('dopo l\'ingresso il cambio libero-per-libero funziona', () {
+      final stato = ricalcolaStato(
+        azioni: [
+          ingresso(1, 70, coppia: Ruolo.centrale),
+          const AzioneScout(
+            ordine: 2,
+            esitoPunto: EsitoPunto.nessuno,
+            sostituzione: SostituzioneGiocatore(esceId: 70, entraId: 71),
+          ),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.liberoId, 71);
+    });
+
+    test('la no-op di riconfigurazione (àncora in campo) non crea un libero',
+        () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 10)], // 10 è in posizione 1
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.liberoId, isNull);
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    // Uscita senza sostituto: stessa forma della riga d'ingresso, ma su un
+    // libero che è già in campo.
+    test('esce l\'unico libero: si gioca senza, e la coppia si azzera', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 70)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.liberoId, isNull);
+      expect(stato.libero2Id, isNull);
+      expect(stato.ruoloCambiLibero, isNull);
+      expect(stato.rotazione, rotazioneIniziale);
+    });
+
+    test('esce L1 con L2 presente: L2 resta come libero unico', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 70)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.liberoId, 80);
+      expect(stato.libero2Id, isNull);
+      expect(stato.ruoloCambiLibero, Ruolo.centrale);
+    });
+
+    test('esce L2: L1 resta com\'è', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 80)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.libero2Id, isNull);
+    });
+
+    test('escono entrambi, uno dopo l\'altro', () {
+      final stato = ricalcolaStato(
+        azioni: [ingresso(1, 70), ingresso(2, 80)],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        libero2InizialeId: 80,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.liberoId, isNull);
+      expect(stato.libero2Id, isNull);
+      expect(stato.ruoloCambiLibero, isNull);
+    });
+
+    test('esce e poi rientra nello stesso set, con la sua coppia', () {
+      final stato = ricalcolaStato(
+        azioni: [
+          ingresso(1, 70),
+          ingresso(2, 70, coppia: Ruolo.schiacciatore),
+        ],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+        liberoInizialeId: 70,
+        ruoloCambiLiberoIniziale: Ruolo.centrale,
+      );
+
+      expect(stato.liberoId, 70);
+      expect(stato.ruoloCambiLibero, Ruolo.schiacciatore);
+    });
+
+    test('undo = togliere la riga: si torna senza libero', () {
+      final stato = ricalcolaStato(
+        azioni: const [],
+        servizioIniziale: Squadra.nostra,
+        rotazioneIniziale: rotazioneIniziale,
+      );
+
+      expect(stato.liberoId, isNull);
+      expect(stato.ruoloCambiLibero, isNull);
+    });
+  });
+
   group('ricalcolaStato — cambio libero (solo libero-per-libero)', () {
     test('esce il libero L1: si aggiorna liberoId, rotazione intatta', () {
       final stato = ricalcolaStato(

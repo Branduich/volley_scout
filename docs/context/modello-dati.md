@@ -318,6 +318,27 @@ così restano sempre allineati.
   aggiorna `liberoId`/`libero2Id` invece della rotazione — vincolo di
   dominio confermato: un libero si cambia SOLO con un altro libero (sia
   per infortunio sia per scelta tecnica), mai un ruolo diverso.
+  **Ingresso del libero a set in corso** (2026-10-28, ammesso dal
+  regolamento: il libero non deve per forza essere in campo a inizio set):
+  riga di cambio con `esceId == entraId` == il libero, che NON è in rotazione
+  né è già un libero — è ciò che la distingue dalla no-op di
+  riconfigurazione, la cui àncora è sempre in campo. Prende il primo posto
+  libero, `liberoId` poi `libero2Id`; con entrambi occupati resta un no-op.
+  La coppia sostituita arriva come `nuovoRuoloCambiLibero` sulla stessa
+  riga (la chiede la riconferma della formazione, come a inizio partita).
+  **Nessuna colonna nuova**, quindi nessuna migrazione; un'app più vecchia
+  legge la riga come no-op. `zonaTatticaPerAzione` applica la stessa regola
+  (le tabelle d'attacco passano a quelle col libero da quel momento).
+  `MatchSets.liberoId` resta quello di INIZIO set, quindi la formazione di
+  partenza nei report resta (giustamente) senza libero.
+  **Uscita del libero senza sostituto** (2026-10-28, il libero sta andando
+  male e si gioca senza): stessa forma, `esceId == entraId`, ma su uno dei
+  liberi EFFETTIVI. Esce L1 con L2 presente → L2 diventa il libero unico
+  (`liberoId`); esce l'ultimo → anche `ruoloCambiLibero` torna `null`,
+  altrimenti lo scout continuerebbe a nascondere la giocatrice "sostituita"
+  (`_slotCentraleSecondaLinea` la esclude dai token). Può rientrare dopo,
+  con un nuovo ingresso. Ingresso e uscita si distinguono solo dallo stato
+  del replay in quel momento: nel banner lo fa `_usciteLibero` (scout).
   **Guardie sui dati incoerenti (mai lanciare durante un replay)**: uscente
   non presente (né in rotazione né come libero) → no-op; subentrante GIÀ
   presente — in rotazione o come libero — (con esceId ≠ entraId) →
