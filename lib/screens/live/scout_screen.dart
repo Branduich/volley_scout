@@ -43,6 +43,13 @@ const _kSmallCourtImage = 'assets/images/small_court.png';
 const Duration _kDurataLampeggioPunteggio = Duration(seconds: 2);
 const Duration _kPeriodoLampeggioPunteggio = Duration(milliseconds: 350);
 
+// Durata dello spostamento dei token (rotazione, cambio di fase, libero che
+// entra ed esce). Era 500 ms: dopo ogni azione i token scorrono verso le
+// nuove posizioni, e a velocità di partita il dito arrivava sul giocatore
+// mentre era ancora in viaggio — e il tocco cadeva dove il token non era più.
+// A 250 il movimento si vede ancora ma finisce prima del tocco successivo.
+const Duration _kDurataSpostamentoToken = Duration(milliseconds: 250);
+
 // Margine fisso tra il bordo superiore dell'area di gioco (sotto banner/
 // bottoni rapidi) e il campo grande — il campo non è più centrato
 // verticalmente nello spazio rimanente, ma ancorato in alto a questa
@@ -764,6 +771,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // niente, altrimenti si azzererebbe un voto già scelto).
   ({VoidCallback apri, Object identita})? _aperturaDaTrascinamento;
 
+  // Il dito di questo gesto ha superato la soglia del trascinamento almeno una
+  // volta: al rilascio non è più un tocco, anche se è tornato vicino al punto
+  // di partenza (ridisegnando un tratto, per esempio).
+  bool _gestoOltreSoglia = false;
+
   // Chi è selezionato adesso, nello stesso spazio di `identita`.
   Object? get _identitaSelezionata =>
       _votoInCorso?.giocatore.id ?? _avversarioInCorso?.ruolo;
@@ -863,7 +875,10 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   Voto? _votoPropostoRicezione;
   Timer? _timerRicezioneAuto;
   Timer? _timerLampeggioProposta;
-  bool _propostaAccesa = true;
+  // ValueNotifier e non un bool con setState: lampeggia ogni 400 ms, e un
+  // setState ricostruirebbe tutto ScoutScreen per accendere un bottone —
+  // vedi il ValueListenableBuilder in _buildPulsantiera.
+  final ValueNotifier<bool> _propostaAccesa = ValueNotifier(true);
 
   /// Il voto di ricezione implicato da quello della battuta. `null` dove non
   /// c'è una deduzione sensata: `#` ha già la sua scorciatoia diretta (ace →
@@ -896,11 +911,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     final dedotto = _ricezioneDedotta(battuta);
     if (dedotto == null) return;
     _votoPropostoRicezione = dedotto;
-    _propostaAccesa = true;
+    _propostaAccesa.value = true;
     _timerLampeggioProposta =
         Timer.periodic(const Duration(milliseconds: 400), (_) {
       if (!mounted) return;
-      setState(() => _propostaAccesa = !_propostaAccesa);
+      _propostaAccesa.value = !_propostaAccesa.value;
     });
     _timerRicezioneAuto =
         Timer(const Duration(milliseconds: 2800), _confermaPropostaRicezione);
@@ -1032,23 +1047,35 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     return latoDestro ? p.dx > courtLeft + courtWidth : p.dx < courtLeft;
   }
 
-  // Gesti di un token giocatore: il tocco lo seleziona come sempre, e in più
-  // `onTapDown` mette da parte la stessa callback perché il gestore del
-  // movimento possa invocarla se il gesto si rivela un TRASCINAMENTO — così la
-  // traiettoria si può cominciare direttamente dal giocatore, senza il tocco
-  // separato. `onTapDown` scatta subito alla pressione, prima che si sappia se
-  // sarà tocco o trascinamento; `onTap` invece si arrende appena il dito si
-  // muove, ed è il motivo per cui da solo non basterebbe.
-  // I due non si sovrappongono mai: se trascini, `onTap` non scatta.
+  // Gesti di un token giocatore. Il token si limita a mettere da parte, alla
+  // PRESSIONE, la callback "apri il pannello per lui"; se il gesto è un tocco
+  // o un trascinamento lo decide poi il Listener del campo con UNA soglia sola
+  // (`_sogliaTrascinamento`): sotto è un tocco (`_onPointerUpCampo`), sopra
+  // una traiettoria che parte da lui (`_onPointerMoveCampo`).
+  //
+  // Era un GestureDetector con `onTap` + `onTapDown`, e perdeva tocchi in
+  // partita (segnalato dal campo, 2026-11-15): il riconoscitore di Flutter
+  // annulla il tap oltre 18 px di movimento (kTouchSlop), mentre il nostro
+  // trascinamento parte oltre ~30 px su tablet — fra le due soglie il tocco
+  // non faceva NIENTE, ed è proprio il dito che striscia un po' quando si va
+  // veloci. La correzione vera è la decisione al RILASCIO in
+  // _onPointerUpCampo (verificato: senza di lei il test dei 22 px in
+  // test/screens/scout_tocchi_test.dart fallisce). Il Listener al posto del
+  // GestureDetector toglie l'ultima dipendenza dall'arena dei gesti: la
+  // pressione arriva sempre, subito, qualunque cosa decida Flutter.
+  //
+  // Senza figlio (i tap-catcher del battitore) va `opaque`, altrimenti un
+  // Listener vuoto non viene mai colpito; col figlio vale la sua forma.
   Widget _tokenConTrascinamento(
     VoidCallback onTap,
     Object identita, [
     Widget? child,
   ]) {
-    return GestureDetector(
-      onTapDown: (_) =>
+    return Listener(
+      behavior:
+          child == null ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+      onPointerDown: (_) =>
           _aperturaDaTrascinamento = (apri: onTap, identita: identita),
-      onTap: onTap,
       child: child,
     );
   }
@@ -1064,8 +1091,12 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // (HitTestResult.path si costruisce scendendo e dispatchEvent lo percorre in
   // quell'ordine): azzerarlo adesso cancellerebbe quello che è appena stato
   // scritto. Si azzera al rilascio.
-  void _onPointerDownCampo(PointerDownEvent event) =>
-      _pointerGiu = event.localPosition;
+  // Qui NON si azzera `_aperturaDaTrascinamento`: il Listener del token, più
+  // profondo, l'ha appena scritta per questo stesso gesto.
+  void _onPointerDownCampo(PointerDownEvent event) {
+    _pointerGiu = event.localPosition;
+    _gestoOltreSoglia = false;
+  }
 
   // Il tocco a muro vale per l'attacco, non per la battuta (attraversare la
   // rete su un servizio è normale). In fase LIBERA il fondamentale non è
@@ -1078,7 +1109,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void _onPointerMoveCampo(
       PointerMoveEvent event, double courtLeft, double courtWidth) {
     final giu = _pointerGiu;
-    if (giu == null || _gestoSullaCard) return;
+    if (giu == null) return;
+    // Prima di ogni altra uscita: anche senza traiettorie (spente o utente
+    // free) un dito che ha superato la soglia non è più un tocco.
+    if ((event.localPosition - giu).distance >=
+        _sogliaTrascinamento(courtWidth)) {
+      _gestoOltreSoglia = true;
+    }
+    if (_gestoSullaCard) return;
     if (!_traiettorieInLineConsentite) return;
     final pos = event.localPosition;
 
@@ -1126,9 +1164,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
 
     if (candidato != null && candidato.identita != _identitaSelezionata) {
       if ((pos - giu).distance < _sogliaTrascinamento(courtWidth)) {
-        return; // ancora un tocco: lo gestirà `onTap` al rilascio
+        return; // ancora un tocco: lo deciderà `_onPointerUpCampo`
       }
       candidato.apri();
+      // Già aperto come trascinamento: il rilascio non deve riaprirlo.
+      _aperturaDaTrascinamento = null;
     }
     if (!_traiettoriaInLineAttiva) return;
     final precedente = _frecciaInLine.value;
@@ -1184,13 +1224,22 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     double courtWidth,
     double courtHeight,
   ) {
+    // TOCCO su un token: il dito è sceso su un giocatore e non ha mai
+    // superato la soglia del trascinamento. Lo decide questa soglia e non il
+    // riconoscitore del tap di Flutter — vedi _tokenConTrascinamento.
+    final tocco = _gestoOltreSoglia ? null : _aperturaDaTrascinamento;
     _pointerGiu = null;
     _gestoSullaCard = false;
     _aperturaDaTrascinamento = null;
+    _gestoOltreSoglia = false;
     // Il soffermamento vale solo col dito giù: se il tocco a muro non è
     // scattato prima del rilascio, non deve scattare dopo.
     _timerMuroInLine?.cancel();
     _inZonaReteInLine = false;
+    if (tocco != null) {
+      tocco.apri();
+      return; // un tocco non disegna niente
+    }
     final freccia = _frecciaInLine.value;
     if (freccia == null || _traiettoriaNormalizzata != null) {
       return; // nessun trascinamento in questo gesto
@@ -2115,6 +2164,8 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     _timerRicezioneAuto?.cancel();
     _timerLampeggioProposta?.cancel();
     _frecciaInLine.dispose();
+    _lampeggioAcceso.dispose();
+    _propostaAccesa.dispose();
     super.dispose();
   }
 
@@ -2123,7 +2174,13 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // one-shot lo ferma dopo la durata totale.
   Timer? _timerLampeggio; // stop dopo la durata totale
   Timer? _timerLampeggioTick; // alterna acceso/spento
-  bool _lampeggioAcceso = true; // false = numero nascosto (fase "off")
+  // false = numero nascosto (fase "off"). ValueNotifier e non un bool con
+  // setState: alterna ogni 350 ms per 2 secondi dopo ogni punto, e un
+  // setState ricostruiva tutto ScoutScreen sei volte per far lampeggiare un
+  // numero — proprio mentre si tocca la prossima azione. Così si ridisegna
+  // solo il numero (vedi _lampeggiaSe). `_squadraLampeggiante` invece resta
+  // nello State: cambia solo all'inizio e alla fine del lampeggio.
+  final ValueNotifier<bool> _lampeggioAcceso = ValueNotifier(true);
   // Lato il cui numero sta lampeggiando ora (null = nessuno).
   Squadra? _squadraLampeggiante;
   // Ultimo punteggio "stabilito" per rilevare i cambi. `null` finché lo
@@ -2159,21 +2216,17 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   void _avviaLampeggioPunteggio(Squadra squadra) {
     _timerLampeggio?.cancel();
     _timerLampeggioTick?.cancel();
-    setState(() {
-      _squadraLampeggiante = squadra;
-      _lampeggioAcceso = true; // parte visibile, primo "off" dopo un periodo
-    });
+    _lampeggioAcceso.value = true; // parte visibile, primo "off" dopo un periodo
+    setState(() => _squadraLampeggiante = squadra);
     _timerLampeggioTick = Timer.periodic(_kPeriodoLampeggioPunteggio, (_) {
       if (!mounted) return;
-      setState(() => _lampeggioAcceso = !_lampeggioAcceso);
+      _lampeggioAcceso.value = !_lampeggioAcceso.value;
     });
     _timerLampeggio = Timer(_kDurataLampeggioPunteggio, () {
       if (!mounted) return;
       _timerLampeggioTick?.cancel();
-      setState(() {
-        _squadraLampeggiante = null;
-        _lampeggioAcceso = true; // sempre visibile a fine lampeggio
-      });
+      _lampeggioAcceso.value = true; // sempre visibile a fine lampeggio
+      setState(() => _squadraLampeggiante = null);
     });
   }
 
@@ -3213,6 +3266,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
                     _pointerGiu = null;
                     _gestoSullaCard = false;
                     _aperturaDaTrascinamento = null;
+                    _gestoOltreSoglia = false;
                     _timerMuroInLine?.cancel();
                     _inZonaReteInLine = false;
                   },
@@ -4215,8 +4269,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   Widget _lampeggiaSe(Squadra squadra, Widget child) {
     if (_squadraLampeggiante != squadra) return child;
     // ON/OFF netto: opacità 1 o 0 (Opacity mantiene lo spazio, il layout non
-    // "salta"), nessuna dissolvenza intermedia.
-    return Opacity(opacity: _lampeggioAcceso ? 1.0 : 0.0, child: child);
+    // "salta"), nessuna dissolvenza intermedia. Solo questo pezzo ascolta il
+    // lampeggio: il resto della schermata non si ricostruisce.
+    return ValueListenableBuilder<bool>(
+      valueListenable: _lampeggioAcceso,
+      builder: (_, acceso, figlio) =>
+          Opacity(opacity: acceso ? 1.0 : 0.0, child: figlio),
+      child: child,
+    );
   }
 
   // --- Dimensione del punteggio nella barra superiore -------------------
@@ -4845,24 +4905,28 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
         for (final voto in Voto.values) ...[
           _anchorOpz(
             targetVoto(voto),
-            _buildBottoneVoto(
-              voto: voto,
-              larghezza: soloVoti ? _kLarghezzaPulsantiera : _kLarghezzaVoto,
-              // Nel ristretto il `=` è solo un'anteprima: evidenziato ma
-              // non tappabile, la registrazione parte dal fondamentale.
-              bloccato: ristretto,
-              // La PROPOSTA della ricezione automatica si mostra come un
-              // selezionato che lampeggia: dice "scrivo questo se non dici
-              // altro". Non è una scelta vera — vive fuori dalla coppia — ma
-              // sotto il dito deve leggersi allo stesso modo, perché è quello
-              // che sta per finire a database.
-              selezionato: ristretto
-                  ? voto == Voto.errore
-                  : voto == votoSelezionato ||
-                      (voto == _votoPropostoRicezione && _propostaAccesa),
-              attenuato: votoSelezionato != null && voto != votoSelezionato,
-              onTap: () => onVoto(voto),
-            ),
+            // Solo il bottone della PROPOSTA ascolta il lampeggio: il resto
+            // della pulsantiera non si ricostruisce a ogni accensione.
+            !ristretto && voto == _votoPropostoRicezione
+                ? ValueListenableBuilder<bool>(
+                    valueListenable: _propostaAccesa,
+                    builder: (_, accesa, _) => _bottoneVotoPulsantiera(
+                      voto: voto,
+                      soloVoti: soloVoti,
+                      ristretto: ristretto,
+                      votoSelezionato: votoSelezionato,
+                      propostaAccesa: accesa,
+                      onVoto: onVoto,
+                    ),
+                  )
+                : _bottoneVotoPulsantiera(
+                    voto: voto,
+                    soloVoti: soloVoti,
+                    ristretto: ristretto,
+                    votoSelezionato: votoSelezionato,
+                    propostaAccesa: false,
+                    onVoto: onVoto,
+                  ),
           ),
           if (voto != Voto.values.last)
             const SizedBox(height: _kGapPulsantiera),
@@ -4922,6 +4986,38 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     );
   }
 
+  // Un bottone della colonna voti della pulsantiera. Estratto da
+  // _buildPulsantiera perché il bottone della PROPOSTA di ricezione va
+  // costruito dentro un ValueListenableBuilder (lampeggia senza ricostruire
+  // tutto) e gli altri no: stessa costruzione, due punti di chiamata.
+  Widget _bottoneVotoPulsantiera({
+    required Voto voto,
+    required bool soloVoti,
+    required bool ristretto,
+    required Voto? votoSelezionato,
+    required bool propostaAccesa,
+    required void Function(Voto) onVoto,
+  }) {
+    return _buildBottoneVoto(
+      voto: voto,
+      larghezza: soloVoti ? _kLarghezzaPulsantiera : _kLarghezzaVoto,
+      // Nel ristretto il `=` è solo un'anteprima: evidenziato ma non
+      // tappabile, la registrazione parte dal fondamentale.
+      bloccato: ristretto,
+      // La PROPOSTA della ricezione automatica si mostra come un selezionato
+      // che lampeggia: dice "scrivo questo se non dici altro". Non è una
+      // scelta vera — vive fuori dalla coppia — ma sotto il dito deve
+      // leggersi allo stesso modo, perché è quello che sta per finire a
+      // database.
+      selezionato: ristretto
+          ? voto == Voto.errore
+          : voto == votoSelezionato ||
+              (voto == _votoPropostoRicezione && propostaAccesa),
+      attenuato: votoSelezionato != null && voto != votoSelezionato,
+      onTap: () => onVoto(voto),
+    );
+  }
+
   Widget _buildBottoneVoto({
     required Voto voto,
     // _kLarghezzaVoto nella forma a due colonne, tutta la card in quella a
@@ -4975,8 +5071,14 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
             : (attenuato ? 0.55 : 1.0);
     return Opacity(
       opacity: opacita,
-      child: GestureDetector(
-        onTap: abilitato ? onTap : null,
+      // Scatta alla PRESSIONE, non al rilascio (2026-11-15): era un
+      // GestureDetector.onTap, che aspetta che il dito si alzi e annulla il
+      // tocco se nel frattempo striscia oltre 18 px — a velocità di partita
+      // capitava e il tocco andava perso. Come nei giochi: il bottone
+      // risponde appena lo tocchi. Il voto continua a chiudere l'azione e
+      // `_registrazioneInCorso` continua a parare il doppio tocco.
+      child: Listener(
+        onPointerDown: abilitato ? (_) => onTap() : null,
         child: Container(
           width: larghezza,
           height: _kAltezzaRigaPulsantiera,
@@ -5986,7 +6088,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     );
     return AnimatedPositioned(
       key: ValueKey(player.id),
-      duration: const Duration(milliseconds: 500),
+      duration: _kDurataSpostamentoToken,
       curve: Curves.easeInOut,
       left: center.dx - radius,
       top: center.dy - radius,
@@ -6070,7 +6172,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // vecchia alla nuova posizione invece di "teletrasportarlo".
     return AnimatedPositioned(
       key: ValueKey(player.id),
-      duration: const Duration(milliseconds: 500),
+      duration: _kDurataSpostamentoToken,
       curve: Curves.easeInOut,
       left: cx - tokenRadius,
       top: cy - tokenRadius,
@@ -6203,7 +6305,7 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
     // anima invece di teletrasportarlo — come i nostri token.
     return AnimatedPositioned(
       key: ValueKey('avv-$roleLabel'),
-      duration: const Duration(milliseconds: 500),
+      duration: _kDurataSpostamentoToken,
       curve: Curves.easeInOut,
       left: cx - tokenRadius,
       top: cy - tokenRadius,

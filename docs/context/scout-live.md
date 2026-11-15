@@ -554,6 +554,10 @@
       subito il `=` (`onErroreDifensivo`, resta a **1 tocco**: è il caso più
       frequente della partita); la colonna voti è spenta col `=` evidenziato
       come anteprima di quello che verrà scritto.
+    - **I bottoni scattano alla PRESSIONE** (`_buildBottonePulsantiera`,
+      `Listener.onPointerDown`, 2026-11-15), non al rilascio: un `onTap`
+      aspetta che il dito si alzi e lo annulla se nel frattempo striscia oltre
+      18 px, e a velocità di partita il tocco andava perso. Come nei giochi.
     - **`_registrazioneInCorso`**: guardia contro il doppio tocco rapido
       sull'ultimo bottone della coppia — `_registraVoto` è async (attende
       la scrittura a DB) e senza guardia un secondo tocco
@@ -703,11 +707,19 @@
       dell'antenato, ma al rilascio.
     - **Il trascinamento SELEZIONA la giocatrice** (`_tokenConTrascinamento`):
       non serve toccarla prima, si parte dal suo token e il pannello si apre da
-      sé. `onTap` da solo non basta — il riconoscitore del tap si arrende appena
-      il dito si muove — quindi si usa **`onTapDown`**, che scatta subito alla
-      pressione, per mettere da parte la callback (che è già "apri il pannello
-      per lui"); la invoca il gestore del movimento quando si supera la soglia.
-      I due non si sovrappongono mai: se trascini, `onTap` non scatta.
+      sé. Il token è un **`Listener`** che alla pressione mette da parte la
+      callback "apri il pannello per lui"; **tocco o trascinamento li decide
+      il Listener del campo con UNA soglia sola** (`_sogliaTrascinamento`):
+      sopra la invoca il gestore del movimento (traiettoria), sotto la invoca
+      `_onPointerUpCampo` al rilascio (tocco). `_gestoOltreSoglia` ricorda se
+      il dito l'ha mai superata, così ridisegnare un tratto e tornare vicino
+      al punto di partenza non diventa un tocco che azzera il voto.
+      **Era un GestureDetector `onTap`+`onTapDown` e perdeva tocchi**
+      (segnalato dal campo, 2026-11-15): Flutter annulla il tap oltre 18 px
+      (kTouchSlop), la traiettoria partiva oltre ~30 px su tablet, e fra le
+      due soglie il tocco non faceva niente — proprio il dito che striscia
+      quando si va veloci. Il test `test/screens/scout_tocchi_test.dart` (dito
+      che scivola di 22 px) fallisce col vecchio comportamento.
       Il candidato porta con sé un'**identità** (id giocatore per i nostri,
       etichetta di ruolo per gli avversari — le stesse delle `ValueKey` dei
       token): serve a distinguere "sto trascinando da un'ALTRA giocatrice"
@@ -1248,7 +1260,14 @@
   - **Animazione di rotazione**: il rendering itera per **giocatore**
     (`currentAssignments.entries`, non più per slot fisso), e ogni token è
     un `AnimatedPositioned` con `key: ValueKey(player.id)` (non lo slot) —
-    `duration: 500ms`, `curve: Curves.easeInOut`. Poiché ruolo ed etichetta
+    `duration: _kDurataSpostamentoToken` (**250 ms**, era 500: a velocità di
+    partita il dito arrivava sul giocatore ancora in viaggio e il tocco
+    cadeva dove il token non era più — 2026-11-15), `curve: Curves.easeInOut`.
+    **Lampeggi senza ricostruire lo schermo**: il punteggio che lampeggia
+    dopo un punto e la proposta di ricezione automatica usano un
+    `ValueNotifier` (`_lampeggioAcceso`, `_propostaAccesa`) ascoltato solo dal
+    pezzo che lampeggia; prima un `setState` ogni 350–400 ms ricostruiva
+    tutto `ScoutScreen` proprio mentre si toccava l'azione successiva. Poiché ruolo ed etichetta
     di un giocatore sono stabili nel tempo (la stessa persona resta "S1" per
     sempre, cambia solo la posizione P che occupa), Flutter riconosce il
     widget tramite la key e ne anima fluidamente lo spostamento da una
