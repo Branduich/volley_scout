@@ -465,9 +465,20 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   // cambio giocatore (override nel medesimo evento) — widget.ruoloCambiLibero
   // resta il valore INIZIALE del set (usato da _iniziaSet per persisterlo).
   // In modalità test non ci sono eventi reali: vale il valore iniziale.
-  Ruolo? get _ruoloCambiLiberoEffettivo => _testModeEnabled
-      ? widget.ruoloCambiLibero
-      : (_statoSetReale?.ruoloCambiLibero ?? widget.ruoloCambiLibero);
+  //
+  // Il ripiego sul widget vale SOLO quando lo stato non c'è ancora. Era un
+  // `stato?.ruoloCambiLibero ?? widget.ruoloCambiLibero`, e il `??` scambiava
+  // il null "nessuna coppia" per un dato mancante: tolto l'ultimo libero
+  // (il replay azzera la coppia), tornava la coppia di inizio set, lo scout
+  // continuava a togliere dal campo il centrale di seconda linea per il
+  // libero che non c'era più, e la sua pedina spariva — visto in battuta,
+  // 2026-11-22. Lo stato parte già dal valore del widget
+  // (`ruoloCambiLiberoIniziale`), quindi il ripiego non serve altrove.
+  Ruolo? get _ruoloCambiLiberoEffettivo {
+    if (_testModeEnabled) return widget.ruoloCambiLibero;
+    final stato = _statoSetReale;
+    return stato == null ? widget.ruoloCambiLibero : stato.ruoloCambiLibero;
+  }
 
   // Liberi EFFETTIVI (L1/L2 -> Player): possono cambiare a set in corso con
   // un cambio libero-per-libero (vedi ricalcolaStato) — widget.assignments
@@ -5620,6 +5631,11 @@ class _ScoutScreenState extends ConsumerState<ScoutScreen> with OrientamentoSche
   String? _slotCentraleSecondaLinea(Map<String, String> roleLabels) {
     final ruolo = _ruoloCambiLiberoEffettivo;
     if (ruolo == null) return null;
+    // Rete di sicurezza: lo slot restituito qui viene ESCLUSO dai token del
+    // campo perché lo disegna _buildLiberoSwapTokens — che senza un libero
+    // effettivo non disegna niente. Escluderlo lo stesso farebbe sparire
+    // una giocatrice dal campo (è successo, vedi _ruoloCambiLiberoEffettivo).
+    if (!_liberiEffettivi.containsKey('L1')) return null;
     final etichette = (ruolo == Ruolo.centrale || ruolo == Ruolo.undefined)
         ? const {'C1', 'C2'}
         : const {'S1', 'S2'};

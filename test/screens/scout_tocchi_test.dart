@@ -25,7 +25,12 @@ import '../layout_dimensioni_test.dart' show caricaFontApp;
 /// Monta lo scout sulla partita di prova del tutorial, su un tablet in
 /// orizzontale: lì la soglia della traiettoria è la più alta (~30 px), quindi
 /// la zona morta era la più larga.
-Future<void> _montaScout(WidgetTester tester) async {
+Future<void> _montaScout(
+  WidgetTester tester, {
+  // Per preparare i dati del set prima che lo scout li legga (azioni già
+  // registrate, per esempio).
+  Future<void> Function(AppDatabase db, int setId)? prima,
+}) async {
   tester.view.physicalSize = const Size(2560, 1600);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.reset);
@@ -41,6 +46,7 @@ Future<void> _montaScout(WidgetTester tester) async {
     lookupAppLocalizations(const Locale('it')),
   );
   final f = (await MatchSetRepository(db).caricaFormazione(dati.setId))!;
+  if (prima != null) await prima(db, dati.setId);
 
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -99,6 +105,32 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(_pannelloAperto, findsWidgets);
+    } finally {
+      await _smonta(tester);
+    }
+  });
+
+  // Bug dal campo (2026-11-22): tolto l'unico libero, il centrale di seconda
+  // linea spariva dal campo — lo scout ripescava la coppia del libero di
+  // inizio set e lo escludeva dai token per lasciarne il posto al libero, che
+  // non c'era più. Nel set di prova il libero (Rossi, 3) sostituisce i
+  // centrali e quello di seconda linea è Gallo, 5, in P5; si serve noi.
+  testWidgets('tolto il libero, il centrale di seconda linea resta in campo',
+      (tester) async {
+    try {
+      await _montaScout(tester, prima: (db, setId) async {
+        final libero = await (db.select(db.players)
+              ..where((p) => p.numero.equals(3)))
+            .getSingle();
+        await ScoutActionRepository(db).registraSostituzione(
+          setId: setId,
+          entraId: libero.id,
+          esceId: libero.id, // esce == entra su un libero in campo = uscita
+        );
+      });
+
+      expect(find.text('5'), findsWidgets, reason: 'Gallo deve essere in campo');
+      expect(find.text('3'), findsNothing, reason: 'il libero è uscito');
     } finally {
       await _smonta(tester);
     }

@@ -339,6 +339,12 @@ così restano sempre allineati.
   (`_slotCentraleSecondaLinea` la esclude dai token). Può rientrare dopo,
   con un nuovo ingresso. Ingresso e uscita si distinguono solo dallo stato
   del replay in quel momento: nel banner lo fa `_usciteLibero` (scout).
+  **Attenzione al `null` della coppia** (bug corretto 2026-11-22): nello scout
+  `_ruoloCambiLiberoEffettivo` NON deve ricadere sulla coppia di inizio set
+  quando il replay la azzera — un `?? widget.ruoloCambiLibero` lo faceva, e
+  tolto il libero il centrale di seconda linea spariva dal campo (escluso per
+  far posto a un libero che non c'era più). Coperto da
+  `test/screens/scout_tocchi_test.dart`.
   **Guardie sui dati incoerenti (mai lanciare durante un replay)**: uscente
   non presente (né in rotazione né come libero) → no-op; subentrante GIÀ
   presente — in rotazione o come libero — (con esceId ≠ entraId) →
